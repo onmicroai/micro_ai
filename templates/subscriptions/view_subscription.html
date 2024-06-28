@@ -1,0 +1,23 @@
+{% extends "web/app/app_base.html" %}
+{% load static %}
+{% block app %}
+<section class="app-card">
+  <div class="pg-columns pg-columns-reversed">
+    <div class="pg-column-one-quarter">
+      <img src="{% static 'images/undraw/undraw_joyride.svg' %}" alt="Yay!">
+    </div>
+    <div class="pg-column">
+      <h1 class="pg-title">My Subscription</h1>
+      <h2 class="pg-subtitle">You're subscribed to a plan. Thanks for the support!</h2>
+      <p class="pg-subtitle">Subscription Details</p>
+      {% include 'subscriptions/components/subscription_details.html' %}
+    </div>
+  </div>
+  {% if subscription %}
+  <form method="POST" action="{{ subscription_urls.create_stripe_portal_session }}" class="mt-2">
+    {% csrf_token %}
+    <button type="submit" class="pg-button-secondary">Manage billing</button>
+  </form>
+  {% endif %}
+</section>
+{% endblock %}

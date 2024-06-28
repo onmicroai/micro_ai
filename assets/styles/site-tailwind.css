@@ -1,0 +1,20 @@
+@import "tailwindcss/base";
+
+/*
+   add custom components using imports, as described here:
+   https://tailwindcss.com/docs/using-with-preprocessors#build-time-imports
+*/
+@import "tailwindcss/components";
+@import "./app/tailwind/app-components.css";
+@import "./app/tailwind/subscription-components.css";
+@import "./pegasus/tailwind.css";
+
+@import "tailwindcss/utilities";
+
+/* set css variables to DaisyUI default colors: https://daisyui.com/docs/colors/ */
+
+:root {
+  --primary: #570df8;
+  --danger: #f87272;
+  --success: #36d399;
+}

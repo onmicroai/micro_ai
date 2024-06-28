@@ -1,0 +1,73 @@
+{% load subscriptions_tags %}
+{% load i18n %}
+<div id="subscription-details-table" class="my-2">
+  <div class="subscription-detail">
+    <div class="subscription-detail-label">
+      Current Subscription
+    </div>
+    <div class="subscription-detail-value">
+      {{ subscription.display_name }}
+      <div class="subdetail">Since {{ subscription.start_date.date }}</div>
+    </div>
+  </div>
+  {% if subscription.is_trialing %}
+  <div class="subscription-detail">
+    <div class="subscription-detail-label">
+      {% translate "Trial Ends" %}
+    </div>
+    <div class="subscription-detail-value">
+      {{ subscription.subscription.trial_end.date }}
+    </div>
+  </div>
+  {% endif %}
+  {% if not subscription.is_trialing or next_invoice %}
+  <div class="subscription-detail">
+    <div class="subscription-detail-label">
+      {% translate "Next Invoice" %}
+    </div>
+    <div class="subscription-detail-value">
+      {% if next_invoice %}
+        {{ next_invoice.total_display }}
+        <div class="subdetail">{% translate "On" %} {{ next_invoice.period_end }}</div>
+      {% else %}
+        {% translate "No further invoices" %}
+      {% endif %}
+    </div>
+  </div>
+  <div class="subscription-detail">
+    <div class="subscription-detail-label">
+      {% translate "Renews" %}
+    </div>
+    <div class="subscription-detail-value">
+      {% if not subscription.cancel_at_period_end %}
+          {{ subscription.billing_interval }}
+      {% else %}
+        {% translate "Off" %}
+        <div class="subdetail">{% blocktranslate with end_date=subscription.current_period_end.date %}
+          Expires: {{ end_date }}
+          {% endblocktranslate %}
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
+  <h2 class="pg-subtitle">{% translate "Pricing" %}</h2>
+  <table class="table pg-table">
+    <thead>
+    <tr>
+      <th>{% translate "Product" %}</th>
+      <th>{% translate "Price" %}</th>
+      <th>{% translate "Quantity" %}</th>
+    </tr>
+    </thead>
+    <tbody>
+    {% for item in subscription.items %}
+      <tr>
+        <td>{{ item.price.product.name }}{% if item.price.nickname %} • {{ item.price.nickname }}{% endif %}</td>
+        <td>{% render_subscription_item_price item subscription.currency %}</td>
+        <td>{% if item.quantity %}{{ item.quantity }}{% else %}{% translate "Varies with usage" %}{% endif %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>

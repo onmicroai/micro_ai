@@ -1,0 +1,21 @@
+docutils
+Django
+django-allauth[socialaccount,mfa]
+django-otp  # this is required for the allauth two-factor migration, but can be removed after that
+django-waffle
+psycopg2-binary
+django-environ
+djangorestframework
+djangorestframework-api-key
+djangorestframework-simplejwt
+dj-rest-auth
+django-cors-headers
+drf-spectacular
+stripe
+dj-stripe
+django-anymail[mailgun]  # email services
+celery-progress
+celery
+celery[redis]
+django-celery-beat
+whitenoise[brotli]

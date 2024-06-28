@@ -1,0 +1,45 @@
+default_context:
+  _pegasus_version: 2024.6.1
+  ai_chat_mode: none
+  ai_image_mode: none
+  author_name: Yibrahim
+  ci: none
+  css_framework: tailwind
+  css_theme: default
+  database: postgres
+  deploy_platform: kamal
+  description: Build Micro Apps with No Code
+  docker_setup: default
+  domain_name: localhost:8000
+  email: yibrahim@knysys.com
+  enable_github_login: n
+  enable_google_login: y
+  enable_twitter_login: n
+  front_end_framework: htmx
+  include_static_files: y
+  marketing_email_platform: none
+  post_process: y
+  project_name: Micro AI
+  project_slug: micro_ai
+  standalone_front_end: none
+  stripe_payment_mode: checkout
+  subscription_billing_model: default
+  subscription_pricing_ui: in_app
+  use_2fa: y
+  use_admin_docs: y
+  use_api_auth: y
+  use_api_keys: y
+  use_async_example: n
+  use_cloud_media_storage: n
+  use_debug_toolbar: n
+  use_docker: y
+  use_ecommerce_example: n
+  use_examples: n
+  use_health_checks: n
+  use_impersonation: n
+  use_sentry: n
+  use_subscriptions: y
+  use_teams: y
+  use_teams_example: n
+  use_translations: n
+  use_wagtail: n

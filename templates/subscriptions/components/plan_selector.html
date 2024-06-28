@@ -1,0 +1,50 @@
+{% if active_plan_intervals|length > 1 %}
+  <div class="flex justify-center my-3">
+    <div class="btn-group">
+      {% for interval in active_plan_intervals %}
+        <button class="btn btn-outline btn-primary"
+                x-data="{interval: '{{ interval.interval }}' }"
+                :class="selectedInterval === interval ? 'btn-active' : ''"
+                @click="selectedInterval = interval" >
+          {{ interval.name }}
+        </button>
+      {% endfor %}
+    </div>
+  </div>
+{% for interval in active_plan_intervals %}
+  <div class="help is-size-6 pg-text-centered"
+       x-data="{interval: '{{interval.interval}}' }"
+       x-show="interval === selectedInterval">
+      {{interval.help_text}}
+  </div>
+{% endfor %}
+{% endif %}
+<div class="pg-columns my-2" id="plan-selector">
+  {% for product in active_products %}
+    <div class="pg-column flex-grow">
+      <div class="plan"
+           x-data="{
+              product: {{ product.to_json }}
+           }"
+           :class="selectedProduct.product.id === product.product.id ? 'is-selected': ''"
+           @click="selectedProduct = product">
+        <p class="text-2xl font-bold text-gray-900 dark:text-gray-100">{{ product.metadata.name }}</p>
+        <p class="text-lg">{{ product.metadata.description }}</p>
+        <div class="my-4">
+          <p>
+            <span class="price text-2xl" x-text="product.active_prices[selectedInterval].payment_amount"></span>
+            <span class="interval text-sm" x-text="'/ ' + selectedInterval"></span></p>
+          <p>
+        </div>
+        <ul class="upgrade-features">
+           {% for feature in product.metadata.features %}
+           <li>
+             <span class="pg-icon"><i class="fa fa-check"></i></span>
+             <span class="upgrade-feature">{{ feature }}</span>
+           </li>
+           {% endfor %}
+        </ul>
+      </div>
+    </div>
+  {% endfor %}
+</div>

@@ -1,0 +1,18 @@
+{% load i18n %}
+{% load team_tags %}
+{% if request.team %}
+  {% if request.user|is_admin_of:request.team %}
+  <!-- <li>
+    <a href="{% url 'subscriptions_team:subscription_demo' request.team.slug %}" {% if active_tab == 'subscription_demo' %}class="active"{% endif %}>
+      <i class="fa fa-desktop h-4 w-4"></i>
+      {% translate "Subscription" %}
+    </a>
+  </li> -->
+  <li>
+    <a href="{% url 'subscriptions_team:subscription_details' request.team.slug %}" {% if active_tab == 'subscription' %}class="active"{% endif %}>
+      <i class="fa fa-repeat h-4 w-4"></i>
+      {% translate "Subscription" %}
+    </a>
+  </li>
+  {% endif %}
+{% endif %}

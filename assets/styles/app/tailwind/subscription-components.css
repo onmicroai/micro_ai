@@ -1,0 +1,11 @@
+@layer components {
+
+  .plan {
+    @apply h-full px-8 py-4 border-4 rounded-md border-white;
+  }
+
+  .plan.is-selected {
+    @apply border-blue-500 border-opacity-100;
+  }
+
+}

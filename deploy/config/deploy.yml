@@ -1,0 +1,111 @@
+service: micro_ai
+
+image: <namespace>/micro_ai
+
+env:
+  # This is the minimal set of environment variables needed to run the app
+  # in production. You can add more here and in the .env file as needed.
+  clear:
+    DJANGO_SETTINGS_MODULE: micro_ai.settings_production
+  secret:
+    - POSTGRES_PASSWORD
+    - SECRET_KEY
+    - DATABASE_URL
+    - REDIS_URL
+    - STRIPE_LIVE_PUBLIC_KEY
+    - STRIPE_LIVE_SECRET_KEY
+    - STRIPE_TEST_PUBLIC_KEY
+    - STRIPE_TEST_SECRET_KEY
+    - DJSTRIPE_WEBHOOK_SECRET
+
+# https://kamal-deploy.org/docs/configuration#using-different-roles-for-servers
+servers:
+  web:
+    hosts:
+      - <IP-ADDRESS>
+    options:
+      expose: "8000"
+      network: micro_ai-network
+    labels:
+      traefik.http.routers.micro_ai.rule: Host(`localhost:8000`)
+      traefik.http.routers.micro_ai_secure.entrypoints: websecure
+      traefik.http.routers.micro_ai_secure.rule: Host(`localhost:8000`)
+      traefik.http.routers.micro_ai_secure.tls: true
+      traefik.http.routers.micro_ai_secure.tls.certresolver: letsencrypt
+  celery:
+    hosts:
+      - <IP-ADDRESS>
+    cmd: celery -A micro_ai worker -l INFO --concurrency 2
+    options:
+      network: micro_ai-network
+    labels:
+      traefik.enable: "false"
+  celerybeat:
+    hosts:
+      - <IP-ADDRESS>
+    cmd: celery -A micro_ai beat -l INFO
+    options:
+      network: micro_ai-network
+    labels:
+      traefik.enable: "false"
+
+# https://kamal-deploy.org/docs/configuration#using-a-custom-healthcheck
+healthcheck:
+  path: /
+  port: 8000
+  max_attempts: 15
+  interval: 20s
+
+# To use a non-root user see https://kamal-deploy.org/docs/configuration#using-a-different-ssh-user-than-root
+ssh:
+  user: kamal
+
+# https://kamal-deploy.org/docs/configuration#using-a-different-dockerfile-or-context-when-building
+# Set multiarch to false for better performance if you are building your image on the same architecture as your server
+builder:
+  multiarch: true
+  dockerfile: '../Dockerfile.web'
+  context: '../'
+
+# See https://kamal-deploy.org/docs/configuration#using-another-registry-than-docker-hub
+registry:
+  username: <DOCKER REGISTRY USERNAME>
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+accessories:
+  # docker hostname will be 'micro_ai-postgres'
+  postgres:
+    image: postgres
+    host: <IP-ADDRESS>
+    directories:
+      - data:/var/lib/postgresql/data
+    options:
+      network: micro_ai-network
+    env:
+      clear:
+        POSTGRES_USER: micro_ai
+        POSTGRES_DB: micro_ai
+      secret:
+        - POSTGRES_PASSWORD
+  ## docker hostname will be 'micro_ai-redis'
+  redis:
+    image: redis
+    host: <IP-ADDRESS>
+    options:
+      network: micro_ai-network
+
+traefik:
+  options:
+    network: micro_ai-network
+    publish:
+      - 443:443
+    volume:
+      - "/letsencrypt/acme.json:/letsencrypt/acme.json"
+  args:
+    entryPoints.web.address: ":80"
+    entryPoints.websecure.address: ":443"
+    certificatesResolvers.letsencrypt.acme.email: "yibrahim@knysys.com"
+    certificatesResolvers.letsencrypt.acme.storage: "/letsencrypt/acme.json"
+    certificatesResolvers.letsencrypt.acme.httpchallenge: true
+    certificatesResolvers.letsencrypt.acme.httpchallenge.entrypoint: web

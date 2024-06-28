@@ -1,0 +1,22 @@
+{% extends 'web/components/top_nav.html' %}
+{% block mobile_nav %}
+<li class="menu-title">
+  <span>Site</span>
+</li>
+{{ block.super }}
+<li>
+  <details>
+    <summary>
+      {% if team %}
+      {{ team.name }}
+      {% else %}
+      {{ request.user.get_display_name }}
+      {% endif %}
+    </summary>
+    <ul>
+      {% include "web/components/team_nav_items.html" %}
+    </ul>
+  </details>
+</li>
+{% include 'web/components/app_nav_menu_items.html' %}
+{% endblock %}
