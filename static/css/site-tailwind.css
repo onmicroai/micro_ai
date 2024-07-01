@@ -1,4 +1,5 @@
 
+
 /* css */
 /* Root Variable */
 :root{
@@ -1377,4 +1378,37 @@ footer:after,
   nav ul li:last-child a{
       padding: 15px 30px;
   }
+}
+
+.password-reset-section .pg-title {
+  margin: 0 0 1.563vw;
+  font-size: 4.167vw;
+  font-weight: 700;
+  line-height: 6.25vw;
+  text-align: center;
+  color: var(--secondary-color);
+}
+
+.password-reset-section  {
+  max-width: 50%;
+  margin: 4vw auto;
+}
+.password-reset-section  .welcome-form {
+  max-width: 65%;
+  margin: 0 auto;
+}
+
+.password-reset-section  .pg-subtitle {
+  text-align: center;
+  color: #fff;
+  margin-bottom: 1vw;
+  font-weight: 400;
+}
+
+.password-reset-section  .pg-help {
+  color: #fff;
+}
+
+.password-reset-section .welcome-field {
+  text-align: center;
 }
