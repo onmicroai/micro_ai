@@ -25,7 +25,8 @@ class TestSignupView(TestCase):
             "email": "alice@example.com",
             "password1": password,
             "team_name": team_name,
-            "terms_agreement": True,
+            # "terms_agreement": True,
+            "terms_agreement": False,
         }
         if settings.ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE:
             data["password2"] = password

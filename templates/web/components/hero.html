@@ -1,8 +1,7 @@
 {% load i18n %}
 {% load static %}
-
 {% block content %}
-    <body class="home">
+    <body class="home" hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'>
         <div class="wrapper">
             <section class="hero-banner">
                 <div class="container">
@@ -11,6 +10,7 @@
                     </div>
                     <div class="hero-btns">
                       <a href="{% url 'account_signup' %}">
+                        {% translate "Sign Up for free" %} </a>
                     </div>
                 </div>
             </section>
@@ -20,7 +20,8 @@
                         <h1>Try These Free Apps</h1>
                     </div>
                     <div class="hero-boxs">
-                        <a href="/mcq_generator">
+                        <!-- <a href="/mcq_generator"> -->
+                        <a href="">
                             <div class="single-box">
                                 <div class="img-box">
                                     <img src= "{% static 'images/web/mcq.png' %}" alt="">
@@ -28,7 +29,8 @@
                                 <h4>MCQ Generator</h4>
                             </div>
                         </a>
-                        <a href="/lo_builder">
+                        <!-- <a href="/lo_builder"> -->
+                        <a href="">
                             <div class="single-box">
                                 <div class="img-box">
                                   <img src= "{% static 'images/web/lo.png' %}" alt="">
@@ -36,7 +38,8 @@
                                 <h4>Learning Objectives Builder</h4>
                             </div>
                         </a>
-                        <a href="/guided_rubric">
+                        <!-- <a href="/guided_rubric"> -->
+                            <a href="">
                             <div class="single-box">
                                 <div class="img-box">
                                   <img src= "{% static 'images/web/guide.png' %}" alt="">
@@ -44,7 +47,8 @@
                                 <h4>Guided Rubric</h4>
                             </div>
                         </a>
-                        <a href="/storyboard_generator">
+                        <!-- <a href="/storyboard_generator"> -->
+                            <a href="">
                             <div class="single-box">
                                 <div class="img-box">
                                   <img src= "{% static 'images/web/storyboard.png' %}" alt="">
@@ -54,7 +58,8 @@
                         </a>
                     </div>
                     <div class="hero-btns">
-                        <a href="/library">View All</a>
+                        <!-- <a href="/library">View All</a> -->
+                        <a href="">View All</a>
                     </div>
                 </div>
             </section>
@@ -164,7 +169,7 @@
                         <div class="leftpan">
                             <div class="single-review">
                                 <div class="r-header">
-                                    <img src="static/img/client-1.png" alt="">
+                                    <img src= "{% static 'images/web/client-1.png' %}" alt="">
                                     <div>    
                                         <h5>John Wellberg</h5>
                                         <h6>Project Manager</h6>
@@ -174,7 +179,7 @@
                             </div>
                             <div class="single-review">
                                 <div class="r-header">
-                                    <img src="static/img/client-2.png" alt="">
+                                    <img src= "{% static 'images/web/client-2.png' %}" alt="">
                                     <div>    
                                         <h5>John Wellberg</h5>
                                         <h6>Project Manager</h6>
@@ -186,7 +191,7 @@
                         <div class="rightpan">
                             <div class="single-review">
                                 <div class="r-header">
-                                    <img src="static/img/client-3.png" alt="">
+                                    <img src= "{% static 'images/web/client-3.png' %}" alt="">
                                     <div>    
                                         <h5>John Wellberg</h5>
                                         <h6>Project Manager</h6>
@@ -197,21 +202,21 @@
                         </div>
                     </div>
                 </div>
-            </section>
+            </section> 
             <section class="plan-price">
                 <div class="container">
                     <div class="text-center bg-heading">
                         <h2>Strategy your <span>Plan Price</span></h2>
-                    </div>
+                    </div>   
                     <div class="plan-boxes">
                         <div class="single-plan">
                             <h5>Free</h5>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                             <h6><sup>$</sup>0<sub>/no credit <br>card required</sub></h6>
-                            <a href="/register" class="get-start-btn">Get Started</a>
+                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
                             <ul>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Access to “Forever free” public apps</span>
                                 </li>
                             </ul>
@@ -220,34 +225,34 @@
                             <h5>Organization</h5>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed massa risus, aliquam viverra.</p>
                             <h6><sup>$</sup>79<sub><span>/m</span></sub></h6>
-                            <a href="/register" class="get-start-btn">Get Started</a>
+                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
                             <ul>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Access to full app library</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Full access to all AI Models (GPT-5, Gemini, etc)</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Customize and share apps</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Feedback and Analytics Dashboard</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>SSO</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Data Isolation</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Pooled usage credits</span>
                                 </li>
                             </ul>
@@ -256,18 +261,18 @@
                             <h5>Individual</h5>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed massa risus, aliquam viverra.</p>
                             <h6><sup>$</sup>16<sub><span>/m</span></sub></h6>
-                            <a href="/register" class="get-start-btn">Get Started</a>
+                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
                             <ul>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Access to full app library</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Full access to all AI Models (GPT-5, Gemini, etc)</span>
                                 </li>
                                 <li>
-                                    <img src="static/img/click-icon.png" alt="">
+                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
                                     <span>Customize and share apps</span>
                                 </li>
                             </ul>
@@ -310,3 +315,17 @@
         </div>
     </body>
     {% endblock content %}
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+            fetch("subscriptions/api/active-products/")
+                .then(response => response.json())
+                .then(data => {
+                    console.log("Data fetched on page load:", data);
+                    // Handle the response data here
+                })
+                .catch(error => {
+                    console.error("Error fetching data:", error);
+                });
+        });
+    </script>

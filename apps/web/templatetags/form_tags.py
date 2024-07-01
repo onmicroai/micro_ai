@@ -7,6 +7,8 @@ register = template.Library()
 @register.simple_tag
 def render_form_fields(form):
     rendered_values = [render_field(form[field]) for field in form.fields]
+
+    print("render_form_fields " +str(rendered_values)) 
     return mark_safe("".join(rendered_values))
 
 
@@ -16,18 +18,25 @@ def render_field(form_field, **attrs):
         "select": render_select_input,
         "checkbox": render_checkbox_input,
     }.get(form_field.widget_type, render_text_input)
+    
+    print("render_field " +str(render_function))
     return render_function(form_field, **attrs)
 
 
 @register.simple_tag
 def render_text_input(form_field, **attrs):
+
     TEXT_INPUT_TEMPLATE = """<div class="form-control w-full" {% include "django/forms/attrs.html" %}>
-      <label class="label font-bold" for="{{ form_field.id_for_label }}">{{ form_field.label }}</label>
       {{ form_field }}
-      <small class="form-text text-muted">{{ form_field.help_text|safe }}</small>
       {{ form_field.errors }}
     </div>
     """
+    #  TEXT_INPUT_TEMPLATE = """<div class="form-control w-full" {% include "django/forms/attrs.html" %}>
+    #   {{ form_field }}
+    #   <small class="form-text text-muted">{{ form_field.help_text|safe }}</small>
+    #   {{ form_field.errors }}
+    # </div>
+    # """
     return _render_field(TEXT_INPUT_TEMPLATE, form_field, **attrs)
 
 
@@ -40,6 +49,8 @@ def render_select_input(form_field, **attrs):
       {{ form_field.errors }}
     </div>
     """
+
+    print("render_select_input " + str(SELECT_INPUT_TEMPLATE))
     return _render_field(SELECT_INPUT_TEMPLATE, form_field, **attrs)
 
 
@@ -57,6 +68,8 @@ def render_checkbox_input(form_field, **attrs):
       {{ form_field.errors }}
     </div>
     """
+ 
+    print("render_checkbox_input "+ str(CHECKBOX_INPUT_TEMPLATE))
     return _render_field(CHECKBOX_INPUT_TEMPLATE, form_field, **attrs)
 
 

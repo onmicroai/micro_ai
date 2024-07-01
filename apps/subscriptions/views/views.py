@@ -24,6 +24,7 @@ log = logging.getLogger("micro_ai.subscription")
 @redirect_subscription_errors
 @team_admin_required
 def subscription(request, team_slug):
+    print("reached subscription function")
     subscription_holder = request.team
     if subscription_holder.has_active_subscription():
         return _view_subscription(request, subscription_holder)

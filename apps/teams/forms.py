@@ -17,7 +17,7 @@ class TeamSignupForm(TurnstileSignupForm):
         widget=forms.TextInput(attrs={"placeholder": _("Team Name (Optional)")}),
         required=False,
     )
-    terms_agreement = forms.BooleanField(required=True)
+    terms_agreement = forms.BooleanField(required=False)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

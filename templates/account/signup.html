@@ -78,7 +78,7 @@
                 {% render_field form.password2 %}
               </div>
               {% endif %}
-              {% render_field form.terms_agreement %}
+              <!-- {% render_field form.terms_agreement %} -->
               <input type="submit" value="{% translate "Sign Up" %}">
               <p><span>Or Register with</span></p>
               <div class="welcome-social">
@@ -106,8 +106,14 @@
 <script>
   document.addEventListener("DOMContentLoaded", function() {
       var passwordField = document.querySelector('.welcome-field input[name="password2"]');
+      var emailField = document.querySelector('.welcome-field input[name="email"]');
+
         if (passwordField) {
             passwordField.setAttribute('placeholder', 'Confirm Password');
+        }
+
+        if(emailField){
+          emailField.setAttribute('placeholder', 'Email');
         }
   });
 </script> 
