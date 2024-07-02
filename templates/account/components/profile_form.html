@@ -27,3 +27,19 @@
     </form>
   </div>
 </div>
+
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      var first = document.querySelector('.profile .pg-column .form-control input[name="first_name"]');
+      var last = document.querySelector('.profile .pg-column .form-control input[name="last_name"]');
+
+      if (first) {
+        first.setAttribute('placeholder', 'First Name');
+      }
+
+      if (last) {
+        last.setAttribute('placeholder', 'Last Name');
+      }
+    });
+  </script>

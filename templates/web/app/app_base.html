@@ -6,14 +6,15 @@
 {% block body %}
   {% block notifications %}
   {% endblock %}
-  <section class="section">
+  <!-- <section class="section">       removed class="section" to align footer with page bodrer grey line --> 
+  <section>
     <div class="container flex flex-row">
-      <div class="w-64 hidden lg:flex">
+      <div class="w-64  lg:flex">
         {% block sidebar-nav %}
           {% include "web/components/app_nav.html" %}
         {% endblock %}
       </div>
-      <div class="w-full">
+      <div class="w-full profile">
         {% block app %}
         {% endblock %}
       </div>

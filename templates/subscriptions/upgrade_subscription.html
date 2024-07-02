@@ -2,7 +2,7 @@
 {% load static %}
 {% load i18n %}
 {% block app %}
-<section class="app-card" x-data="{selectedProduct: {{ default_product.to_json }}, selectedInterval: '{{ default_interval }}' }" x-cloak>
+<section class="app-card subscription" x-data="{selectedProduct: {{ default_product.to_json }}, selectedInterval: '{{ default_interval }}' }" x-cloak>
   {% include 'subscriptions/components/subscription_hero.html' %}
   <hr>
   {% include 'subscriptions/components/plan_selector.html' %}
