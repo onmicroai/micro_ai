@@ -1425,6 +1425,40 @@ footer:after,
 .profile .form-control{
   margin-bottom:0.5vw;
 }
+
+.wrapper-container{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height:100vh;
+  width:100vw;
+  background: url(../images/web/home-bg-min.png);
+  background-size: 100%;
+}
+.wrapper-container .wrapper-content h1 {
+  font-size: 3.5vw;
+  line-height: 4vw;
+  color:#fff;
+}
+
+.recommended-app .recommended-box{
+  display:flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.recommended-app .recommended-box .single-recommend{
+  background: url(../images/web/box.png);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  padding: 1.7vw 4vw ;
+  margin: 1vw;
+}
+.recommended-app .recommended-box .single-recommend h4{
+  font-size:1.302vw;
+  color: #fff
+}
+
 /*default_css*/
 
 /*

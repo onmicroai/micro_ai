@@ -41,3 +41,7 @@ def team_home(request, team_slug):
 
 def simulate_error(request):
     raise Exception("This is a simulated error.")
+
+
+# def library_view(request):
+#     return render(request, "web/landing_page.html")
