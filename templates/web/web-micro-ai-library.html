@@ -1,11 +1,10 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
     <link rel="canonical" href="{% if page_canonical_url %}{{ page_canonical_url }}{% else %}{{ page_url }}{% endif %}">
-    <link rel="stylesheet" href="{% static '../css/site-base.css' %}">
-    <link rel="stylesheet" href="{% static '../css/site-tailwind.css' %}">
-    <link rel="stylesheet" href="../css/site-tailwind.css">
+    <link rel="stylesheet" href="../../static/css/site-tailwind.css">
     <!-- Font Awesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css"
         integrity="sha512-xh6O/CkQoPOWDdYTDqeRdPCVd1SpvCA9XXcUnZS2FmJNp1coAFzvtCN9BmamE+4aHK8yyUHUSCcJHgXloTyT2A=="
@@ -64,7 +63,7 @@
         <div class="content-wrap">
             <div class="leftpan">
                 <div class="search-bar">
-                    <img src="../images/web/s-icon.svg" alt="Search Bar">
+                    <img src="../../static/images/web/s-icon.svg" alt="Search Bar">
                     <input type="search" name="" id="" placeholder="Search Apps">
                 </div>
                 <div class="accordion">
@@ -196,38 +195,38 @@
                         cutting-edge AI solutions tailored for microdevices, empowering businesses and developers to
                         harness the power of AI at the edge.</p>
                     <div class="library-boxes">
-                        <a href="/mcq_generator">
+                        <a href="">
                             <div class="single-library">
-                                <img src="../images/web/library-img.png" alt="">
+                                <img src="../../static/images/web/library-img.png" alt="">
                                 <h3>MCQs Generator</h3>
                             </div>
                         </a>
-                        <a href="/lo_builder">
+                        <a href="">
                             <div class="single-library">
-                                <img src="../images/web/library-img.png" alt="">
+                                <img src="../../static/images/web/library-img.png" alt="">
                                 <h3>Learning Objectives Builder</h3>
                             </div>
                         </a>
-                        <a href="/guided_rubric">
+                        <a href="">
                             <div class="single-library">
-                                <img src="../images/web/library-img.png" alt="">
+                                <img src="../../static/images/web/library-img.png" alt="">
                                 <h3>Guided Rubric</h3>
                             </div>
                         </a>
-                        <a href="/storyboard_generator">
+                        <a href="">
                             <div class="single-library">
-                                <img src="../images/web/library-img.png" alt="">
+                                <img src="../../static/images/web/library-img.png" alt="">
                                 <h3>Storyboard Generator</h3>
                             </div>
                         </a>
-                        <a href="/alt_text_generator">
+                        <a href="">
                             <div class="single-library">
-                                <img src="../images/web/library-img.png" alt="">
+                                <img src="../../static/images/web/library-img.png" alt="">
                                 <h3>Alt Text Generator</h3>
                             </div>
                         </a>
                         <div class="single-library">
-                            <img src="../images/web/library-img.png" alt="">
+                            <img src="../../static/images/web/library-img.png" alt="">
                             <h3>Lorem Ipsum Dolor Sit Amet</h3>
                         </div>
                     </div>
@@ -238,42 +237,42 @@
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
                         <div class="single-use">
                             <div class="use-header">
                                 <h3>Lorem Ipsum Dolor Sit Amet</h3>
-                                <img src="../images/web/use-icon.svg" alt="">
+                                <img src="../../static/images/web/use-icon.svg" alt="">
                             </div>
                             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
                         </div>
@@ -282,6 +281,24 @@
             </div>
         </div>
     </div>
+    {% block footer %}
+    {% include 'web/components/footer.html' %}
+    {% endblock footer %}
 </body>
+<script>
+
+
+    document.addEventListener("DOMContentLoaded", function () {
+        const accordionItems = document.querySelectorAll('.accordion-item');
+
+        accordionItems.forEach(item => {
+            item.addEventListener('click', () => {
+                item.classList.toggle('active');
+            });
+        });
+    });
+
+
+</script>
 
 </html>

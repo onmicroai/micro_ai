@@ -21,7 +21,7 @@
                     </div>
                     <div class="hero-boxs">
                         <!-- <a href="/mcq_generator"> -->
-                        <a href="{% static '/html/default.html' %}">
+                        <a href="{% url 'web:mcqs' %}">
                             <div class="single-box">
                                 <div class="img-box">
                                     <img src= "{% static 'images/web/mcq.png' %}" alt="">
@@ -59,7 +59,7 @@
                     </div>
                     <div class="hero-btns">
                         <!-- <a href="/library">View All</a> -->
-                        <a href="{% static '/html/default.html' %}">View All</a>
+                        <a href="{% url 'web:library' %}">View All</a>
                     </div>
                 </div>
             </section>

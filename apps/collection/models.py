@@ -5,6 +5,7 @@ from micro_ai import settings
 
 class Collection(models.Model):
     name = models.CharField(max_length=100)
+    # user_id = models.ForeignKey(settings.AUTH_USER_MODEL)
 
     class Meta:
         db_table = 'collection'
