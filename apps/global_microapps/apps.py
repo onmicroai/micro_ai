@@ -3,4 +3,4 @@ from django.apps import AppConfig
 
 class GlobalMicroappsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'global_microapps'
+    name = 'apps.global_microapps'

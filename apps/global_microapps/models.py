@@ -1,9 +1,6 @@
 from django.db import models
 
-# Create your models here.
-
 class GlobalMicroapps(models.Model):
-    
     title = models.CharField(max_length=50)
     explanation = models.TextField()
     shared_assets = models.CharField(max_length=50)
@@ -18,7 +15,10 @@ class GlobalMicroapps(models.Model):
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
 
-    class Meta:
-        db_table = 'global_microapp'
+class GlobalAssets(models.Model):
+    file = models.TextField()
+    label = models.TextField()
 
-
+class AssetsGaJoin(models.Model):
+    global_app_id = models.ForeignKey(GlobalMicroapps, on_delete=models.CASCADE)
+    asset_id = models.ForeignKey(GlobalAssets, on_delete=models.CASCADE)
