@@ -10,6 +10,7 @@ app_name = "authentication"
 
 urlpatterns = [
     path("register/", RegisterView.as_view(), name="rest_register"),
+    # path("register/", api_views.CustomRegisterView.as_view(), name="custom_rest_register"),
     path("login/", api_views.LoginViewWith2fa.as_view(), name="rest_login"),
     path("verify-otp/", api_views.VerifyOTPView.as_view(), name="verify_otp"),
     path("logout/", LogoutView.as_view(), name="rest_logout"),

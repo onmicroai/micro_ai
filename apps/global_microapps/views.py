@@ -33,7 +33,7 @@ class GlobalAppList(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
     def post(self, request, format=None):
-        serializer = GlobalMicroAppsSerializer(data=request.data.get("data"))
+        serializer = GlobalMicroAppsSerializer(data=request.data)
         if serializer.is_valid():
             globalapp = serializer.save()
             # self.add_assets(request=request, globalapp=globalapp)

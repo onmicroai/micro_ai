@@ -1,6 +1,8 @@
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp import TOTP
+from django.forms import model_to_dict
+from apps.global_microapps.models import GlobalMicroapps
 from dj_rest_auth.serializers import JWTSerializer
 from dj_rest_auth.views import LoginView
 from drf_spectacular.utils import extend_schema
@@ -9,8 +11,9 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
+from dj_rest_auth.registration.views import RegisterView
 
-
+from apps.microapps.models import Microapps
 from apps.users.models import CustomUser
 from .serializers import LoginResponseSerializer, OtpRequestSerializer
 import uuid
@@ -96,3 +99,25 @@ class VerifyOTPView(GenericAPIView):
         else:
             # OTP is invalid
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
+        
+class CustomRegisterView(RegisterView):
+
+    def perform_create(self, serializer):
+        user = serializer.save(self.request)
+        super().perform_create(serializer)  # Ensure the base functionality is executed
+        self.add_app_templates(user)
+        return user
+
+    def add_app_templates(self, user):
+        app_instances = []
+
+        global_apps = GlobalMicroapps.objects.all()
+
+        for app_template in global_apps:
+            app_dict = model_to_dict(user)
+            app_dict['global_ma_id'] = app_dict['id']
+            del app_dict["id"]
+            app_instances.append(Microapps(**app_dict))
+
+
+        Microapps.objects.bulk_create(app_instances)
