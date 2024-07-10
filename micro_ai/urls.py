@@ -56,7 +56,7 @@ urlpatterns = [
     path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
     # cutom API's
-    path("globalapps/", include(global_app_urls)),
+    # path("globalapps/", include(global_app_urls)),
     path("microapps/", include(microapp_urls)),
     # auth API
     path("api/auth/", include("apps.authentication.urls")),

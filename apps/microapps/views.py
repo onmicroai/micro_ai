@@ -1,23 +1,35 @@
+import datetime
+import json
 from django.forms import model_to_dict
 from django.shortcuts import render
 from django.http import Http404, JsonResponse
 from django.shortcuts import render
 from rest_framework.response import Response
-from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer, AssetsSerializer, AssetsMicroappSerializer
+from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer, AssetsSerializer, AssetsMicroappSerializer, RunSerializer
 from rest_framework import status
 from rest_framework.decorators import api_view
 from apps.microapps.models import Microapps, MicroAppUserJoin, AssetsMaJoin, Assets
 from apps.global_microapps.models import GlobalMicroapps 
 from apps.collection.models import CollectionMaJoin
 from rest_framework.views import APIView
+import uuid
+from openai import OpenAI
+import os
+import environ
+from pathlib import Path
+from django.utils.translation import gettext_lazy
+BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+env.read_env(os.path.join(BASE_DIR, ".env"))
+
 
 class MicroAppList(APIView):
    
-   def add_microapp_user(self, request, microapp):
+   def add_microapp_user(self, uid, microapp):
     
         role = "admin"  # always admin
         ma_id = microapp.id  
-        user_id = request.user.id
+        user_id = uid
         data = {'role': role, 'ma_id': ma_id, 'user_id': user_id}
         print("=>data" + str(data))
         serializer = MicroappUserSerializer(data=data) 
@@ -52,7 +64,7 @@ class MicroAppList(APIView):
         serializer = MicroAppSerializer(data=request.data)
         if serializer.is_valid():
             microapp = serializer.save()
-            self.add_microapp_user(request=request, microapp=microapp)
+            self.add_microapp_user(uid=request.user.id, microapp=microapp)
             # self.add_assets(request=request, microapp=microapp)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
@@ -100,7 +112,7 @@ class CloneMicroApp(APIView):
             if serializer.is_valid():
                 microapp = serializer.save()
                 micro_app_list = MicroAppList
-                micro_app_list.add_microapp_user(self, request=request, microapp=microapp)
+                micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
                 return Response(serializer.data, status=status.HTTP_201_CREATED)
             else:
                 return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -211,6 +223,42 @@ class UserApps(APIView):
         
         except Microapps.DoesNotExist:
             raise Http404
+
+
+@api_view(["POST"])
+def create_reponse(request):
+
+    client = OpenAI(
+    api_key= env("OPENAI_API_KEY", default="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")
+    )
+
+    data = json.loads(request.body)
+    ma_id = data.get('ma_id')
+    user_id = data.get('user_id')
+    prompt = data.get('prompt')
+    session_id = data.get("session_id")
+    timestamp = datetime.datetime.now()
+
+    print("prompt " + str(prompt))
+
+    response = client.chat.completions.create(
+    model="gpt-3.5-turbo",
+    messages=[prompt]
+    )
+
+    if(not session_id):
+        session_id = uuid.uuid4()
+
+    ai_response = response.choices[0].message.content
+
+    print(ai_response)
+
+    data = {"ma_id": ma_id, "user_id": user_id, "timestamp": timestamp, "session_id": session_id, "satisfaction": 0, "prompt": prompt, "response": ai_response, "credits": 0, "cost": 0}
+
+    # serializer = RunSerializer(data=data)
+    # if serializer.is_valid():
+    #     serializer.save
+    return Response(data, status=status.HTTP_200_OK)
 
 
 

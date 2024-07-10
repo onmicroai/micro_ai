@@ -103,21 +103,26 @@ class VerifyOTPView(GenericAPIView):
 class CustomRegisterView(RegisterView):
 
     def perform_create(self, serializer):
+        print("perform_create_executed")  # Debug statement
         user = serializer.save(self.request)
         super().perform_create(serializer)  # Ensure the base functionality is executed
         self.add_app_templates(user)
         return user
 
     def add_app_templates(self, user):
+        print("add_templates_executed")  # Debug statement
+        
         app_instances = []
 
         global_apps = GlobalMicroapps.objects.all()
 
         for app_template in global_apps:
-            app_dict = model_to_dict(user)
-            app_dict['global_ma_id'] = app_dict['id']
-            del app_dict["id"]
+            app_dict = model_to_dict(app_template)
+            app_dict['global_ma_id_id'] = app_dict.pop('id')  # Rename 'id' to 'global_ma_id'
+            print("app_dict:", app_dict)  # Debug statement
             app_instances.append(Microapps(**app_dict))
 
-
+        print("app_instances:", app_instances)  # Debug statement
         Microapps.objects.bulk_create(app_instances)
+
+

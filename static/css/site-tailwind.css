@@ -1782,6 +1782,62 @@ option {
     opacity: 2;
   }
 }
+.contact-us .form-box {
+  display: grid;
+  grid-template-columns: repeat(1, 1fr);
+  gap: 0;
+}
+.contact-us .form-field input,
+.contact-us .form-field input:focus {
+  background: url("../images/web/input-field.png");
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+}
+.contact-us input[type="submit"] {
+  background: url("../images/web/submit-box.png");
+  background-size: 100% 100% !important;
+  background-repeat: no-repeat !important;
+}
+.contact-us .leftpan {
+  max-width: 35.958vw;
+}
+.contact-us .rightpan{
+  width: 70%;
+}
+.welcome-field {
+  position: relative;
+}
+.password-toggle-icon,
+.confirm-password-toggle-icon,
+.login-password-toggle-icon
+ {
+  position: absolute;
+  top:2.5vw;
+  right:2vw;
+  transform: translateY(-50%);
+  cursor: pointer;
+}
+
+.password-toggle-icon i,
+.confirm-password-toggle-icon i,
+.login-password-toggle-icon i {
+  font-size: 1.2vw;
+  line-height: 1;
+  color: #a7a7a7;
+  transition: color 0.3s ease-in-out;
+  margin-bottom: 20px;
+}
+
+.password-toggle-icon i:hover,
+.confirm-password-toggle-icon i:hover,
+.login-password-toggle-icon i:hover {
+  color: #000;
+}
+.error-message{
+  color:red;
+  margin:2vw;
+  display: none;
+}
 
 /*default_css*/
 
