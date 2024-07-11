@@ -1833,10 +1833,156 @@ option {
 .login-password-toggle-icon i:hover {
   color: #000;
 }
-.error-message{
-  color:red;
-  margin:2vw;
-  display: none;
+/*dahboard css*/
+.dashboard-main-container {
+  background-color: #000;
+  width: 100vw;
+  height: 100vh;
+}
+.dashboard-main-container .top-bar {
+  color: #fff;
+  height: 4.53vw;
+  padding: 0 5vw;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 0.09vw solid #8a8a8a;
+}
+.dashboard-main-container .top-bar ul {
+  list-style-type: none;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 2.12vw;
+  color: #666666;
+  margin: 0;
+}
+.dashboard-main-container .top-bar ul li {
+  font-family: Cousine;
+  font-size: 0.9375vw;
+  font-weight: 400;
+  line-height: 1.61vw;
+  text-align: left;
+  cursor: pointer;
+}
+.dashboard-main-container .top-bar ul li:hover {
+  color: #fff;
+}
+.dashboard-main-container .top-bar .logo {
+  font-family: Cousine;
+  font-size: 1.042vw;
+  font-weight: 400;
+  line-height: 1.18vw;
+  text-align: center;
+  cursor: pointer;
+}
+.dashboard-main-container .top-bar ul li img.notification {
+  width: 1.09vw;
+  height: 1.28vw;
+}
+
+.dashboard-main-container .top-bar ul li img.profile {
+  width: 2.03vw;
+  height: 2.03vw;
+}
+.dashboard-container {
+  margin: 0 5vw;
+  display: flex;
+}
+.dashboard-container .left-pan {
+  /* width: 18.23vw; */
+  width: 25%;
+  color: #666666;
+  background-color: #1a1a1a;
+  height: 48.75vw;
+}
+.dashboard-container .left-pan ul {
+  list-style-type: none;
+}
+.dashboard-container .left-pan ul li {
+  padding: 1.042vw 2vw;
+  font-family: Cousine;
+  font-size: 0.9375vw;
+  font-weight: 400;
+  line-height: 1.61vw;
+  text-align: left;
+}
+.dashboard-container .left-pan ul li:hover {
+  background-color: #d4d4d41a;
+  cursor: pointer;
+}
+.dashboard-container .right-pan {
+  width: 75%;
+}
+.dashboard-main-container
+  .dashboard-container
+  .dashboard-content
+  .search-box
+  img {
+  width: 0.725vw;
+  height: 0.8vw;
+}
+.dashboard-main-container
+  .dashboard-container
+  .right-pan
+  .design-browse
+  .rightpan
+  img {
+  width: 20.78vw;
+  height: 11.46vw;
+}
+.dashboard-main-container .dashboard-container .single-fav {
+  width: 18.8vw;
+  height: 11.35vw;
+  padding: 1.563vw 1.283vw 1.042vw;
+}
+.dashboard-container .right-pan .fav-boxes {
+  grid-template-columns: repeat(3, 1fr) !important;
+}
+.dashboard-main-container .dashboard-container .new-fav {
+  background: url("../img/new-fav.png");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  width: 18.8vw;
+  height: 11.35vw;
+  cursor: pointer;
+}
+.dashboard-main-container .dashboard-container .single-fav .fav-header {
+  margin: 0;
+}
+.dashboard-main-container .single-fav .fav-header svg {
+  width: 1.042vw;
+  height: 1.042vw;
+  margin-bottom: 0.521vw;
+}
+.dashboard-main-container .dashboard-container .single-fav .fav-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dashboard-main-container .single-fav .fav-head h5 {
+  font-size: 1.3vw;
+  line-height: 1.875vw;
+  margin: 0;
+}
+.dashboard-main-container .dashboard-container .single-fav .fav-head img {
+  width: 3.29vw;
+}
+.dashboard-main-container .dashboard-container .single-fav .fav-content p {
+  font-family: Cousine;
+  font-size: 0.8675vw;
+  font-weight: 400;
+  line-height: 1.34vw;
+  text-align: left;
+  color: #bcbcbc;
+}
+.dashboard:after {
+  border-bottom: none;
+}
+.dashboard-main-container .dashboard-container .right-pan .container {
+  padding: 2.288vw 1.042vw;
+  border: none;
 }
 
 /*default_css*/

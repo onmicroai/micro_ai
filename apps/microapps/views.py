@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer, AssetsSerializer, AssetsMicroappSerializer, RunSerializer
 from rest_framework import status
 from rest_framework.decorators import api_view
-from apps.microapps.models import Microapps, MicroAppUserJoin, AssetsMaJoin, Assets
+from apps.microapps.models import Microapps, MicroAppUserJoin, AssetsMaJoin, Assets, Run
 from apps.global_microapps.models import GlobalMicroapps 
 from apps.collection.models import CollectionMaJoin
 from rest_framework.views import APIView
@@ -18,9 +18,14 @@ import os
 import environ
 from pathlib import Path
 from django.utils.translation import gettext_lazy
+from django.db.models import Q
+from datetime import timedelta
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
+
 
 
 class MicroAppList(APIView):
@@ -225,40 +230,89 @@ class UserApps(APIView):
             raise Http404
 
 
-@api_view(["POST"])
-def create_reponse(request):
+class RunList(APIView):
+    
+    def post(self, request, format=None):
 
-    client = OpenAI(
-    api_key= env("OPENAI_API_KEY", default="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")
-    )
+        client = OpenAI(
+        api_key= env("OPENAI_API_KEY", default="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")
+        )
 
-    data = json.loads(request.body)
-    ma_id = data.get('ma_id')
-    user_id = data.get('user_id')
-    prompt = data.get('prompt')
-    session_id = data.get("session_id")
-    timestamp = datetime.datetime.now()
+        data = json.loads(request.body)
+        ma_id = data.get('ma_id')
+        user_id = data.get('user_id')
+        prompt = data.get('prompt')
+        session_id = data.get("session_id")
+        timestamp = datetime.datetime.now()
 
-    print("prompt " + str(prompt))
+        print("prompt " + str(prompt))
 
-    response = client.chat.completions.create(
-    model="gpt-3.5-turbo",
-    messages=[prompt]
-    )
+        response = client.chat.completions.create(
+        model="gpt-3.5-turbo",
+        messages=prompt
+        )
 
-    if(not session_id):
-        session_id = uuid.uuid4()
+        completion_tokens = response.usage.completion_tokens
+        prompt_tokens = response.usage.prompt_tokens
+        total_token = response.usage.total_tokens
 
-    ai_response = response.choices[0].message.content
+        cost = 0.5 * prompt_tokens / 1000000 + 1.5 * completion_tokens / 1000000
+        cost = round(cost, 6)
 
-    print(ai_response)
+        print("tokens " + str(completion_tokens) + str(prompt_tokens))
+        print("cost " +str(cost))
 
-    data = {"ma_id": ma_id, "user_id": user_id, "timestamp": timestamp, "session_id": session_id, "satisfaction": 0, "prompt": prompt, "response": ai_response, "credits": 0, "cost": 0}
 
-    # serializer = RunSerializer(data=data)
-    # if serializer.is_valid():
-    #     serializer.save
-    return Response(data, status=status.HTTP_200_OK)
+        if(not session_id):
+            session_id = uuid.uuid4()
+
+        ai_response = response.choices[0].message.content
+
+        print(ai_response)
+
+        data = {"ma_id": ma_id, "user_id": user_id, "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"), "session_id": str(session_id), "satisfaction": 0, "prompt": prompt, "response": ai_response, "credits": 0, "cost": cost}
+
+        print("response_data " + str(data))
+        serializer = RunSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            print(serializer.data)
+            return Response(data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
+    def get(self, request, *args, **kwargs):
+
+        user_id = request.GET.get("user_id")
+        ma_id = request.GET.get("ma_id")
+        session_id = request.GET.get("session_id")
+        start_date = request.GET.get("start_date")
+        end_date = request.GET.get("end_date")
+
+        try:
+            queryset = Run.objects.all()  
+            q = Q()
+            if user_id:
+                q &= Q(user_id=user_id)
+            if ma_id:
+                q &= Q(ma_id=ma_id)
+            if session_id:
+                q &= Q(session_id=session_id)
+
+            if start_date and end_date:
+                q &= Q(timestamp__date__gte=start_date, timestamp__date__lte=end_date)
+            elif start_date and not end_date:
+                 q &= Q(timestamp__date__gte=start_date)
+            elif not start_date and end_date:
+                q &= Q(timestamp__date__lte=end_date)
+
+            queryset = queryset.filter(q)
+
+            serializer = RunSerializer(queryset, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        except Exception as e:
+            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
 
 
 

@@ -78,9 +78,7 @@
                     {% render_field form.password %}
                     <span class="login-password-toggle-icon"><i class="fas fa-eye"></i></span>
                 </div>
-                <div class="error-message">
-                    <span>Invalid email or password</span>
-                </div>
+                {{ form.non_field_errors }}
                 <input type="submit" value="Submit">
                 <a href="/accounts/password/reset">Forgot Password?</a>
                 <p><span>Or Continue with</span></p>

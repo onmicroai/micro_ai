@@ -51,9 +51,9 @@ class Run(models.Model):
     timestamp = models.DateTimeField(auto_now_add=True)
     session_id = models.TextField(blank=True)
     satisfaction = models.IntegerField()
-    prompt = models.TextField()
+    prompt = models.JSONField()
     response = models.TextField()
     credits = models.FloatField()
-    cost = models.FloatField()
+    cost = models.DecimalField(max_digits=20, decimal_places=6)
 
 
