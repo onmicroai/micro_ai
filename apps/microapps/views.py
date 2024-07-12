@@ -19,7 +19,8 @@ import environ
 from pathlib import Path
 from django.utils.translation import gettext_lazy
 from django.db.models import Q
-from drf_spectacular.utils import extend_schema, extend_schema_view
+from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+import asyncio
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -33,13 +34,12 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
     ),
     post=extend_schema(
         request=MicroAppSerializer, 
-        responses={201: MicroAppSerializer},
+        responses={200: MicroAppSerializer},
     )
 )
 class MicroAppList(APIView):
    
    def add_microapp_user(self, uid, microapp):
-    
         try:
             role = "admin" 
             ma_id = microapp.id  
@@ -60,21 +60,32 @@ class MicroAppList(APIView):
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
    def add_assets(self, request, microapp):
-       assets = request.data.get('assets')
-       serializer = AssetsSerializer(data=assets)
-       if serializer.is_valid():
-           asset = serializer.save()
-           return self.add_microapp_assets(microapp=microapp, asset=asset)
+       try:
+            assets = request.data.get('assets')
+            serializer = AssetsSerializer(data=assets)
+            if serializer.is_valid():
+                asset = serializer.save()
+                return self.add_microapp_assets(microapp=microapp, asset=asset)
+            
+            return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
        
-       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+       except Exception as e:
+            print("=error " +str(e))
+            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
    def add_microapp_assets(self, microapp, asset):
-       data = {'ma_id': microapp.id, 'asset_id': asset.id}
-       serializer = AssetsMicroappSerializer(data=data)
-       if serializer.is_valid():
-           return serializer.save()
        
-       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)   
+       try:
+            data = {'ma_id': microapp.id, 'asset_id': asset.id}
+            serializer = AssetsMicroappSerializer(data=data)
+            if serializer.is_valid():
+                return serializer.save()
+            
+            return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)   
+       
+       except Exception as e:
+            print("=error " +str(e))
+            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
    def get(self, request, format=None):
         try:
@@ -93,7 +104,7 @@ class MicroAppList(APIView):
                 microapp = serializer.save()
                 self.add_microapp_user(uid=request.user.id, microapp=microapp)
                 # self.add_assets(request=request, microapp=microapp)
-                return Response({"data": serializer.data, "status": status.HTTP_201_CREATED}, status=status.HTTP_201_CREATED)
+                return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
             return Response({
                 "error": serializer.errors,
@@ -104,6 +115,8 @@ class MicroAppList(APIView):
         except Exception as e:
             print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+
    
 @extend_schema_view(
     get=extend_schema(
@@ -111,7 +124,7 @@ class MicroAppList(APIView):
     ),
     put=extend_schema(
         request=MicroAppSerializer, 
-        responses={201: MicroAppSerializer},
+        responses={200: MicroAppSerializer},
     )
 )
 class MicroAppDetails(APIView):
@@ -180,7 +193,7 @@ class CloneMicroApp(APIView):
                 microapp = serializer.save()
                 micro_app_list = MicroAppList
                 micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
-                return Response({"data": serializer.data, "status": status.HTTP_201_CREATED}, status=status.HTTP_201_CREATED)
+                return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
             
             return Response({
                 "error": serializer.errors,
@@ -198,7 +211,7 @@ class CloneMicroApp(APIView):
     ),
     post=extend_schema(
         request=MicroappUserSerializer, 
-        responses={201: MicroappUserSerializer},
+        responses={200: MicroappUserSerializer},
     ),
     put=extend_schema(
         request=MicroappUserSerializer, 
@@ -259,11 +272,11 @@ class UserMicroApps(APIView):
                 serializer = MicroappUserSerializer(data=data)
                 if serializer.is_valid():
                     serializer.save()
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
+                    return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
                 
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({"error": "user_id not found"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "user_id not found", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
        
         except Exception as e:
             print("=error " +str(e))
@@ -271,50 +284,60 @@ class UserMicroApps(APIView):
 
     
     def put(self, request, app_id, user_id, format=None):
-        role = request.data.get("role")
-        current_user = request.user.id
-        current_user_role = self.get_object(current_user, app_id)
-        
-        if current_user_role:
-            current_user_role_dict = model_to_dict(current_user_role)
-
-            if current_user_role_dict["role"] == "admin":
-                userapp = self.get_object(user_id, app_id)
-                user_app_role = model_to_dict(userapp)
-                user_app_role["role"] = role
-                serializer = MicroappUserSerializer(userapp, data=user_app_role)
-                if serializer.is_valid():
-                    serializer.save()
-                    return Response(serializer.data, status=status.HTTP_201_CREATED)
-                
-                return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            role = request.data.get("role")
+            current_user = request.user.id
+            current_user_role = self.get_object(current_user, app_id)
             
-            return Response({"error": "Operation not allowed"}, status=status.HTTP_403_FORBIDDEN)
-        
-        return Response({"error": "Operation not allowed"}, status=status.HTTP_403_FORBIDDEN)
-        
-    def delete(self, request, app_id, user_id, format=None):
-        current_user = request.user.id
-        current_user_role = self.get_object(current_user, app_id)
-
-        if user_id:
-        
             if current_user_role:
                 current_user_role_dict = model_to_dict(current_user_role)
 
                 if current_user_role_dict["role"] == "admin":
                     userapp = self.get_object(user_id, app_id)
-                    if userapp:
-                        userapp.delete()
-                        return Response(status=status.HTTP_204_NO_CONTENT)
+                    user_app_role = model_to_dict(userapp)
+                    user_app_role["role"] = role
+                    serializer = MicroappUserSerializer(userapp, data=user_app_role)
+                    if serializer.is_valid():
+                        serializer.save()
+                        return Response({"data": serializer.data, "error": status.HTTP_200_OK}, status=status.HTTP_200_OK)
                     
-                    return Response({"error": "microapp not found"}, status=status.HTTP_404_NOT_FOUND)
+                    return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
                 
-                return Response({"error": "Operation not allowed"}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
+            
+            return Response({"error": "Operation not allowed", "status":status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
         
-            return Response({"error": "Operation not allowed"}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            print("=error " +str(e))
+            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        
+    def delete(self, request, app_id, user_id, format=None):
+        try:
+            current_user = request.user.id
+            current_user_role = self.get_object(current_user, app_id)
 
-        return Response({"error": "user_id not found"}, status=status.HTTP_400_BAD_REQUEST)
+            if user_id:
+            
+                if current_user_role:
+                    current_user_role_dict = model_to_dict(current_user_role)
+
+                    if current_user_role_dict["role"] == "admin":
+                        userapp = self.get_object(user_id, app_id)
+                        if userapp:
+                            userapp.delete()
+                            return Response({"status": status.HTTP_200_OK},status=status.HTTP_200_OK)
+                        
+                        return Response({"error": "microapp not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+                    
+                    return Response({"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
+            
+                return Response({"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
+
+            return Response({"error": "user_id not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+        
+        except Exception as e:
+            print("=error " +str(e))
+            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @extend_schema_view(
     get=extend_schema(
@@ -326,32 +349,38 @@ class UserApps(APIView):
     def get(self, request):
         try: 
             current_user = request.user.id
-            print("userId " + str(current_user))
             user_apps_ids = MicroAppUserJoin.objects.filter(user_id=current_user).values_list('ma_id', flat=True)
-            print("user_apps_ids" + str(user_apps_ids))
             user_apps = Microapps.objects.filter(id__in=user_apps_ids)
             serializer = MicroAppSerializer(user_apps, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
-        except Microapps.DoesNotExist:
-            raise Http404
+        except Exception as e:
+            print("=error " +str(e))
+            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @extend_schema_view(
     get=extend_schema(
         responses={200: RunSerializer(many=True)},
+        parameters=[
+            OpenApiParameter(name='ma_id', description='Optional Micro App ID', required=False),
+            OpenApiParameter(name='user_id', description='Optional User ID', required=False),
+            OpenApiParameter(name='session_id', description='Optional Session ID', required=False),
+            OpenApiParameter(name='start_date', description='Optional Start Date', required=False),
+            OpenApiParameter(name='end_date', description='Optional End Date', required=False),
+        ]
     ),
     post=extend_schema(
         request=RunSerializer, 
-        responses={201: RunSerializer},
+        responses={200: RunSerializer},
     )
 )
 class RunList(APIView):
-
+    
     def post(self, request, format=None):
 
         try:
             client = OpenAI(
-            api_key= env("OPENAI_API_KEY", default="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")
+            api_key= env("OPENAI_API_KEY", default="")
             )
             data = request.data  # Access request data once
             print("jsondata " + str(data))
@@ -361,9 +390,15 @@ class RunList(APIView):
             session_id = data.get("session_id")
             timestamp = datetime.datetime.now()
 
+            if(not ma_id and not user_id and not prompt):
+                return Response({
+                "error": "invalid payload",
+                "status": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             print("prompt " + str(prompt))
 
-            response = client.chat.completions.create(
+            response =  client.chat.completions.create(
             model="gpt-3.5-turbo",
             messages=prompt
             )
@@ -374,10 +409,6 @@ class RunList(APIView):
 
             cost = 0.5 * prompt_tokens / 1000000 + 1.5 * completion_tokens / 1000000
             cost = round(cost, 6)
-
-            print("tokens " + str(completion_tokens) + str(prompt_tokens))
-            print("cost " +str(cost))
-
 
             if(not session_id):
                 session_id = uuid.uuid4()
@@ -393,7 +424,7 @@ class RunList(APIView):
             if serializer.is_valid():
                 serializer.save()
                 print(serializer.data)
-                return Response(data, status=status.HTTP_200_OK)
+                return Response({"data": data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
             
             return Response({
                 "error": serializer.errors,
@@ -402,17 +433,17 @@ class RunList(APIView):
         
         except Exception as e:
             print("=error " +str(e))
-            return Response({"error": "an unexpected error occured"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": "an unexpected error occured", "status": status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    
     
     def get(self, request, *args, **kwargs):
-
-        user_id = request.GET.get("user_id")
-        ma_id = request.GET.get("ma_id")
-        session_id = request.GET.get("session_id")
-        start_date = request.GET.get("start_date")
-        end_date = request.GET.get("end_date")
-
-        try:
+        try:     
+            user_id = request.GET.get("user_id")
+            ma_id = request.GET.get("ma_id")
+            session_id = request.GET.get("session_id")
+            start_date = request.GET.get("start_date")
+            end_date = request.GET.get("end_date")
+       
             queryset = Run.objects.all()  
             q = Q()
             if user_id:
@@ -432,29 +463,9 @@ class RunList(APIView):
             queryset = queryset.filter(q)
 
             serializer = RunSerializer(queryset, many=True)
-            return Response(serializer.data, status=status.HTTP_200_OK)
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
         except Exception as e:
             print("=error " +str(e))
-            return Response({"error": e}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "an unexpected error occured", "status": status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
-
-
-# @api_view(["GET"])
-# def collection_microapps(request, collection_id):
-#     try:
-#         collection_apps_ids = CollectionMaJoin.objects.filter(collection_id=collection_id).values_list('ma_id',flat=True)
-#         collection_apps = Microapps.objects.filter(id__in=collection_apps_ids)
-#         serializer = MicroAppSerializer(collection_apps,many=True)
-#         return Response(serializer.data, status=status.HTTP_200_OK)
-
-#     except Microapps.DoesNotExist:
-#         raise Http404
-    
-
-    
-
-
-
-
-    
