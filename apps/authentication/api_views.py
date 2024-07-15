@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from dj_rest_auth.registration.views import RegisterView
 
-from apps.microapps.models import Microapps
+from apps.microapps.models import Microapp
 from apps.users.models import CustomUser
 from .serializers import LoginResponseSerializer, OtpRequestSerializer
 import uuid
@@ -120,9 +120,9 @@ class CustomRegisterView(RegisterView):
             app_dict = model_to_dict(app_template)
             app_dict['global_ma_id_id'] = app_dict.pop('id')  # Rename 'id' to 'global_ma_id'
             print("app_dict:", app_dict)  # Debug statement
-            app_instances.append(Microapps(**app_dict))
+            app_instances.append(Microapp(**app_dict))
 
         print("app_instances:", app_instances)  # Debug statement
-        Microapps.objects.bulk_create(app_instances)
+        Microapp.objects.bulk_create(app_instances)
 
 

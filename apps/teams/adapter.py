@@ -1,12 +1,16 @@
+import django
 from django.forms import model_to_dict
 from django.urls import reverse
 
+from rest_framework import serializers
 from apps.global_microapps.models import GlobalMicroapps
-from apps.microapps.models import Microapps
+from apps.microapps.models import Microapp
 from apps.microapps.serializer import MicroAppSerializer
 from apps.microapps.views import MicroAppList
 from apps.users.adapter import EmailAsUsernameAdapter
+from apps.users.models import CustomUser
 from .invitations import clear_invite_from_session
+from django.conf import settings
 
 
 class AcceptInvitationAdapter(EmailAsUsernameAdapter):
@@ -35,23 +39,34 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     def save_user(self, request, user, form, commit=True):
         
         try:
+            user = super().save_user(request, user, form, commit)
             print("save_user_executed")
         
-            user = super().save_user(request, user, form, commit)
+            if CustomUser.objects.filter(username=user.username):
+                print("User already exists")
+                raise serializers.ValidationError({'error': 'Username already exists'})
             
-            if user.pk is None: 
-                print("pk_none")
-                user.save()
+            else:
+                if user.pk is None: 
+                    print("pk_none")
+                    user.save()
+                    print("user " + str(user))
         
-            print("user_object " + str(user))
-            print("user_register_id " + str(user.id))
-            print("user_register_pk " + str(user.pk))
-            self.add_app_templates(user)
+                print("user_object " + str(user))
+                print("user_register_id " + str(user.id))
+                print("user_register_pk " + str(user.pk))
+                self.add_app_templates(user)
 
-            return user
+                return user
         
+        except django.db.utils.IntegrityError as e:  
+            print("=error: IntegrityError")
+            print(str(e))
+            raise serializers.ValidationError({'error': repr(e)})
+
         except Exception as e:
-            print("=error " +str(e))
+            print("=error " + str(e))
+            raise serializers.ValidationError({'error': repr(e)})
             
     def add_app_templates(self,user):
         

@@ -15,10 +15,10 @@ class GlobalMicroapps(models.Model):
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
 
-class GlobalAssets(models.Model):
+class GlobalAsset(models.Model):
     file = models.TextField()
     label = models.TextField()
 
 class AssetsGaJoin(models.Model):
     global_app_id = models.ForeignKey(GlobalMicroapps, on_delete=models.CASCADE)
-    asset_id = models.ForeignKey(GlobalAssets, on_delete=models.CASCADE)
+    asset_id = models.ForeignKey(GlobalAsset, on_delete=models.CASCADE)

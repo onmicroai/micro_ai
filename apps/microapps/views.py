@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer, AssetsSerializer, AssetsMicroappSerializer, RunSerializer
 from rest_framework import status
 from rest_framework.decorators import api_view
-from apps.microapps.models import Microapps, MicroAppUserJoin, AssetsMaJoin, Assets, Run
+from apps.microapps.models import Microapp, MicroAppUserJoin, AssetsMaJoin, Asset, Run
 from apps.global_microapps.models import GlobalMicroapps 
 from apps.collection.models import CollectionMaJoin
 from rest_framework.views import APIView
@@ -89,7 +89,7 @@ class MicroAppList(APIView):
 
    def get(self, request, format=None):
         try:
-            microapps = Microapps.objects.all()
+            microapps = Microapp.objects.all()
             serializer = MicroAppSerializer(microapps, many=True)
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
@@ -131,7 +131,7 @@ class MicroAppDetails(APIView):
 
     def get_object(self, pk):
         try:
-            return Microapps.objects.get(id=pk)
+            return Microapp.objects.get(id=pk)
         
         except Exception as e:
             print("=error " +str(e))
@@ -182,7 +182,7 @@ class CloneMicroApp(APIView):
     def post(self, request, pk):
         try:
             # global_app = GlobalMicroapps.objects.get(id=pk)
-            global_app = Microapps.objects.get(id=pk)
+            global_app = Microapp.objects.get(id=pk)
             global_app_dict = model_to_dict(global_app)
             # global_app_dict["global_ma_id"] = global_app_dict["id"]
             del global_app_dict["id"]
@@ -350,7 +350,7 @@ class UserApps(APIView):
         try: 
             current_user = request.user.id
             user_apps_ids = MicroAppUserJoin.objects.filter(user_id=current_user).values_list('ma_id', flat=True)
-            user_apps = Microapps.objects.filter(id__in=user_apps_ids)
+            user_apps = Microapp.objects.filter(id__in=user_apps_ids)
             serializer = MicroAppSerializer(user_apps, many=True)
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
@@ -390,7 +390,7 @@ class RunList(APIView):
             session_id = data.get("session_id")
             timestamp = datetime.datetime.now()
 
-            if(not ma_id and not user_id and not prompt):
+            if(not ma_id or not user_id or not prompt):
                 return Response({
                 "error": "invalid payload",
                 "status": status.HTTP_400_BAD_REQUEST

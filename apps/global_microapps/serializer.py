@@ -1,5 +1,5 @@
 from rest_framework import serializers 
-from apps.global_microapps.models import GlobalMicroapps, GlobalAssets, AssetsGaJoin
+from apps.global_microapps.models import GlobalMicroapps, GlobalAsset, AssetsGaJoin
 
 class GlobalMicroAppsSerializer(serializers.ModelSerializer):
     
@@ -9,7 +9,7 @@ class GlobalMicroAppsSerializer(serializers.ModelSerializer):
 
 class AssetsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = GlobalAssets
+        model = GlobalAsset
         fields = '__all__'
 
 class AssetsGlobalappSerializer(serializers.ModelSerializer):

@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import Microapps, MicroAppUserJoin, Assets, AssetsMaJoin, Run
+from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run
 
 class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Microapps
+        model = Microapp
         fields = '__all__'
 
 class MicroappUserSerializer(serializers.ModelSerializer):
@@ -13,7 +13,7 @@ class MicroappUserSerializer(serializers.ModelSerializer):
 
 class AssetsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Assets
+        model = Asset
         fields = '__all__'
 
 class AssetsMicroappSerializer(serializers.ModelSerializer):

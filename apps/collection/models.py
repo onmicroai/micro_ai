@@ -1,5 +1,5 @@
 from django.db import models
-from apps.microapps.models import Microapps
+from apps.microapps.models import Microapp
 from micro_ai import settings
 
 
@@ -9,7 +9,7 @@ class Collection(models.Model):
 
 class CollectionMaJoin(models.Model):
     collection_id = models.ForeignKey(Collection, on_delete=models.CASCADE)
-    ma_id = models.ForeignKey(Microapps, on_delete=models.CASCADE)
+    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
 
 
 class CollectionUserJoin(models.Model):
