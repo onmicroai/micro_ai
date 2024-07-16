@@ -336,9 +336,10 @@ REST_AUTH = {
     "JWT_AUTH_HTTPONLY": False,
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.CustomUserSerializer",
 }
-
+    
 # CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
 CORS_ORIGIN_ALLOW_ALL = True
+CSRF_TRUSTED_ORIGINS = ['https://app.onmicro.ai']
 
 
 SPECTACULAR_SETTINGS = {

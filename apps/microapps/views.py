@@ -143,7 +143,7 @@ class MicroAppDetails(APIView):
             snippet = self.get_object(pk)
             serializer = MicroAppSerializer(snippet)
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-        
+
         except Exception as e:
             print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -185,7 +185,7 @@ class CloneMicroApp(APIView):
             global_app = Microapp.objects.get(id=pk)
             global_app_dict = model_to_dict(global_app)
             # global_app_dict["global_ma_id"] = global_app_dict["id"]
-            del global_app_dict["id"]
+            del global_app_dict["id"]   
             print("=>globalapp " + str(global_app_dict))
             
             serializer = MicroAppSerializer(data=global_app_dict)
@@ -380,9 +380,9 @@ class RunList(APIView):
 
         try:
             client = OpenAI(
-            api_key= env("OPENAI_API_KEY", default="")
+            api_key= env("OPENAI_API_KEY", default="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")
             )
-            data = request.data  # Access request data once
+            data = request.data
             print("jsondata " + str(data))
             ma_id = data.get('ma_id')
             user_id = data.get('user_id')
