@@ -133,16 +133,17 @@ class MicroAppDetails(APIView):
         try:
             return Microapp.objects.get(id=pk)
         
-        except Exception as e:
-            print("=error " +str(e))
-            return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
+        except Microapp.DoesNotExist:
+            return None
         
     def get(self, request, pk, format=None):
         try:
             snippet = self.get_object(pk)
-            serializer = MicroAppSerializer(snippet)
-            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            if snippet != None:
+                serializer = MicroAppSerializer(snippet)
+                return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            
+            return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
             print("=error " +str(e))
@@ -152,15 +153,18 @@ class MicroAppDetails(APIView):
     def put(self, request, pk, format=None):
         try:
             microapps = self.get_object(pk)
-            serializer = MicroAppSerializer(microapps, data=request.data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            if microapps != None:
+                serializer = MicroAppSerializer(microapps, data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+                
+                return Response({
+                    "error": serializer.errors,
+                    "status": status.HTTP_400_BAD_REQUEST
+                }, status=status.HTTP_400_BAD_REQUEST)
             
-            return Response({
-                "error": serializer.errors,
-                "status": status.HTTP_400_BAD_REQUEST
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
     
         except Exception as e:
             print("=error " +str(e))
@@ -169,9 +173,12 @@ class MicroAppDetails(APIView):
     def delete(self, request, pk, format=None):
         try:
             microapps = self.get_object(pk)
-            microapps.delete()
-            return Response({"status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-        
+            if microapps != None:
+                microapps.delete()
+                return Response({"status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            
+            return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+    
         except Exception as e:
             print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

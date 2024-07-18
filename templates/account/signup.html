@@ -60,7 +60,6 @@
           <h1>Register</h1>
           <form class="welcome-form" method="post">    
               {% csrf_token %}            
-              {{ form.non_field_errors }}
               <!-- <div class="welcome-field">
                   <input type="text" placeholder="Full Name" name="full_name">
               </div>                 -->
@@ -80,6 +79,7 @@
                 <span class="confirm-password-toggle-icon"><i class="fas fa-eye"></i></span>
               </div>
               {% endif %}
+           
               <!-- {% render_field form.terms_agreement %} -->
               <input type="submit" value="{% translate "Sign Up" %}">
               <p><span>Or Register with</span></p>

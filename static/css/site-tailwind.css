@@ -1985,6 +1985,10 @@ option {
   border: none;
 }
 
+
+.errorlist {
+  color: red !important;
+}
 /*default_css*/
 
 /*

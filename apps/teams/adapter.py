@@ -39,25 +39,27 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     def save_user(self, request, user, form, commit=True):
         
         try:
+            username = form.cleaned_data.get('email')
+            print("user_name " +str(username))
+
+            if CustomUser.objects.filter(username=username):
+                print("User already exists")
+                raise serializers.ValidationError({'error': 'Username already exists'})
+
             user = super().save_user(request, user, form, commit)
             print("save_user_executed")
         
-            if CustomUser.objects.filter(username=user.username):
-                print("User already exists")
-                raise serializers.ValidationError({'error': 'Username already exists'})
-            
-            else:
-                if user.pk is None: 
-                    print("pk_none")
-                    user.save()
-                    print("user " + str(user))
-        
-                print("user_object " + str(user))
-                print("user_register_id " + str(user.id))
-                print("user_register_pk " + str(user.pk))
-                self.add_app_templates(user)
+            if user.pk is None: 
+                print("pk_none")
+                user.save()
+                print("user " + str(user))
+    
+            print("user_object " + str(user))
+            print("user_register_id " + str(user.id))
+            print("user_register_pk " + str(user.pk))
+            self.add_app_templates(user)
 
-                return user
+            return user
         
         except django.db.utils.IntegrityError as e:  
             print("=error: IntegrityError")
