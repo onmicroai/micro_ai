@@ -44,7 +44,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
 
             if CustomUser.objects.filter(username=username):
                 print("User already exists")
-                return 
+                return None
 
             else:
                 user = super().save_user(request, user, form, commit)
