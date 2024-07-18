@@ -40,42 +40,30 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
         
         try:
             username = form.cleaned_data.get('email')
-            print("user_name " +str(username))
 
             if CustomUser.objects.filter(username=username):
-                print("User already exists")
-                return None
+                raise serializers.ValidationError({'error': "email already exists"})
 
             else:
                 user = super().save_user(request, user, form, commit)
-                print("save_user_executed")
             
                 if user.pk is None: 
-                    print("pk_none")
                     user.save()
-                    print("user " + str(user))
         
-                print("user_object " + str(user))
-                print("user_register_id " + str(user.id))
-                print("user_register_pk " + str(user.pk))
                 self.add_app_templates(user)
 
                 return user
         
         except django.db.utils.IntegrityError as e:  
-            print("=error: IntegrityError")
-            print(str(e))
             raise serializers.ValidationError({'error': repr(e)})
 
         except Exception as e:
-            print("=error " + str(e))
             raise serializers.ValidationError({'error': repr(e)})
             
     def add_app_templates(self,user):
         
         try:
             current_user_id = user.id
-            print("current_user_id " + str(current_user_id))
             global_apps = GlobalMicroapps.objects.all()
 
             for global_app in global_apps:
@@ -92,6 +80,6 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                     micro_app_list.add_microapp_user(self, uid=current_user_id, microapp=microapp)
 
         except Exception as e:
-            print("=error " +str(e))
+           raise Exception("An error occurred while adding app templates")
             
             
