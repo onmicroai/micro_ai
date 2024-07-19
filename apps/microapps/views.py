@@ -45,7 +45,6 @@ class MicroAppList(APIView):
             ma_id = microapp.id  
             user_id = uid
             data = {'role': role, 'ma_id': ma_id, 'user_id': user_id}
-            print("=>data" + str(data))
             serializer = MicroappUserSerializer(data=data) 
             if serializer.is_valid():
                 return serializer.save()
@@ -56,7 +55,6 @@ class MicroAppList(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             
    def add_assets(self, request, microapp):
@@ -70,7 +68,6 @@ class MicroAppList(APIView):
             return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
        
        except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
    def add_microapp_assets(self, microapp, asset):
@@ -84,7 +81,6 @@ class MicroAppList(APIView):
             return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)   
        
        except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
    def get(self, request, format=None):
@@ -94,7 +90,6 @@ class MicroAppList(APIView):
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
    
    def post(self, request, format=None):
@@ -113,7 +108,6 @@ class MicroAppList(APIView):
 
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
 
@@ -146,7 +140,6 @@ class MicroAppDetails(APIView):
             return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
@@ -167,7 +160,6 @@ class MicroAppDetails(APIView):
             return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
     
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def delete(self, request, pk, format=None):
@@ -180,20 +172,29 @@ class MicroAppDetails(APIView):
             return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
     
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 
 class CloneMicroApp(APIView):
+
+    def get_microapp(self, pk):
+        try:
+             global_app = Microapp.objects.get(id=pk)
+             return global_app
+        
+        except Microapp.DoesNotExist:
+            return None
+
     
     def post(self, request, pk):
         try:
             # global_app = GlobalMicroapps.objects.get(id=pk)
-            global_app = Microapp.objects.get(id=pk)
+            global_app = self.get_microapp(pk)
+            if global_app == None:
+                return Response({"error": "microapp not exist", "status":status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
             global_app_dict = model_to_dict(global_app)
             # global_app_dict["global_ma_id"] = global_app_dict["id"]
             del global_app_dict["id"]   
-            print("=>globalapp " + str(global_app_dict))
             
             serializer = MicroAppSerializer(data=global_app_dict)
             if serializer.is_valid():
@@ -208,7 +209,6 @@ class CloneMicroApp(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
 @extend_schema_view(
@@ -235,7 +235,6 @@ class UserMicroApps(APIView):
             return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def get_objects(self, uid, aid):
@@ -243,7 +242,6 @@ class UserMicroApps(APIView):
             return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     def get(self, request, app_id, user_id=None):
@@ -266,7 +264,6 @@ class UserMicroApps(APIView):
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
         
@@ -286,7 +283,6 @@ class UserMicroApps(APIView):
             return Response({"error": "user_id not found", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
        
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     
@@ -315,7 +311,6 @@ class UserMicroApps(APIView):
             return Response({"error": "Operation not allowed", "status":status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         
     def delete(self, request, app_id, user_id, format=None):
@@ -343,7 +338,6 @@ class UserMicroApps(APIView):
             return Response({"error": "user_id not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @extend_schema_view(
@@ -362,7 +356,6 @@ class UserApps(APIView):
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status":status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 @extend_schema_view(
@@ -390,7 +383,6 @@ class RunList(APIView):
             api_key= env("OPENAI_API_KEY", default="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")
             )
             data = request.data
-            print("jsondata " + str(data))
             ma_id = data.get('ma_id')
             user_id = data.get('user_id')
             prompt = data.get('prompt')
@@ -403,7 +395,6 @@ class RunList(APIView):
                 "status": status.HTTP_400_BAD_REQUEST
                 }, status=status.HTTP_400_BAD_REQUEST)
 
-            print("prompt " + str(prompt))
 
             response =  client.chat.completions.create(
             model="gpt-3.5-turbo",
@@ -422,15 +413,11 @@ class RunList(APIView):
 
             ai_response = response.choices[0].message.content
 
-            print(ai_response)
-
             data = {"ma_id": ma_id, "user_id": user_id, "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"), "session_id": str(session_id), "satisfaction": 0, "prompt": prompt, "response": ai_response, "credits": 0, "cost": cost}
 
-            print("response_data " + str(data))
             serializer = RunSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
-                print(serializer.data)
                 return Response({"data": data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
             
             return Response({
@@ -439,7 +426,6 @@ class RunList(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status": status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
@@ -473,6 +459,5 @@ class RunList(APIView):
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         
         except Exception as e:
-            print("=error " +str(e))
             return Response({"error": "an unexpected error occured", "status": status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)    
 
