@@ -53,7 +53,28 @@ class Run(models.Model):
     satisfaction = models.IntegerField()
     prompt = models.JSONField()
     response = models.TextField()
-    credits = models.FloatField()
+    # credits = models.FloatField()
     cost = models.DecimalField(max_digits=20, decimal_places=6)
+    # message_history = models.JSONField()
+    no_submission = models.BooleanField()
+    ai_model = models.CharField(max_length=20)
+    temperature = models.FloatField()
+    max_tokens = models.IntegerField()
+    top_p = models.FloatField()
+    frequency_penalty = models.FloatField()
+    presence_penalty = models.FloatField()
+    input_tokens = models.IntegerField()
+    output_tokens = models.IntegerField()
+    price_input_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
+    price_output_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
+    scored_run = models.BooleanField()
+    run_score = models.CharField(max_length=10)
+    minimum_score = models.FloatField()
+    rubric = models.TextField()
+    run_passed = models.BooleanField()
+    
+
+
+
 
 
