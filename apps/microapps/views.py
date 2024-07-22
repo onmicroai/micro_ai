@@ -382,11 +382,25 @@ class RunList(APIView):
             client = OpenAI(
             api_key= env("OPENAI_API_KEY", default="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")
             )
+
             data = request.data
+
             ma_id = data.get('ma_id')
             user_id = data.get('user_id')
             prompt = data.get('prompt')
             session_id = data.get("session_id")
+            message_history = data.get("message_history")
+            no_submission = data.get("no_submission")
+            ai_model = data.get("ai_model")
+            temperature = data.get("temperature")
+            max_tokens = data.get("max_tokens")
+            top_p = data.get("top_p")
+            frequency_penalty = data.get("frequency_penalty")
+            presence_penalty = data.get("presence_penalty")
+            scored_run = data.get("scored_run")
+            minimum_score = data.get("minimum_score")
+            rubric = data.get("rubric")
+
             timestamp = datetime.datetime.now()
 
             if(not ma_id or not user_id or not prompt):
