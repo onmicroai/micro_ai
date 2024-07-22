@@ -53,7 +53,7 @@ class Run(models.Model):
     satisfaction = models.IntegerField()
     prompt = models.JSONField()
     response = models.TextField()
-    # credits = models.FloatField()
+    credits = models.FloatField()
     cost = models.DecimalField(max_digits=20, decimal_places=6)
     # message_history = models.JSONField()
     no_submission = models.BooleanField()
@@ -71,7 +71,7 @@ class Run(models.Model):
     run_score = models.CharField(max_length=10)
     minimum_score = models.FloatField()
     rubric = models.TextField()
-    run_passed = models.BooleanField()
+    run_passed = models.BooleanField(default=True)
     
 
 
