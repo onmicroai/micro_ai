@@ -20,7 +20,7 @@ from pathlib import Path
 from django.utils.translation import gettext_lazy
 from django.db.models import Q
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-import asyncio
+import logging as log
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -375,15 +375,84 @@ class UserApps(APIView):
     )
 )
 class RunList(APIView):
+
+    client = OpenAI(api_key= env("OPENAI_API_KEY", default="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"))
+
+    def check_payload(self, data):
+        try:
+            required_fields = ["ma_id", "user_id", "no_submission", "ai_model", "scored_run", "skippable_phase"]
+
+            for field in required_fields:
+                if data.get(field) is None:
+                    return False
+                
+            if data.get("scored_run") == True:
+                if data.get("minimum_score") is None or data.get("rubric") is None:
+                    return False
+                
+            return True
+        
+        except Exception as e:
+            log.error(e)
     
+    def get_ai_model_specific_config(self, api_param, model_name):
+
+        if "gpt" in model_name:
+            return self.default_gpt_phase(api_param)
+        elif "gemini" in model_name:
+            pass
+        else:
+            pass
+
+    def default_gpt_phase(self, api_params):
+        try:
+            response =  self.client.chat.completions.create(**api_params)
+            completion_tokens = response.usage.completion_tokens
+            prompt_tokens = response.usage.prompt_tokens
+            total_token = response.usage.total_tokens       
+            ai_response = response.choices[0].message.content
+            return{'completion_tokens':completion_tokens, 'prompt_tokens':prompt_tokens, 'total_tokens':total_token, 'ai_response':ai_response}
+        
+        except Exception as e:
+            log.error(e)
+
+    def skip_phase(self):
+        try:
+            return{'completion_tokens':0, 'prompt_tokens':0, 'total_tokens':0, 'ai_response':'Phase skipped'}
+    
+        except Exception as e:
+            log.error(e)
+
+    def no_submission_phase(self):
+        try:
+            return{'completion_tokens':0, 'prompt_tokens':0, 'total_tokens':0, 'ai_response':'Hard coded phase'}
+        
+        except Exception as e:
+            log.error(e)
+
+    def hard_coded_phase(self):
+        try:
+            return{'completion_tokens':0, 'prompt_tokens':0, 'total_tokens':0, 'ai_response':'Hard coded phase'}
+        
+        except Exception as e:
+            log.error(e)
+
+    def score_phase(self, api_params):
+
+        response =  self.client.chat.completions.create(**api_params)
+        completion_tokens = response.usage.completion_tokens
+        prompt_tokens = response.usage.prompt_tokens
+        total_token = response.usage.total_tokens       
+        ai_response = response.choices[0].message.content
+        return{'completion_tokens':completion_tokens, 'prompt_tokens':prompt_tokens, 'total_tokens':total_token, 'ai_response':ai_response}
+
     def post(self, request, format=None):
 
         try:
-            client = OpenAI(
-            api_key= env("OPENAI_API_KEY", default="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")
-            )
-
             data = request.data
+            
+            if not self.check_payload(data):
+                return Response({"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
 
             ma_id = data.get('ma_id')
             user_id = data.get('user_id')
@@ -391,43 +460,100 @@ class RunList(APIView):
             session_id = data.get("session_id")
             message_history = data.get("message_history")
             no_submission = data.get("no_submission")
-            ai_model = data.get("ai_model")
-            temperature = data.get("temperature")
+            ai_model = data.get("ai_model", "gpt-3.5-turbo")
+            temperature = data.get("temperature", 0)
             max_tokens = data.get("max_tokens")
-            top_p = data.get("top_p")
-            frequency_penalty = data.get("frequency_penalty")
-            presence_penalty = data.get("presence_penalty")
+            top_p = data.get("top_p", 1)
+            frequency_penalty = data.get("frequency_penalty", 0)
+            presence_penalty = data.get("presence_penalty", 0)
             scored_run = data.get("scored_run")
             minimum_score = data.get("minimum_score")
             rubric = data.get("rubric")
-
+            skippable_phase = data.get("skippable_phase")
             timestamp = datetime.datetime.now()
 
-            if(not ma_id or not user_id or not prompt):
-                return Response({
-                "error": "invalid payload",
-                "status": status.HTTP_400_BAD_REQUEST
-                }, status=status.HTTP_400_BAD_REQUEST)
+            if message_history and len(message_history) > 0:
+                message_history.extend(prompt)
+                prompt = message_history
+                
+                
 
+            api_params = {
+                'model': ai_model,
+                'messages': prompt,
+                'temperature': temperature,
+                'frequency_penalty': frequency_penalty,
+                'presence_penalty': presence_penalty,
+                'top_p': top_p
+            }
 
-            response =  client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=prompt
-            )
+            if max_tokens:
+                api_params["max_tokens"] = max_tokens
+            
+            response = ""
 
-            completion_tokens = response.usage.completion_tokens
-            prompt_tokens = response.usage.prompt_tokens
-            total_token = response.usage.total_tokens
+            #hnadling skippable phase
+            if skippable_phase:
+                response = self.skip_phase()
 
-            cost = 0.5 * prompt_tokens / 1000000 + 1.5 * completion_tokens / 1000000
-            cost = round(cost, 6)
+            #handling hardcoded response
+            elif no_submission and prompt is None:
+                response = self.hard_coded_phase()
+                prompt = []
 
+            #handling no submission phase
+            elif no_submission:
+                response = self.no_submission_phase()
+
+            #handle score phase
+            # elif scored_run:
+            #     instruction = """Please provide a score for the previous user message. Use the following rubric:
+            #     """ + rubric + """
+            #     Please output your response as JSON, using this format: { "[criteria 1]": "[score 1]", "[criteria 2]": "[score 2]", "total": "[total score]" }"""
+            #     prompt.append({"role": "system", "content": instruction})
+            #     api_params["messages"] = prompt
+            #     self.get_ai_model_specific_config()
+                
+
+            #handling default phase
+            else:
+                response = self.get_ai_model_specific_config(api_params, ai_model)
+
+          
+            completion_tokens = response['completion_tokens']
+            prompt_tokens = response['prompt_tokens']
+            total_token = response['total_tokens']
+            cost = round(0.5 * prompt_tokens/1000000 + 1.5 * completion_tokens/1000000, 6)        
+            ai_response = response['ai_response']
             if(not session_id):
                 session_id = uuid.uuid4()
 
-            ai_response = response.choices[0].message.content
-
-            data = {"ma_id": ma_id, "user_id": user_id, "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"), "session_id": str(session_id), "satisfaction": 0, "prompt": prompt, "response": ai_response, "credits": 0, "cost": cost}
+            data = {"ma_id": ma_id, 
+                    "user_id": user_id, 
+                    "timestamp": timestamp.strftime("%Y-%m-%d %H:%M:%S"), 
+                    "session_id": str(session_id), 
+                    "satisfaction": 0, 
+                    "prompt": prompt, 
+                    "response": ai_response, 
+                    "credits": 0, 
+                    "cost": cost,
+                    "no_submission": no_submission,
+                    "ai_model": ai_model,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "top_p": top_p,
+                    "frequency_penalty": frequency_penalty,
+                    "presence_penalty": presence_penalty,
+                    "input_tokens": prompt_tokens,
+                    "output_tokens": completion_tokens,
+                    "price_input_token_1M": round(0.5 * prompt_tokens/1000000, 6),
+                    "price_output_token_1M": round(1.5 * completion_tokens/1000000, 6),
+                    "scored_run": scored_run,
+                    "run_score": 0,
+                    "minimum_score": minimum_score,
+                    "rubric": rubric,
+                    "run_passed": True
+                    }
 
             serializer = RunSerializer(data=data)
             if serializer.is_valid():
@@ -440,6 +566,7 @@ class RunList(APIView):
             }, status=status.HTTP_400_BAD_REQUEST)
         
         except Exception as e:
+            log.error(e)
             return Response({"error": "an unexpected error occured", "status": status.HTTP_500_INTERNAL_SERVER_ERROR}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     
