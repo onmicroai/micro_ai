@@ -2,6 +2,7 @@ from django.db import models
 from apps.global_microapps.models import GlobalMicroapps
 from micro_ai import settings
 
+
 class Microapp(models.Model):
     title = models.CharField(max_length=50)
     explanation = models.TextField()
@@ -17,6 +18,7 @@ class Microapp(models.Model):
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
     global_ma_id = models.ForeignKey(GlobalMicroapps, on_delete=models.CASCADE)
+
 
 class MicroAppUserJoin(models.Model):
     VIEW = 'view'
@@ -35,6 +37,7 @@ class Asset(models.Model):
     file = models.TextField()
     label = models.TextField()
 
+
 class AssetsMaJoin(models.Model):
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
     asset_id = models.ForeignKey(Asset, on_delete=models.CASCADE)
@@ -43,6 +46,7 @@ class AssetsMaJoin(models.Model):
 class KnowledgeBase(models.Model):
 
     file = models.TextField()
+
 
 class Run(models.Model):
     
@@ -72,9 +76,3 @@ class Run(models.Model):
     minimum_score = models.FloatField()
     rubric = models.TextField()
     run_passed = models.BooleanField(default=True)
-    
-
-
-
-
-
