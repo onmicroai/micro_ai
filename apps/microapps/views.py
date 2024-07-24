@@ -428,7 +428,6 @@ class RunList(APIView):
                     {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
             api_params = {
                 "model": data.get("ai_model", "gpt-3.5-turbo"),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
@@ -437,8 +436,7 @@ class RunList(APIView):
                 "presence_penalty": data.get("presence_penalty", 0),
                 "top_p": data.get("top_p", 1),
             }
-            log.error("message_array " + str(api_params["messages"]))
-            if max_tokens := data.get("max_tokens"):
+            if max_tokens := data.get("max_ftokens"):
                 api_params["max_tokens"] = max_tokens
 
             if data.get("skippable_phase"):
