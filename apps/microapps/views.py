@@ -360,6 +360,23 @@ class UserApps(APIView):
 class RunList(APIView):
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
+    def check_api_params(self, data):
+        try:
+            params = {
+                "temperature": (data.get("temperature"), 0, 2),
+                "frequency_penalty": (data.get("frequency_penalty"), -2, 2),
+                "presence_penalty": (data.get("presence_penalty"), -2, 2),
+                "top_p": (data.get("top_p"), 0, 1),
+            }
+
+            for param, (value, min_val, max_val) in params.items():
+                if value is not None and not (min_val <= value <= max_val):
+                    return {"status": False, "message": f"Invalid {param} value"}
+
+            return {"status": True}
+        except Exception as e:
+            log.error(e)        
+
     def check_payload(self, data):
         try:
             required_fields = [
@@ -373,9 +390,10 @@ class RunList(APIView):
             for field in required_fields:
                 if data.get(field) is None:
                     return False
-            if data.get("scored_run"):
-                if data.get("minimum_score") is None or data.get("rubric") is None:
-                    return False
+
+            if data.get("scored_run") and (data.get("minimum_score") is None or data.get("rubric") is None):
+                return False
+
             return True
         except Exception as e:
             log.error(e)
@@ -426,6 +444,12 @@ class RunList(APIView):
             if not self.check_payload(data):
                 return Response(
                     {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            ai_validation = self.check_api_params(data) 
+            if not ai_validation["status"]:
+                return Response(
+                    {"error": ai_validation["message"], "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             api_params = {
@@ -482,7 +506,8 @@ class RunList(APIView):
             }
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
-                serializer.save()
+                serialize = serializer.save()
+                run_data["id"] = serialize.id
                 return Response(
                     {"data": run_data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
