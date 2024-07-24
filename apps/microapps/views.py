@@ -360,6 +360,27 @@ class UserApps(APIView):
 class RunList(APIView):
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
+    def check_ai_params(self, data):
+        try:
+            temperature = data.get("temperature")
+            frequency = data.get("frequency_penalty")
+            presence = data.get("presence_penalty")
+            top_p = data.get("top_p")
+            if(temperature):
+                if(temperature <0  or  temperature >2):
+                    return {"status": False, "message": "invalid temperature value"}
+            if(frequency):
+                if(frequency <-2  or frequency >2):
+                    return {"status": False, "message": "invalid frequency_penalty value"}
+            if(presence):
+                if(presence <-2  or  presence >2):
+                    return {"status": False, "message": "invalid presence_penalty value"}
+                if(top_p <0  or top_p >1):
+                    return {"status": False, "message": "invalid top_p value"}
+            return {"status": True}
+        except Exception as e:
+            log.error(e)
+        
     def check_payload(self, data):
         try:
             required_fields = [
@@ -428,6 +449,12 @@ class RunList(APIView):
                     {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            ai_validation = self.check_ai_params(data) 
+            if not ai_validation["status"]:
+                return Response(
+                    {"error": ai_validation["message"], "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             api_params = {
                 "model": data.get("ai_model", "gpt-3.5-turbo"),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
@@ -482,7 +509,8 @@ class RunList(APIView):
             }
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
-                serializer.save()
+                serialize = serializer.save()
+                run_data["id"] = serialize.id
                 return Response(
                     {"data": run_data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
