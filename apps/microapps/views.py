@@ -364,8 +364,8 @@ class RunList(APIView):
         try:
             params = {
                 "temperature": (data.get("temperature"), 0, 2),
-                "frequency_penalty": (data.get("frequency_penalty"), 0, 2),
-                "presence_penalty": (data.get("presence_penalty"), 0, 2),
+                "frequency_penalty": (data.get("frequency_penalty"), -2, 2),
+                "presence_penalty": (data.get("presence_penalty"), -2, 2),
                 "top_p": (data.get("top_p"), 0, 1),
             }
 
@@ -377,12 +377,19 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)        
 
-
     def check_payload(self, data):
         try:
-            required_fields = ["ma_id", "user_id", "no_submission", "ai_model", "scored_run", "skippable_phase"]
-            if not all(data.get(field) is not None for field in required_fields):
-                return False
+            required_fields = [
+                "ma_id",
+                "user_id",
+                "no_submission",
+                "ai_model",
+                "scored_run",
+                "skippable_phase",
+            ]
+            for field in required_fields:
+                if data.get(field) is None:
+                    return False
 
             if data.get("scored_run") and (data.get("minimum_score") is None or data.get("rubric") is None):
                 return False
@@ -439,7 +446,7 @@ class RunList(APIView):
                     {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            ai_validation = self.check_ai_params(data) 
+            ai_validation = self.check_api_params(data) 
             if not ai_validation["status"]:
                 return Response(
                     {"error": ai_validation["message"], "status": status.HTTP_400_BAD_REQUEST},
