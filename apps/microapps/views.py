@@ -401,13 +401,13 @@ class RunList(APIView):
             log.error(e)
 
     def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "Phase skipped"}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase"}
 
     def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "Hard coded phase"}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission"}
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "Hard coded phase"}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "Hey user, how are you"}
 
     def score_phase(self, api_params):
         response = self.client.chat.completions.create(**api_params)
@@ -428,15 +428,16 @@ class RunList(APIView):
                     {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-
+            
             api_params = {
                 "model": data.get("ai_model", "gpt-3.5-turbo"),
-                "messages": data.get("message_history", []) + [data.get("prompt")],
+                "messages": data.get("message_history", []) + data.get("prompt", []),
                 "temperature": data.get("temperature", 0),
                 "frequency_penalty": data.get("frequency_penalty", 0),
                 "presence_penalty": data.get("presence_penalty", 0),
                 "top_p": data.get("top_p", 1),
             }
+            log.error("message_array " + str(api_params["messages"]))
             if max_tokens := data.get("max_tokens"):
                 api_params["max_tokens"] = max_tokens
 
