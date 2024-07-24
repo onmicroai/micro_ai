@@ -431,6 +431,7 @@ class RunList(APIView):
         response = self.client.chat.completions.create(**api_params)
         usage = response.usage
         ai_response = response.choices[0].message.content
+        log.error("AI_RES: " + str(ai_response))
         return {
             "completion_tokens": usage.completion_tokens,
             "prompt_tokens": usage.prompt_tokens,
@@ -469,6 +470,11 @@ class RunList(APIView):
                 response = self.hard_coded_phase()
             elif data.get("no_submission"):
                 response = self.no_submission_phase()
+            elif data.get("scored_run"):
+                rubric_obj = {"role": "user", "content": data.get("rubric")}
+                api_params["messages"].append(rubric_obj)
+                log.error("Messages " + str(api_params["messages"]))
+                response = self.score_phase()
             else:
                 response = self.get_ai_model_specific_config(api_params, api_params["model"])
 
