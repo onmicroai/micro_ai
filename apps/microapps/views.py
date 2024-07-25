@@ -451,7 +451,6 @@ class RunList(APIView):
 
     def post(self, request, format=None):
         try:
-            print(f"User: {request.user}, Authenticated: {request.user.is_authenticated}")
             data = request.data
             if not self.check_payload(data):
                 return Response(
@@ -531,7 +530,6 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
-                #for hardcoded response
                 if(usage["ai_response"] == ""):
                     return Response(
                     {"data": [], "status": status.HTTP_200_OK},
