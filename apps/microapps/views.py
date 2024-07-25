@@ -1,4 +1,5 @@
 import datetime
+import re
 import uuid
 import os
 from pathlib import Path
@@ -9,6 +10,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from rest_framework.permissions import IsAuthenticated
 from openai import OpenAI
 
 from apps.microapps.serializer import (
@@ -358,6 +360,9 @@ class UserApps(APIView):
     post=extend_schema(request=RunSerializer, responses={200: RunSerializer}),
 )
 class RunList(APIView):
+
+    permission_classes = [IsAuthenticated]
+
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
     def check_api_params(self, data):
@@ -397,11 +402,23 @@ class RunList(APIView):
             return True
         except Exception as e:
             log.error(e)
+    
+    def extract_score(self,text):
+        pattern = r'"total":\s*"?(\d+)"?'
+        match = re.search(pattern, text)
+        if match:
+            return int(match.group(1))
+        else:
+            return 0
 
-    def get_ai_model_specific_config(self, api_param, model_name):
-        if "gpt" in model_name:
+    def get_ai_model_specific_config(self, api_param, model_name, score):
+        if "gpt" in model_name and score:
+            return self.score_phase(api_param)
+        elif "gpt" in  model_name and not score:
             return self.default_gpt_phase(api_param)
-        elif "gemini" in model_name:
+        elif "gemini" in model_name and score:
+            pass
+        elif "gemini" in model_name and not score:
             pass
 
     def default_gpt_phase(self, api_params):
@@ -425,22 +442,16 @@ class RunList(APIView):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission"}
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "Hey user, how are you"}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": ""}
 
     def score_phase(self, api_params):
         response = self.client.chat.completions.create(**api_params)
-        usage = response.usage
         ai_response = response.choices[0].message.content
-        log.error("AI_RES: " + str(ai_response))
-        return {
-            "completion_tokens": usage.completion_tokens,
-            "prompt_tokens": usage.prompt_tokens,
-            "total_tokens": usage.total_tokens,
-            "ai_response": ai_response,
-        }
+        return ai_response
 
     def post(self, request, format=None):
         try:
+            print(f"User: {request.user}, Authenticated: {request.user.is_authenticated}")
             data = request.data
             if not self.check_payload(data):
                 return Response(
@@ -464,6 +475,8 @@ class RunList(APIView):
             if max_tokens := data.get("max_ftokens"):
                 api_params["max_tokens"] = max_tokens
 
+            score = ""
+
             if data.get("skippable_phase"):
                 response = self.skip_phase()
             elif data.get("no_submission") and data.get("prompt") is None:
@@ -471,12 +484,15 @@ class RunList(APIView):
             elif data.get("no_submission"):
                 response = self.no_submission_phase()
             elif data.get("scored_run"):
-                rubric_obj = {"role": "user", "content": data.get("rubric")}
-                api_params["messages"].append(rubric_obj)
-                log.error("Messages " + str(api_params["messages"]))
-                response = self.score_phase()
+                response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
+                instruction = """Please provide a score for the previous user message. Use the following rubric:
+                """ + data.get("rubric") + """
+                Please output your response as JSON, using this format: { "[criteria 1]": "[score 1]", "[criteria 2]": "[score 2]", "total": "[total score]" }"""
+                api_params["messages"].append({"role": "system", "content": instruction})
+                score = self.get_ai_model_specific_config(api_params, api_params["model"], True)
+                api_params["messages"].pop()
             else:
-                response = self.get_ai_model_specific_config(api_params, api_params["model"])
+                response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
 
             usage = response
             cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
@@ -505,15 +521,22 @@ class RunList(APIView):
                 "price_input_token_1M": round(0.5 * usage["prompt_tokens"] / 1_000_000, 6),
                 "price_output_token_1M": round(1.5 * usage["completion_tokens"] / 1_000_000, 6),
                 "scored_run": data["scored_run"],
-                "run_score": 0,
+                "run_score": score,
                 "minimum_score": data.get("minimum_score"),
                 "rubric": data.get("rubric"),
                 "run_passed": True,
+                "skippable_phase": data.get("skippable_phase")
             }
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
+                #for hardcoded response
+                if(usage["ai_response"] == ""):
+                    return Response(
+                    {"data": [], "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
                 return Response(
                     {"data": run_data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
