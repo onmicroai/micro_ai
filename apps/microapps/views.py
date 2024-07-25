@@ -361,7 +361,7 @@ class UserApps(APIView):
 )
 class RunList(APIView):
 
-    # permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated]
 
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
@@ -530,7 +530,6 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
-                #for hardcoded response
                 if(usage["ai_response"] == ""):
                     return Response(
                     {"data": [], "status": status.HTTP_200_OK},
