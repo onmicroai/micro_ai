@@ -361,7 +361,7 @@ class UserApps(APIView):
 )
 class RunList(APIView):
 
-    permission_classes = [IsAuthenticated]
+    # permission_classes = [IsAuthenticated]
 
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
@@ -451,7 +451,6 @@ class RunList(APIView):
 
     def post(self, request, format=None):
         try:
-            print(f"User: {request.user}, Authenticated: {request.user.is_authenticated}")
             data = request.data
             if not self.check_payload(data):
                 return Response(
