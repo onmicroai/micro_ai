@@ -485,7 +485,7 @@ class RunList(APIView):
                 response = self.no_submission_phase()
             elif data.get("scored_run"):
                 response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
-                instruction = """Please provide a score for the previous user message. Use the following rubric:
+                instruction = """Please provide a score for the last user message. Use the following rubric:
                 """ + data.get("rubric") + """
                 Please output your response as JSON, using this format: { "[criteria 1]": "[score 1]", "[criteria 2]": "[score 2]", "total": "[total score]" }"""
                 api_params["messages"].append({"role": "system", "content": instruction})
