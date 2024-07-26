@@ -454,12 +454,20 @@ class RunList(APIView):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": ""}
 
     def score_phase(self, api_params, minimum_score):
-        response = self.client.chat.completions.create(**api_params)
-        self.ai_score = response.choices[0].message.content
-        self.score_result = False
-        if self.extract_score(self.ai_score) >= minimum_score:
-            self.score_result = True
-        return True
+       try:
+            response = self.client.chat.completions.create(**api_params)
+            usage = response.usage
+            self.ai_score = response.choices[0].message.content
+            self.score_result = False
+            if self.extract_score(self.ai_score) >= minimum_score:
+                self.score_result = True
+            return {
+                    "completion_tokens": usage.completion_tokens,
+                    "prompt_tokens": usage.prompt_tokens,
+                    "total_tokens": usage.total_tokens,
+                }
+       except Exception as e:
+            log.error(e)
 
     def post(self, request, format=None):
         try:
@@ -494,14 +502,15 @@ class RunList(APIView):
                 response = self.no_submission_phase()
             elif data.get("scored_run"):
                 response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
-                instruction = """Please provide a score for the last user message. Use the following rubric:
+                instruction = """Please provide a score for the previous user message. Use the following rubric:
                 """ + data.get("rubric") + """
                 Please output your response as JSON, using this format: { "[criteria 1]": "[score 1]", "[criteria 2]": "[score 2]", "total": "[total score]" }"""
                 api_params["messages"].append({"role": "system", "content": instruction})
-                self.get_ai_model_specific_config(api_params, api_params["model"], True, data.get("minimum_score"))
-                api_params["messages"].pop()
+                ai_response = self.get_ai_model_specific_config(api_params, api_params["model"], True, data.get("minimum_score"))
+                response["prompt_tokens"] += ai_response["prompt_tokens"]
+                response["completion_tokens"] += ai_response["completion_tokens"]
             else:
-                response = self.get_ai_model_specific_config(api_params, api_params["model"], False, )
+                response = self.get_ai_model_specific_config(api_params, api_params["model"], False,)
 
             usage = response
             cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
