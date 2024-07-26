@@ -372,6 +372,8 @@ class UserApps(APIView):
 class RunList(APIView):
     permission_classes = [IsAuthenticated]
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
+    ai_score = ""
+    score_result = True
 
     def check_api_params(self, data):
         try:
@@ -381,7 +383,6 @@ class RunList(APIView):
                 "presence_penalty": (data.get("presence_penalty"), -2, 2),
                 "top_p": (data.get("top_p"), 0, 1),
             }
-
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
                     return {"status": False, "message": f"Invalid {param} value"}
@@ -419,9 +420,9 @@ class RunList(APIView):
         else:
             return 0
 
-    def get_ai_model_specific_config(self, api_param, model_name, score):
+    def get_ai_model_specific_config(self, api_param, model_name, score, extra_params=None):
         if "gpt" in model_name and score:
-            return self.score_phase(api_param)
+            return self.score_phase(api_param, extra_params)
         elif "gpt" in  model_name and not score:
             return self.default_gpt_phase(api_param)
         elif "gemini" in model_name and score:
@@ -452,10 +453,13 @@ class RunList(APIView):
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": ""}
 
-    def score_phase(self, api_params):
+    def score_phase(self, api_params, minimum_score):
         response = self.client.chat.completions.create(**api_params)
-        ai_response = response.choices[0].message.content
-        return ai_response
+        self.ai_score = response.choices[0].message.content
+        self.score_result = False
+        if self.extract_score(self.ai_score) >= minimum_score:
+            self.score_result = True
+        return True
 
     def post(self, request, format=None):
         try:
@@ -472,17 +476,15 @@ class RunList(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             api_params = {
-                "model": data.get("ai_model", "gpt-3.5-turbo"),
-                "messages": data.get("message_history", []) + data.get("prompt", []),
-                "temperature": data.get("temperature", 0),
-                "frequency_penalty": data.get("frequency_penalty", 0),
-                "presence_penalty": data.get("presence_penalty", 0),
-                "top_p": data.get("top_p", 1),
+            "model": data.get("ai_model", "gpt-3.5-turbo"),
+            "messages": data.get("message_history", []) + data.get("prompt", []),
+            "temperature": data.get("temperature", 0),
+            "frequency_penalty": data.get("frequency_penalty", 0),
+            "presence_penalty": data.get("presence_penalty", 0),
+            "top_p": data.get("top_p", 1)
             }
             if max_tokens := data.get("max_ftokens"):
                 api_params["max_tokens"] = max_tokens
-
-            score = ""
 
             if data.get("skippable_phase"):
                 response = self.skip_phase()
@@ -492,14 +494,14 @@ class RunList(APIView):
                 response = self.no_submission_phase()
             elif data.get("scored_run"):
                 response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
-                instruction = """Please provide a score for the previous user message. Use the following rubric:
+                instruction = """Please provide a score for the last user message. Use the following rubric:
                 """ + data.get("rubric") + """
                 Please output your response as JSON, using this format: { "[criteria 1]": "[score 1]", "[criteria 2]": "[score 2]", "total": "[total score]" }"""
                 api_params["messages"].append({"role": "system", "content": instruction})
-                score = self.get_ai_model_specific_config(api_params, api_params["model"], True)
+                self.get_ai_model_specific_config(api_params, api_params["model"], True, data.get("minimum_score"))
                 api_params["messages"].pop()
             else:
-                response = self.get_ai_model_specific_config(api_params, api_params["model"], False)
+                response = self.get_ai_model_specific_config(api_params, api_params["model"], False, )
 
             usage = response
             cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
@@ -528,16 +530,17 @@ class RunList(APIView):
                 "price_input_token_1M": round(0.5 * usage["prompt_tokens"] / 1_000_000, 6),
                 "price_output_token_1M": round(1.5 * usage["completion_tokens"] / 1_000_000, 6),
                 "scored_run": data["scored_run"],
-                "run_score": score,
+                "run_score": self.ai_score,
                 "minimum_score": data.get("minimum_score"),
                 "rubric": data.get("rubric"),
-                "run_passed": True,
+                "run_passed": self.score_result,
                 "skippable_phase": data.get("skippable_phase")
             }
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
+                #handle hardcoded phase
                 if(usage["ai_response"] == ""):
                     return Response(
                     {"data": [], "status": status.HTTP_200_OK},
