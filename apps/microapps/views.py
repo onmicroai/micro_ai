@@ -40,6 +40,8 @@ def handle_exception(e):
     post=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}),
 )
 class MicroAppList(APIView):
+    permission_classes = [IsAuthenticated]
+
     def add_microapp_user(self, uid, microapp):
         try:
             data = {"role": "admin", "ma_id": microapp.id, "user_id": uid}
@@ -114,6 +116,8 @@ class MicroAppList(APIView):
     put=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}),
 )
 class MicroAppDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get_object(self, pk):
         try:
             return Microapp.objects.get(id=pk)
@@ -173,6 +177,8 @@ class MicroAppDetails(APIView):
 
 
 class CloneMicroApp(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get_microapp(self, pk):
         try:
             return Microapp.objects.get(id=pk)
@@ -213,6 +219,8 @@ class CloneMicroApp(APIView):
     delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}),
 )
 class UserMicroApps(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get_object(self, uid, aid):
         try:
             return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
@@ -330,6 +338,8 @@ class UserMicroApps(APIView):
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
 )
 class UserApps(APIView):
+    permission_classes = [IsAuthenticated]
+
     def get(self, request):
         try:
             current_user = request.user.id
@@ -360,9 +370,7 @@ class UserApps(APIView):
     post=extend_schema(request=RunSerializer, responses={200: RunSerializer}),
 )
 class RunList(APIView):
-
     permission_classes = [IsAuthenticated]
-
     client = OpenAI(api_key=env("OPENAI_API_KEY", default="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"))
 
     def check_api_params(self, data):
