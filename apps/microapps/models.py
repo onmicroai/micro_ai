@@ -21,12 +21,12 @@ class Microapp(models.Model):
 
 
 class MicroAppUserJoin(models.Model):
-    VIEW = 'view'
     ADMIN = 'admin'
+    OWNER = 'owner'
 
     ROLE_CHOICES = [
-        (VIEW, 'View'),
         (ADMIN, 'Admin'),
+        (OWNER, 'Owner')
     ]
 
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
