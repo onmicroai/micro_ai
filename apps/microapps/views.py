@@ -618,8 +618,8 @@ class BaseAIModel:
 
 class AIModelRoute:
    
-   gpt_api_key = env("OPENAI_API_KEY", default="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")
-   gemini_api_key = env("GEMINI_API_KEY", default="AIzaSyCcP8u-shFZngZMxmZVbr74faWB0QHz_ls")
+   gpt_api_key = env("OPENAI_API_KEY")
+   gemini_api_key = env("GEMINI_API_KEY")
    
    @staticmethod
    def get_ai_model(model_name):
