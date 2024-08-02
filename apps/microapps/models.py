@@ -17,7 +17,7 @@ class Microapp(models.Model):
     max_prompts = models.IntegerField()
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
-    global_ma_id = models.ForeignKey(GlobalMicroapps, on_delete=models.CASCADE)
+
 
 
 class MicroAppUserJoin(models.Model):
