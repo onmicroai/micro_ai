@@ -69,8 +69,6 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
             for global_app in global_apps:
             
                 global_app_dict = model_to_dict(global_app)
-            
-                global_app_dict['global_ma_id'] = global_app_dict["id"]
                 del global_app_dict["id"]
 
                 serializer = MicroAppSerializer(data=global_app_dict)
