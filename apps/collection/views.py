@@ -9,11 +9,14 @@ from .serializer import CollectionSerializer, CollectionMicroappSerializer, Coll
 from apps.microapps.models import Microapp
 from apps.microapps.serializer import MicroAppSerializer
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from apps.utils.custom_error_message import ErrorMessages as error
+from apps.utils.custom_permissions import IsCollectionAdmin
+from rest_framework.exceptions import PermissionDenied
 
 def handle_exception(e):
     log.error(e)
     return Response(
-        {"error": "an unexpected error occurred", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+        error.SERVER_ERROR,
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
@@ -35,12 +38,6 @@ class CollectionList(APIView):
         except Exception as e:
             return handle_exception(e)
     
-    def add_collection_microapp():
-        try:
-            pass
-        except Exception as e:
-            return handle_exception(e)
-
     def get(self,request,format=None):
         try:
             collections = Collection.objects.all()
@@ -64,7 +61,7 @@ class CollectionList(APIView):
                     status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": serialize.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -84,9 +81,9 @@ class CollectionDetail(APIView):
         except Collection.DoesNotExist:
             return None
     
-    def get(self,request,pk,format=None):
+    def get(self,request,collection_id,format=None):
         try:
-            collection = self.get_object(pk)
+            collection = self.get_object(collection_id)
             if collection:
                 serializer = CollectionSerializer(collection)
                 return Response(
@@ -94,62 +91,52 @@ class CollectionDetail(APIView):
                 status=status.HTTP_200_OK,
             ) 
             return Response(
-                {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST},
+                error.COLLECTION_NOT_EXIST,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return handle_exception(e)
 
-    def put(self,request,pk,format=None):
+    def put(self,request,collection_id,format=None):
         try:
-            user = request.user.id
-            user_role = CollectionUserJoin.objects.filter(user_id=user, collection_id=pk).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                collection = self.get_object(pk)
-                if collection:
-                    serializer = CollectionSerializer(collection, data=request.data)
-                    if serializer.is_valid():
-                        serializer.save()
-                        return Response(
-                            {"data": serializer.data, "status": status.HTTP_200_OK},
-                            status=status.HTTP_200_OK,
-                        )
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            collection = self.get_object(collection_id)
+            if collection:
+                serializer = CollectionSerializer(collection, data=request.data)
+                if serializer.is_valid():
+                    serializer.save()
                     return Response(
-                        {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
-                        status=status.HTTP_400_BAD_REQUEST,
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
                     )
                 return Response(
-                    {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST},
+                    error.validation_error(serializer.errors),
                     status=status.HTTP_400_BAD_REQUEST,
-                ) 
-            return Response(
-                    {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
                 )
+            return Response(
+                error.COLLECTION_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            ) 
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self,request,pk,format=None):
+    def delete(self,request,collection_id,format=None):
         try:
-            user = request.user.id
-            user_role = CollectionUserJoin.objects.filter(user_id=user, collection_id=pk).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                collection = self.get_object(pk)
-                if collection:
-                    collection.delete()
-                    return Response(status=status.HTTP_200_OK)
-                return Response(
-                    {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            collection = self.get_object(collection_id)
+            if collection:
+                collection.delete()
+                return Response(status=status.HTTP_200_OK)
             return Response(
-                    {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+                error.COLLECTION_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -177,22 +164,18 @@ class UserCollections(APIView):
         
     def post(self,request,format=None):
         try:
-            user = request.user.id
+            self.permission_classes=[IsCollectionAdmin]
+            self.check_permissions(request)
             data = request.data
-            user_role = CollectionUserJoin.objects.filter(collection_id=data.get("collection_id"), user_id=user).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                serializer = CollectionUserSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save()
-                    return Response({"data": serializer.data, "status": status.HTTP_200_OK}, 
-                        status=status.HTTP_200_OK)
-                return Response({"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST}, 
-                        status=status.HTTP_400_BAD_REQUEST)
-            return Response(
-                        {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                        status=status.HTTP_403_FORBIDDEN,)
+            serializer = CollectionUserSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"data": serializer.data, "status": status.HTTP_200_OK}, 
+                    status=status.HTTP_200_OK)
+            return Response(error.validation_error(serializer.errors), 
+                    status=status.HTTP_400_BAD_REQUEST)
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -204,24 +187,18 @@ class UserCollectionsDetail(APIView):
 
     def delete(self,request,collection_id,user_id,format=None):
         try:
-            user = request.user.id
-            data = request.data
-            user_role = CollectionUserJoin.objects.filter(collection_id=collection_id, user_id=user).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                collection_user = CollectionUserJoin.objects.get(collection_id=collection_id, user_id=user_id)
-                if collection_user:
-                    collection_user.delete()
-                    return Response(status=status.HTTP_200_OK)
-                return Response(
-                    {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            collection_user = CollectionUserJoin.objects.get(collection_id=collection_id, user_id=user_id)
+            if collection_user:
+                collection_user.delete()
+                return Response(status=status.HTTP_200_OK)
             return Response(
-                    {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
-                ) 
+                error.USER_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)  
 
@@ -254,46 +231,36 @@ class CollectionMicroAppsDetails(APIView):
 
     def post(self,request,collection_id,app_id,format=None):
         try:
-            user = request.user.id
-            user_role = CollectionUserJoin.objects.filter(collection_id=collection_id, user_id=user).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                data = {"ma_id": app_id, "collection_id": collection_id}
-                serializer = CollectionMicroappSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save()
-                    return Response({"data": serializer.data, "status": status.HTTP_200_OK},status=status.HTTP_200_OK,)  
-                return Response(
-                    {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            data = {"ma_id": app_id, "collection_id": collection_id}
+            serializer = CollectionMicroappSerializer(data=data)
+            if serializer.is_valid():
+                serializer.save()
+                return Response({"data": serializer.data, "status": status.HTTP_200_OK},status=status.HTTP_200_OK,)  
             return Response(
-                    {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
     
     def delete(self,request,collection_id,app_id,format=None):
         try:
-            user = request.user.id
-            user_role = CollectionUserJoin.objects.filter(collection_id=collection_id, user_id=user).values_list(
-                "role", flat=True
-            )
-            if "admin" in user_role:
-                collection = CollectionMaJoin.objects.get(collection_id=collection_id,ma_id=app_id)
-                if collection:
-                    collection.delete()
-                    return Response(status=status.HTTP_200_OK)
-                return Response(
-                    {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            collection = CollectionMaJoin.objects.get(collection_id=collection_id,ma_id=app_id)
+            if collection:
+                collection.delete()
+                return Response(status=status.HTTP_200_OK)
             return Response(
-                    {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
-                ) 
+                error.COLLECTION_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN) 
         except Exception as e:
             return handle_exception(e)
     
