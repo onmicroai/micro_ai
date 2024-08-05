@@ -160,7 +160,7 @@ class CollectionDetail(APIView):
 class UserCollections(APIView):
     permission_classe=[IsAuthenticated]
 
-    def get(self,request,collection_id,user_id,format=None):
+    def get(self,request,format=None):
         try:
             user = request.user.id
             collection_ids = CollectionUserJoin.objects.filter(user_id=user).values_list(
