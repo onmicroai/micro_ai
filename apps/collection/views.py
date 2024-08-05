@@ -38,7 +38,7 @@ class CollectionList(APIView):
         except Exception as e:
             return handle_exception(e)
     
-    def get(self,request,format=None):
+    def get(self, request, format=None):
         try:
             collections = Collection.objects.all()
             serializer = CollectionSerializer(collections, many=True)
@@ -49,7 +49,7 @@ class CollectionList(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def post(self,request,format=None):
+    def post(self, request, format=None):
         try:
             user = request.user.id
             serializer = CollectionSerializer(data=request.data)
@@ -81,7 +81,7 @@ class CollectionDetail(APIView):
         except Collection.DoesNotExist:
             return None
     
-    def get(self,request,collection_id,format=None):
+    def get(self, request, collection_id, format=None):
         try:
             collection = self.get_object(collection_id)
             if collection:
@@ -97,7 +97,7 @@ class CollectionDetail(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def put(self,request,collection_id,format=None):
+    def put(self, request, collection_id, format=None):
         try:
             self.permission_classes = [IsCollectionAdmin]
             self.check_permissions(request)
@@ -123,7 +123,7 @@ class CollectionDetail(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self,request,collection_id,format=None):
+    def delete(self, request, collection_id, format=None):
         try:
             self.permission_classes = [IsCollectionAdmin]
             self.check_permissions(request)
@@ -145,9 +145,9 @@ class CollectionDetail(APIView):
     post=extend_schema(request=CollectionUserSerializer, responses={200: CollectionUserSerializer}, summary= "Add user in a collection"),
 )
 class UserCollections(APIView):
-    permission_classe=[IsAuthenticated]
+    permission_classes=[IsAuthenticated]
 
-    def get(self,request,format=None):
+    def get(self, request, format=None):
         try:
             user = request.user.id
             collection_ids = CollectionUserJoin.objects.filter(user_id=user).values_list(
@@ -162,7 +162,7 @@ class UserCollections(APIView):
         except Exception as e:
             return handle_exception(e)
         
-    def post(self,request,format=None):
+    def post(self, request, format=None):
         try:
             self.permission_classes=[IsCollectionAdmin]
             self.check_permissions(request)
@@ -185,7 +185,7 @@ class UserCollections(APIView):
 class UserCollectionsDetail(APIView):
     permission_classes = [IsAuthenticated]
 
-    def delete(self,request,collection_id,user_id,format=None):
+    def delete(self, request, collection_id, user_id, format=None):
         try:
             self.permission_classes = [IsCollectionAdmin]
             self.check_permissions(request)
@@ -208,7 +208,7 @@ class UserCollectionsDetail(APIView):
 class CollectionMicroAppsList(APIView):
     permission_classes = [IsAuthenticated]
 
-    def get(self,request,collection_id,format=None):
+    def get(self, request, collection_id, format=None):
         try:
             ma_ids = CollectionMaJoin.objects.filter(collection_id=collection_id).values_list(
                 "ma_id", flat=True
@@ -229,7 +229,7 @@ class CollectionMicroAppsList(APIView):
 class CollectionMicroAppsDetails(APIView):
     permission_classes = [IsAuthenticated]
 
-    def post(self,request,collection_id,app_id,format=None):
+    def post(self, request, collection_id, app_id, format=None):
         try:
             self.permission_classes = [IsCollectionAdmin]
             self.check_permissions(request)
@@ -247,7 +247,7 @@ class CollectionMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
     
-    def delete(self,request,collection_id,app_id,format=None):
+    def delete(self, request, collection_id, app_id, format=None):
         try:
             self.permission_classes = [IsCollectionAdmin]
             self.check_permissions(request)
