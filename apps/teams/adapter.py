@@ -3,6 +3,7 @@ from django.forms import model_to_dict
 from django.urls import reverse
 
 from rest_framework import serializers
+from apps.collection.models import Collection
 from apps.collection.serializer import CollectionSerializer
 from apps.collection.views import CollectionList
 from apps.global_microapps.models import GlobalMicroapps
@@ -13,7 +14,7 @@ from apps.users.adapter import EmailAsUsernameAdapter
 from apps.users.models import CustomUser
 from .invitations import clear_invite_from_session
 from django.conf import settings
-
+from apps.utils.custom_error_message import ErrorMessages as error
 
 class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     """
@@ -42,7 +43,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
         try:
             username = form.cleaned_data.get('email')
             if CustomUser.objects.filter(username=username):
-                raise serializers.ValidationError({'error': "email already exists"})
+                raise serializers.ValidationError({'error': error.EMAIL_ALREADY_EXIST})
             else:
                 user = super().save_user(request, user, form, commit)
                 if user.pk is None: 
@@ -71,19 +72,20 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                     micro_app_list.add_microapp_user(self, uid=current_user_id, microapp=microapp)
                     micro_app_list.add_collection_microapp(self, cid, microapp)
         except Exception as e:
-           raise Exception("An error occurred while adding app templates")
-        
-    def collection_details(self,user):
+           raise Exception(error.SERVER_ERROR)
+            
+    def collection_details(self, user):
         try:
             current_user_id = user.id
             collection_list = CollectionList
-            collection_data = {"name": "My Collection"}
-            serializer = CollectionSerializer(data=collection_data)
-            if serializer.is_valid():
-                serialize = serializer.save()
-                collection_list.add_collection_user(self, uid=current_user_id, cid=serialize.id)
-                self.add_app_templates(user,serialize.id)
+            collections_data = [
+                {"name": "My Collection"},
+                {"name": "Shared With Me"},
+            ]
+            collections = Collection.objects.bulk_create([Collection(**data) for data in collections_data])
+            for collection in collections:
+                collection_list.add_collection_user(self, uid=current_user_id, cid=collection.id)
+            self.add_app_templates(user, collections[0].id)
+
         except Exception as e:
-            raise Exception("An error occurred while adding user collection")
-            
-            
+            raise Exception(error.SERVER_ERROR)
