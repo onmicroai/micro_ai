@@ -22,6 +22,8 @@ from apps.microapps.serializer import (
     RunSerializer,
 )
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.collection.models import CollectionMaJoin
+from apps.collection.serializer import CollectionMicroappSerializer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -47,6 +49,19 @@ class MicroAppList(APIView):
         try:
             data = {"role": "owner", "ma_id": microapp.id, "user_id": uid}
             serializer = MicroappUserSerializer(data=data)
+            if serializer.is_valid():
+                return serializer.save()
+            return Response(
+                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+    
+    def add_collection_microapp(self, cid, microapp):
+        try:
+            data = {"ma_id": microapp.id, "collection_id": cid}
+            serializer = CollectionMicroappSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
             return Response(
@@ -96,18 +111,26 @@ class MicroAppList(APIView):
 
     def post(self, request, format=None):
         try:
-            serializer = MicroAppSerializer(data=request.data)
-            if serializer.is_valid():
-                microapp = serializer.save()
-                self.add_microapp_user(uid=request.user.id, microapp=microapp)
+            data = request.data
+            cid = data.get("collection_id")
+            if (cid):
+                serializer = MicroAppSerializer(data=data)
+                if serializer.is_valid():
+                    microapp = serializer.save()
+                    self.add_microapp_user(uid=request.user.id, microapp=microapp)
+                    self.add_collection_microapp(cid,microapp)
+                    return Response(
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
+                    )
                 return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
+                    {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    {"error": "collection_id field missing", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return handle_exception(e)
 
