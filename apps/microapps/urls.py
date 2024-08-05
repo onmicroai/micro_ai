@@ -11,5 +11,4 @@ urlpatterns = [
     path('<int:app_id>/user/<int:user_id>', views.UserMicroApps.as_view(), name="user-role"),
     path('apps', views.UserApps.as_view(), name = "user_apps"),
     path('run', views.RunList.as_view(), name="run_model")
-    # path('collectionapps',views.collection_microapps, name="collection-microapps"),
 ]
