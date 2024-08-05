@@ -15,7 +15,7 @@ from apps.users.models import CustomUser
 from .invitations import clear_invite_from_session
 from django.conf import settings
 from apps.utils.custom_error_message import ErrorMessages as error
-
+from apps.utils.global_varibales import CollectionVariables
 class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     """
     Adapter that checks for an invitation id in the session and redirects
@@ -79,8 +79,8 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
             current_user_id = user.id
             collection_list = CollectionList
             collections_data = [
-                {"name": "My Collection"},
-                {"name": "Shared With Me"},
+                {"name": CollectionVariables.MY_COLLECTION},
+                {"name": CollectionVariables.SHARED_WITH_ME_COLLECTION},
             ]
             collections = Collection.objects.bulk_create([Collection(**data) for data in collections_data])
             for collection in collections:
