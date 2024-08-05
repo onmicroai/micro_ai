@@ -57,7 +57,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
         except Exception as e:
             raise serializers.ValidationError({'error': repr(e)})
             
-    def add_app_templates(self,user,cid):
+    def add_app_templates(self, user, cid):
         
         try:
             current_user_id = user.id
