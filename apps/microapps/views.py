@@ -319,7 +319,7 @@ class UserMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
         
-    def get_user_shared_collection(self,uid,ma_id):
+    def get_user_shared_collection(self, uid, ma_id):
         try:
             shared_collections = Collection.objects.filter(name="Shared With Me")
 
@@ -472,7 +472,7 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def route_model_specific_api_params(self,data):
+    def route_model_specific_api_params(self, data):
         try:
             if "gpt" in data.get("ai_model"):
                 params = {
@@ -510,7 +510,7 @@ class RunList(APIView):
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
     
-    def route_api_response(self,response,data,api_params):
+    def route_api_response(self, response, data, api_params):
        try:
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
@@ -554,7 +554,7 @@ class RunList(APIView):
        except Exception as e:
             log.error(e)
 
-    def build_instruction(self,data):
+    def build_instruction(self, data):
         instruction = (
                 "Please provide a score for the previous user message. Use the following rubric:" 
                 + str(data.get("rubric")) 
@@ -666,7 +666,7 @@ class BaseAIModel:
     def get_response(self, api_params):
         pass
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         pass
 
     def extract_score(self, response):
@@ -694,7 +694,7 @@ class AIModelRoute:
            return handle_exception(e)
     
 class GPTModel(BaseAIModel):
-    def __init__(self,api_key):
+    def __init__(self, api_key):
         super().__init__(api_key)
         self.client = OpenAI(api_key=self.api_key)
 
@@ -716,7 +716,7 @@ class GPTModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         try:
             response = self.client.chat.completions.create(**api_params)
             usage = response.usage
@@ -752,14 +752,14 @@ class GPTModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_input_token_price(self,usage):
+    def calcluate_input_token_price(self, usage):
         try:
             price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_output_token_price(self,usage):
+    def calcluate_output_token_price(self, usage):
         try:
             price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
@@ -767,7 +767,7 @@ class GPTModel(BaseAIModel):
             return handle_exception(e)
 
 class GeminiModel(BaseAIModel):
-    def __init__(self,api_key,model):
+    def __init__(self, api_key, model):
         super().__init__(api_key)
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(model)
@@ -795,7 +795,7 @@ class GeminiModel(BaseAIModel):
         except Exception as e:
              return handle_exception(e)
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
@@ -836,14 +836,14 @@ class GeminiModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_input_token_price(self,usage):
+    def calcluate_input_token_price(self, usage):
         try:
             price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_output_token_price(self,usage):
+    def calcluate_output_token_price(self, usage):
         try:
             price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
