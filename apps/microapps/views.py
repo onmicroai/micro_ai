@@ -27,8 +27,8 @@ from apps.microapps.serializer import (
     RunSerializer,
 )
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
-from apps.collection.models import CollectionMaJoin
-from apps.collection.serializer import CollectionMicroappSerializer
+from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
+from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 
@@ -319,11 +319,30 @@ class UserMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
         
+    def get_user_shared_collection(self,uid,ma_id):
+        try:
+            shared_collections = Collection.objects.filter(name="Shared With Me")
+
+            collection_user_joins = CollectionUserJoin.objects.filter(collection_id__in=shared_collections,user_id=uid)
+            collection_ids = collection_user_joins.values_list('collection_id', flat=True).first()
+            data = {"collection_id": collection_ids, "ma_id": ma_id}
+            serializer = CollectionMicroappSerializer(data=data)
+            if serializer.is_valid():   
+                serializer.save()
+                return True
+            return Response(
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+        
     def post(self, request, format=None):
         try:
             self.permission_classes = [IsOwner]
             self.check_permissions(request)
             data = request.data
+            self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
