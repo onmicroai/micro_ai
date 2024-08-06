@@ -13,6 +13,11 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from rest_framework.permissions import IsAuthenticated
 from openai import OpenAI
 import google.generativeai as genai
+from apps.utils.custom_error_message import ErrorMessages as error
+from apps.utils.custom_permissions import (
+    IsAdminOrOwner,
+    IsOwner
+)
 
 from apps.microapps.serializer import (
     MicroAppSerializer,
@@ -22,6 +27,10 @@ from apps.microapps.serializer import (
     RunSerializer,
 )
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
+from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
+from rest_framework.exceptions import PermissionDenied
+from rest_framework import generics
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -31,10 +40,9 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 def handle_exception(e):
     log.error(e)
     return Response(
-        {"error": "an unexpected error occurred", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
+        error.SERVER_ERROR,
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
-
 
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
@@ -45,12 +53,25 @@ class MicroAppList(APIView):
 
     def add_microapp_user(self, uid, microapp):
         try:
-            data = {"role": "admin", "ma_id": microapp.id, "user_id": uid}
+            data = {"role": "owner", "ma_id": microapp.id, "user_id": uid}
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+    
+    def add_collection_microapp(self, cid, microapp):
+        try:
+            data = {"ma_id": microapp.id, "collection_id": cid}
+            serializer = CollectionMicroappSerializer(data=data)
+            if serializer.is_valid():
+                return serializer.save()
+            return Response(
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -64,7 +85,7 @@ class MicroAppList(APIView):
                 asset = serializer.save()
                 return self.add_microapp_assets(microapp=microapp, asset=asset)
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -77,7 +98,7 @@ class MicroAppList(APIView):
             if serializer.is_valid():
                 return serializer.save()
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -96,18 +117,26 @@ class MicroAppList(APIView):
 
     def post(self, request, format=None):
         try:
-            serializer = MicroAppSerializer(data=request.data)
-            if serializer.is_valid():
-                microapp = serializer.save()
-                self.add_microapp_user(uid=request.user.id, microapp=microapp)
+            data = request.data
+            cid = data.get("collection_id")
+            if (cid):
+                serializer = MicroAppSerializer(data=data)
+                if serializer.is_valid():
+                    microapp = serializer.save()
+                    self.add_microapp_user(uid=request.user.id, microapp=microapp)
+                    self.add_collection_microapp(cid,microapp)
+                    return Response(
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
+                    )
                 return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
                 )
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    error.FIELD_MISSING,
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
         except Exception as e:
             return handle_exception(e)
 
@@ -125,9 +154,9 @@ class MicroAppDetails(APIView):
         except Microapp.DoesNotExist:
             return None
 
-    def get(self, request, pk, format=None):
+    def get(self, request, app_id, format=None):
         try:
-            snippet = self.get_object(pk)
+            snippet = self.get_object(app_id)
             if snippet:
                 serializer = MicroAppSerializer(snippet)
                 return Response(
@@ -135,15 +164,17 @@ class MicroAppDetails(APIView):
                     status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": "microapp not exist", "status": status.HTTP_400_BAD_REQUEST},
+                error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
             return handle_exception(e)
 
-    def put(self, request, pk, format=None):
+    def put(self, request, app_id, format=None):
         try:
-            micro_apps = self.get_object(pk)
+            self.permission_classes = [IsAdminOrOwner]
+            self.check_permissions(request)
+            micro_apps = self.get_object(app_id)
             if micro_apps:
                 serializer = MicroAppSerializer(micro_apps, data=request.data)
                 if serializer.is_valid():
@@ -153,26 +184,30 @@ class MicroAppDetails(APIView):
                         status=status.HTTP_200_OK,
                     )
                 return Response(
-                    {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                    error.validation_error(serializer.errors),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             return Response(
-                {"error": "microapp not exist", "status": status.HTTP_400_BAD_REQUEST},
+                error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self, request, pk, format=None):
+    def delete(self, request, app_id, format=None):
         try:
-            micro_apps = self.get_object(pk)
+            self.permission_classes = [IsOwner]
+            self.check_permissions(request)
+            micro_apps = self.get_object(app_id)
             if micro_apps:
                 micro_apps.delete()
                 return Response(status=status.HTTP_200_OK)
-            return Response(
-                {"error": "microapp not exist", "status": status.HTTP_400_BAD_REQUEST},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
+        
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -191,7 +226,7 @@ class CloneMicroApp(APIView):
             global_app = self.get_microapp(pk)
             if not global_app:
                 return Response(
-                    {"error": "microapp not exist", "status": status.HTTP_400_BAD_REQUEST},
+                    error.MICROAPP_NOT_EXIST,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             global_app_dict = model_to_dict(global_app)
@@ -206,7 +241,7 @@ class CloneMicroApp(APIView):
                     status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -214,10 +249,8 @@ class CloneMicroApp(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}),
-    post=extend_schema(request=MicroappUserSerializer, responses={200: MicroappUserSerializer}),
-    put=extend_schema(request=MicroappUserSerializer, responses={201: MicroappUserSerializer}),
-    delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}),
+    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
+    delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
 )
 class UserMicroApps(APIView):
     permission_classes = [IsAuthenticated]
@@ -245,21 +278,71 @@ class UserMicroApps(APIView):
                         status=status.HTTP_200_OK,
                     )
                 return Response(
-                    {"error": "user not found", "status": status.HTTP_400_BAD_REQUEST},
+                    error.USER_NOT_EXIST,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            usermicroapps = MicroAppUserJoin.objects.filter(ma_id=app_id)
-            serializer = MicroappUserSerializer(usermicroapps, many=True)
-            return Response(
-                {"data": serializer.data, "status": status.HTTP_200_OK},
-                status=status.HTTP_200_OK,
-            )
         except Exception as e:
             return handle_exception(e)
 
-    def post(self, request, app_id, user_id, format=None):
+    def delete(self, request, app_id, user_id, format=None):
         try:
-            data = {"ma_id": app_id, "user_id": user_id, "role": request.data.get("role")}
+            self.permission_classes = [IsOwner]
+            self.check_permissions(request)
+            if user_id:
+                userapp = self.get_object(user_id, app_id)
+                if userapp:
+                    userapp.delete()
+                    return Response(status=status.HTTP_200_OK)
+                return Response(
+                    error.MICROAPP_NOT_EXIST,
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                error.USER_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return handle_exception(e)
+        
+@extend_schema_view(
+    post=extend_schema(request=MicroappUserSerializer, responses={200: MicroappUserSerializer}, summary="Add user in a microapp"),
+    put=extend_schema(request=MicroappUserSerializer, responses={201: MicroappUserSerializer}, summary= "Update user role of a microapp"),
+)
+class UserMicroAppsDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, uid, aid):
+        try:
+            return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
+        except Exception as e:
+            return handle_exception(e)
+        
+    def get_user_shared_collection(self, uid, ma_id):
+        try:
+            shared_collections = Collection.objects.filter(name="Shared With Me")
+
+            collection_user_joins = CollectionUserJoin.objects.filter(collection_id__in=shared_collections,user_id=uid)
+            collection_ids = collection_user_joins.values_list('collection_id', flat=True).first()
+            data = {"collection_id": collection_ids, "ma_id": ma_id}
+            serializer = CollectionMicroappSerializer(data=data)
+            if serializer.is_valid():   
+                serializer.save()
+                return True
+            return Response(
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+        
+    def post(self, request, format=None):
+        try:
+            self.permission_classes = [IsOwner]
+            self.check_permissions(request)
+            data = request.data
+            self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
@@ -268,73 +351,50 @@ class UserMicroApps(APIView):
                     status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
-
-    def put(self, request, app_id, user_id, format=None):
+    
+    def put(self, request, format=None):
         try:
-            role = request.data.get("role")
-            current_user = request.user.id
-            current_user_role = self.get_object(current_user, app_id)
-
-            if current_user_role:
-                current_user_role_dict = model_to_dict(current_user_role)
-                if current_user_role_dict["role"] == "admin":
-                    userapp = self.get_object(user_id, app_id)
-                    user_app_role = model_to_dict(userapp)
-                    user_app_role["role"] = role
-                    serializer = MicroappUserSerializer(userapp, data=user_app_role)
-                    if serializer.is_valid():
-                        serializer.save()
-                        return Response(
-                            {"data": serializer.data, "status": status.HTTP_200_OK},
-                            status=status.HTTP_200_OK,
-                        )
-                    return Response(
-                        {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+            self.permission_classes = [IsOwner]
+            self.check_permissions(request)
+            data = request.data
+            userapp = self.get_object(data.get("user_id"), data.get("ma_id"))
+            serializer = MicroappUserSerializer(userapp, data=data)
+            if serializer.is_valid():
+                serializer.save()
                 return Response(
-                    {"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                status=status.HTTP_403_FORBIDDEN,
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self, request, app_id, user_id, format=None):
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
+)
+class UserMicroAppList(generics.ListAPIView):
+    serializer_class = MicroappUserSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
         try:
-            current_user = request.user.id
-            current_user_role = self.get_object(current_user, app_id)
-            if user_id and current_user_role:
-                current_user_role_dict = model_to_dict(current_user_role)
-                if current_user_role_dict["role"] == "admin":
-                    userapp = self.get_object(user_id, app_id)
-                    if userapp:
-                        userapp.delete()
-                        return Response(status=status.HTTP_200_OK)
-                    return Response(
-                        {"error": "microapp not found", "status": status.HTTP_404_NOT_FOUND},
-                        status=status.HTTP_404_NOT_FOUND,
-                    )
-                return Response(
-                    {"error": "Operation not allowed", "status": status.HTTP_403_FORBIDDEN},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
-            return Response(
-                {"error": "user_id not found", "status": status.HTTP_404_NOT_FOUND},
-                status=status.HTTP_404_NOT_FOUND,
-            )
+            app_id = self.kwargs['app_id']
+            return MicroAppUserJoin.objects.filter(ma_id=app_id)
         except Exception as e:
             return handle_exception(e)
-
-
+            
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
 )
@@ -412,7 +472,7 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def route_model_specific_api_params(self,data):
+    def route_model_specific_api_params(self, data):
         try:
             if "gpt" in data.get("ai_model"):
                 params = {
@@ -450,7 +510,7 @@ class RunList(APIView):
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
     
-    def route_api_response(self,response,data,api_params):
+    def route_api_response(self, response, data, api_params):
        try:
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
@@ -494,7 +554,7 @@ class RunList(APIView):
        except Exception as e:
             log.error(e)
 
-    def build_instruction(self,data):
+    def build_instruction(self, data):
         instruction = (
                 "Please provide a score for the previous user message. Use the following rubric:" 
                 + str(data.get("rubric")) 
@@ -521,13 +581,13 @@ class RunList(APIView):
             data = request.data
             if not self.check_payload(data):
                 return Response(
-                    {"error": "Invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST},
+                    error.FIELD_MISSING,
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             ai_validation = self.check_api_params(data) 
             if not ai_validation["status"]:
                 return Response(
-                    {"error": ai_validation["message"], "status": status.HTTP_400_BAD_REQUEST},
+                    error.validation_error(ai_validation["message"]),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             api_params = self.route_model_specific_api_params(data)
@@ -573,7 +633,7 @@ class RunList(APIView):
                     status=status.HTTP_200_OK,
                 )
             return Response(
-                {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -606,7 +666,7 @@ class BaseAIModel:
     def get_response(self, api_params):
         pass
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         pass
 
     def extract_score(self, response):
@@ -629,12 +689,12 @@ class AIModelRoute:
             elif "gemini" in model_name:
                 return GeminiModel(AIModelRoute.gemini_api_key,model_name)
             else:
-                raise ValueError("Unsupported AI model")
+                raise ValueError(error.UNSUPPORTED_AI_MODEL)
         except Exception as e:
            return handle_exception(e)
     
 class GPTModel(BaseAIModel):
-    def __init__(self,api_key):
+    def __init__(self, api_key):
         super().__init__(api_key)
         self.client = OpenAI(api_key=self.api_key)
 
@@ -656,7 +716,7 @@ class GPTModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         try:
             response = self.client.chat.completions.create(**api_params)
             usage = response.usage
@@ -692,14 +752,14 @@ class GPTModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_input_token_price(self,usage):
+    def calcluate_input_token_price(self, usage):
         try:
             price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_output_token_price(self,usage):
+    def calcluate_output_token_price(self, usage):
         try:
             price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
@@ -707,7 +767,7 @@ class GPTModel(BaseAIModel):
             return handle_exception(e)
 
 class GeminiModel(BaseAIModel):
-    def __init__(self,api_key,model):
+    def __init__(self, api_key, model):
         super().__init__(api_key)
         genai.configure(api_key=self.api_key)
         self.model = genai.GenerativeModel(model)
@@ -735,7 +795,7 @@ class GeminiModel(BaseAIModel):
         except Exception as e:
              return handle_exception(e)
 
-    def score_response(self,api_params,minimum_score):
+    def score_response(self, api_params, minimum_score):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
@@ -776,14 +836,14 @@ class GeminiModel(BaseAIModel):
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_input_token_price(self,usage):
+    def calcluate_input_token_price(self, usage):
         try:
             price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
-    def calcluate_output_token_price(self,usage):
+    def calcluate_output_token_price(self, usage):
         try:
             price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M

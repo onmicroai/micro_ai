@@ -28,6 +28,7 @@ from apps.web.urls import team_urlpatterns as web_team_urls
 from apps.web.sitemaps import StaticViewSitemap
 from apps.global_microapps.urls import urlpatterns as global_app_urls
 from apps.microapps.urls import urlpatterns as microapp_urls
+from apps.collection.urls import urlpatterns as collection_urls
 
 
 sitemaps = {
@@ -56,8 +57,8 @@ urlpatterns = [
     path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
     # cutom API's
-    # path("globalapps/", include(global_app_urls)),
     path("microapps/", include(microapp_urls)),
+    path("collection/", include(collection_urls)),
     # auth API
     path("api/auth/", include("apps.authentication.urls")),
     # API docs
