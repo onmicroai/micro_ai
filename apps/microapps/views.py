@@ -492,9 +492,21 @@ class RunList(APIView):
                 "model": data.get("ai_model"),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
                 "temperature": data.get("temperature", 0),
+                "top_p": data.get("top_p", 1),
                 "frequency_penalty": data.get("frequency_penalty", 0),
                 "presence_penalty": data.get("presence_penalty", 0),
-                "top_p": data.get("top_p", 1)
+                }
+                if max_tokens := data.get("max_tokens"):
+                    params["max_tokens"] = max_tokens
+                return params
+            elif "claude" in data.get("ai_model"):
+                params = {
+                "model": data.get("ai_model"),
+                "messages": data.get("message_history", []) + data.get("prompt", []),
+                "temperature": data.get("temperature", 0),
+                "top_p": data.get("top_p", 1),
+                "frequency_penalty": data.get("frequency_penalty", 0),
+                "presence_penalty": data.get("presence_penalty", 0),
                 }
                 if max_tokens := data.get("max_tokens"):
                     params["max_tokens"] = max_tokens
@@ -558,21 +570,19 @@ class RunList(APIView):
                 )
         return instruction
 
-    def set_model_specific_message(self, message, model_name):
+    def set_model_specific_message(self, message,data):
         try:
             new_message = []
-            if "gemini" in model_name:
+            if "gemini" in data.get('ai_model'):
                 for msg in message:
-                 new_message.append({"parts": msg["content"],  "role": "model" if msg["role"] == "system" else "user"})
+                 new_message.append({"parts": msg["content"],  "role": "model" if msg["role"] in ["system", "assistant"] else "user"})
                 return new_message
-            elif "claude" in model_name:
-                if(not message[0]["role"] == "user"):
-                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE)
+            elif "claude" in data.get('ai_model'):
+                new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE) if (data.get('prompt') or data.get('message_history')) and not message[0]["role"] == "user" else None
                 for msg in message:
                     new_message.append({"content": msg["content"],"role": "assistant" if msg["role"] in ["system", "assistant"] else "user"})
-                print(f"MESSAGE= {new_message}")
                 return new_message
-            elif "gpt" in model_name:
+            elif "gpt" in data.get('ai_model'):
                 return message
         except Exception as e:
             log.error(e)
@@ -593,7 +603,7 @@ class RunList(APIView):
                 )
             api_params = self.route_model_specific_api_params(data)
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
-            api_params["messages"] = self.set_model_specific_message(api_params["messages"], data.get("ai_model"))
+            api_params["messages"] = self.set_model_specific_message(api_params["messages"], data)
             if data.get("skippable_phase"):
                 response = self.skip_phase()
             elif data.get("no_submission") and data.get("prompt") is None:
@@ -613,7 +623,6 @@ class RunList(APIView):
                         api_params["messages"].append({"role": "user", "content": instruction})
                     else:
                         api_params["messages"].append({"role": "user", "content": instruction})
-                print(f"API_PARA= {api_params['messages']}")
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
@@ -787,9 +796,9 @@ class GeminiModel(BaseAIModel):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
-                temperature=1,
-                top_p= 0.1,
-                max_output_tokens=api_params["max_tokens"],
+                temperature = api_params["temperature"],
+                top_p = api_params["top_p"],
+                max_output_tokens = api_params["max_tokens"]
             ))   
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
@@ -810,9 +819,9 @@ class GeminiModel(BaseAIModel):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
-                temperature=1,
-                top_p= 0.1,
-                max_output_tokens=api_params["max_tokens"],
+                temperature = api_params["temperature"],
+                top_p = api_params["top_p"],
+                max_output_tokens = api_params["max_tokens"]
             ))   
             usage = response.usage_metadata
             ai_score = response.candidates[0].content.parts[0].text
@@ -870,16 +879,14 @@ class ClaudeModel(BaseAIModel):
         try:
             response = self.client.messages.create(
             max_tokens = api_params["max_tokens"],
-            messages=api_params["messages"], 
-            model=api_params["model"],
+            messages = api_params["messages"], 
+            model = api_params["model"],
             temperature = api_params["temperature"],
             top_p = api_params["top_p"],
-            ),
-            print("API Response:", response)             
+            ),             
             message_data = response[0]
             ai_response = message_data.content[0].text
             usage = message_data.usage
-            print("Usage Information:", usage)
 
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
             return {
@@ -896,19 +903,16 @@ class ClaudeModel(BaseAIModel):
 
     def score_response(self, api_params, minimum_score):
         try:
-            print(f"API_PARA= {api_params['messages']}")
             response = self.client.messages.create(
             max_tokens = api_params["max_tokens"],
-            messages=api_params["messages"], 
-            model=api_params["model"],
+            messages = api_params["messages"], 
+            model = api_params["model"],
             temperature = api_params["temperature"],
             top_p = api_params["top_p"],
-            ),
-            print("API Response:", response)             
+            ),             
             message_data = response[0]
             ai_score = message_data.content[0].text
             usage = message_data.usage
-            print("Usage Information:", usage)
             score_result = False
             if self.extract_score(ai_score) >= minimum_score:
                 score_result = True
