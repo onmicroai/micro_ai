@@ -14,8 +14,10 @@ click==8.1.7
     #   pip-tools
 distlib==0.3.8
     # via virtualenv
-filelock==3.14.0
-    # via virtualenv
+filelock==3.15.4
+    # via
+    #   -c requirements/requirements.txt
+    #   virtualenv
 identify==2.5.36
     # via pre-commit
 nodeenv==1.9.0
