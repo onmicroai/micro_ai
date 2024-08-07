@@ -61,7 +61,7 @@ class Run(models.Model):
     cost = models.DecimalField(max_digits=20, decimal_places=6)
     # message_history = models.JSONField()
     no_submission = models.BooleanField()
-    ai_model = models.CharField(max_length=20)
+    ai_model = models.CharField(max_length=50)
     temperature = models.FloatField()
     max_tokens = models.IntegerField()
     top_p = models.FloatField()
