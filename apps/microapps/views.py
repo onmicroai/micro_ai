@@ -13,12 +13,12 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from rest_framework.permissions import IsAuthenticated
 from openai import OpenAI
 import google.generativeai as genai
+from anthropic import Anthropic
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
     IsOwner
 )
-
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -26,6 +26,7 @@ from apps.microapps.serializer import (
     AssetsMicroappSerializer,
     RunSerializer,
 )
+from apps.utils.global_varibales import AIModelVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
@@ -474,7 +475,7 @@ class RunList(APIView):
 
     def route_model_specific_api_params(self, data):
         try:
-            if "gpt" in data.get("ai_model"):
+            if "gpt" in data.get("ai_model") or "claude" in data.get("ai_model"):
                 params = {
                 "model": data.get("ai_model"),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
@@ -512,6 +513,7 @@ class RunList(APIView):
     
     def route_api_response(self, response, data, api_params):
        try:
+            usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
             run_data={
@@ -537,20 +539,12 @@ class RunList(APIView):
                 "credits": 0,
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
-                "price_output_token_1M": response["price_output_token_1M"]
+                "price_output_token_1M": response["price_output_token_1M"],
+                "response": usage["ai_response"],
+                "input_tokens": usage["prompt_tokens"],
+                "output_tokens": usage["completion_tokens"]
                 }
-            if "gpt" in data.get("ai_model"):
-                usage = response
-                run_data["response"]= usage["ai_response"]
-                run_data["input_tokens"]= usage["prompt_tokens"]
-                run_data["output_tokens"]= usage["completion_tokens"]
-            elif "gemini" in data.get("ai_model"):
-                usage = response
-                run_data["response"]= usage["ai_response"]
-                run_data["input_tokens"]= usage["prompt_tokens"]
-                run_data["output_tokens"]= usage["completion_tokens"]
             return run_data
-        
        except Exception as e:
             log.error(e)
 
@@ -570,6 +564,13 @@ class RunList(APIView):
             if "gemini" in model_name:
                 for msg in message:
                  new_message.append({"parts": msg["content"],  "role": "model" if msg["role"] == "system" else "user"})
+                return new_message
+            elif "claude" in model_name:
+                if(not message[0]["role"] == "user"):
+                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE)
+                for msg in message:
+                    new_message.append({"content": msg["content"],"role": "assistant" if msg["role"] in ["system", "assistant"] else "user"})
+                print(f"MESSAGE= {new_message}")
                 return new_message
             elif "gpt" in model_name:
                 return message
@@ -606,6 +607,13 @@ class RunList(APIView):
                     api_params["messages"].append({"role": "system", "content": instruction})
                 elif "gemini" in data.get("ai_model"):
                     api_params["messages"].append({"role": "model", "parts": instruction})
+                elif "claude" in data.get("ai_model"):
+                    if api_params["messages"][-1]["role"] == "user":
+                        api_params["messages"].append({"role": "assistant", "content": "What is the next instruction"})
+                        api_params["messages"].append({"role": "user", "content": instruction})
+                    else:
+                        api_params["messages"].append({"role": "user", "content": instruction})
+                print(f"API_PARA= {api_params['messages']}")
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
@@ -680,6 +688,7 @@ class AIModelRoute:
    
    gpt_api_key = env("OPENAI_API_KEY")
    gemini_api_key = env("GEMINI_API_KEY")
+   claude_api_key=env("CLAUDE_API_KEY")
    
    @staticmethod
    def get_ai_model(model_name):
@@ -688,6 +697,8 @@ class AIModelRoute:
                 return GPTModel(AIModelRoute.gpt_api_key)
             elif "gemini" in model_name:
                 return GeminiModel(AIModelRoute.gemini_api_key,model_name)
+            elif "claude" in model_name:
+                return ClaudeModel(AIModelRoute.claude_api_key)
             else:
                 raise ValueError(error.UNSUPPORTED_AI_MODEL)
         except Exception as e:
@@ -849,4 +860,97 @@ class GeminiModel(BaseAIModel):
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
+
+class ClaudeModel(BaseAIModel):
+    def __init__(self, api_key):
+        super().__init__(api_key)
+        self.client = Anthropic(api_key=api_key)
+
+    def get_response(self, api_params):
+        try:
+            response = self.client.messages.create(
+            max_tokens = api_params["max_tokens"],
+            messages=api_params["messages"], 
+            model=api_params["model"],
+            temperature = api_params["temperature"],
+            top_p = api_params["top_p"],
+            ),
+            print("API Response:", response)             
+            message_data = response[0]
+            ai_response = message_data.content[0].text
+            usage = message_data.usage
+            print("Usage Information:", usage)
+
+            calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
+            return {
+                "completion_tokens": usage.output_tokens,
+                "prompt_tokens": usage.input_tokens,
+                "total_tokens": usage.input_tokens + usage.output_tokens,
+                "ai_response": ai_response,
+                "cost": self.calcluate_input_token_price(calculation),
+                "price_input_token_1M": self.calcluate_input_token_price(calculation),
+                "price_output_token_1M": self.calcluate_output_token_price(calculation)
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def score_response(self, api_params, minimum_score):
+        try:
+            print(f"API_PARA= {api_params['messages']}")
+            response = self.client.messages.create(
+            max_tokens = api_params["max_tokens"],
+            messages=api_params["messages"], 
+            model=api_params["model"],
+            temperature = api_params["temperature"],
+            top_p = api_params["top_p"],
+            ),
+            print("API Response:", response)             
+            message_data = response[0]
+            ai_score = message_data.content[0].text
+            usage = message_data.usage
+            print("Usage Information:", usage)
+            score_result = False
+            if self.extract_score(ai_score) >= minimum_score:
+                score_result = True
+            return {
+                    "completion_tokens": usage.output_tokens,
+                    "prompt_tokens": usage.input_tokens,
+                    "total_tokens": usage.output_tokens + usage.input_tokens,
+                    "ai_score": ai_score,
+                    "score_result": score_result
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def extract_score(self, response):
+        try:
+            pattern = r'"total":\s*"?(\d+)"?'
+            match = re.search(pattern, response)
+            if match:
+                return int(match.group(1))
+            else:
+                return 0
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_cost(self, usage):
+        try:
+            cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            return cost
+        except Exception as e:
+            return handle_exception(e)
     
+    def calcluate_input_token_price(self, usage):
+        try:
+            price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
+            return price_input_token_1M
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calcluate_output_token_price(self, usage):
+        try:
+            price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            return price_output_token_1M
+        except Exception as e:
+            return handle_exception(e)
+   
