@@ -18,7 +18,8 @@ class Microapp(models.Model):
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
 
-
+    def __str__(self):
+        return self.title
 
 class MicroAppUserJoin(models.Model):
     ADMIN = 'admin'
@@ -32,6 +33,9 @@ class MicroAppUserJoin(models.Model):
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
     user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+
+    def __str__(self):
+        return f"{self.user_id} {self.role}"
 
 class Asset(models.Model):
     file = models.TextField()
@@ -59,7 +63,6 @@ class Run(models.Model):
     response = models.TextField(blank=True)
     credits = models.FloatField()
     cost = models.DecimalField(max_digits=20, decimal_places=6)
-    # message_history = models.JSONField()
     no_submission = models.BooleanField()
     ai_model = models.CharField(max_length=50)
     temperature = models.FloatField()
@@ -77,3 +80,6 @@ class Run(models.Model):
     rubric = models.TextField()
     run_passed = models.BooleanField(default=True)
     skippable_phase = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.ai_model
