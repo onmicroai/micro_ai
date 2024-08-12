@@ -1,6 +1,6 @@
+# \micro_ai\apps\microapps\urls.py
 from django.urls import path
 from . import views
-from rest_framework.urlpatterns import format_suffix_patterns
 
 urlpatterns = [
     path('', views.MicroAppList.as_view(), name='microapp_list'), 
@@ -10,5 +10,6 @@ urlpatterns = [
     path('app/<int:app_id>', views.UserMicroAppList.as_view(), name="users-roles"),
     path('<int:app_id>/user/<int:user_id>', views.UserMicroApps.as_view(), name="user-role"),
     path('apps', views.UserApps.as_view(), name = "user_apps"),
-    path('run', views.RunList.as_view(), name="run_model")
+    path('run', views.RunList.as_view(), name="run_model"),
+    path('models/available/', views.AvailableModelsView.as_view(), name="available_models"),
 ]
