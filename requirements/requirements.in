@@ -21,3 +21,4 @@ django-celery-beat
 whitenoise[brotli]
 openai==1.2.0
 google-generativeai
+anthropic
