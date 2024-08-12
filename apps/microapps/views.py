@@ -13,12 +13,12 @@ from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiPara
 from rest_framework.permissions import IsAuthenticated
 from openai import OpenAI
 import google.generativeai as genai
+from anthropic import Anthropic
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
     IsOwner
 )
-
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -26,6 +26,7 @@ from apps.microapps.serializer import (
     AssetsMicroappSerializer,
     RunSerializer,
 )
+from apps.utils.global_varibales import AIModelVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
@@ -438,14 +439,18 @@ class RunList(APIView):
     def check_api_params(self, data):
         try:
             params = {
-                "temperature": (data.get("temperature"), 0, 2),
+                "temperature": (data.get("temperature"), 0, 1 if 'claude' in data.get('ai_model') else 2),
                 "frequency_penalty": (data.get("frequency_penalty"), -2, 2),
                 "presence_penalty": (data.get("presence_penalty"), -2, 2),
                 "top_p": (data.get("top_p"), 0, 1),
             }
             for param, (value, min_val, max_val) in params.items():
-                if value is not None and not (min_val <= value <= max_val):
-                    return {"status": False, "message": f"Invalid {param} value"}
+                if "claude" in data.get('ai_model') and param in ['top_p', 'temperature']:
+                    if value is not None and not (value == -1 or (min_val <= value <= max_val)):
+                        return {"status": False, "message": f"Invalid {param} value"}
+                else:
+                    if value is not None and not (min_val <= value <= max_val):
+                        return {"status": False, "message": f"Invalid {param} value"}
 
             return {"status": True}
         except Exception as e:
@@ -461,6 +466,7 @@ class RunList(APIView):
                 "scored_run",
                 "skippable_phase",
             ]
+            required_fields.append("prompt") if data.get("no_submission") == False else None
             for field in required_fields:
                 if data.get(field) is None:
                     return False
@@ -472,32 +478,19 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def route_model_specific_api_params(self, data):
+    def set_api_params(self, data):
         try:
-            if "gpt" in data.get("ai_model"):
-                params = {
-                "model": data.get("ai_model"),
-                "messages": data.get("message_history", []) + data.get("prompt", []),
-                "temperature": data.get("temperature", 0),
-                "frequency_penalty": data.get("frequency_penalty", 0),
-                "presence_penalty": data.get("presence_penalty", 0),
-                "top_p": data.get("top_p", 1)
-                }
-                if max_tokens := data.get("max_tokens"):
-                    params["max_tokens"] = max_tokens
-                return params
-            elif "gemini" in data.get("ai_model"):
-                params = {
-                "model": data.get("ai_model"),
-                "messages": data.get("message_history", []) + data.get("prompt", []),
-                "temperature": data.get("temperature", 0),
-                "frequency_penalty": data.get("frequency_penalty", 0),
-                "presence_penalty": data.get("presence_penalty", 0),
-                "top_p": data.get("top_p", 1)
-                }
-                if max_tokens := data.get("max_tokens"):
-                    params["max_tokens"] = max_tokens
-                return params
+            params = {
+            "model": data.get("ai_model"),
+            "messages": data.get("message_history", []) + data.get("prompt", []),
+            "temperature": data.get("temperature", 0),
+            "frequency_penalty": data.get("frequency_penalty", 0),
+            "presence_penalty": data.get("presence_penalty", 0),
+            "top_p": data.get("top_p", 1)
+            }
+            if max_tokens := data.get("max_tokens"):
+                params["max_tokens"] = max_tokens
+            return params
         except Exception as e:
             log.error(e)
 
@@ -512,6 +505,7 @@ class RunList(APIView):
     
     def route_api_response(self, response, data, api_params):
        try:
+            usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
             run_data={
@@ -537,20 +531,12 @@ class RunList(APIView):
                 "credits": 0,
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
-                "price_output_token_1M": response["price_output_token_1M"]
+                "price_output_token_1M": response["price_output_token_1M"],
+                "response": usage["ai_response"],
+                "input_tokens": usage["prompt_tokens"],
+                "output_tokens": usage["completion_tokens"]
                 }
-            if "gpt" in data.get("ai_model"):
-                usage = response
-                run_data["response"]= usage["ai_response"]
-                run_data["input_tokens"]= usage["prompt_tokens"]
-                run_data["output_tokens"]= usage["completion_tokens"]
-            elif "gemini" in data.get("ai_model"):
-                usage = response
-                run_data["response"]= usage["ai_response"]
-                run_data["input_tokens"]= usage["prompt_tokens"]
-                run_data["output_tokens"]= usage["completion_tokens"]
             return run_data
-        
        except Exception as e:
             log.error(e)
 
@@ -564,17 +550,33 @@ class RunList(APIView):
                 )
         return instruction
 
-    def set_model_specific_message(self, message, model_name):
+    def set_model_specific_message(self, message, data):
         try:
+            ai_model = data.get('ai_model')
             new_message = []
-            if "gemini" in model_name:
-                for msg in message:
-                 new_message.append({"parts": msg["content"],  "role": "model" if msg["role"] == "system" else "user"})
-                return new_message
-            elif "gpt" in model_name:
-                return message
+            if "gemini" in ai_model:
+                new_message = [
+                    {"parts": msg["content"], "role": "model" if msg["role"] in ["system", "assistant", "model"] else "user"}
+                    for msg in message
+                ]
+            elif "claude" in ai_model:
+                if (data.get('prompt') or data.get('message_history')) and message[0]["role"] != "user":
+                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_FIRST)
+
+                new_message.extend(
+                    {"content": msg["content"], "role": "assistant" if msg["role"] in ["system", "assistant", "model"] else "user"}
+                    for msg in message
+                )
+                if new_message and new_message[-1]["role"] == "assistant":
+                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_LAST)
+
+            elif "gpt" in ai_model:
+                new_message = message
+
+            return new_message
         except Exception as e:
             log.error(e)
+            return []
 
     def post(self, request, format=None):
         try:
@@ -590,15 +592,16 @@ class RunList(APIView):
                     error.validation_error(ai_validation["message"]),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            api_params = self.route_model_specific_api_params(data)
+            api_params = self.set_api_params(data)
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
-            api_params["messages"] = self.set_model_specific_message(api_params["messages"], data.get("ai_model"))
+            api_params["messages"] = self.set_model_specific_message(api_params["messages"], data)
             if data.get("skippable_phase"):
                 response = self.skip_phase()
-            elif data.get("no_submission") and data.get("prompt") is None:
-                response = self.hard_coded_phase()
             elif data.get("no_submission"):
-                response = self.no_submission_phase()
+                if not data.get("prompt"):
+                    response = self.hard_coded_phase()
+                else:
+                    response = self.no_submission_phase()
             elif data.get("scored_run"):
                 response = model.get_response(api_params)
                 instruction = self.build_instruction(data)
@@ -606,6 +609,12 @@ class RunList(APIView):
                     api_params["messages"].append({"role": "system", "content": instruction})
                 elif "gemini" in data.get("ai_model"):
                     api_params["messages"].append({"role": "model", "parts": instruction})
+                elif "claude" in data.get("ai_model"):
+                    if api_params["messages"][-1]["role"] == "user":
+                        api_params["messages"].append({"role": "assistant", "content": "What is the next instruction"})
+                        api_params["messages"].append({"role": "user", "content": instruction})
+                    else:
+                        api_params["messages"].append({"role": "user", "content": instruction})
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
@@ -680,6 +689,7 @@ class AIModelRoute:
    
    gpt_api_key = env("OPENAI_API_KEY")
    gemini_api_key = env("GEMINI_API_KEY")
+   claude_api_key=env("CLAUDE_API_KEY")
    
    @staticmethod
    def get_ai_model(model_name):
@@ -688,6 +698,8 @@ class AIModelRoute:
                 return GPTModel(AIModelRoute.gpt_api_key)
             elif "gemini" in model_name:
                 return GeminiModel(AIModelRoute.gemini_api_key,model_name)
+            elif "claude" in model_name:
+                return ClaudeModel(AIModelRoute.claude_api_key)
             else:
                 raise ValueError(error.UNSUPPORTED_AI_MODEL)
         except Exception as e:
@@ -776,9 +788,9 @@ class GeminiModel(BaseAIModel):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
-                temperature=1,
-                top_p= 0.1,
-                max_output_tokens=api_params["max_tokens"],
+                temperature = api_params["temperature"],
+                top_p = api_params["top_p"],
+                max_output_tokens = api_params["max_tokens"]
             ))   
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
@@ -799,9 +811,9 @@ class GeminiModel(BaseAIModel):
         try:
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
-                temperature=1,
-                top_p= 0.1,
-                max_output_tokens=api_params["max_tokens"],
+                temperature = api_params["temperature"],
+                top_p = api_params["top_p"],
+                max_output_tokens = api_params["max_tokens"]
             ))   
             usage = response.usage_metadata
             ai_score = response.candidates[0].content.parts[0].text
@@ -849,4 +861,92 @@ class GeminiModel(BaseAIModel):
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
+
+class ClaudeModel(BaseAIModel):
+    def __init__(self, api_key):
+        super().__init__(api_key)
+        self.client = Anthropic(api_key=api_key)
+
+    def get_response(self, api_params):
+        try:
+            response = self.client.messages.create(
+            max_tokens = api_params["max_tokens"],
+            messages = api_params["messages"], 
+            model = api_params["model"],
+            temperature = api_params["temperature"],
+            top_p = api_params["top_p"],
+            ),             
+            message_data = response[0]
+            ai_response = message_data.content[0].text
+            usage = message_data.usage
+
+            calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
+            return {
+                "completion_tokens": usage.output_tokens,
+                "prompt_tokens": usage.input_tokens,
+                "total_tokens": usage.input_tokens + usage.output_tokens,
+                "ai_response": ai_response,
+                "cost": self.calcluate_input_token_price(calculation),
+                "price_input_token_1M": self.calcluate_input_token_price(calculation),
+                "price_output_token_1M": self.calcluate_output_token_price(calculation)
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def score_response(self, api_params, minimum_score):
+        try:
+            response = self.client.messages.create(
+            max_tokens = api_params["max_tokens"],
+            messages = api_params["messages"], 
+            model = api_params["model"],
+            temperature = api_params["temperature"],
+            top_p = api_params["top_p"],
+            ),             
+            message_data = response[0]
+            ai_score = message_data.content[0].text
+            usage = message_data.usage
+            score_result = False
+            if self.extract_score(ai_score) >= minimum_score:
+                score_result = True
+            return {
+                    "completion_tokens": usage.output_tokens,
+                    "prompt_tokens": usage.input_tokens,
+                    "total_tokens": usage.output_tokens + usage.input_tokens,
+                    "ai_score": ai_score,
+                    "score_result": score_result
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def extract_score(self, response):
+        try:
+            pattern = r'"total":\s*"?(\d+)"?'
+            match = re.search(pattern, response)
+            if match:
+                return int(match.group(1))
+            else:
+                return 0
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_cost(self, usage):
+        try:
+            cost = round(3 * usage["prompt_tokens"] / 1_000_000 + 15 * usage["completion_tokens"] / 1_000_000, 6)
+            return cost
+        except Exception as e:
+            return handle_exception(e)
     
+    def calcluate_input_token_price(self, usage):
+        try:
+            price_input_token_1M = round(3 * usage["prompt_tokens"] / 1_000_000, 6)    
+            return price_input_token_1M
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calcluate_output_token_price(self, usage):
+        try:
+            price_output_token_1M = round(15 * usage["completion_tokens"] / 1_000_000, 6)
+            return price_output_token_1M
+        except Exception as e:
+            return handle_exception(e)
+   

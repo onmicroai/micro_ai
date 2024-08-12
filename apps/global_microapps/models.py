@@ -15,6 +15,9 @@ class GlobalMicroapps(models.Model):
     copy_allowed = models.BooleanField()
     app_json = models.JSONField()
 
+    def __str__(self):
+        return self.title
+
 class GlobalAsset(models.Model):
     file = models.TextField()
     label = models.TextField()
