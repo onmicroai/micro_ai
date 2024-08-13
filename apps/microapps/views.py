@@ -436,26 +436,6 @@ class RunList(APIView):
     ai_score = ""
     score_result = True
 
-    def check_api_params(self, data):
-        try:
-            params = {
-                "temperature": (data.get("temperature"), 0, 1 if 'claude' in data.get('ai_model') else 2),
-                "frequency_penalty": (data.get("frequency_penalty"), -2, 2),
-                "presence_penalty": (data.get("presence_penalty"), -2, 2),
-                "top_p": (data.get("top_p"), 0, 1),
-            }
-            for param, (value, min_val, max_val) in params.items():
-                if "claude" in data.get('ai_model') and param in ['top_p', 'temperature']:
-                    if value is not None and not (value == -1 or (min_val <= value <= max_val)):
-                        return {"status": False, "message": f"Invalid {param} value"}
-                else:
-                    if value is not None and not (min_val <= value <= max_val):
-                        return {"status": False, "message": f"Invalid {param} value"}
-
-            return {"status": True}
-        except Exception as e:
-            log.error(e)        
-
     def check_payload(self, data):
         try:
             required_fields = [
@@ -478,37 +458,12 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def set_api_params(self, data):
-        try:
-            params = {
-            "model": data.get("ai_model"),
-            "messages": data.get("message_history", []) + data.get("prompt", []),
-            "temperature": data.get("temperature", 0),
-            "frequency_penalty": data.get("frequency_penalty", 0),
-            "presence_penalty": data.get("presence_penalty", 0),
-            "top_p": data.get("top_p", 1)
-            }
-            if max_tokens := data.get("max_tokens"):
-                params["max_tokens"] = max_tokens
-            return params
-        except Exception as e:
-            log.error(e)
-
-    def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
-
-    def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
-
-    def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
-    
     def route_api_response(self, response, data, api_params):
        try:
             usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
-            run_data={
+            run_data = {
                 "ma_id": data.get("ma_id"),
                 "user_id": data.get("user_id"),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
@@ -540,43 +495,14 @@ class RunList(APIView):
        except Exception as e:
             log.error(e)
 
-    def build_instruction(self, data):
-        instruction = (
-                "Please provide a score for the previous user message. Use the following rubric:" 
-                + str(data.get("rubric")) 
-                + " Output your response as JSON, using this format: "
-                + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
-                + " Make sure to include the 'total' key and its value in your response."
-                )
-        return instruction
+    def skip_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
-    def set_model_specific_message(self, message, data):
-        try:
-            ai_model = data.get('ai_model')
-            new_message = []
-            if "gemini" in ai_model:
-                new_message = [
-                    {"parts": msg["content"], "role": "model" if msg["role"] in ["system", "assistant", "model"] else "user"}
-                    for msg in message
-                ]
-            elif "claude" in ai_model:
-                if (data.get('prompt') or data.get('message_history')) and message[0]["role"] != "user":
-                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_FIRST)
+    def no_submission_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
-                new_message.extend(
-                    {"content": msg["content"], "role": "assistant" if msg["role"] in ["system", "assistant", "model"] else "user"}
-                    for msg in message
-                )
-                if new_message and new_message[-1]["role"] == "assistant":
-                    new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_LAST)
-
-            elif "gpt" in ai_model:
-                new_message = message
-
-            return new_message
-        except Exception as e:
-            log.error(e)
-            return []
+    def hard_coded_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     def post(self, request, format=None):
         try:
@@ -584,17 +510,17 @@ class RunList(APIView):
             if not self.check_payload(data):
                 return Response(
                     error.FIELD_MISSING,
-                    status=status.HTTP_400_BAD_REQUEST,
+                    status = status.HTTP_400_BAD_REQUEST,
                 )
-            ai_validation = self.check_api_params(data) 
+            model = AIModelRoute().get_ai_model(data.get("ai_model"))
+            ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
                 return Response(
                     error.validation_error(ai_validation["message"]),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            api_params = self.set_api_params(data)
-            model = AIModelRoute().get_ai_model(data.get("ai_model"))
-            api_params["messages"] = self.set_model_specific_message(api_params["messages"], data)
+            api_params = model.get_default_params(data)
+            api_params["messages"] = model.get_model_message(api_params["messages"], data)
             if data.get("skippable_phase"):
                 response = self.skip_phase()
             elif data.get("no_submission"):
@@ -604,25 +530,15 @@ class RunList(APIView):
                     response = self.no_submission_phase()
             elif data.get("scored_run"):
                 response = model.get_response(api_params)
-                instruction = self.build_instruction(data)
-                if("gpt" in data.get("ai_model")):
-                    api_params["messages"].append({"role": "system", "content": instruction})
-                elif "gemini" in data.get("ai_model"):
-                    api_params["messages"].append({"role": "model", "parts": instruction})
-                elif "claude" in data.get("ai_model"):
-                    if api_params["messages"][-1]["role"] == "user":
-                        api_params["messages"].append({"role": "assistant", "content": "What is the next instruction"})
-                        api_params["messages"].append({"role": "user", "content": instruction})
-                    else:
-                        api_params["messages"].append({"role": "user", "content": instruction})
+                api_params["messages"] = model.build_instruction(data, api_params["messages"])
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
                 response["prompt_tokens"] += score_response["prompt_tokens"]
                 response["completion_tokens"] += score_response["completion_tokens"]
                 response["cost"] = model.calculate_cost(response)
-                response["price_input_token_1M"]= model.calculate_input_token_price(response)
-                response["price_output_token_1M"]= model.calculate_output_token_price(response)
+                response["price_input_token_1M"] = model.calculate_input_token_price(response)
+                response["price_output_token_1M"] = model.calculate_output_token_price(response)
             else:
                 response = model.get_response(api_params)
 
@@ -696,15 +612,17 @@ class BaseAIModel:
     def get_default_params(self, data):
         pass
 
-    def get_model_message(self,messages):
+    def get_model_message(self, messages, data):
         pass
 
+    def build_instruction(self, data, params):
+        pass
 
 class AIModelRoute:
    
    gpt_api_key = env("OPENAI_API_KEY")
    gemini_api_key = env("GEMINI_API_KEY")
-   claude_api_key=env("CLAUDE_API_KEY")
+   claude_api_key = env("CLAUDE_API_KEY")
    
    @staticmethod
    def get_ai_model(model_name):
@@ -723,7 +641,9 @@ class AIModelRoute:
 class GPTModel(BaseAIModel):
     def __init__(self, api_key):
         super().__init__(api_key)
-        self.client = OpenAI(api_key=self.api_key)
+        self.client = OpenAI(api_key = self.api_key)
+        self.input_token_price = 3 
+        self.output_token_price = 6
 
     def get_response(self, api_params):
         try:
@@ -736,7 +656,7 @@ class GPTModel(BaseAIModel):
                 "prompt_tokens": usage.prompt_tokens,
                 "total_tokens": usage.total_tokens,
                 "ai_response": ai_response,
-                "cost": self.calculate_input_token_price(calculation),
+                "cost": self.calculate_cost(calculation),
                 "price_input_token_1M": self.calculate_input_token_price(calculation),
                 "price_output_token_1M": self.calculate_output_token_price(calculation)
             }
@@ -774,21 +694,21 @@ class GPTModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
@@ -807,31 +727,51 @@ class GPTModel(BaseAIModel):
             return {"status": True}
         except Exception as e:
             log.error(e)
-            return {"status": False, "message": "Validation error"}
+            return {"status": False, "message": error.VALIDATION_ERROR}
     
     def get_default_params(self, data):
-        return {
-            "model": data.get("ai_model"),
-            "messages": data.get("message_history", []) + data.get("prompt", []),
-            "temperature": data.get("temperature", 0),
-            "frequency_penalty": data.get("frequency_penalty", 0),
-            "presence_penalty": data.get("presence_penalty", 0),
-            "top_p": data.get("top_p", 1),
-            "max_tokens": data.get("max_tokens")
-        }
+        try:
+            return {
+                "model": data.get("ai_model"),
+                "messages": data.get("message_history", []) + data.get("prompt", []),
+                "temperature": data.get("temperature", 0),
+                "frequency_penalty": data.get("frequency_penalty", 0),
+                "presence_penalty": data.get("presence_penalty", 0),
+                "top_p": data.get("top_p", 1),
+                "max_tokens": data.get("max_tokens")
+            }
+        except Exception as e:
+                log.error(e)
+                return {}
     
-    def get_model_message(self, messages):
+    def get_model_message(self, messages, data):
         try:
             return messages
         except Exception as e:
             log.error(e)
             return []
-
+    
+    def build_instruction(self, data, messages):
+        try:
+            instruction = (
+            "Please provide a score for the previous user message. Use the following rubric:" 
+            + str(data.get("rubric")) 
+            + " Output your response as JSON, using this format: "
+            + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+            + " Make sure to include the 'total' key and its value in your response."
+            )
+            messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(e)
+    
 class GeminiModel(BaseAIModel):
     def __init__(self, api_key, model):
         super().__init__(api_key)
-        genai.configure(api_key=self.api_key)
+        genai.configure(api_key = self.api_key)
         self.model = genai.GenerativeModel(model)
+        self.input_token_price = 0.15
+        self.output_token_price = 0.0375
 
     def get_response(self, api_params):
         try:
@@ -849,7 +789,7 @@ class GeminiModel(BaseAIModel):
                     "prompt_tokens": usage.prompt_token_count,
                     "total_tokens": usage.total_token_count,
                     "ai_response": ai_response,
-                    "cost": self.calculate_input_token_price(calculation),
+                    "cost": self.calculate_cost(calculation),
                     "price_input_token_1M": self.calculate_input_token_price(calculation),
                     "price_output_token_1M": self.calculate_output_token_price(calculation)
             }
@@ -892,29 +832,82 @@ class GeminiModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(0.5 * usage["prompt_tokens"] / 1_000_000 + 1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(0.5 * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(1.5 * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
+        
+    def validate_params(self, data):
+        try:
+            params = {
+                "temperature": (data.get("temperature"), 0, 2),
+                "top_p": (data.get("top_p"), 0, 1),
+            }
+            for param, (value, min_val, max_val) in params.items():
+                if value is not None and not (min_val <= value <= max_val):
+                    return {"status": False, "message": f"Invalid {param} value"}
+            return {"status": True}
+        except Exception as e:
+            log.error(e)
+            return {"status": False, "message": error.VALIDATION_ERROR}
+    
+    def get_default_params(self, data):
+        return {
+            "model": data.get("ai_model"),
+            "messages": data.get("message_history", []) + data.get("prompt", []),
+            "temperature": data.get("temperature", 0),
+            "frequency_penalty": data.get("frequency_penalty", 0),
+            "presence_penalty": data.get("presence_penalty", 0),
+            "top_p": data.get("top_p", 1),
+            "max_tokens": data.get("max_tokens")
+        }
+    
+    def get_model_message(self, messages, data):
+        try:
+            new_message = []
+            new_message = [
+                {"parts": msg["content"], "role": "model" if msg["role"] in ["system", "assistant", "model"] else "user"}
+                for msg in messages
+            ]
+            return new_message
+        except Exception as e:
+            log.error(e)
+            return []
+    
+    def build_instruction(self, data, messages):
+        try:
+            instruction = (
+            "Please provide a score for the previous user message. Use the following rubric:" 
+            + str(data.get("rubric")) 
+            + " Output your response as JSON, using this format: "
+            + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+            + " Make sure to include the 'total' key and its value in your response."
+            )
+            messages.append({"role": "model", "parts": instruction})
+            return messages
+        except Exception as e:
+            log.error(e)
 
 class ClaudeModel(BaseAIModel):
     def __init__(self, api_key):
         super().__init__(api_key)
-        self.client = Anthropic(api_key=api_key)
+        self.client = Anthropic(api_key = api_key)
+        self.input_token_price = 3
+        self.output_token_price = 15
 
     def get_response(self, api_params):
         try:
@@ -928,14 +921,13 @@ class ClaudeModel(BaseAIModel):
             message_data = response[0]
             ai_response = message_data.content[0].text
             usage = message_data.usage
-
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
             return {
                 "completion_tokens": usage.output_tokens,
                 "prompt_tokens": usage.input_tokens,
                 "total_tokens": usage.input_tokens + usage.output_tokens,
                 "ai_response": ai_response,
-                "cost": self.calculate_input_token_price(calculation),
+                "cost": self.calculate_cost(calculation),
                 "price_input_token_1M": self.calculate_input_token_price(calculation),
                 "price_output_token_1M": self.calculate_output_token_price(calculation)
             }
@@ -980,22 +972,85 @@ class ClaudeModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(3 * usage["prompt_tokens"] / 1_000_000 + 15 * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(3 * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(15 * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
+        
+    def validate_params(self, data):
+        try:
+            params = {
+                "temperature": (data.get("temperature"), 0, 1),
+                "top_p": (data.get("top_p"), 0, 1),
+            }
+            for param, (value, min_val, max_val) in params.items():
+                if value is not None and not (value == -1 or (min_val <= value <= max_val)):
+                    return {"status": False, "message": f"Invalid {param} value"}
+            return {"status": True}
+        except Exception as e:
+            log.error(e)
+            return {"status": False, "message": error.VALIDATION_ERROR}
+    
+    def get_default_params(self, data):
+        return {
+            "model": data.get("ai_model"),
+            "messages": data.get("message_history", []) + data.get("prompt", []),
+            "temperature": data.get("temperature", 0),
+            "frequency_penalty": data.get("frequency_penalty", 0),
+            "presence_penalty": data.get("presence_penalty", 0),
+            "top_p": data.get("top_p", 1),
+            "max_tokens": data.get("max_tokens")
+        }
+    
+    def get_model_message(self, messages, data):
+        try:
+            new_message = []
+            if (data.get('prompt') or data.get('message_history')) and messages[0]["role"] != "user":
+                new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_FIRST)
+
+            new_message.extend(
+                {"content": msg["content"], "role": "assistant" if msg["role"] in ["system", "assistant", "model"] else "user"}
+                for msg in messages
+            )
+            if new_message and new_message[-1]["role"] == "assistant":
+                new_message.append(AIModelVariables.CLAUDE_USER_DUMMY_MESSAGE_LAST)
+
+            return new_message
+       
+        except Exception as e:
+            log.error(e)
+            return []
+        
+    def build_instruction(self, data, messages):
+        try:
+            instruction = (
+            "Please provide a score for the previous user message. Use the following rubric:" 
+            + str(data.get("rubric")) 
+            + " Output your response as JSON, using this format: "
+            + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+            + " Make sure to include the 'total' key and its value in your response."
+            )
+            if messages[-1]["role"] == "user":
+                messages.append({"role": "assistant", "content": "What is the next instruction"})
+                messages.append({"role": "user", "content": instruction})
+            else:
+                messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(e)
+        
    
