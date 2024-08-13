@@ -516,7 +516,7 @@ class RunList(APIView):
                 "satisfaction": 0,
                 "prompt": api_params["messages"],
                 "no_submission": data.get("no_submission"),
-                "ai_model": api_params["model"][0:20],
+                "ai_model": api_params["model"],
                 "temperature": api_params["temperature"],
                 "max_tokens": data.get("max_tokens", 4096),
                 "top_p": api_params["top_p"],
