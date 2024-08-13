@@ -9,6 +9,7 @@ class ErrorMessages:
     SERVER_ERROR =  {"error": "an unexpected error occurred", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
     UNSUPPORTED_AI_MODEL = "Unsupported AI model"
     EMAIL_ALREADY_EXIST = 'email already exist'
+    VALIDATION_ERROR = "An error occurred during validation"
     
     @staticmethod
     def validation_error(errors):
