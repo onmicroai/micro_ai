@@ -20,6 +20,7 @@ from apps.utils.custom_permissions import (
     IsOwner
 )
 from apps.microapps.serializer import (
+    AiModelConfigSerializer,
     MicroAppSerializer,
     MicroappUserSerializer,
     AssetsSerializer,
@@ -27,11 +28,12 @@ from apps.microapps.serializer import (
     RunSerializer,
 )
 from apps.utils.global_varibales import AIModelVariables
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.microapps.models import AiModelConfig, Microapp, MicroAppUserJoin, Run
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
+from django.core.exceptions import ObjectDoesNotExist
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -512,7 +514,13 @@ class RunList(APIView):
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
                 )
-            model = AIModelRoute().get_ai_model(data.get("ai_model"))
+            try:
+                model_query = AiModelConfig.objects.get(model_name=data.get('ai_model'))
+                serializer = AiModelConfigSerializer(model_query)
+            except ObjectDoesNotExist:
+                return Response({"error": error.UNSUPPORTED_AI_MODEL,"status": status.HTTP_400_BAD_REQUEST},
+                                status = status.HTTP_400_BAD_REQUEST,)
+            model = AIModelRoute().get_ai_model(data.get("ai_model"), serializer.data)
             ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
                 return Response(
@@ -585,8 +593,9 @@ class RunList(APIView):
 
 
 class BaseAIModel:
-    def __init__(self, api_key):
+    def __init__(self, api_key, model_config):
         self.api_key = api_key
+        self.model_config = model_config
 
     def get_response(self, api_params):
         pass
@@ -625,25 +634,21 @@ class AIModelRoute:
    claude_api_key = env("CLAUDE_API_KEY")
    
    @staticmethod
-   def get_ai_model(model_name):
+   def get_ai_model(model_name, model_config):
         try:
             if "gpt" in model_name:
-                return GPTModel(AIModelRoute.gpt_api_key)
+                return GPTModel(AIModelRoute.gpt_api_key, model_config)
             elif "gemini" in model_name:
-                return GeminiModel(AIModelRoute.gemini_api_key,model_name)
+                return GeminiModel(AIModelRoute.gemini_api_key, model_name, model_config)
             elif "claude" in model_name:
-                return ClaudeModel(AIModelRoute.claude_api_key)
-            else:
-                raise ValueError(error.UNSUPPORTED_AI_MODEL)
+                return ClaudeModel(AIModelRoute.claude_api_key, model_config)
         except Exception as e:
            return handle_exception(e)
     
 class GPTModel(BaseAIModel):
-    def __init__(self, api_key):
-        super().__init__(api_key)
+    def __init__(self, api_key, model_config):
+        super().__init__(api_key, model_config)
         self.client = OpenAI(api_key = self.api_key)
-        self.input_token_price = 3 
-        self.output_token_price = 6
 
     def get_response(self, api_params):
         try:
@@ -694,21 +699,21 @@ class GPTModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
@@ -716,10 +721,10 @@ class GPTModel(BaseAIModel):
     def validate_params(self, data):
         try:
             params = {
-                "temperature": (data.get("temperature"), 0, 2),
-                "frequency_penalty": (data.get("frequency_penalty"), -2, 2),
-                "presence_penalty": (data.get("presence_penalty"), -2, 2),
-                "top_p": (data.get("top_p"), 0, 1),
+                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
+                "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
+                "presence_penalty": (data.get("presence_penalty"), self.model_config["presence_penalty_min"], self.model_config["presence_penalty_max"]),
+                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
@@ -738,7 +743,7 @@ class GPTModel(BaseAIModel):
                 "frequency_penalty": data.get("frequency_penalty", 0),
                 "presence_penalty": data.get("presence_penalty", 0),
                 "top_p": data.get("top_p", 1),
-                "max_tokens": data.get("max_tokens")
+                "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
             }
         except Exception as e:
                 log.error(e)
@@ -766,12 +771,10 @@ class GPTModel(BaseAIModel):
             log.error(e)
     
 class GeminiModel(BaseAIModel):
-    def __init__(self, api_key, model):
-        super().__init__(api_key)
+    def __init__(self, api_key, model, model_config):
+        super().__init__(api_key, model_config)
         genai.configure(api_key = self.api_key)
         self.model = genai.GenerativeModel(model)
-        self.input_token_price = 0.15
-        self.output_token_price = 0.0375
 
     def get_response(self, api_params):
         try:
@@ -832,21 +835,21 @@ class GeminiModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
@@ -854,8 +857,8 @@ class GeminiModel(BaseAIModel):
     def validate_params(self, data):
         try:
             params = {
-                "temperature": (data.get("temperature"), 0, 2),
-                "top_p": (data.get("top_p"), 0, 1),
+                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
+                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
@@ -873,7 +876,7 @@ class GeminiModel(BaseAIModel):
             "frequency_penalty": data.get("frequency_penalty", 0),
             "presence_penalty": data.get("presence_penalty", 0),
             "top_p": data.get("top_p", 1),
-            "max_tokens": data.get("max_tokens")
+            "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
         }
     
     def get_model_message(self, messages, data):
@@ -903,11 +906,9 @@ class GeminiModel(BaseAIModel):
             log.error(e)
 
 class ClaudeModel(BaseAIModel):
-    def __init__(self, api_key):
-        super().__init__(api_key)
+    def __init__(self, api_key, model_config):
+        super().__init__(api_key, model_config)
         self.client = Anthropic(api_key = api_key)
-        self.input_token_price = 3
-        self.output_token_price = 15
 
     def get_response(self, api_params):
         try:
@@ -972,21 +973,21 @@ class ClaudeModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000 + self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.input_token_price * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.output_token_price * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
@@ -994,8 +995,8 @@ class ClaudeModel(BaseAIModel):
     def validate_params(self, data):
         try:
             params = {
-                "temperature": (data.get("temperature"), 0, 1),
-                "top_p": (data.get("top_p"), 0, 1),
+                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
+                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (value == -1 or (min_val <= value <= max_val)):
@@ -1013,7 +1014,7 @@ class ClaudeModel(BaseAIModel):
             "frequency_penalty": data.get("frequency_penalty", 0),
             "presence_penalty": data.get("presence_penalty", 0),
             "top_p": data.get("top_p", 1),
-            "max_tokens": data.get("max_tokens")
+            "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
         }
     
     def get_model_message(self, messages, data):
