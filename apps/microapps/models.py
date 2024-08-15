@@ -83,3 +83,20 @@ class Run(models.Model):
 
     def __str__(self):
         return self.ai_model
+
+class AiModelConfig(models.Model):
+    model_name = models.CharField(max_length=50, unique=True)
+    frequency_penalty_min = models.FloatField(default=0)
+    frequency_penalty_max = models.FloatField(default=0)
+    presence_penalty_min = models.FloatField(default=0)
+    presence_penalty_max = models.FloatField(default=0)
+    top_p_min = models.FloatField(default=0)
+    top_p_max = models.FloatField(default=0)
+    temperature_min = models.FloatField(default=0)
+    temperature_max = models.FloatField(default=0)
+    max_tokens_default = models.IntegerField()
+    input_token_price = models.FloatField()
+    output_token_price = models.FloatField()
+
+    def __str__(self):
+        return self.model_name
