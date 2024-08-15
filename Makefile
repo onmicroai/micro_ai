@@ -29,8 +29,7 @@ migrations: ## Create DB migrations in the container
 	@docker compose run --rm --no-deps web python manage.py makemigrations
 
 migrate: ## Run DB migrations in the container
-	@docker compose run --rm --no-deps web python manage.py 
-	@docker compose run --rm --no-deps web python manage.py migrate django_celery_beat
+	@docker compose run --rm --no-deps web python manage.py migrate
 
 shell: ## Get a Django shell
 	@docker compose run --rm --no-deps web python manage.py shell
