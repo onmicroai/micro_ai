@@ -509,6 +509,7 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            # Check for mandatory keys in the user request payload
             if not self.check_payload(data):
                 return Response(
                     error.FIELD_MISSING,
@@ -520,22 +521,30 @@ class RunList(APIView):
             except ObjectDoesNotExist:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL,"status": status.HTTP_400_BAD_REQUEST},
                                 status = status.HTTP_400_BAD_REQUEST,)
+            # Return model instance based on ai-model name
             model = AIModelRoute().get_ai_model(data.get("ai_model"), serializer.data)
+            # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
                 return Response(
                     error.validation_error(ai_validation["message"]),
                     status=status.HTTP_400_BAD_REQUEST,
                 )
+            # Retrieve default API parameters for the AI model
             api_params = model.get_default_params(data)
+            # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+            # Handle skippbale phase
             if data.get("skippable_phase"):
                 response = self.skip_phase()
             elif data.get("no_submission"):
+                # Handle hardcoded phase
                 if not data.get("prompt"):
                     response = self.hard_coded_phase()
+                # Handle no-submission phase
                 else:
                     response = self.no_submission_phase()
+            # Handle score phase
             elif data.get("scored_run"):
                 response = model.get_response(api_params)
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
@@ -547,15 +556,16 @@ class RunList(APIView):
                 response["cost"] = model.calculate_cost(response)
                 response["price_input_token_1M"] = model.calculate_input_token_price(response)
                 response["price_output_token_1M"] = model.calculate_output_token_price(response)
+            # Handle basic feedback phase
             else:
                 response = model.get_response(api_params)
-
+            # Create reponse data
             run_data = self.route_api_response(response,data,api_params)
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
-                #handle hardcoded phase
+                # Handle hardcoded phase response
                 if(run_data["response"] == ""):
                     return Response(
                     {"data": [], "status": status.HTTP_200_OK},
