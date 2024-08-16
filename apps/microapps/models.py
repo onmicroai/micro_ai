@@ -101,7 +101,7 @@ class Run(models.Model):
     def __str__(self):
         return self.ai_model
 
-class AiModelConfig(models.Model):
+class AIModelConfig(models.Model):
     model_name = models.CharField(max_length=50, unique=True)
     frequency_penalty_min = models.FloatField(default=0)
     frequency_penalty_max = models.FloatField(default=0)
@@ -207,28 +207,27 @@ class GPTModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"], 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
 
     def validate_params(self, data):
         try:
-            print(self.model_config)
             params = {
                 "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
                 "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
@@ -344,21 +343,21 @@ class GeminiModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"], 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
@@ -482,21 +481,21 @@ class ClaudeModel(BaseAIModel):
         
     def calculate_cost(self, usage):
         try:
-            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000 + self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
         except Exception as e:
             return handle_exception(e)
     
     def calculate_input_token_price(self, usage):
         try:
-            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / 1_000_000, 6)    
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"], 6)    
             return price_input_token_1M
         except Exception as e:
             return handle_exception(e)
     
     def calculate_output_token_price(self, usage):
         try:
-            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / 1_000_000, 6)
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return price_output_token_1M
         except Exception as e:
             return handle_exception(e)
