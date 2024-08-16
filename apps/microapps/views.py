@@ -1,3 +1,4 @@
+# \micro_ai\apps\microapps\views.py
 import datetime
 import re
 import uuid
@@ -10,7 +11,7 @@ from rest_framework import status, serializers
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny 
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -614,3 +615,16 @@ class AIModelRoute:
         except Exception as e:
            return handle_exception(e) 
    
+class AvailableModelsView(APIView):
+    permission_classes = [AllowAny]
+    
+    @extend_schema(
+        responses={200: str},
+        summary="Get available LLM models"
+    )
+    def get(self, request, format=None):
+        # Read available models from the environment variable
+        available_models = env("AVAILABLE_AI_MODELS").split(",")
+        
+        # Return the models as a JSON response
+        return Response({"available_models": available_models}, status=status.HTTP_200_OK)
