@@ -72,4 +72,4 @@ class AIModelConstants:
                 if object["model_name"] == model_name:
                     return object
                 
-            return False
+        return False
