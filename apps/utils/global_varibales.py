@@ -1,3 +1,10 @@
+import environ
+import os
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+env.read_env(os.path.join(BASE_DIR, ".env"))
+
 class CollectionVariables:
     MY_COLLECTION = "My Collection"
     SHARED_WITH_ME_COLLECTION = "Shared With Me"
@@ -21,7 +28,9 @@ class AIModelConstants:
         "temperature_max": 2,
         "max_tokens_default": 500,
         "input_token_price": 3,
-        "output_token_price": 6 
+        "output_token_price": 6,
+        "price_scale": 1_000_000,
+        "api_key": env("OPENAI_API_KEY")
     }
     ]
     GEMINI_CONSTANTS =[
@@ -37,7 +46,9 @@ class AIModelConstants:
         "temperature_max": 2,
         "max_tokens_default": 500,
         "input_token_price": 0.15,
-        "output_token_price": 0.0375 
+        "output_token_price": 0.0375,
+        "price_scale": 1_000_000,
+        "api_key": env("GEMINI_API_KEY")
     }
     ]
     CLAUDE_CONSTANTS =[
@@ -53,7 +64,9 @@ class AIModelConstants:
         "temperature_max": 1,
         "max_tokens_default": 500,
         "input_token_price": 3,
-        "output_token_price": 15 
+        "output_token_price": 15,
+        "price_scale": 1_000_000,
+        "api_key": env("CLAUDE_API_KEY")
     }
     ]
 
