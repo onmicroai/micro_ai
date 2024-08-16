@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run, AiModelConfig
+from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run, AIModelConfig
 
 class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
@@ -28,6 +28,6 @@ class RunSerializer(serializers.ModelSerializer):
 
 class AiModelConfigSerializer(serializers.ModelSerializer):
     class Meta:
-        model = AiModelConfig
+        model = AIModelConfig
         fields = '__all__'
     
