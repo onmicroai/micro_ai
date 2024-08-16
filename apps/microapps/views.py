@@ -28,7 +28,7 @@ from apps.microapps.serializer import (
     RunSerializer,
 )
 from apps.utils.global_varibales import AIModelVariables, AIModelConstants
-from apps.microapps.models import AiModelConfig, Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
 from rest_framework.exceptions import PermissionDenied
@@ -599,20 +599,16 @@ class RunList(APIView):
 
 class AIModelRoute:
    
-   gpt_api_key = env("OPENAI_API_KEY")
-   gemini_api_key = env("GEMINI_API_KEY")
-   claude_api_key = env("CLAUDE_API_KEY")
-   
    @staticmethod
    def get_ai_model(model_name):
         try:
             model_config = AIModelConstants.get_configs(model_name)
             if "gpt" in model_name and model_config:
-                return GPTModel(AIModelRoute.gpt_api_key, model_config) 
+                return GPTModel(model_config["api_key"], model_config) 
             elif "gemini" in model_name and model_config:
-                return GeminiModel(AIModelRoute.gemini_api_key, model_name, model_config)
+                return GeminiModel(model_config["api_key"], model_name, model_config)
             elif "claude" in model_name and model_config:
-                return ClaudeModel(AIModelRoute.claude_api_key, model_config)
+                return ClaudeModel(model_config["api_key"], model_config)
             else:
                 return False
         except Exception as e:
