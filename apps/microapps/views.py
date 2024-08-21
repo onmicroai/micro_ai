@@ -28,6 +28,10 @@ from apps.microapps.serializer import (
     AssetsMicroappSerializer,
     RunSerializer,
 )
+from apps.utils.uasge_helper import RunUsage
+from django.db.models import Sum
+from djstripe.models import Subscription
+from apps.subscriptions.serializers import CustomSubscriptionSerilaizer
 from apps.utils.global_varibales import AIModelVariables, AIModelConstants
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
@@ -510,8 +514,16 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            limit = 0
+            run_object = RunUsage
+            element = run_object.get_run_related_info(data.get('user_id'))
+            limit = element["limit"]
+            total_cost = element["total_cost"]
+            # serializer = RunSerializer(queryset, many=True)
+            # print(serializer.data)
+            return Response({"data", limit}, status=status.HTTP_200_OK)
             # Check for mandatory keys in the user request payload
-            if not self.check_payload(data):
+            if not self.check_payload(data):    
                 return Response(
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
