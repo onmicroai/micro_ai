@@ -86,3 +86,13 @@ class AIModelConstants:
                     return object
                 
         return False
+    
+class UsageVariables:
+    FREE_PLAN = "free"
+    INDIVIDUAL_PLAN = "individual"
+    ENTERPRISE_PLAN = "enterprise"
+    FREE_PLAN_LIMIT = 3
+    INDIVIDUAL_PLAN_LIMIT = 10
+    ENTERPRISE_PLAN_LIMIT = 40
+    DEFAULT_PLAN_ID = 1
+    DEFAULT_TOTAL_COST = 0
