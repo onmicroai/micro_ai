@@ -3,28 +3,32 @@ from djstripe.models import Subscription
 from apps.subscriptions.serializers import CustomSubscriptionSerilaizer
 from datetime import datetime
 from django.db.models import Sum
+from dateutil.relativedelta import relativedelta
+from apps.utils.global_varibales import UsageVariables
 
 def subscription_details(user_id):
     subscription = Subscription.objects.filter(metadata__contains={'user_id': str(user_id)})
-    serializer = CustomSubscriptionSerilaizer(subscription, many=True)
-    return serializer.data[0]
+    if subscription:
+        serializer = CustomSubscriptionSerilaizer(subscription, many=True)
+        return serializer.data[0]
+    return None
 
 class RunUsage:
     
     def format_date(self, start_date, end_date):
         start = datetime.strptime(start_date, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m-%d')
         end = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m-%d')
-        return {start, end}
+        return {"start":start, "end":end}
 
     def check_plan(self, plan):
         if plan == 1:
-            return{"limit": 3, "plan": "free"}
+            return{"limit": UsageVariables.FREE_PLAN_LIMIT, "plan": UsageVariables.FREE_PLAN}
         elif plan == 2:
-            return{"limit": 40, "plan": "enterprise"}
+            return{"limit": UsageVariables.ENTERPRISE_PLAN_LIMIT, "plan": UsageVariables.ENTERPRISE_PLAN}
         else:
-            return{"limit": 10, "plan": "individual"} 
+            return{"limit": UsageVariables.INDIVIDUAL_PLAN_LIMIT, "plan": UsageVariables.INDIVIDUAL_PLAN} 
     
-    def cost_calculation(user_id, start_date, end_date):
+    def cost_calculation(self, user_id, start_date, end_date):
         filters = {
                 "user_id": user_id,
                 "timestamp__date__gte": start_date,
@@ -32,20 +36,42 @@ class RunUsage:
             }
         filters = {k: v for k, v in filters.items() if v is not None}
         queryset = Run.objects.filter(**filters).aggregate(total_cost = Sum('cost'))
-        return queryset["total_cost"] if queryset["total_cost"] else 0
+        return queryset["total_cost"] if queryset["total_cost"] else UsageVariables.DEFAULT_TOTAL_COST
 
-    def get_run_related_info(self, user_id):
+    @staticmethod
+    def get_run_related_info(self, user_id, date_joined):
         subscription = subscription_details(user_id)
-        end_date, start_date = self.format_date(subscription["current_period_start"], subscription["current_period_end"])
-        limit, plan = self.check_plan(subscription["plan"])
-        total_cost = self.cost_calculation(user_id, start_date, end_date)
+        # enterprise and individual plan implementation
+        if subscription and subscription["status"] == "active":
+            date = RunUsage.format_date(self, subscription["current_period_start"], subscription["current_period_end"])
+            limit_plan = RunUsage.check_plan(self, subscription["plan"])
+            limit = limit_plan["limit"]
+            plan = limit_plan["plan"]
+            total_cost = RunUsage.cost_calculation(self, user_id, date["start"], date["end"])
+            return {
+                "start_date": date["start"],
+                "end_date": date["end"],
+                "limit": int(limit),
+                "plan": plan,
+                "total_cost": total_cost
+            }
+        # default free plan implementation
+        day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%S.%fZ").date().strftime("%d")
+        current_month = datetime.now().strftime("%m")
+        current_year = datetime.now().strftime("%Y")
+        if datetime.now().strftime("%d") > day_joined:
+            start_date = f"{current_year}-{current_month}-{day_joined}"
+            end_date = (datetime.strptime(start_date, "%Y-%m-%d").date() + relativedelta(months=1)).strftime("%Y-%m-%d")
+        else:
+            end_date = f"{current_year}-{current_month}-{day_joined}"
+            start_date = ((datetime.strptime(end_date, "%Y-%m-%d").date() - relativedelta(months=1)).strftime("%Y-%m-%d"))
+        limit = UsageVariables.FREE_PLAN_LIMIT
+        plan = UsageVariables.FREE_PLAN
+        total_cost = RunUsage.cost_calculation(self, user_id, start_date, end_date)
         return {
-            "end_date": end_date,
-            "start_date": start_date,
-            "limit": limit,
-            "plan": plan,
-            "total_cost": total_cost
-        }
-
-
-
+                "start_date": start_date,
+                "end_date": end_date,
+                "limit": int(limit),
+                "plan": plan,
+                "total_cost": total_cost
+            }
