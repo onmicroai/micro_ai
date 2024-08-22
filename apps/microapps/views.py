@@ -28,17 +28,16 @@ from apps.microapps.serializer import (
     AssetsMicroappSerializer,
     RunSerializer,
 )
+from apps.users.serializers import UserSerializer
+from apps.users.models import CustomUser
 from apps.utils.uasge_helper import RunUsage
 from django.db.models import Sum
-from djstripe.models import Subscription
-from apps.subscriptions.serializers import CustomSubscriptionSerilaizer
 from apps.utils.global_varibales import AIModelVariables, AIModelConstants
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
-from django.core.exceptions import ObjectDoesNotExist
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -514,21 +513,23 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
-            limit = 0
-            run_object = RunUsage
-            element = run_object.get_run_related_info(data.get('user_id'))
-            limit = element["limit"]
-            total_cost = element["total_cost"]
-            # serializer = RunSerializer(queryset, many=True)
-            # print(serializer.data)
-            return Response({"data", limit}, status=status.HTTP_200_OK)
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data):    
                 return Response(
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
                 )
-            # Return model instance based on ai-model name
+            # Get microapp owner id
+            app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            # Get owner details
+            users = CustomUser.objects.get(id = app_owner_id)
+            user_date_joined = UserSerializer(users).data["date_joined"]
+            # Get user usage data
+            usage_data = RunUsage.get_run_related_info(self, app_owner_id, user_date_joined)
+            if usage_data["total_cost"] >= usage_data["limit"]:
+                return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+            # Return model instance based on AI-model name
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
             if not model:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
@@ -588,6 +589,12 @@ class RunList(APIView):
                 error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except MicroAppUserJoin.DoesNotExist:
+            return Response(error.MICROAPP_NOT_EXIST, status = status.HTTP_400_BAD_REQUEST)
+       
+        except CustomUser.DoesNotExist:
+            return Response(error.USER_NOT_EXIST, status = status.HTTP_400_BAD_REQUEST)
+        
         except Exception as e:
             return handle_exception(e)
 
