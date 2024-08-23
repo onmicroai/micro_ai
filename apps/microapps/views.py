@@ -18,7 +18,8 @@ from anthropic import Anthropic
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
-    IsOwner
+    IsOwner,
+    AdminRole
 )
 from apps.microapps.serializer import (
     AiModelConfigSerializer,
@@ -311,7 +312,7 @@ class UserMicroApps(APIView):
         try:
             self.permission_classes = [IsOwner]
             self.check_permissions(request)
-            if user_id:
+            if user_id and user_id != request.user.id:
                 userapp = self.get_object(user_id, app_id)
                 if userapp:
                     userapp.delete()
@@ -321,7 +322,7 @@ class UserMicroApps(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             return Response(
-                error.USER_NOT_EXIST,
+                error.INVALID_PAYLOAD,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except PermissionDenied:
@@ -362,33 +363,11 @@ class UserMicroAppsDetails(APIView):
         
     def post(self, request, format=None):
         try:
-            self.permission_classes = [IsOwner]
+            self.permission_classes = [IsOwner, AdminRole]
             self.check_permissions(request)
             data = request.data
             self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
             serializer = MicroappUserSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
-    
-    def put(self, request, format=None):
-        try:
-            self.permission_classes = [IsOwner]
-            self.check_permissions(request)
-            data = request.data
-            userapp = self.get_object(data.get("user_id"), data.get("ma_id"))
-            serializer = MicroappUserSerializer(userapp, data=data)
             if serializer.is_valid():
                 serializer.save()
                 return Response(
