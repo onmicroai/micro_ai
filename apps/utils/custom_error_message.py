@@ -8,6 +8,7 @@ class ErrorMessages:
     FIELD_MISSING = {"error": "invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST}
     SERVER_ERROR =  {"error": "an unexpected error occurred", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
     RUN_USAGE_LIMIT_EXCEED = {"error": "usage limit exceed", "status": status.HTTP_400_BAD_REQUEST}
+    MICROAPP_USAGE_LIMIT_EXCEED = {"error": "cannot create more than 3 microapp on free plan, upgrade your plan to get access to unlimited microapps", "status": status.HTTP_400_BAD_REQUEST}
     UNSUPPORTED_AI_MODEL = "unsupported AI model"
     EMAIL_ALREADY_EXIST = 'email already exist'
     VALIDATION_ERROR = "An error occurred during validation"
