@@ -14,6 +14,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from dj_rest_auth.registration.views import RegisterView
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 from apps.microapps.models import Microapp
 from apps.users.models import CustomUser
@@ -122,3 +124,16 @@ class CustomRegisterView(RegisterView):
             app_instances.append(Microapp(**app_dict))
 
         Microapp.objects.bulk_create(app_instances)
+
+
+class APICustomLogoutView(APIView):
+    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+
+    def post(self, request, *args, **kwargs):
+
+        # Delete the `refresh_token` cookie
+        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+        response.delete_cookie('refresh_token')
+        response.delete_cookie('sessionid')
+
+        return response
