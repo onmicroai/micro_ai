@@ -55,11 +55,12 @@ class LoginViewWith2fa(LoginView):
         else:
             super_response = super().post(request, *args, **kwargs)
             if super_response.status_code == status.HTTP_200_OK:
+                jwt_data = super_response.data
                 # rewrap login responses to match our serializer schema
                 wrapped_jwt_data = {
                     "status": "success",
                     "detail": "User logged in.",
-                    "jwt": super_response.data,
+                    "jwt": jwt_data,
                 }
                 return Response(wrapped_jwt_data, status=200)
             return super_response
