@@ -1,3 +1,5 @@
+# \micro_ai\apps\authentication\api_views.py
+
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp import TOTP
@@ -120,5 +122,3 @@ class CustomRegisterView(RegisterView):
             app_instances.append(Microapp(**app_dict))
 
         Microapp.objects.bulk_create(app_instances)
-
-

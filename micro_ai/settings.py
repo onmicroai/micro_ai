@@ -104,6 +104,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "waffle.middleware.WaffleMiddleware",
+    'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
 

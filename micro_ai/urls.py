@@ -29,6 +29,7 @@ from apps.web.sitemaps import StaticViewSitemap
 from apps.global_microapps.urls import urlpatterns as global_app_urls
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
+from micro_ai.views import CustomLogoutView
 
 
 sitemaps = {
@@ -51,6 +52,7 @@ urlpatterns = [
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("a/<slug:team_slug>/", include(team_urlpatterns)),
     path("accounts/", include("allauth.urls")),
+    path("logout/", CustomLogoutView.as_view(), name='account_logout'),
     path("users/", include("apps.users.urls")),
     path("subscriptions/", include("apps.subscriptions.urls")),
     path("teams/", include("apps.teams.urls")),
