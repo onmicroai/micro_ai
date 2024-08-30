@@ -128,6 +128,8 @@ class CustomRegisterView(RegisterView):
 
 
 class APICustomLogoutView(APIView):
+    #TODO: Doesn't delete cookies, need to review Django logout methods
+    
     permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
 
     def post(self, request, *args, **kwargs):
