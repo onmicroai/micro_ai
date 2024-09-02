@@ -12,6 +12,7 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
             is_production = os.getenv('PRODUCTION', 'False') == 'True'
             samesite = 'None' if is_production else 'Lax'
             cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+            
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
@@ -21,4 +22,5 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                 samesite=samesite,
                 domain=cookies_domain
             )
+            
         return response
