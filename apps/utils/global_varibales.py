@@ -5,6 +5,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
 
+class MicroappVariables:
+    APP_OWNER = "owner"
+
 class CollectionVariables:
     MY_COLLECTION = "My Collection"
     SHARED_WITH_ME_COLLECTION = "Shared With Me"
@@ -86,3 +89,14 @@ class AIModelConstants:
                     return object
                 
         return False
+    
+class UsageVariables:
+    FREE_PLAN = "free"
+    INDIVIDUAL_PLAN = "individual"
+    ENTERPRISE_PLAN = "enterprise"
+    FREE_PLAN_LIMIT = 3
+    INDIVIDUAL_PLAN_LIMIT = 10
+    ENTERPRISE_PLAN_LIMIT = 40
+    DEFAULT_PLAN_ID = 1
+    DEFAULT_TOTAL_COST = 0
+    FREE_PLAN_MICROAPP_LIMIT = 3
