@@ -6,7 +6,6 @@ from rest_framework.response import Response
 from apps.utils.custom_error_message import ErrorMessages as error
 from rest_framework import status
 from apps.utils.global_varibales import AIModelVariables
-import re
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -72,7 +71,7 @@ class KnowledgeBase(models.Model):
 class Run(models.Model):
     
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
-    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "user_runs", on_delete=models.CASCADE)
     timestamp = models.DateTimeField(auto_now_add=True)
     session_id = models.TextField(blank=True)
     satisfaction = models.IntegerField()
@@ -97,6 +96,7 @@ class Run(models.Model):
     rubric = models.TextField()
     run_passed = models.BooleanField(default=True)
     skippable_phase = models.BooleanField(default=False)
+    owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE)
 
     def __str__(self):
         return self.ai_model

@@ -28,6 +28,10 @@ class IsOwner(BaseMicroAppPermission):
         user = request.user.id
         user_roles = MicroAppUserJoin.objects.filter(user_id=user, ma_id=app_id).values_list('role', flat=True)
         return 'owner' in user_roles
+    
+class AdminRole(BasePermission):
+    def has_permission(self, request, view):
+        return "admin" in request.data["role"]
 
 class BaseCollectionPermission(BasePermission):
     def get_collection_id(self, request, view):
