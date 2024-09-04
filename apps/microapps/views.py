@@ -18,7 +18,8 @@ from anthropic import Anthropic
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
-    IsOwner
+    IsOwner,
+    AdminRole
 )
 from apps.microapps.serializer import (
     AiModelConfigSerializer,
@@ -28,13 +29,16 @@ from apps.microapps.serializer import (
     AssetsMicroappSerializer,
     RunSerializer,
 )
-from apps.utils.global_varibales import AIModelVariables, AIModelConstants
+from apps.users.serializers import UserSerializer
+from apps.users.models import CustomUser
+from apps.utils.uasge_helper import RunUsage, MicroAppUasge
+from django.db.models import Sum
+from apps.utils.global_varibales import AIModelVariables, AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
-from django.core.exceptions import ObjectDoesNotExist
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -57,7 +61,7 @@ class MicroAppList(APIView):
 
     def add_microapp_user(self, uid, microapp):
         try:
-            data = {"role": "owner", "ma_id": microapp.id, "user_id": uid}
+            data = {"role": MicroappVariables.APP_OWNER, "ma_id": microapp.id, "user_id": uid}
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
@@ -124,18 +128,23 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid):
-                serializer = MicroAppSerializer(data=data)
-                if serializer.is_valid():
-                    microapp = serializer.save()
-                    self.add_microapp_user(uid=request.user.id, microapp=microapp)
-                    self.add_collection_microapp(cid,microapp)
+                if MicroAppUasge.microapp_related_info(request.user.id):
+                    serializer = MicroAppSerializer(data=data)
+                    if serializer.is_valid():
+                        microapp = serializer.save()
+                        self.add_microapp_user(uid=request.user.id, microapp=microapp)
+                        self.add_collection_microapp(cid,microapp)
+                        return Response(
+                            {"data": serializer.data, "status": status.HTTP_200_OK},
+                            status=status.HTTP_200_OK,
+                        )
                     return Response(
-                        {"data": serializer.data, "status": status.HTTP_200_OK},
-                        status=status.HTTP_200_OK,
+                        error.validation_error(serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST,
                     )
                 return Response(
-                    error.validation_error(serializer.errors),
-                    status=status.HTTP_400_BAD_REQUEST,
+                    error.MICROAPP_USAGE_LIMIT_EXCEED,
+                    status = status.HTTP_400_BAD_REQUEST
                 )
             return Response(
                     error.FIELD_MISSING,
@@ -225,29 +234,40 @@ class CloneMicroApp(APIView):
         except Microapp.DoesNotExist:
             return None
 
-    def post(self, request, pk):
+    def post(self, request, pk, collection_id):
         try:
-            global_app = self.get_microapp(pk)
-            if not global_app:
+            microapp = self.get_microapp(pk)
+            if collection_id:
+                if MicroAppUasge.microapp_related_info(request.user.id):
+                    if not microapp:
+                        return Response(
+                            error.MICROAPP_NOT_EXIST,
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    microapp_dict = model_to_dict(microapp)
+                    del microapp_dict["id"]
+                    serializer = MicroAppSerializer(data = microapp_dict)
+                    if serializer.is_valid():
+                        microapp = serializer.save()
+                        micro_app_list = MicroAppList
+                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
+                        micro_app_list.add_collection_microapp(self, collection_id, microapp)
+                        return Response(
+                            {"data": serializer.data, "status": status.HTTP_200_OK},
+                            status=status.HTTP_200_OK,
+                        )
+                    return Response(
+                        error.validation_error(serializer.errors),
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 return Response(
-                    error.MICROAPP_NOT_EXIST,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            global_app_dict = model_to_dict(global_app)
-            del global_app_dict["id"]
-            serializer = MicroAppSerializer(data=global_app_dict)
-            if serializer.is_valid():
-                microapp = serializer.save()
-                micro_app_list = MicroAppList
-                micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
+                        error.MICROAPP_USAGE_LIMIT_EXCEED,
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+                    error.FIELD_MISSING,
+                    status=status.HTTP_400_BAD_REQUEST,
+                ) 
         except Exception as e:
             return handle_exception(e)
 
@@ -292,7 +312,7 @@ class UserMicroApps(APIView):
         try:
             self.permission_classes = [IsOwner]
             self.check_permissions(request)
-            if user_id:
+            if user_id and user_id != request.user.id:
                 userapp = self.get_object(user_id, app_id)
                 if userapp:
                     userapp.delete()
@@ -302,7 +322,7 @@ class UserMicroApps(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             return Response(
-                error.USER_NOT_EXIST,
+                error.INVALID_PAYLOAD,
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except PermissionDenied:
@@ -343,33 +363,11 @@ class UserMicroAppsDetails(APIView):
         
     def post(self, request, format=None):
         try:
-            self.permission_classes = [IsOwner]
+            self.permission_classes = [IsOwner, AdminRole]
             self.check_permissions(request)
             data = request.data
             self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
             serializer = MicroappUserSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
-    
-    def put(self, request, format=None):
-        try:
-            self.permission_classes = [IsOwner]
-            self.check_permissions(request)
-            data = request.data
-            userapp = self.get_object(data.get("user_id"), data.get("ma_id"))
-            serializer = MicroappUserSerializer(userapp, data=data)
             if serializer.is_valid():
                 serializer.save()
                 return Response(
@@ -461,7 +459,7 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def route_api_response(self, response, data, api_params,model):
+    def route_api_response(self, response, data, api_params,model, app_owner_id):
        try:
             usage = response
             if not (session_id := data.get("session_id")):
@@ -492,7 +490,8 @@ class RunList(APIView):
                 "price_output_token_1M": response["price_output_token_1M"],
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
-                "output_tokens": usage["completion_tokens"]
+                "output_tokens": usage["completion_tokens"],
+                "owner_id": app_owner_id
                 }
             return run_data
        except Exception as e:
@@ -511,12 +510,21 @@ class RunList(APIView):
         try:
             data = request.data
             # Check for mandatory keys in the user request payload
-            if not self.check_payload(data):
+            if not self.check_payload(data):    
                 return Response(
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
                 )
-            # Return model instance based on ai-model name
+            # Get microapp owner id
+            app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            # Get owner details
+            users = CustomUser.objects.get(id = app_owner_id)
+            user_date_joined = UserSerializer(users).data["date_joined"]
+            # Checking for usage limit
+            if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
+                return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+            # Return model instance based on AI-model name
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
             if not model:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
@@ -557,7 +565,7 @@ class RunList(APIView):
             else:
                 response = model.get_response(api_params)
             # Create reponse data
-            run_data = self.route_api_response(response,data,api_params,model)
+            run_data = self.route_api_response(response, data, api_params, model, app_owner_id)
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
@@ -576,6 +584,12 @@ class RunList(APIView):
                 error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except MicroAppUserJoin.DoesNotExist:
+            return Response(error.MICROAPP_NOT_EXIST, status = status.HTTP_400_BAD_REQUEST)
+       
+        except CustomUser.DoesNotExist:
+            return Response(error.USER_NOT_EXIST, status = status.HTTP_400_BAD_REQUEST)
+        
         except Exception as e:
             return handle_exception(e)
 
