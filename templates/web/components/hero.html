@@ -5,6 +5,24 @@
         <div class="wrapper">
             <section class="hero-banner">
                 <div class="container">
+                    <div class="hero-text-area">
+                        <div class="left-text">
+                            <h1>Build AI-Powered Apps for Education as Easy as a Google Form</h1><div class="hero-btns">
+                             <a class="btn-blue" href="{% url 'web:library' %}">
+                                {% translate "Try an App Right Now" %}
+                                </a>
+                             <a class="btn-transparent" href="{% url 'account_signup' %}">
+                                {% translate "Get Started for Free" %} <img src= "{% static 'images/web/arrow-right.png' %}" alt=""></a>
+                            </div>
+                        </div>
+                        <div class="right-image">
+                            <img src= "{% static 'images/web/hero-image.png' %}" alt="">
+                        </div>
+                    </div>
+                </div>
+            </section>
+            <section class="hero-banner">
+                <div class="container">
                     <div class="text-center">
                         <h1><span>AI-Powered</span>  Apps for Education...as Easy as a Google Form</h1>
                     </div>
