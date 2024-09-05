@@ -1,3 +1,5 @@
+# \micro_ai\apps\users\signals.py
+
 from allauth.account.signals import email_confirmed, user_signed_up
 from django.conf import settings
 from django.core.files.storage import default_storage
