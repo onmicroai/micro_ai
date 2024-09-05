@@ -8,6 +8,20 @@ start: ## Start the docker containers
 	@docker compose up
 	@echo "Containers started - http://localhost:8000"
 
+#TODO: doesn't work correctly. Stops with Error 143. Need to review. Seems it could't stop Django server
+start-debug: ## Start the docker containers in debug mode
+	@echo "Stopping any running containers..."
+	@docker compose down
+	@echo "Starting the docker containers in debug mode"
+	@docker compose up --build -d
+	@echo "Waiting for web container to be ready..."
+	@docker compose exec web /bin/bash -c 'until curl -s -o /dev/null -f http://localhost:8000; do sleep 1; done'
+	@echo "Stopping any running instances of Django server..."
+	@docker compose exec web /bin/bash -c 'pid=$$(pgrep -f "manage.py runserver"); if [ -n "$$pid" ]; then echo "Stopping existing Django server..."; kill $$pid; else echo "No running server found."; fi'
+	@echo "Starting Django server in debug mode..."
+	@docker compose exec web python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
+	@echo "In VSCode go to Run and Debug and choose 'Python: Remote Attach'"
+
 stop: ## Stop Containers
 	@docker compose down
 
