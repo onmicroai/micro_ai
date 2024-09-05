@@ -1,3 +1,5 @@
+# \micro_ai\docker-compose.yml
+
 services:
   db:
     image: postgres
@@ -31,7 +33,6 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: python manage.py runserver 0.0.0.0:8000
-    entrypoint: sh ./entrypoint.sh
     volumes:
       - .:/code
     ports:

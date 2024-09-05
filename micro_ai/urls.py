@@ -28,6 +28,7 @@ from apps.web.sitemaps import StaticViewSitemap
 from apps.global_microapps.urls import urlpatterns as global_app_urls
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
+from apps.users.views import get_resized_avatar
 from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView
 
 
@@ -54,6 +55,7 @@ urlpatterns = [
     path("accounts/signup/", CustomSignupView.as_view(), name='account_signup'),
     path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
     path("accounts/", include("allauth.urls")),
+    path('media/profile-pictures/<str:image_name>/', get_resized_avatar, name='get_avatar'),
     path("users/", include("apps.users.urls")),
     path("subscriptions/", include("apps.subscriptions.urls")),
     path("teams/", include("apps.teams.urls")),

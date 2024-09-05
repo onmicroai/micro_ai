@@ -1,7 +1,9 @@
+# \micro_ai\apps\users\views.py
+
 from .adapter import user_has_valid_totp_device
 from allauth.account.utils import send_email_confirmation
 from allauth.socialaccount.models import SocialAccount
-
+from django.http import HttpResponse, Http404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
@@ -9,13 +11,14 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_POST
-
+from django.conf import settings
 from apps.api.models import UserAPIKey
 
 from .forms import CustomUserChangeForm, UploadAvatarForm
 from .helpers import require_email_confirmation, user_has_confirmed_email_address
 from .models import CustomUser
-
+from PIL import Image
+import os
 
 @login_required
 def profile(request):
@@ -97,3 +100,55 @@ def revoke_api_key(request):
         ),
     )
     return HttpResponseRedirect(reverse("users:user_profile"))
+
+@login_required
+def get_resized_avatar(request, image_name):
+    # Construct the full path to the original avatar
+    original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
+    
+    if not os.path.exists(original_image_path):
+        raise Http404("Avatar not found.")
+
+    # Retrieve query parameters for resizing
+    query_params = request.GET
+    width = query_params.get('w')
+    height = query_params.get('h')
+    quality = query_params.get('q')
+    
+    base, ext = os.path.splitext(image_name)
+    
+    # Define resized image path
+    resized_image_path = original_image_path  # Fallback to original
+
+    if width or height:
+        # Generate filename for the resized image
+        resized_image_filename = f"{base}_{width if width else 'original'}x{height if height else 'original'}_{quality if quality else 'default'}{ext}"
+        resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
+
+        # Check if the resized image already exists
+        if os.path.exists(resized_image_path):
+            with open(resized_image_path, 'rb') as f:
+                return HttpResponse(f.read(), content_type="image/jpeg")
+
+    # Resize the image
+    with Image.open(original_image_path) as img:
+        # Resize the image based on provided dimensions
+        new_width = img.width
+        new_height = img.height
+
+        if width:
+            new_width = int(width)
+        if height:
+            new_height = int(height)
+
+        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+
+        # Save the resized image with the specified quality
+        if quality:
+            img.save(resized_image_path, format='JPEG', quality=int(quality))
+        else:
+            img.save(resized_image_path, format='JPEG', quality=85)  # Default quality
+
+    # Serve the resized image
+    with open(resized_image_path, 'rb') as f:
+        return HttpResponse(f.read(), content_type="image/jpeg")

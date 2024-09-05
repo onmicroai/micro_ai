@@ -33,6 +33,8 @@ DEBUG = env.bool("DEBUG", default=True)
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
+DOMAIN = os.getenv("DOMAIN", "http://localhost")
+
 
 # Application definition
 

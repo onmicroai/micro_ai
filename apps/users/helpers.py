@@ -1,3 +1,5 @@
+# \micro_ai\apps\users\helpers.py
+
 import os
 
 from allauth.account import app_settings
