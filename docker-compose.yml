@@ -31,10 +31,12 @@ services:
       context: .
       dockerfile: Dockerfile.dev
     command: python manage.py runserver 0.0.0.0:8000
+    entrypoint: sh ./entrypoint.sh
     volumes:
       - .:/code
     ports:
       - "8000:8000"
+      - "5678:5678"
     env_file:
       - ./.env
     restart: unless-stopped

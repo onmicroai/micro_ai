@@ -1,4 +1,7 @@
+# \micro_ai\requirements\dev-requirements.in
+
 -c requirements.txt
 pip-tools
 pre-commit
 ruff
+debugpy==1.8.5
