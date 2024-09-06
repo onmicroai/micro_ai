@@ -12,7 +12,7 @@ debug: ## Start the docker containers in debug mode
 	@echo "Starting docker containers in debug mode..."
 	@docker compose -f docker-compose-debug.yml up -d
 	@echo "Running migrations..."
-	@docker compose -f docker-compose-debug.yml run --rm --no-deps web ./wait-for-db.sh db:5432 -- python manage.py makemigrations
+	@docker compose -f docker-compose-debug.yml run --rm --no-deps web ./wait-for-db.sh db:5432 -- python manage.py migrate
 	@echo "Starting the Django server..."
 	@echo "In VSCode, go to Run and Debug and choose 'Python: Remote Attach'"
 
