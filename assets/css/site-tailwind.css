@@ -201,19 +201,30 @@ footer,
 }
 
 .supercharge .bg-heading {
-  margin: 0 0 3.125vw;
+  margin: 0 0 4.5vw;
 }
-
-.supercharge p {
-  font-size: 0.938vw;
-  font-weight: 400;
-  line-height: 1.667vw;
+.supercharge {
+  padding-top: 5vw;
+  padding-bottom: 5vw;
+  background: #1A1A1A;
+}
+.supercharge .bg-heading h2 {
+  max-width: 65%;
+  margin: 0 auto 1vw;
+}
+.supercharge img {
+  width: 100%;
+  margin: 0 auto;
   text-align: center;
-  color: #666666;
-  max-width: 32.813vw;
-  margin: 3.125vw auto 2.083vw;
 }
-
+.supercharge .bg-heading p {
+  font-family: 'Figtree';
+  font-size: 1vw;
+  color: #BCBCBC;
+  max-width: fit-content;
+  text-align: center;
+  margin: 0 auto 2vw;
+}
 .supercharge p:last-child {
   margin: 0 auto;
 }
@@ -225,6 +236,126 @@ footer,
   background-image: url("data:image/svg+xml,%3Csvg width='287' height='53' viewBox='0 0 287 53' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 17.1683V10.0116L9.75474 1H283.746C284.995 1 286 2.0177 286 3.28162V43.7599L277.245 52H3.25354C2.00517 52 1 50.9823 1 49.7184V37.0628' stroke='url(%23paint0_linear_744_1051)' stroke-miterlimit='10'/%3E%3Cdefs%3E%3ClinearGradient id='paint0_linear_744_1051' x1='74.5' y1='-40' x2='241' y2='106.5' gradientUnits='userSpaceOnUse'%3E%3Cstop stop-color='%235C5EF1'/%3E%3Cstop offset='1' stop-color='%234CFFD4'/%3E%3C/linearGradient%3E%3C/defs%3E%3C/svg%3E%0A");
 }
 
+.tryit-app {
+  padding-top: 4vw;
+  padding-bottom: 4vw;
+}
+.tryit-app .try-boxes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2.604vw 1.563vw;
+  margin: 4vw 0 4vw;
+}
+
+.tryit-app .try-boxes .try-box {
+  background: #000;
+  border-radius: 25px;
+  overflow: hidden;
+}
+
+.tryit-app .try-boxes .try-box h4 {
+  font-size: 1.5vw;
+  color: #fff;
+  font-weight: 600;
+  min-height: 4.5vw;
+}
+
+.tryit-app .try-boxes .try-box .try-box-text {
+  padding: 2vw;
+}
+
+.tryit-app .try-boxes .try-box p {
+  color: #BCBCBC;
+  font-family: 'Figtree';
+  margin-top: 1vw;
+  margin-bottom: 2vw;
+}
+
+.tryit-app .try-boxes .try-box .btn-blue {
+  background: transparent;
+  color:#fff;
+  padding: 1vw 3vw;
+  border-radius: 12px;
+  font-weight: 600;
+  display: block;
+  max-width: fit-content;
+  border: 0.15vw solid;
+  border-color: #fff;
+  outline: none;
+}
+.tryit-app .try-boxes .try-box .btn-blue:hover {
+  background: #5C5EF1;
+  border-color: #5C5EF1;
+}
+
+.detail-type {
+  padding-top: 5vw;
+  padding-bottom: 5vw;
+  background: #1A1A1A;
+}
+
+.detail-type .detail-type-box {
+  display: flex;
+  align-items: center;
+  gap: 3vw;
+  padding: 3vw 0;
+}
+
+.detail-type .detail-img {
+  max-width: 18vw;
+}
+
+.detail-type .detail-img img {
+  width: 100%;
+}
+
+.detail-type .detail-text h4 {
+  color: #fff;
+  font-size: 1.65vw;
+  margin-bottom: 1vw;
+}
+
+.detail-type .detail-text p {
+  color: #BCBCBC;
+  margin-bottom: 1vw;
+  font-family: 'Figtree';
+  font-size: 1.20vw;
+}
+.detail-type .detail-type-box:nth-child(even) {
+  display: flex;
+  justify-content: flex-end;
+}
+.detail-type .detail-text {
+  max-width: 42%;
+}
+.maintain-section {
+  padding-top: 5vw;
+  padding-bottom: 5vw;
+}
+.maintain-section .maintain-col h4 {
+  color: #fff;
+  font-size: 1.65vw;
+  margin-bottom: 1vw;
+  max-width: 75%;
+  margin: 1vw auto;
+}
+.maintain-section .maintain-col p {
+  color: #BCBCBC;
+  margin-bottom: 1vw;
+  font-family: 'Figtree';
+  font-size: 1.20vw;
+}
+.maintain-col {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 3vw;
+}
+.maintain-col .maintain-img img {
+  text-align: center;
+  margin: 0 auto;
+}
 .what-app p {
   font-size: 0.938vw;
   font-weight: 400;
