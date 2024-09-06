@@ -21,283 +21,140 @@
                     </div>
                 </div>
             </section>
-            <section class="hero-banner">
-                <div class="container">
-                    <div class="text-center">
-                        <h1><span>AI-Powered</span>  Apps for Education...as Easy as a Google Form</h1>
-                    </div>
-                    <div class="hero-btns">
-                      <a href="{% url 'account_signup' %}">
-                        {% translate "Sign Up for free" %} </a>
-                    </div>
-                </div>
-            </section>
-            <section class="hero-banner">
-                <div class="container">
-                    <div class="text-center">
-                        <h1>Try These Free Apps</h1>
-                    </div>
-                    <div class="hero-boxs">
-                        <!-- <a href="/mcq_generator"> -->
-                        <a href="{% url 'web:mcqs' %}">
-                            <div class="single-box">
-                                <div class="img-box">
-                                    <img src= "{% static 'images/web/mcq.png' %}" alt="">
-                                </div>
-                                <h4>MCQ Wizard</h4>
-                            </div>
-                        </a>
-                        <!-- <a href="/lo_builder"> -->
-                        <a href="{% static '/html/default.html' %}">
-                            <div class="single-box">
-                                <div class="img-box">
-                                  <img src= "{% static 'images/web/lo.png' %}" alt="">
-                                </div>
-                                <h4>Storyboard Generator</h4>
-                            </div>
-                        </a>
-                        <!-- <a href="/guided_rubric"> -->
-                            <a href="{% static '/html/default.html' %}">
-                            <div class="single-box">
-                                <div class="img-box">
-                                  <img src= "{% static 'images/web/guide.png' %}" alt="">
-                                </div>
-                                <h4>Guided Rubric</h4>
-                            </div>
-                        </a>
-                        <!-- <a href="/storyboard_generator"> -->
-                            <a href="{% static '/html/default.html' %}">
-                            <div class="single-box">
-                                <div class="img-box">
-                                  <img src= "{% static 'images/web/storyboard.png' %}" alt="">
-                                </div>
-                                <h4>Alt Text Wizard</h4>
-                            </div>
-                        </a>
-                    </div>
-                    <div class="hero-btns">
-                        <!-- <a href="/library">View All</a> -->
-                        <a href="{% url 'web:library' %}">View All</a>
-                    </div>
-                </div>
-            </section>
+         
+            
             <section class="supercharge">
                 <div class="container">
                     <div class="text-center bg-heading">
-                        <h2><span>Micro-Apps Supercharge</span> Efficiency Without Sacrificing Quality</h2>
-                    </div>
-                    <div class="text-center">
-                      <img src= "{% static 'images/web/micro-app-image.svg' %}" alt="">
-                    </div>
-                    <div class="text-center">
-                        <p>
-                            In a controlled study, participants improved productivity by over 3x and quality by nearly 2x over traditional non-AI methods, when using micro-apps for a specific task
-                        </p>
-                        <div class="hero-btns">
-                            <a href="#">View The Full Study</a>
-                        </div>
+                        <h2>A drag-and-drop Tool that Supercharges your teaching</h2>
+                        <p>Create apps for course development, feedback, assessment and more..</p>
+                        <img src= "{% static 'images/web/micro-app-image.svg' %}" alt="">
                     </div>
                 </div>
             </section>
-            <section class="what-app">
+
+            <section class="tryit-app">
                 <div class="container">
                     <div class="text-center bg-heading">
-                        <h2>What are AI <span>Micro-Apps?</span></h2>
+                        <h2>Try it out in 3...2...1</h2>
                     </div>
-                    <div class="text-center">
-                      <img src= "{% static 'images/web/what-app-image.svg' %}" alt="">
-                    </div>
-                    <div class="text-center">
-                        <p>
-                            AI MicroApps are flexible AI-powered apps that feel as familiar as building out a form. MicroApps are transparent, so you are always in control of your prompt and have the ability to adapt it.
-                        </p>
-                        <p>
-                            No more “black box”, unchangeable AI solutions. Micro-apps allow organizations to superpower their AI adoption in a brand-consistent way while reducing onboarding and training costs.
-                        </p>
-                    </div>
-                </div>
-            </section>
-            <section class="benefit-app">
-                <div class="container">
-                    <div class="text-center bg-heading">
-                        <h2>Benefits of <span>Micro-Apps?</span></h2>
-                    </div>
-                    <h3>For Individuals</h3>
-                    <div class="benefit-boxes">
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/supercharge.svg' %}" alt="">
-                            <h5>Supercharge Efficiency</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/maintain.svg' %}" alt="">
-                            <h5>Maintain Quality</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/customizability.svg' %}" alt="">
-                            <h5>Customizability</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/transparency.svg' %}" alt="">
-                            <h5>Transparency</h5>
-                        </div>
-                    </div>
-                    <h3>For Organizations</h3>
-                    <div class="benefit-boxes">
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/supercharge.svg' %}" alt="">
-                            <h5>Increase AI Adoption</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/maintain.svg' %}" alt="">
-                            <h5>Increased Security</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/customizability.svg' %}" alt="">
-                            <h5>User <br> Feedback</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/transparency.svg' %}" alt="">
-                            <h5>Apply GenAI Strategically</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/supercharge.svg' %}" alt="">
-                            <h5>Analysis & Oversight</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/maintain.svg' %}" alt="">
-                            <h5>Cost <br> Savings</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/customizability.svg' %}" alt="">
-                            <h5>Bring your <br>own Data</h5>
-                        </div>
-                        <div class="benefit-box">
-                          <img src= "{% static 'images/web/transparency.svg' %}" alt="">
-                            <h5>Reduce On-boarding Burden</h5>
-                        </div>
-                    </div>
-                </div>
-            </section>
-            <section class="client-say">
-                <div class="container">
-                    <div class="text-center bg-heading">
-                        <h2>What Our <span>Client Says?</span></h2>
-                    </div>
-                    <div class="reviews-box">
-                        <div class="leftpan">
-                            <div class="single-review">
-                                <div class="r-header">
-                                    <img src= "{% static 'images/web/client-1.png' %}" alt="">
-                                    <div>    
-                                        <h5>John Wellberg</h5>
-                                        <h6>Project Manager</h6>
-                                    </div>
-                                </div>
-                                <p>Thanks OnMicro! Not only do I now have a library of apps that I can re-use and adapt for common tasks. I can also share these apps with others!</p>
-                            </div>
-                            <div class="single-review">
-                                <div class="r-header">
-                                    <img src= "{% static 'images/web/client-2.png' %}" alt="">
-                                    <div>    
-                                        <h5>John Wellberg</h5>
-                                        <h6>Project Manager</h6>
-                                    </div>
-                                </div>
-                                <p>Thanks OnMicro! Not only do I now have a library of apps that I can re-use and adapt for common tasks. I can also share these apps with others!</p>
+                    <div class="try-boxes">
+                        <div class="try-box">
+                            <img src="{% static 'images/web/multiple-01.png' %}" alt="">
+                            <div class="try-box-text">
+                                <h4>Multiple Choice Question
+                                    Generator</h4>
+                                <p>Generate multiple choice questions tailored to your content, audience, and teaching goals</p>
+                                <a class="btn-blue" href="{% url 'account_signup' %}">Go</a>
                             </div>
                         </div>
-                        <div class="rightpan">
-                            <div class="single-review">
-                                <div class="r-header">
-                                    <img src= "{% static 'images/web/client-3.png' %}" alt="">
-                                    <div>    
-                                        <h5>John Wellberg</h5>
-                                        <h6>Project Manager</h6>
-                                    </div>
-                                </div>
-                                <p>Thanks OnMicro! Not only do I now have a library of apps that I can re-use and adapt for common tasks. I can also share these apps with others!</p>
+                        <div class="try-box">
+            
+                            <img src="{% static 'images/web/writing-01.png' %}" alt="">
+                            <div class="try-box-text">
+                                <h4>Writing Feedback</h4>
+                                <p>Provide immediate feedback on written submissions. Generated by AI and guided by the instructor voice</p>
+                                <a class="btn-blue" href="{% url 'account_signup' %}">Go</a>
+                            </div>
+                        </div>
+                        <div class="try-box">
+            
+                            <img src="{% static 'images/web/case-study-01.png' %}" alt="">
+            
+                            <div class="try-box-text">
+                                <h4>Case Study Tutor</h4>
+                                <p>Ask your students critical thinking questions about a shared case study and access the accuracy of thier responses</p>
+                                <a class="btn-blue" href="{% url 'account_signup' %}">Go</a>
                             </div>
                         </div>
                     </div>
-                </div>
-            </section> 
-            <section class="plan-price">
-                <div class="container">
-                    <div class="text-center bg-heading">
-                        <h2>Pricing</h2>
-                    </div>   
-                    <div class="plan-boxes">
-                        <div class="single-plan">
-                            <h5>Free</h5>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit.</p>
-                            <h6><sup>$</sup>0<sub>/no credit <br>card required</sub></h6>
-                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
-                            <ul>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Access to “Forever free” public apps</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="single-plan">
-                            <h5>Organization</h5>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed massa risus, aliquam viverra.</p>
-                            <h6><sup>$</sup>79<sub><span>/m</span></sub></h6>
-                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
-                            <ul>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Access to full app library</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Full access to all AI Models (GPT-5, Gemini, etc)</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Customize and share apps</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Feedback and Analytics Dashboard</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>SSO</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Data Isolation</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Pooled usage credits</span>
-                                </li>
-                            </ul>
-                        </div>
-                        <div class="single-plan">
-                            <h5>Individual</h5>
-                            <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed massa risus, aliquam viverra.</p>
-                            <h6><sup>$</sup>16<sub><span>/m</span></sub></h6>
-                            <a href="{% url 'account_signup' %}" class="get-start-btn">Get Started</a>
-                            <ul>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Access to full app library</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Full access to all AI Models (GPT-5, Gemini, etc)</span>
-                                </li>
-                                <li>
-                                    <img src= "{% static 'images/web/click-icon.png' %}" alt="">
-                                    <span>Customize and share apps</span>
-                                </li>
-                            </ul>
-                        </div>
-                    </div>
+            
                 </div>
             </section>
+
+            <section class="detail-type">
+                <div class="container">
+                    <div class="detail-boxes">
+                        <div class="detail-col">
+                            <div class="detail-type-box">
+                                <div class="detail-img">
+                                    <img src="{% static 'images/web/build-01.png' %}" alt="">
+                                </div>
+                                <div class="detail-text">
+                                    <h4>Build</h4>
+                                    <p>You are in charge. Drag-and-Drop to create apps that leverage AI to accelerate course
+                                        development processes, scale your feedback, or automate assessment.</p>
+            
+                                    <p>Leverage AI where it works for you, and keep a human in the loop where it doesn't. </p>
+                                </div>
+                            </div>
+                            <div class="detail-type-box">
+                                <div class="detail-img">
+                                    <img src="{% static 'images/web/lock-01.png' %}" alt="">
+                                </div>
+                                <div class="detail-text">
+                                    <h4>Deliver</h4>
+                                    <p>Keep apps private or allow public access. Share with a team to.</p>
+                                </div>
+                            </div>
+                            <div class="detail-type-box">
+                                <div class="detail-img">
+                                    <img src="{% static 'images/web/analayze-01.png' %}" alt="">
+                                </div>
+                                <div class="detail-text">
+                                    <h4>Analyze</h4>
+                                    <p>Understand your users usage and satisfactions, to determine where AI is helping and where it can be improved.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                </div>
+            </section>
+
+            <section class="maintain-section">
+                <div class="container"></div>
+                    <div class="maintain-boxes">
+                        <div class="maintain-col">
+                            <div class="maintain-type-box">
+                                <div class="maintain-img">
+                                    <img src="{% static 'images/web/reclaim-01.png' %}" alt="">
+                                </div>
+                                <div class="maintain-text">
+                                    <h4>Reclaim your Time Maintain Quality</h4>
+                                    <p>In a controlled study, participants improved productivity by over 3x and quality by nearly 2x
+                                        over traditional non-AI methods, when using micro-apps for a specific task</p>
+                                </div>
+                            </div>
+                            <div class="maintain-type-box">
+                                <div class="maintain-img">
+                                    <img src="{% static 'images/web/brain-01.png' %}" alt="">
+                                </div>
+                                <div class="maintain-text">
+                                    <h4>Use the right LLM for your job</h4>
+                                    <p>All LLM's have strengths and weaknesses. Switch seamlessly between the best LLMs to find the right one for the job, or bring your own!</p>
+                                </div>
+                            </div>
+                            <div class="maintain-type-box">
+                                <div class="maintain-img">
+                                    <img src="{% static 'images/web/lock-01.png' %}" alt="">
+                                </div>
+                                <div class="maintain-text">
+                                    <h4>We believe in Access for all</h4>
+                                    <p>No more locking into LLMs for monthly fees regardless of usage. You only pay for app creators. Apps can be shared with anyone and only pay for usage.</p>
+            
+            
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+            
+                </div>
+            </section>
+
+
+            
+
             <section class="contact-us">
                 <div class="container">
                     <div class="content">     
