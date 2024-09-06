@@ -107,17 +107,21 @@ def get_resized_avatar(request, image_name):
     
     if not os.path.exists(original_image_path):
         raise Http404("Avatar not found.")
-
+    
     query_params = request.GET
     width = query_params.get('w')
     height = query_params.get('h')
     
     base, ext = os.path.splitext(image_name)
-    
-    resized_image_path = original_image_path  # Fallback to original
 
-    if width or height:
-        resized_image_filename = f"{base}_{width if width else 'auto'}x{height if height else 'auto'}{ext}"
+    resized_image_path = original_image_path  # Fallback to the original
+
+    if width is not None or height is not None:
+        # Setup target dimensions
+        target_width = int(width) if width else None
+        target_height = int(height) if height else None
+        
+        resized_image_filename = f"{base}_{target_width if target_width else 'auto'}x{target_height if target_height else 'auto'}{ext}"
         resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
 
         if os.path.exists(resized_image_path):
@@ -126,18 +130,33 @@ def get_resized_avatar(request, image_name):
 
         with Image.open(original_image_path) as img:
             original_width, original_height = img.size
-            new_width, new_height = original_width, original_height
+            
+            # Determine target dimensions for square resizing if only one dimension is given
+            if target_width is None and target_height is None:
+                raise ValueError("Must provide either width or height.")
 
-            if width and height:
-                new_width, new_height = int(width), int(height)
-            elif width:
-                new_width = int(width)
-                new_height = int((float(new_width) / original_width) * original_height)
-            elif height:
-                new_height = int(height)
-                new_width = int((float(new_height) / original_height) * original_width)
+            if target_width is None:
+                target_width = target_height
+            elif target_height is None:
+                target_height = target_width
 
-            img = img.resize((new_width, new_height), Image.LANCZOS)
+            # Calculate resize ratios
+            width_ratio = target_width / original_width
+            height_ratio = target_height / original_height
+
+            if width_ratio > height_ratio:
+                new_width = target_width
+                new_height = int(original_height * width_ratio)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+                crop_top_bottom = (new_height - target_height) // 2
+                img = img.crop((0, crop_top_bottom, new_width, crop_top_bottom + target_height))
+            else:
+                new_height = target_height
+                new_width = int(original_width * height_ratio)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+                crop_left_right = (new_width - target_width) // 2
+                img = img.crop((crop_left_right, 0, crop_left_right + target_width, new_height))
+
             img.save(resized_image_path, format='JPEG')
 
     with open(resized_image_path, 'rb') as f:
