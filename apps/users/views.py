@@ -103,52 +103,42 @@ def revoke_api_key(request):
 
 @login_required
 def get_resized_avatar(request, image_name):
-    # Construct the full path to the original avatar
     original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
     
     if not os.path.exists(original_image_path):
         raise Http404("Avatar not found.")
 
-    # Retrieve query parameters for resizing
     query_params = request.GET
     width = query_params.get('w')
     height = query_params.get('h')
-    quality = query_params.get('q')
     
     base, ext = os.path.splitext(image_name)
     
-    # Define resized image path
     resized_image_path = original_image_path  # Fallback to original
 
     if width or height:
-        # Generate filename for the resized image
-        resized_image_filename = f"{base}_{width if width else 'original'}x{height if height else 'original'}_{quality if quality else 'default'}{ext}"
+        resized_image_filename = f"{base}_{width if width else 'auto'}x{height if height else 'auto'}{ext}"
         resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
 
-        # Check if the resized image already exists
         if os.path.exists(resized_image_path):
             with open(resized_image_path, 'rb') as f:
                 return HttpResponse(f.read(), content_type="image/jpeg")
 
-    # Resize the image
-    with Image.open(original_image_path) as img:
-        # Resize the image based on provided dimensions
-        new_width = img.width
-        new_height = img.height
+        with Image.open(original_image_path) as img:
+            original_width, original_height = img.size
+            new_width, new_height = original_width, original_height
 
-        if width:
-            new_width = int(width)
-        if height:
-            new_height = int(height)
+            if width and height:
+                new_width, new_height = int(width), int(height)
+            elif width:
+                new_width = int(width)
+                new_height = int((float(new_width) / original_width) * original_height)
+            elif height:
+                new_height = int(height)
+                new_width = int((float(new_height) / original_height) * original_width)
 
-        img = img.resize((new_width, new_height), Image.ANTIALIAS)
+            img = img.resize((new_width, new_height), Image.LANCZOS)
+            img.save(resized_image_path, format='JPEG')
 
-        # Save the resized image with the specified quality
-        if quality:
-            img.save(resized_image_path, format='JPEG', quality=int(quality))
-        else:
-            img.save(resized_image_path, format='JPEG', quality=85)  # Default quality
-
-    # Serve the resized image
     with open(resized_image_path, 'rb') as f:
         return HttpResponse(f.read(), content_type="image/jpeg")

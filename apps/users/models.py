@@ -35,7 +35,7 @@ class CustomUser(AbstractUser):
     @property
     def avatar_url(self) -> str:
         if self.avatar:
-            return f"{settings.DOMAIN}{self.avatar.url}?w=128&q=75"
+            return f"{settings.DOMAIN}/users{self.avatar.url}"
         else:
             return f"https://www.gravatar.com/avatar/{self.gravatar_id}?s=128&d=identicon"
 
