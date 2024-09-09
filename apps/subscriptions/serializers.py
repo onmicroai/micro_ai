@@ -1,4 +1,4 @@
-from djstripe.models import Product, Subscription, Price, SubscriptionItem
+from djstripe.models import Product, Subscription, Price, SubscriptionItem, Plan
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
@@ -70,4 +70,10 @@ class CustomSubscriptionSerilaizer(serializers.ModelSerializer):
 
     class Meta:
         model = Subscription
+        fields = '__all__'
+
+class PlansSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = Plan
         fields = '__all__'
