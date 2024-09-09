@@ -1,3 +1,5 @@
+# \Projects\micro_ai\micro_ai\settings.py
+
 """
 Django settings for Micro AI project.
 
