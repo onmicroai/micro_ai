@@ -1,6 +1,6 @@
 from apps.microapps.models import Run
-from djstripe.models import Subscription
-from apps.subscriptions.serializers import CustomSubscriptionSerilaizer
+from djstripe.models import Subscription, Plan
+from apps.subscriptions.serializers import CustomSubscriptionSerilaizer, PlansSerializer
 from datetime import datetime
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
@@ -16,10 +16,10 @@ def subscription_details(user_id):
         return serializer.data[0]
     return None
 
-def check_plan(plan):
-        if plan == 1:
+def check_plan(amount):
+        if amount == UsageVariables.FREE_PLAN_AMOUNT_MONTH or amount == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
             return{"limit": UsageVariables.FREE_PLAN_LIMIT, "plan": UsageVariables.FREE_PLAN}
-        elif plan == 2:
+        elif amount == UsageVariables.ENTERPRISE_PLAN_AMOUNT_MONTH or amount == UsageVariables.ENTERPRISE_PLAN_AMOUNT_YEAR:
             return{"limit": UsageVariables.ENTERPRISE_PLAN_LIMIT, "plan": UsageVariables.ENTERPRISE_PLAN}
         else:
             return{"limit": UsageVariables.INDIVIDUAL_PLAN_LIMIT, "plan": UsageVariables.INDIVIDUAL_PLAN} 
@@ -46,7 +46,9 @@ class RunUsage:
         subscription = subscription_details(user_id)
         # Enterprise and individual plan implementation
         if subscription and subscription["status"] == "active":
-            limit_plan = check_plan(subscription["plan"])
+            plans = Plan.objects.get(djstripe_id=subscription["plan"])
+            plan_data = PlansSerializer(plans)
+            limit_plan = check_plan(plan_data.data["amount"])
             limit = limit_plan["limit"]
             plan = limit_plan["plan"]
             date = RunUsage.format_date(self, subscription["current_period_start"], subscription["current_period_end"])
@@ -74,7 +76,6 @@ class RunUsage:
                     date = RunUsage.format_date(self, adjusted_start_date.strftime('%Y-%m-%dT%H:%M:%SZ'), end_date.strftime('%Y-%m-%dT%H:%M:%SZ'))
                     start_date = date["start"]
                     end_date = date["end"]
-
             total_cost = RunUsage.cost_calculation(self, user_id, start_date, end_date)
             return limit > total_cost
         
@@ -100,7 +101,9 @@ class MicroAppUasge:
         subscription = subscription_details(user_id)
         userapps = MicroAppUserJoin.objects.filter(user_id=user_id, role="owner").aggregate(count = Count("id"))
         if subscription and subscription["status"] == "active":
-            if subscription["plan"] == 1:
+            plans = Plan.objects.get(djstripe_id=subscription["plan"])
+            plan_data = PlansSerializer(plans)
+            if plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_MONTH or plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
                 return userapps["count"] > UsageVariables.FREE_PLAN_MICROAPP_LIMIT  
             else:
                 return True
