@@ -1,0 +1,37 @@
+name: CI/CD Backend
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v2
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v1
+
+    - name: Run Tests
+      run: |
+        docker-compose run --rm --no-deps web python manage.py test
+
+    - name: SSH Command for Deployment
+      uses: appleboy/ssh-action@v0.1.0
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'root'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /home/micro_ai
+          git pull origin feature/proxy-server
+          docker-compose down
+          docker compose -f docker-compose-prod.yml up -d
