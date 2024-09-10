@@ -91,12 +91,22 @@ class AIModelConstants:
         return False
     
 class UsageVariables:
+    # Plan names
     FREE_PLAN = "free"
     INDIVIDUAL_PLAN = "individual"
     ENTERPRISE_PLAN = "enterprise"
+    # Plan limits
     FREE_PLAN_LIMIT = 3
     INDIVIDUAL_PLAN_LIMIT = 10
     ENTERPRISE_PLAN_LIMIT = 40
+    # Default values
     DEFAULT_PLAN_ID = 1
     DEFAULT_TOTAL_COST = 0
     FREE_PLAN_MICROAPP_LIMIT = 3
+    # Plan amounts
+    FREE_PLAN_AMOUNT_MONTH = "0.00"
+    FREE_PLAN_AMOUNT_YEAR = "0.00"
+    ENTERPRISE_PLAN_AMOUNT_MONTH = "79.00"
+    ENTERPRISE_PLAN_AMOUNT_YEAR = "850.00"
+    INDIVIDUAL_PLAN_AMOUNT_YEAR = "18.00"
+    INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
