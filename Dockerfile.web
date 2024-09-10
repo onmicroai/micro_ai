@@ -1,3 +1,4 @@
+# \micro_ai\Dockerfile.web
 # Multi-stage Docker buildfile
 # See https://docs.docker.com/build/guide/multi-stage/
 
@@ -54,16 +55,14 @@ RUN pip install --no-index --find-links=/wheels \
 WORKDIR /code
 
 # Copy the application code
-COPY --chown=django:django . /code
+# TODO: "chown -R django:django" doesn't change user/role of the files for some reason
+COPY . /code
 COPY --from=build-node /code/static /code/static
-
-RUN mkdir static_root && chown django:django -R static_root
+RUN mkdir static_root \
+    && chown -R django:django /code \    
+    && chmod +x /code/deploy/docker_startup.sh 
 
 USER django
 
-# Copy the startup script
-COPY --chown=django:django deploy/docker_startup.sh /start
-RUN chmod +x /start
-
 # Use the entrypoint script to start the application
-CMD ["/start"]
+CMD /code/deploy/docker_startup.sh
