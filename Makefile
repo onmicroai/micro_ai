@@ -1,3 +1,5 @@
+# micro_ai\Makefile
+
 include custom.mk
 
 setup-env:
@@ -10,7 +12,7 @@ start: ## Start the docker containers
 
 start-prod: ## Start the docker containers
 	@echo "Starting the docker containers"
-	@docker compose -f docker-compose-prod.yml up
+	@docker compose -f docker-compose-prod.yml up -d
 	@echo "Containers started - http://localhost:8000"
 
 debug: ## Start the docker containers in debug mode
@@ -44,14 +46,8 @@ bash: ## Get a bash shell into the web container
 migrations: ## Create DB migrations in the container
 	@docker compose run --rm --no-deps web python manage.py makemigrations
 
-migrations-prod: ## Create DB migrations in the container
-	@docker compose -f docker-compose-prod.yml run --rm --no-deps web python manage.py makemigrations
-
 migrate: ## Run DB migrations in the container
 	@docker compose run --rm --no-deps web python manage.py migrate
-
-migrate-prod: ## Run DB migrations in the container
-	@docker compose -f docker-compose-prod.yml run --rm --no-deps web python manage.py migrate
 
 shell: ## Get a Django shell
 	@docker compose run --rm --no-deps web python manage.py shell
@@ -64,7 +60,7 @@ test: ## Run Django tests
 
 init: setup-env start-bg migrations migrate  ## Quickly get up and running (start containers and migrate DB)
 
-init-prod: setup-env start-bg-prod migrations-prod migrate-prod  ## Quickly get up and running (start containers and migrate DB)
+init-prod: setup-env  ## Quickly get up and running (start containers and migrate DB)
 
 pip-compile: ## Compiles your requirements.in file to requirements.txt
 	@docker compose run --rm --no-deps web pip-compile requirements/requirements.in

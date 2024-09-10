@@ -62,7 +62,5 @@ RUN mkdir static_root \
     && chown -R django:django /code \    
     && chmod +x /code/deploy/docker_startup.sh 
 
-USER django
-
 # Use the entrypoint script to start the application
 CMD /code/deploy/docker_startup.sh
