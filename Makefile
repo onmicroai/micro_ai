@@ -1,3 +1,5 @@
+# micro_ai\Makefile
+
 include custom.mk
 
 setup-env:
@@ -8,6 +10,19 @@ start: ## Start the docker containers
 	@docker compose up
 	@echo "Containers started - http://localhost:8000"
 
+start-prod: ## Start the docker containers
+	@echo "Starting the docker containers"
+	@docker compose -f docker-compose-prod.yml up -d
+	@echo "Containers started - http://localhost:8000"
+
+debug: ## Start the docker containers in debug mode
+	@echo "Starting docker containers in debug mode..."
+	@docker compose -f docker-compose-debug.yml up -d
+	@echo "Running migrations..."
+	@docker compose -f docker-compose-debug.yml run --rm --no-deps web ./wait-for-db.sh db:5432 -- python manage.py migrate
+	@echo "Starting the Django server..."
+	@echo "In VSCode, go to Run and Debug and choose 'Python: Remote Attach'"
+
 stop: ## Stop Containers
 	@docker compose down
 
@@ -15,6 +30,9 @@ restart: stop start ## Restart Containers
 
 start-bg:  ## Run containers in the background
 	@docker compose up -d
+
+start-bg-prod:  ## Run containers in the background
+	@docker compose -f docker-compose-prod.yml up -d
 
 build: ## Build Containers
 	@docker compose build
@@ -41,6 +59,8 @@ test: ## Run Django tests
 	@docker compose run --rm --no-deps web python manage.py test
 
 init: setup-env start-bg migrations migrate  ## Quickly get up and running (start containers and migrate DB)
+
+init-prod: setup-env  ## Quickly get up and running (start containers and migrate DB)
 
 pip-compile: ## Compiles your requirements.in file to requirements.txt
 	@docker compose run --rm --no-deps web pip-compile requirements/requirements.in

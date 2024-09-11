@@ -1,7 +1,9 @@
+# \micro_ai\apps\users\views.py
+
 from .adapter import user_has_valid_totp_device
 from allauth.account.utils import send_email_confirmation
 from allauth.socialaccount.models import SocialAccount
-
+from django.http import HttpResponse, Http404
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse, HttpResponseRedirect, JsonResponse
@@ -9,13 +11,14 @@ from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_POST
-
+from django.conf import settings
 from apps.api.models import UserAPIKey
 
 from .forms import CustomUserChangeForm, UploadAvatarForm
 from .helpers import require_email_confirmation, user_has_confirmed_email_address
 from .models import CustomUser
-
+from PIL import Image
+import os
 
 @login_required
 def profile(request):
@@ -97,3 +100,64 @@ def revoke_api_key(request):
         ),
     )
     return HttpResponseRedirect(reverse("users:user_profile"))
+
+@login_required
+def get_resized_avatar(request, image_name):
+    original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
+    
+    if not os.path.exists(original_image_path):
+        raise Http404("Avatar not found.")
+    
+    query_params = request.GET
+    width = query_params.get('w')
+    height = query_params.get('h')
+    
+    base, ext = os.path.splitext(image_name)
+
+    resized_image_path = original_image_path  # Fallback to the original
+
+    if width is not None or height is not None:
+        # Setup target dimensions
+        target_width = int(width) if width else None
+        target_height = int(height) if height else None
+        
+        resized_image_filename = f"{base}_{target_width if target_width else 'auto'}x{target_height if target_height else 'auto'}{ext}"
+        resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
+
+        if os.path.exists(resized_image_path):
+            with open(resized_image_path, 'rb') as f:
+                return HttpResponse(f.read(), content_type="image/jpeg")
+
+        with Image.open(original_image_path) as img:
+            original_width, original_height = img.size
+            
+            # Determine target dimensions for square resizing if only one dimension is given
+            if target_width is None and target_height is None:
+                raise ValueError("Must provide either width or height.")
+
+            if target_width is None:
+                target_width = target_height
+            elif target_height is None:
+                target_height = target_width
+
+            # Calculate resize ratios
+            width_ratio = target_width / original_width
+            height_ratio = target_height / original_height
+
+            if width_ratio > height_ratio:
+                new_width = target_width
+                new_height = int(original_height * width_ratio)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+                crop_top_bottom = (new_height - target_height) // 2
+                img = img.crop((0, crop_top_bottom, new_width, crop_top_bottom + target_height))
+            else:
+                new_height = target_height
+                new_width = int(original_width * height_ratio)
+                img = img.resize((new_width, new_height), Image.LANCZOS)
+                crop_left_right = (new_width - target_width) // 2
+                img = img.crop((crop_left_right, 0, crop_left_right + target_width, new_height))
+
+            img.save(resized_image_path, format='JPEG')
+
+    with open(resized_image_path, 'rb') as f:
+        return HttpResponse(f.read(), content_type="image/jpeg")

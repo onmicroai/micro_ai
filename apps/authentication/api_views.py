@@ -1,3 +1,5 @@
+# \micro_ai\apps\authentication\api_views.py
+
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp import TOTP
@@ -12,6 +14,8 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from dj_rest_auth.registration.views import RegisterView
+from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated
 
 from apps.microapps.models import Microapp
 from apps.users.models import CustomUser
@@ -51,11 +55,12 @@ class LoginViewWith2fa(LoginView):
         else:
             super_response = super().post(request, *args, **kwargs)
             if super_response.status_code == status.HTTP_200_OK:
+                jwt_data = super_response.data
                 # rewrap login responses to match our serializer schema
                 wrapped_jwt_data = {
                     "status": "success",
                     "detail": "User logged in.",
-                    "jwt": super_response.data,
+                    "jwt": jwt_data,
                 }
                 return Response(wrapped_jwt_data, status=200)
             return super_response
@@ -122,3 +127,16 @@ class CustomRegisterView(RegisterView):
         Microapp.objects.bulk_create(app_instances)
 
 
+class APICustomLogoutView(APIView):
+    #TODO: Doesn't delete cookies, need to review Django logout methods
+    
+    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+
+    def post(self, request, *args, **kwargs):
+
+        # Delete the `refresh_token` cookie
+        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
+        response.delete_cookie('refresh_token')
+        response.delete_cookie('sessionid')
+
+        return response
