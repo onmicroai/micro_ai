@@ -27,7 +27,7 @@ jobs:
         docker compose run --rm --no-deps web python manage.py test
 
     - name: SSH Command for Deployment
-      uses: appleboy/ssh-action@v1
+      uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP }}
         username: 'root'
