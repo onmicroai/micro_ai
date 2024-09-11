@@ -184,6 +184,8 @@ packaging==24.0
     # via
     #   djangorestframework-api-key
     #   huggingface-hub
+pillow==10.4.0
+    # via -r requirements/requirements.in
 prompt-toolkit==3.0.45
     # via click-repl
 proto-plus==1.24.0
