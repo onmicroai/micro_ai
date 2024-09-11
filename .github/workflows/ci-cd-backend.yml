@@ -31,7 +31,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
-          cd /home/micro_ai
+          cd /home/ubuntu/micro_ai
           git pull origin feature/proxy-server
           docker-compose down
           docker compose -f docker-compose-prod.yml up -d
