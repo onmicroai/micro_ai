@@ -14,20 +14,20 @@ jobs:
 
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v3  
+      uses: actions/checkout@v4  
 
-    - name: Install Docker
+    - name: Check Docker Version
       run: |
-        curl -fsSL https://get.docker.com -o get-docker.sh
-        sh get-docker.sh
+        docker --version
+        docker compose version 
 
     - name: Run Tests
       run: |
-        docker-compose up -d
-        docker-compose run --rm --no-deps web python manage.py test
+        docker compose up -d
+        docker compose run --rm --no-deps web python manage.py test
 
     - name: SSH Command for Deployment
-      uses: appleboy/ssh-action@v0.1.0
+      uses: appleboy/ssh-action@v1
       with:
         host: ${{ secrets.SERVER_IP }}
         username: 'root'
