@@ -19,7 +19,11 @@ jobs:
     - name: Check Docker Version
       run: |
         docker --version
-        docker compose version 
+        docker compose version
+
+    - name: Copy .env.example to .env
+      run: |
+        cp env.example .env
 
     - name: Run Tests
       run: |
