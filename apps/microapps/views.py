@@ -628,6 +628,18 @@ class RunList(APIView):
             )
         except Exception as e:
             return handle_exception(e)
+    
+    def patch(self, request):
+        try:
+            data = request.data
+            run_object = Run.objects.get(id = data.get("id"))
+            serializer = RunSerializer(run_object, {"cost": data.get("cost")}, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors)
+        except Exception as e:
+            return handle_exception(e)
 
 class AIModelRoute:
    
