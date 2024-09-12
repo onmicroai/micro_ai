@@ -24,6 +24,14 @@ def check_plan(amount):
         else:
             return{"limit": UsageVariables.INDIVIDUAL_PLAN_LIMIT, "plan": UsageVariables.INDIVIDUAL_PLAN} 
 
+def get_user_ip(request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(",")[0]
+        else:
+            ip = request.META.get("REMOTE_ADDR")
+        return ip
+
 class RunUsage:
     
     def format_date(self, start_date, end_date):
@@ -110,13 +118,6 @@ class MicroAppUasge:
         return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT
 
 class GuestUsage:
-    def get_user_ip(self, request):
-        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
-        if x_forwarded_for:
-            ip = x_forwarded_for.split(",")[0]
-        else:
-            ip = request.META.get("REMOTE_ADDR")
-        return ip
     
     def get_user_sessions(self, ip):
         date = datetime.now().strftime("%Y-%m-%d")
@@ -129,7 +130,6 @@ class GuestUsage:
         return sessions
 
     @staticmethod
-    def get_run_related_info(self, request):
-        ip = GuestUsage.get_user_ip(self, request)
+    def get_run_related_info(self, ip):
         sessions = GuestUsage.get_user_sessions(self, ip)
         return sessions < UsageVariables.GUEST_USER_SESSION_LIMIT
