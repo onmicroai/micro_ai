@@ -16,17 +16,16 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4 
 
+    - name: Check Docker Version
+      run: |
+        docker --version
+        docker compose version
 
-    # TODO: need to make fixes, doesn't work properly 
-    # - name: Check Docker Version
-    #   run: |
-    #     docker --version
-    #     docker compose version
+    - name: Copy .env.example to .env
+      run: |
+        cp .env.example .env
 
-    # - name: Copy .env.example to .env
-    #   run: |
-    #     cp env.example .env
-
+    # TODO: breaks with an error
     # - name: Run Tests
     #   run: |
     #     docker compose up -d
@@ -36,11 +35,11 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP }}
-        username: 'root'
+        username: 'ubuntu'
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
-          git pull origin feature/proxy-server
-          docker-compose down
+          sudo docker-compose -f docker-compose-prod.yml down
+          git pull origin master
           sudo docker-compose -f docker-compose-prod.yml up -d
