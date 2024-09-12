@@ -31,7 +31,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
-from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage
+from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
 from django.db.models import Sum
 from apps.utils.global_varibales import AIModelVariables, AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
@@ -518,30 +518,19 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
-            """
-            ** Algo for non logged in users:
-            1- check for user-id from auth token  (done)
-            2- if user-id, logged in user  (done)
-            3- if not user-id, guest user  (done)
-            4- update run model keys user_id, ma_id and owner_id to accept blank values in case of guest user run request  (done)
-            5- track user activity using IP address  
-            6- Resolve ip address in case of proxy and not proxy
-            7- check for ditinct user sessions for the day and given ip
-            8- calculate if limit exceeds or not
-            9- 
-            """
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
                 )
+            ip = get_user_ip(request)
+            # Handle guest users usage
             if not request.user.id:
-                ip = GuestUsage.get_user_ip(self,request)
-                if not GuestUsage.get_run_related_info(self, request):
+                if not GuestUsage.get_run_related_info(self, ip):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
                 app_owner_id = None
-
+            # Handle logged-in users usage
             else:
                 # Get microapp owner id
                 app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
@@ -552,7 +541,6 @@ class RunList(APIView):
                 # Checking for usage limit
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
-            # return Response()
             # Return model instance based on AI-model name
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
             if not model:
