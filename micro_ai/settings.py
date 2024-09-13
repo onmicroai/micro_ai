@@ -296,7 +296,16 @@ FORMS_URLFIELD_ASSUME_HTTPS = True
 # Email setup
 
 # use in development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
+EMAIL_PORT = 587  # or 25, 2587
+EMAIL_USE_TLS = True  # STARTTLS
+EMAIL_HOST_USER = 'AKIAXYKJUMDFCRR5646V'
+EMAIL_HOST_PASSWORD = 'BA0/5lwoPWts90/75vxlvBSKBS3lOJvXpU4UQKWnmbN7'
+DEFAULT_FROM_EMAIL = "no-reply@onmicro.ai"
+
 # use in production
 # see https://github.com/anymail/django-anymail for more details/examples
 # EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
