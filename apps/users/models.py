@@ -8,7 +8,7 @@ from django.conf import settings
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-import requests
+from django.core.files.storage import default_storage
 from apps.users.helpers import validate_profile_picture
 
 
@@ -34,15 +34,8 @@ class CustomUser(AbstractUser):
 
     @property
     def avatar_url(self) -> str:
-        if self.avatar:
-            avatar_url = f"{settings.DOMAIN}/users{self.avatar.url}"
-        try:
-            response = requests.head(avatar_url)
-            if response.status_code == 200:
-                return avatar_url
-        except requests.RequestException:
-            pass  
-        
+        if self.avatar and default_storage.exists(self.avatar.name):
+            return f"{settings.DOMAIN}{self.avatar.url}"
         return f"{settings.STATIC_URL}images/web/default_avatar.jpg"
 
     @property
