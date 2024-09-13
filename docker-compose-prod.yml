@@ -1,4 +1,4 @@
-# \micro_ai\docker-compose.yml
+# \micro_ai\docker-compose-prod.yml
 
 services:
   db:
@@ -34,6 +34,7 @@ services:
       dockerfile: Dockerfile.web
     volumes:
       - .:/code
+      - media_data:/code/media
     expose:
       - "8000"
     env_file:
@@ -53,6 +54,7 @@ services:
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
       - .:/code
+      - media_data:/code/media
     env_file:
       - .env
     networks:
@@ -66,6 +68,7 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  media_data:
 
 networks:
   microaiNetwork:
