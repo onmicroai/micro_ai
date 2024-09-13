@@ -157,6 +157,9 @@ def get_resized_avatar(request, image_name):
                 crop_left_right = (new_width - target_width) // 2
                 img = img.crop((crop_left_right, 0, crop_left_right + target_width, new_height))
 
+            if img.mode == 'RGBA':
+                img = img.convert('RGB')
+
             img.save(resized_image_path, format='JPEG')
 
     with open(resized_image_path, 'rb') as f:
