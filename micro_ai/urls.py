@@ -29,7 +29,7 @@ from apps.global_microapps.urls import urlpatterns as global_app_urls
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
 
-from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView
+from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
 
 
 sitemaps = {
@@ -54,6 +54,7 @@ urlpatterns = [
     path("accounts/login/", CustomLoginView.as_view(), name='account_login'),
     path("accounts/signup/", CustomSignupView.as_view(), name='account_signup'),
     path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
+    path("accounts/logout_loading/", CustomLogoutLoadingView.as_view(), name='account_loading_logout'),
     path("accounts/", include("allauth.urls")),
     path("users/", include("apps.users.urls")),
     path("subscriptions/", include("apps.subscriptions.urls")),
