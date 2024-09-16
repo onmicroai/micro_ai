@@ -74,6 +74,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
+          cd /home/ubuntu/micro_ai
           sudo docker-compose -f docker-compose-prod.yml up -d
           cd /home/ubuntu/microai-frontend
           sudo docker-compose -f docker-compose.prod.yml up -d
