@@ -66,7 +66,8 @@ jobs:
           sudo docker image prune --all -f
           sudo docker image prune -a -f
           
-    - name: Deploy - Start Updated Services
+
+    - name: Deploy - Start Updated Backend 
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP }}
@@ -76,5 +77,14 @@ jobs:
         script: |
           cd /home/ubuntu/micro_ai
           sudo docker-compose -f docker-compose-prod.yml up -d
+
+    - name: Deploy - Restarted frontend with new docker network
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
           cd /home/ubuntu/microai-frontend
           sudo docker-compose -f docker-compose.prod.yml up -d
