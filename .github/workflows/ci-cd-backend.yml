@@ -31,7 +31,7 @@ jobs:
     #     docker compose up -d
     #     docker compose run --rm --no-deps web python manage.py test
 
-    - name: SSH Command for Deployment
+    - name: Deploy - Take Down Current Production Containers
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP }}
@@ -43,15 +43,37 @@ jobs:
           sudo docker-compose -f docker-compose.prod.yml down
           cd /home/ubuntu/micro_ai
           sudo docker-compose -f docker-compose-prod.yml down
+          
+    - name: Deploy - Pull Latest Code
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /home/ubuntu/micro_ai
           git pull origin master
-          
-          
-          # Prune unused Docker containers, images
-          echo "Pruning unused Docker images..."
+
+    - name: Deploy - Prune unused Docker containers, images
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
           sudo docker image prune --all -f
           sudo docker image prune -a -f
-
-          sudo docker-compose -f docker-compose-prod.yml build --no-cache
+          
+    - name: Deploy - Start Updated Services
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
           sudo docker-compose -f docker-compose-prod.yml up -d
           cd /home/ubuntu/microai-frontend
-          sudo docker-compose -f docker-compose.prod.yml up -d        
+          sudo docker-compose -f docker-compose.prod.yml up -d
