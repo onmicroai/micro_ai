@@ -24,6 +24,14 @@ def check_plan(amount):
         else:
             return{"limit": UsageVariables.INDIVIDUAL_PLAN_LIMIT, "plan": UsageVariables.INDIVIDUAL_PLAN} 
 
+def get_user_ip(request):
+        x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+        if x_forwarded_for:
+            ip = x_forwarded_for.split(",")[0]
+        else:
+            ip = request.META.get("REMOTE_ADDR")
+        return ip
+
 class RunUsage:
     
     def format_date(self, start_date, end_date):
@@ -104,7 +112,24 @@ class MicroAppUasge:
             plans = Plan.objects.get(djstripe_id=subscription["plan"])
             plan_data = PlansSerializer(plans)
             if plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_MONTH or plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
-                return userapps["count"] > UsageVariables.FREE_PLAN_MICROAPP_LIMIT  
+                return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT  
             else:
                 return True
-        return userapps["count"] > UsageVariables.FREE_PLAN_MICROAPP_LIMIT
+        return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT
+
+class GuestUsage:
+    
+    def get_user_sessions(self, ip):
+        date = datetime.now().strftime("%Y-%m-%d")
+        filters = {
+                "timestamp__date__gte": date,
+                "user_ip": ip
+            }
+        sessions = Run.objects.filter(**filters).count()
+        sessions = Run.objects.filter(**filters).distinct("session_id").count()
+        return sessions
+
+    @staticmethod
+    def get_run_related_info(self, ip):
+        sessions = GuestUsage.get_user_sessions(self, ip)
+        return sessions < UsageVariables.GUEST_USER_SESSION_LIMIT
