@@ -1,4 +1,4 @@
-# \micro_ai\docker-compose.yml
+# \micro_ai\docker-compose-prod.yml
 
 services:
   db:
@@ -31,13 +31,12 @@ services:
   web:
     build:
       context: .
-      dockerfile: Dockerfile.dev
-    command: python manage.py runserver 0.0.0.0:8000
+      dockerfile: Dockerfile.web
     volumes:
       - .:/code
       - media_data:/code/media
-    ports:
-      - "8000:8000"
+    expose:
+      - "8000"
     env_file:
       - ./.env
     restart: unless-stopped
@@ -51,13 +50,13 @@ services:
   celery:
     build:
       context: .
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile.web
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
       - .:/code
       - media_data:/code/media
     env_file:
-      - ./.env
+      - .env
     networks:
       - microaiNetwork
     depends_on:
@@ -69,7 +68,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  static:
   media_data:
 
 networks:

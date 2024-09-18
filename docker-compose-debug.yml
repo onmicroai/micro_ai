@@ -1,4 +1,4 @@
-# \micro_ai\docker-compose.yml
+#\micro_ai\docker-compose-debug.yml
 
 services:
   db:
@@ -32,12 +32,12 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.dev
-    command: python manage.py runserver 0.0.0.0:8000
+    command: python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
     volumes:
       - .:/code
-      - media_data:/code/media
     ports:
       - "8000:8000"
+      - "5678:5678"
     env_file:
       - ./.env
     restart: unless-stopped
@@ -55,7 +55,6 @@ services:
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
       - .:/code
-      - media_data:/code/media
     env_file:
       - ./.env
     networks:
@@ -69,8 +68,6 @@ services:
 volumes:
   postgres_data:
   redis_data:
-  static:
-  media_data:
 
 networks:
   microaiNetwork:

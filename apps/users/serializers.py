@@ -1,3 +1,5 @@
+# \micro_ai\apps\users\serializers.py
+
 from rest_framework import serializers
 
 from .models import CustomUser
