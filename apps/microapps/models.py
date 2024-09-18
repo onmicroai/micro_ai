@@ -70,8 +70,8 @@ class KnowledgeBase(models.Model):
 
 class Run(models.Model):
     
-    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
-    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "user_runs", on_delete=models.CASCADE)
+    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE, blank=True, null=True)
+    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "user_runs", on_delete=models.CASCADE, blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
     session_id = models.TextField(blank=True)
     satisfaction = models.IntegerField()
@@ -96,7 +96,8 @@ class Run(models.Model):
     rubric = models.TextField()
     run_passed = models.BooleanField(default=True)
     skippable_phase = models.BooleanField(default=False)
-    owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE)
+    owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE, blank=True, null=True)
+    user_ip = models.CharField(max_length=20, blank=True)
 
     def __str__(self):
         return self.ai_model
