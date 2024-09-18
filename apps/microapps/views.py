@@ -431,6 +431,7 @@ class UserApps(APIView):
         ],
     ),
     post=extend_schema(request=RunSerializer, responses={200: RunSerializer}),
+    patch=extend_schema(request=RunSerializer, responses={200: RunSerializer})
 )
 class RunList(APIView):
     permission_classes = [AllowAny]
