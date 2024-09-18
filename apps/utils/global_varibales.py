@@ -102,7 +102,7 @@ class UsageVariables:
     # Default values
     DEFAULT_PLAN_ID = 1
     DEFAULT_TOTAL_COST = 0
-    FREE_PLAN_MICROAPP_LIMIT = 3
+    FREE_PLAN_MICROAPP_LIMIT = 500
     # Plan amounts
     FREE_PLAN_AMOUNT_MONTH = "0.00"
     FREE_PLAN_AMOUNT_YEAR = "0.00"
@@ -110,3 +110,5 @@ class UsageVariables:
     ENTERPRISE_PLAN_AMOUNT_YEAR = "850.00"
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "18.00"
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
+    # Guest Users
+    GUEST_USER_SESSION_LIMIT = 3
