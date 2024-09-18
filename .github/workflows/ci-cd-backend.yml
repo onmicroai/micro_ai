@@ -63,8 +63,9 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: 22
         script: |
-          sudo docker image prune --all -f
-          sudo docker image prune -a -f
+            echo "Pruning unused Docker images and containers..."
+            sudo docker container prune -f
+            sudo docker image prune -a -f
           
 
     - name: Deploy - Start Updated Backend 
