@@ -306,9 +306,9 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
 EMAIL_PORT = 587  # or 25, 2587
 EMAIL_USE_TLS = True  # STARTTLS
-EMAIL_HOST_USER = 'AKIAXYKJUMDFCRR5646V'
-EMAIL_HOST_PASSWORD = 'BA0/5lwoPWts90/75vxlvBSKBS3lOJvXpU4UQKWnmbN7'
-DEFAULT_FROM_EMAIL = "no-reply@onmicro.ai"
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 # use in production
 # see https://github.com/anymail/django-anymail for more details/examples
