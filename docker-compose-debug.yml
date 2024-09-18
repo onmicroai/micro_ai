@@ -2,6 +2,7 @@
 
 services:
   db:
+    container_name: db
     image: postgres
     # persist data beyond lifetime of container
     volumes:
@@ -17,6 +18,7 @@ services:
       interval: 2s
       retries: 10
   redis:
+    container_name: redis
     image: redis
     # persistent storage
     command: redis-server --appendonly yes
@@ -29,6 +31,7 @@ services:
       interval: 2s
       retries: 10
   web:
+    container_name: web
     build:
       context: .
       dockerfile: Dockerfile.dev
@@ -49,6 +52,7 @@ services:
       redis:
         condition: service_healthy
   celery:
+    container_name: celery
     build:
       context: .
       dockerfile: Dockerfile.dev
