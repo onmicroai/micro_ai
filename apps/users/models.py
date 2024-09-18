@@ -1,11 +1,14 @@
+# \micro_ai\apps\users\models.py
+
 import hashlib
 import uuid
 from functools import cached_property
+from django.conf import settings
 
 from allauth.account.models import EmailAddress
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-
+from django.core.files.storage import default_storage
 from apps.users.helpers import validate_profile_picture
 
 
@@ -31,10 +34,9 @@ class CustomUser(AbstractUser):
 
     @property
     def avatar_url(self) -> str:
-        if self.avatar:
-            return self.avatar.url
-        else:
-            return "https://www.gravatar.com/avatar/{}?s=128&d=identicon".format(self.gravatar_id)
+        if self.avatar and default_storage.exists(self.avatar.name):
+            return f"{settings.DOMAIN}/users{self.avatar.url}"
+        return f"{settings.STATIC_URL}images/web/default_avatar.jpg"
 
     @property
     def gravatar_id(self) -> str:

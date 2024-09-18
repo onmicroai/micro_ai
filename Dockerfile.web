@@ -1,11 +1,10 @@
+# \micro_ai\Dockerfile.web
 # Multi-stage Docker buildfile
 # See https://docs.docker.com/build/guide/multi-stage/
 
 # Stage 1: Build the python dependencies
-# Include any build time OS dependencies here.
 FROM python:3.11-slim-bookworm as build-python
 RUN apt-get update \
-  # dependencies for building Python packages
   && apt-get install -y build-essential libpq-dev
 COPY ./requirements /requirements
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /wheels \
@@ -14,7 +13,7 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /wheels \
 
 # Stage 2: Build the front end files
 FROM node:20-bookworm-slim AS build-node
-RUN nodejs -v && npm -v
+RUN node -v && npm -v
 WORKDIR /code
 COPY *.json *.js .babelrc /code/
 COPY assets /code/assets/
@@ -22,14 +21,11 @@ COPY api-client /code/api-client/
 
 RUN npm install
 
-# build needs everything because it needs to be able to do the tailwind class detection / purging stuff
+# Build needs everything because it needs to be able to do the tailwind class detection/purging stuff
 COPY . /code
 RUN npm run build
 
 # Stage 3: Build the final image
-# This copies the python dependencies from the first stage
-# and the front end files from the second stage.
-# Add any runtime OS dependencies here.
 FROM python:3.11-slim-bookworm
 ENV PYTHONUNBUFFERED 1
 ENV DEBUG 0
@@ -37,20 +33,17 @@ ENV DEBUG 0
 RUN apt-get update \
   && apt-get install -y \
   curl \
-  # psycopg2 dependencies
   libpq-dev \
-  # Translations dependencies
   gettext \
-  # cleaning up unused files
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
 RUN addgroup --system django \
     && adduser --system --ingroup django django \
-    # also create the Django media directory with appropriate permissions
     && mkdir -p /code/media \
-	&& chown -R django:django /code/media
+    && chown -R django:django /code/media
 
+# Copy Python dependencies from the previous stage
 COPY --from=build-python /wheels /wheels
 COPY ./requirements /requirements
 RUN pip install --no-index --find-links=/wheels \
@@ -61,16 +54,13 @@ RUN pip install --no-index --find-links=/wheels \
 
 WORKDIR /code
 
-COPY --chown=django:django . /code
+# Copy the application code
+# TODO: "chown -R django:django" doesn't change user/role of the files for some reason
+COPY . /code
 COPY --from=build-node /code/static /code/static
+RUN mkdir static_root \
+    && chown -R django:django /code \    
+    && chmod +x /code/deploy/docker_startup.sh 
 
-# why this has to be here:
-# https://stackoverflow.com/questions/59719175/where-to-run-collectstatic-when-deploying-django-app-to-heroku-using-docker
-RUN DEBUG=False python /code/manage.py collectstatic --noinput --settings=micro_ai.settings_production
-RUN chown django:django -R static_root
-
-USER django
-
-COPY --chown=django:django deploy/docker_startup.sh /start
-RUN chmod +x /start
-CMD /start
+# Use the entrypoint script to start the application
+CMD /code/deploy/docker_startup.sh

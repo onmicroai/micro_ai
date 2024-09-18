@@ -12,6 +12,8 @@ click==8.1.7
     # via
     #   -c requirements/requirements.txt
     #   pip-tools
+debugpy==1.8.5
+    # via -r requirements/dev-requirements.in
 distlib==0.3.8
     # via virtualenv
 filelock==3.15.4

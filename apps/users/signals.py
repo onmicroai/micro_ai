@@ -1,3 +1,5 @@
+# \micro_ai\apps\users\signals.py
+
 from allauth.account.signals import email_confirmed, user_signed_up
 from django.conf import settings
 from django.core.files.storage import default_storage
@@ -5,6 +7,9 @@ from django.core.mail import mail_admins
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
 from apps.users.models import CustomUser
+from django.core.files.base import ContentFile
+from django.utils.text import slugify
+import requests
 
 
 @receiver(user_signed_up)
@@ -14,6 +19,16 @@ def handle_sign_up(request, user, **kwargs):
     # This example notifies the admins, in case you want to keep track of sign ups
     _notify_admins_of_signup(user)
 
+    gravatar_url = f"https://www.gravatar.com/avatar/{user.gravatar_id}?s=128&d=identicon"
+    response = requests.get(gravatar_url)
+
+    if response.status_code == 200:
+        avatar_filename = f"profile-pictures/{slugify(user.username)}_avatar.jpg"
+        
+        user.avatar.save(avatar_filename, ContentFile(response.content)) 
+        user.save()
+    else:
+        print(f"Gravatar image not found for {user.email}: {response.status_code}")
 
 @receiver(email_confirmed)
 def update_user_email(sender, request, email_address, **kwargs):

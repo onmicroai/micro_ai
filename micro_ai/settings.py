@@ -1,3 +1,5 @@
+# \Projects\micro_ai\micro_ai\settings.py
+
 """
 Django settings for Micro AI project.
 
@@ -32,6 +34,8 @@ DEBUG = env.bool("DEBUG", default=True)
 
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+
+DOMAIN = os.getenv("DOMAIN", "http://localhost")
 
 
 # Application definition
@@ -104,6 +108,7 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "waffle.middleware.WaffleMiddleware",
+    'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
 
@@ -262,7 +267,7 @@ STATIC_ROOT = BASE_DIR / "static_root"
 STATIC_URL = "/static/"
 
 STATICFILES_DIRS = [
-    BASE_DIR / "static",
+    BASE_DIR / "assets",
     
 ]
 
@@ -328,26 +333,35 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
 }
 
+is_production = os.getenv('PRODUCTION', 'False') == 'True'
+cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
-    "SIGNING_KEY": env("SIMPLE_JWT_SIGNING_KEY", default="<a comlex signing key>"),
+    "SIGNING_KEY": env("SIMPLE_JWT_SIGNING_KEY", default="django-insecure-HF3Rx2KW345SJ0XCxcuSJqKTz5347aFJCV5w34VEyhnKFyHBuXPjxotI5MM1R2345WmohV3"),
     "ALGORITHM": "HS512",
+    "AUTH_COOKIE": "refresh_token",
+    "AUTH_COOKIE_DOMAIN": cookies_domain, 
+    "AUTH_COOKIE_SECURE": is_production,      
+    "AUTH_COOKIE_HTTP_ONLY": True,   
+    "AUTH_COOKIE_PATH": "/",         
+    "AUTH_COOKIE_SAMESITE": "None",
 }
 
 REST_AUTH = {
     "USE_JWT": True,
-    "JWT_AUTH_HTTPONLY": False,
+    "JWT_AUTH_HTTPONLY": True,
+    'JWT_AUTH_REFRESH_COOKIE': 'refresh_token',
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.CustomUserSerializer",
 }
     
-# CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"])
-CORS_ORIGIN_ALLOW_ALL = True
-CSRF_TRUSTED_ORIGINS = ['https://app.onmicro.ai']
-
+CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
+CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "Micro AI",
