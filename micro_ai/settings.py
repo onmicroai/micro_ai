@@ -76,6 +76,19 @@ THIRD_PARTY_APPS = [
     "whitenoise.runserver_nostatic",  # whitenoise runserver
     "waffle",
     "django_celery_beat",
+    'wagtail.contrib.forms',
+    'wagtail.contrib.redirects',
+    'wagtail.embeds',
+    'wagtail.sites',
+    'wagtail.users',
+    'wagtail.snippets',
+    'wagtail.documents',
+    'wagtail.images',
+    'wagtail.search',
+    'wagtail.admin',
+    'wagtail',
+    'modelcluster',
+    'taggit',
 ]
 
 # Put your project-specific apps here
@@ -89,7 +102,8 @@ PROJECT_APPS = [
     "apps.teams.apps.TeamConfig",
     "apps.global_microapps",
     "apps.microapps",
-    "apps.collection"
+    "apps.collection",
+    "apps.pages"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -109,6 +123,7 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
+    'wagtail.contrib.redirects.middleware.RedirectMiddleware',
 ]
 
 
@@ -311,6 +326,10 @@ EMAIL_SUBJECT_PREFIX = "[Micro AI] "
 # Django sites
 
 SITE_ID = 1
+
+#Wagtail config
+WAGTAIL_SITE_NAME = "MicroAI"
+WAGTAILADMIN_BASE_URL = "http://localhost:8000/wagtail/admin"
 
 # DRF config
 REST_FRAMEWORK = {
