@@ -31,7 +31,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
-from apps.utils.uasge_helper import RunUsage, MicroAppUasge
+from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
 from django.db.models import Sum
 from apps.utils.global_varibales import AIModelVariables, AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
@@ -431,22 +431,31 @@ class UserApps(APIView):
         ],
     ),
     post=extend_schema(request=RunSerializer, responses={200: RunSerializer}),
+    patch=extend_schema(request=RunSerializer, responses={200: RunSerializer})
 )
 class RunList(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
     ai_score = ""
     score_result = True
 
-    def check_payload(self, data):
+    def check_payload(self, data, request):
         try:
-            required_fields = [
-                "ma_id",
+            if request.user.id:
+                required_fields = [
                 "user_id",
+                "ma_id",
                 "no_submission",
                 "ai_model",
                 "scored_run",
                 "skippable_phase",
-            ]
+                ]
+            else:
+                required_fields = [
+                "no_submission",
+                "ai_model",
+                "scored_run",
+                "skippable_phase",
+                ]
             required_fields.append("prompt") if data.get("no_submission") == False else None
             for field in required_fields:
                 if data.get(field) is None:
@@ -459,7 +468,7 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
 
-    def route_api_response(self, response, data, api_params,model, app_owner_id):
+    def route_api_response(self, response, data, api_params,model, app_owner_id, ip):
        try:
             usage = response
             if not (session_id := data.get("session_id")):
@@ -491,7 +500,8 @@ class RunList(APIView):
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
-                "owner_id": app_owner_id
+                "owner_id": app_owner_id,
+                "user_ip": ip
                 }
             return run_data
        except Exception as e:
@@ -510,20 +520,28 @@ class RunList(APIView):
         try:
             data = request.data
             # Check for mandatory keys in the user request payload
-            if not self.check_payload(data):    
+            if not self.check_payload(data, request):    
                 return Response(
                     error.FIELD_MISSING,
                     status = status.HTTP_400_BAD_REQUEST,
                 )
-            # Get microapp owner id
-            app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
-            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
-            # Get owner details
-            users = CustomUser.objects.get(id = app_owner_id)
-            user_date_joined = UserSerializer(users).data["date_joined"]
-            # Checking for usage limit
-            if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
-                return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+            ip = get_user_ip(request)
+            # Handle guest users usage
+            if not request.user.id:
+                if not GuestUsage.get_run_related_info(self, ip):
+                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+                app_owner_id = None
+            # Handle logged-in users usage
+            else:
+                # Get microapp owner id
+                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
+                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+                # Get owner details
+                users = CustomUser.objects.get(id = app_owner_id)
+                user_date_joined = UserSerializer(users).data["date_joined"]
+                # Checking for usage limit
+                if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
+                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
             # Return model instance based on AI-model name
             model = AIModelRoute().get_ai_model(data.get("ai_model"))
             if not model:
@@ -565,7 +583,7 @@ class RunList(APIView):
             else:
                 response = model.get_response(api_params)
             # Create reponse data
-            run_data = self.route_api_response(response, data, api_params, model, app_owner_id)
+            run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
@@ -609,6 +627,18 @@ class RunList(APIView):
                 {"data": serializer.data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )
+        except Exception as e:
+            return handle_exception(e)
+    
+    def patch(self, request):
+        try:
+            data = request.data
+            run_object = Run.objects.get(id = data.get("id"))
+            serializer = RunSerializer(run_object, {"cost": data.get("cost")}, partial=True)
+            if serializer.is_valid():
+                serializer.save()
+                return Response(serializer.data)
+            return Response(serializer.errors)
         except Exception as e:
             return handle_exception(e)
 

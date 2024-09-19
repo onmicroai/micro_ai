@@ -35,8 +35,7 @@ DEBUG = env.bool("DEBUG", default=True)
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
-DOMAIN = os.getenv("DOMAIN", "http://localhost")
-
+DOMAIN = os.getenv("DOMAIN", "https://app.onmicro.ai")
 
 # Application definition
 
@@ -316,7 +315,16 @@ FORMS_URLFIELD_ASSUME_HTTPS = True
 # Email setup
 
 # use in development
-EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
+EMAIL_PORT = 587  # or 25, 2587
+EMAIL_USE_TLS = True  # STARTTLS
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+
 # use in production
 # see https://github.com/anymail/django-anymail for more details/examples
 # EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
