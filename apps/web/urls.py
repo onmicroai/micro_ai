@@ -1,11 +1,11 @@
 from django.urls import path
-from django.views.generic import TemplateView, RedirectView
+from django.views.generic import TemplateView
 
 from . import views
 
 app_name = "web"
 urlpatterns = [
-    path("", RedirectView.as_view(url='/dashboard/', permanent=True)), 
+    path("", views.home, name="home"),
     path("dashboard/", views.home, name="dashboard"),
     
     #cutom url
