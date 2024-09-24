@@ -32,6 +32,12 @@ used in the `Makefile`. E.g.
 docker compose exec web python manage.py createsuperuser
 ```
 
+### Launch Stripe subscription
+```bash
+sudo docker exec -it web /bin/sh
+python ./manage.py bootstrap_subscriptions
+```
+
 ## Installation - Native
 
 You can also install/run the app directly on your OS using the instructions below.

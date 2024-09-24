@@ -127,7 +127,7 @@ class MicroAppList(APIView):
         try:
             data = request.data
             cid = data.get("collection_id")
-            if (cid):
+            if (cid is not None and isinstance(cid, int)):
                 if MicroAppUasge.microapp_related_info(request.user.id):
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():

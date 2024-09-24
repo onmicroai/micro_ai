@@ -5,7 +5,7 @@ from . import views
 
 app_name = "web"
 urlpatterns = [
-   path("", views.home, name="home"),
+    path("", views.home, name="home"),
     path("dashboard/", views.home, name="dashboard"),
     
     #cutom url

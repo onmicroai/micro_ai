@@ -9,18 +9,8 @@ from apps.teams.decorators import login_and_team_required
 
 def home(request):
     if request.user.is_authenticated:
-        team = request.team
-        if team:
-            return HttpResponseRedirect(reverse("web_team:home", args=[team.slug]))
-        else:
-            messages.info(
-                request,
-                _(
-                    "Teams are enabled but you have no teams. "
-                    "Create a team below to access the rest of the dashboard."
-                ),
-            )
-            return HttpResponseRedirect(reverse("teams:manage_teams"))
+        return HttpResponseRedirect(reverse("web:dashboard"))
+       
     else:
         return render(request, "web/landing_page.html")
 
