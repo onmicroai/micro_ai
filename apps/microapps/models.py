@@ -23,7 +23,7 @@ class Microapp(models.Model):
     title = models.CharField(max_length=50)
     explanation = models.TextField()
     shared_assets = models.CharField(max_length=50)
-    type = models.CharField(max_length=10)
+    type = models.CharField(max_length=50)
     knowledge_base = models.CharField(max_length=50)
     max_output = models.IntegerField()
     temperature = models.FloatField()
