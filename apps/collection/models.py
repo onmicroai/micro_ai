@@ -1,3 +1,5 @@
+# \micro_ai\apps\collection\models.py
+
 from django.db import models
 from apps.microapps.models import Microapp
 from micro_ai import settings
