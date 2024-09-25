@@ -1,5 +1,6 @@
+# \micro_ai\apps\microapps\models.py
+
 from django.db import models
-from apps.global_microapps.models import GlobalMicroapps
 from micro_ai import settings
 import logging as log
 from rest_framework.response import Response
