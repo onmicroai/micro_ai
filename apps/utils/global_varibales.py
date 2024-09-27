@@ -20,7 +20,7 @@ class AIModelConstants:
 
     GPT_CONSTANTS = [
         {
-        "model_name": "gpt-3.5-turbo",
+        "model_name": env("OPENAI_MODEL_NAME"),
         "frequency_penalty_min": -2,
         "frequency_penalty_max": 2,
         "presence_penalty_min": -2,
@@ -38,7 +38,7 @@ class AIModelConstants:
     ]
     GEMINI_CONSTANTS =[
         {
-        "model_name": "gemini-1.5-flash",
+        "model_name": env("GEMINI_MODEL_NAME"),
         "frequency_penalty_min": 0,
         "frequency_penalty_max": 0,
         "presence_penalty_min": 0,
@@ -56,7 +56,7 @@ class AIModelConstants:
     ]
     CLAUDE_CONSTANTS =[
         {
-        "model_name": "claude-3-opus-20240229",
+        "model_name": env("CLAUDE_MODEL_NAME"),
         "frequency_penalty_min": 0,
         "frequency_penalty_max": 0,
         "presence_penalty_min": 0,
