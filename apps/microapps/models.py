@@ -29,6 +29,7 @@ class Microapp(models.Model):
     knowledge_base = models.CharField(max_length=50)
     max_output = models.IntegerField()
     temperature = models.FloatField()
+    ai_model = models.CharField(max_length=50)
     top_p = models.FloatField()
     frequency_penalty = models.FloatField()
     presence_penalty = models.FloatField()
