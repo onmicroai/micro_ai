@@ -237,13 +237,21 @@ class CloneMicroApp(APIView):
     def post(self, request, pk, collection_id):
         try:
             microapp = self.get_microapp(pk)
+            if not microapp:
+                return Response(
+                    error.MICROAPP_NOT_EXIST,
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            
+            # Check if copying is allowed
+            if not microapp.copy_allowed:
+                return Response(
+                    {"error": "Copying this microapp is not allowed.", "status": status.HTTP_403_FORBIDDEN},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
             if collection_id:
                 if MicroAppUasge.microapp_related_info(request.user.id):
-                    if not microapp:
-                        return Response(
-                            error.MICROAPP_NOT_EXIST,
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
                     microapp_dict = model_to_dict(microapp)
                     del microapp_dict["id"]
                     serializer = MicroAppSerializer(data = microapp_dict)
