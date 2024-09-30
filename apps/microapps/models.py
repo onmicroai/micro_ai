@@ -1,5 +1,6 @@
+# \micro_ai\apps\microapps\models.py
+
 from django.db import models
-from apps.global_microapps.models import GlobalMicroapps
 from micro_ai import settings
 import logging as log
 from rest_framework.response import Response
@@ -9,6 +10,7 @@ from apps.utils.global_varibales import AIModelVariables
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
+import re
 
 
 def handle_exception(e):
@@ -23,10 +25,11 @@ class Microapp(models.Model):
     title = models.CharField(max_length=50)
     explanation = models.TextField()
     shared_assets = models.CharField(max_length=50)
-    type = models.CharField(max_length=10)
+    type = models.CharField(max_length=50)
     knowledge_base = models.CharField(max_length=50)
     max_output = models.IntegerField()
     temperature = models.FloatField()
+    ai_model = models.CharField(max_length=50)
     top_p = models.FloatField()
     frequency_penalty = models.FloatField()
     presence_penalty = models.FloatField()
