@@ -1,4 +1,3 @@
-from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import status
 from rest_framework.response import Response
@@ -8,7 +7,7 @@ from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJ
 from .serializer import CollectionSerializer, CollectionMicroappSerializer, CollectionUserSerializer
 from apps.microapps.models import Microapp
 from apps.microapps.serializer import MicroAppSerializer
-from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
+from drf_spectacular.utils import extend_schema, extend_schema_view
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import IsCollectionAdmin
 from rest_framework.exceptions import PermissionDenied
@@ -219,6 +218,37 @@ class CollectionMicroAppsList(APIView):
                 {"data": serializer.data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )  
+        except Exception as e:
+            return handle_exception(e)
+        
+@extend_schema_view(
+    get=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}, summary="Get microapps created by user of a collection"),
+)
+class UserCollectionMicroAppsList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, collection_id, format=None):
+        try:
+            current_user = request.user
+            
+            # Check if the user has access to the collection
+            if not CollectionUserJoin.objects.filter(collection_id=collection_id, user_id=current_user).exists():
+                return Response({"error": "You do not have permission to view this collection."}, status=status.HTTP_403_FORBIDDEN)
+
+            # Get micro-app IDs associated with the collection
+            ma_ids = CollectionMaJoin.objects.filter(collection_id=collection_id).values_list(
+                "ma_id", flat=True
+            )
+
+            # Filter out micro-apps created by the current user
+            collection_ma = Microapp.objects.filter(id__in=ma_ids, microappuserjoin__user_id=current_user)
+
+            serializer = MicroAppSerializer(collection_ma, many=True)
+
+            return Response(
+                {"data": serializer.data, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             return handle_exception(e)
 

@@ -668,7 +668,11 @@ class AvailableModelsView(APIView):
     )
     def get(self, request, format=None):
         # Read available models from the environment variable
-        available_models = env("AVAILABLE_AI_MODELS").split(",")
+        available_models = [
+            env("OPENAI_MODEL_NAME"), 
+            env("GEMINI_MODEL_NAME"), 
+            env("CLAUDE_MODEL_NAME"),
+            ]
         
         # Return the models as a JSON response
         return Response({"available_models": available_models}, status=status.HTTP_200_OK)
