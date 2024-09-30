@@ -102,7 +102,7 @@ class UsageVariables:
     # Default values
     DEFAULT_PLAN_ID = 1
     DEFAULT_TOTAL_COST = 0
-    FREE_PLAN_MICROAPP_LIMIT = 3
+    FREE_PLAN_MICROAPP_LIMIT = int(env("FREE_PLAN_MICROAPP_LIMIT"))
     # Plan amounts
     FREE_PLAN_AMOUNT_MONTH = "0.00"
     FREE_PLAN_AMOUNT_YEAR = "0.00"
