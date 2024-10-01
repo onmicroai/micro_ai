@@ -293,4 +293,23 @@ class CollectionMicroAppsDetails(APIView):
             return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN) 
         except Exception as e:
             return handle_exception(e)
-    
+
+@extend_schema_view(
+    get=extend_schema(responses={200: CollectionSerializer(many=True)}, summary="Get all collections for a specific app"),
+)
+class AppCollectionsList(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, app_id, format=None):
+        try:
+            collection_ids = CollectionMaJoin.objects.filter(ma_id=app_id).values_list(
+                "collection_id", flat=True
+            )
+            app_collections = Collection.objects.filter(id__in=collection_ids)
+            serializer = CollectionSerializer(app_collections, many=True)
+            return Response(
+                {"data": serializer.data, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return handle_exception(e)
