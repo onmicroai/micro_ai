@@ -27,7 +27,8 @@ from apps.microapps.serializer import (
     MicroappUserSerializer,
     AssetsSerializer,
     AssetsMicroappSerializer,
-    RunSerializer,
+    RunPostSerializer,
+    RunGetSerializer
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
@@ -429,7 +430,7 @@ class UserApps(APIView):
 
 @extend_schema_view(
     get=extend_schema(
-        responses={200: RunSerializer(many=True)},
+        responses={200: RunGetSerializer(many=True)},
         parameters=[
             OpenApiParameter(name="ma_id", description="Optional Micro App ID", required=False),
             OpenApiParameter(name="user_id", description="Optional User ID", required=False),
@@ -438,8 +439,8 @@ class UserApps(APIView):
             OpenApiParameter(name="end_date", description="Optional End Date", required=False),
         ],
     ),
-    post=extend_schema(request=RunSerializer, responses={200: RunSerializer}),
-    patch=extend_schema(request=RunSerializer, responses={200: RunSerializer})
+    post=extend_schema(request=RunPostSerializer, responses={200: RunPostSerializer}),
+    patch=extend_schema(request=RunPostSerializer, responses={200: RunPostSerializer})
 )
 class RunList(APIView):
     permission_classes = [AllowAny]
@@ -455,14 +456,14 @@ class RunList(APIView):
                 "no_submission",
                 "ai_model",
                 "scored_run",
-                "skippable_phase",
+                "request_skip",
                 ]
             else:
                 required_fields = [
                 "no_submission",
                 "ai_model",
                 "scored_run",
-                "skippable_phase",
+                "request_skip",
                 ]
             required_fields.append("prompt") if data.get("no_submission") == False else None
             for field in required_fields:
@@ -500,7 +501,7 @@ class RunList(APIView):
                 "minimum_score": data.get("minimum_score"),
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
-                "skippable_phase": data.get("skippable_phase"),
+                "request_skip": data.get("request_skip"),
                 "credits": 0,
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
@@ -566,7 +567,7 @@ class RunList(APIView):
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
             # Handle skippbale phase
-            if data.get("skippable_phase"):
+            if data.get("request_skip"):
                 response = self.skip_phase()
             elif data.get("no_submission"):
                 # Handle hardcoded phase
@@ -592,7 +593,7 @@ class RunList(APIView):
                 response = model.get_response(api_params)
             # Create reponse data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
-            serializer = RunSerializer(data=run_data)
+            serializer = RunPostSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
@@ -630,7 +631,7 @@ class RunList(APIView):
             }
             filters = {k: v for k, v in filters.items() if v is not None}
             queryset = Run.objects.filter(**filters)
-            serializer = RunSerializer(queryset, many=True)
+            serializer = RunGetSerializer(queryset, many=True)
             return Response(
                 {"data": serializer.data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
@@ -642,7 +643,7 @@ class RunList(APIView):
         try:
             data = request.data
             run_object = Run.objects.get(id = data.get("id"))
-            serializer = RunSerializer(run_object, {"cost": data.get("cost")}, partial=True)
+            serializer = RunPostSerializer(run_object, {"cost": data.get("cost")}, partial=True)
             if serializer.is_valid():
                 serializer.save()
                 return Response(serializer.data)
