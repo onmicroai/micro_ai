@@ -455,14 +455,14 @@ class RunList(APIView):
                 "no_submission",
                 "ai_model",
                 "scored_run",
-                "skippable_phase",
+                "request_skip",
                 ]
             else:
                 required_fields = [
                 "no_submission",
                 "ai_model",
                 "scored_run",
-                "skippable_phase",
+                "request_skip",
                 ]
             required_fields.append("prompt") if data.get("no_submission") == False else None
             for field in required_fields:
@@ -500,7 +500,7 @@ class RunList(APIView):
                 "minimum_score": data.get("minimum_score"),
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
-                "skippable_phase": data.get("skippable_phase"),
+                "request_skip": data.get("request_skip"),
                 "credits": 0,
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
@@ -566,7 +566,7 @@ class RunList(APIView):
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
             # Handle skippbale phase
-            if data.get("skippable_phase"):
+            if data.get("request_skip"):
                 response = self.skip_phase()
             elif data.get("no_submission"):
                 # Handle hardcoded phase
