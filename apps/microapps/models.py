@@ -22,7 +22,7 @@ def handle_exception(e):
 
 
 class Microapp(models.Model):
-    title = models.CharField(max_length=50)
+    title = models.CharField(max_length=50) # The name of the app
     explanation = models.TextField()
     shared_assets = models.CharField(max_length=50)
     type = models.CharField(max_length=50)
