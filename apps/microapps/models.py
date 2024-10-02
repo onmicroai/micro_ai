@@ -175,8 +175,8 @@ class Run(models.Model):
     # If true, then the run is passed. 
     run_passed = models.BooleanField(default=True)
 
-    # If true, then the run is skippable. 
-    skippable_phase = models.BooleanField(default=False)
+    # The user is requesting to skip this phase. 
+    request_skip = models.BooleanField(default=False)
 
     # The owner ID of the app, at the time of the run. 
     owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE, blank=True, null=True)
