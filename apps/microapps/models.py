@@ -22,19 +22,46 @@ def handle_exception(e):
 
 
 class Microapp(models.Model):
-    title = models.CharField(max_length=50) # The name of the app
+    # The name of the microapp, shown on dashboard and the top of the app. 
+    title = models.CharField(max_length=50)
+    
+    # A user-facing description of what the app does. 
     explanation = models.TextField()
-    shared_assets = models.CharField(max_length=50)
+    
+    # Identifier for assets shared across multiple microapps
+    #shared_assets = models.CharField(max_length=50)
+    
+    # public, private, or restricted
     type = models.CharField(max_length=50)
-    knowledge_base = models.CharField(max_length=50)
-    max_output = models.IntegerField()
+    
+    # Reference to the knowledge base used by the microapp
+    #knowledge_base = models.CharField(max_length=50)
+    
+    # The app-wide default maximum number of tokens allowed in the output. 
+    #max_output = models.IntegerField()
+    
+    # The app-wide default temperature for randomness in output generation (0.0 to 1.0)
     temperature = models.FloatField()
+    
+    # The app-wide default AI model used by the microapp
     ai_model = models.CharField(max_length=50)
+    
+    # The app-wide default cumulative probability cutoff for token selection
     top_p = models.FloatField()
+    
+    # The app-wide default frequency penalty for repeating the same line verbatim (0.0 to 2.0)
     frequency_penalty = models.FloatField()
+    
+    # The app-wide default presence penalty for increasing the model's likelihood to talk about new topics (0.0 to 2.0)
     presence_penalty = models.FloatField()
-    max_prompts = models.IntegerField()
+    
+    # The maximum runs allowed for this microapp. 
+    # max_prompts = models.IntegerField()
+    
+    # Indicates whether this microapp can be cloned (copied) by other users.
     copy_allowed = models.BooleanField()
+    
+    # Stores additional configuration data for the microapp in JSON format
     app_json = models.JSONField()
 
     def __str__(self):
@@ -73,50 +100,128 @@ class KnowledgeBase(models.Model):
 
 class Run(models.Model):
     
+    # The ID of the microapp that the run belongs to. 
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE, blank=True, null=True)
-    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "user_runs", on_delete=models.CASCADE, blank=True, null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
-    session_id = models.TextField(blank=True)
-    satisfaction = models.IntegerField()
-    prompt = models.JSONField()
-    response = models.TextField(blank=True)
-    credits = models.FloatField()
-    cost = models.DecimalField(max_digits=20, decimal_places=6)
-    no_submission = models.BooleanField()
-    ai_model = models.CharField(max_length=50)
-    temperature = models.FloatField()
-    max_tokens = models.IntegerField()
-    top_p = models.FloatField()
-    frequency_penalty = models.FloatField()
-    presence_penalty = models.FloatField()
-    input_tokens = models.IntegerField()
-    output_tokens = models.IntegerField()
-    price_input_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
-    price_output_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
-    scored_run = models.BooleanField()
-    run_score = models.JSONField()
-    minimum_score = models.FloatField()
-    rubric = models.TextField()
-    run_passed = models.BooleanField(default=True)
-    skippable_phase = models.BooleanField(default=False)
-    owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE, blank=True, null=True)
-    user_ip = models.CharField(max_length=20, blank=True)
 
+    # The ID of the user that the run belongs to. 
+    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "user_runs", on_delete=models.CASCADE, blank=True, null=True)
+
+    # The timestamp of the run. 
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    # The session ID of the run. Session IDs are randomly generated and used to group a series of a user's runs as they navigate through an app. 
+    session_id = models.TextField(blank=True)
+
+    # The user-reported satisfaction of the run. -1 is negative, 1 is positive. 
+    satisfaction = models.IntegerField()
+
+    # The final text prompt sent to AI. 
+    prompt = models.JSONField()
+
+    # The chat response from the AI for the run. Or, a static response.
+    response = models.TextField(blank=True)
+
+    # The credits of the run. 
+    # credits = models.FloatField()
+
+    # The cost in USD the run. 
+    cost = models.DecimalField(max_digits=20, decimal_places=6)
+
+    # If true, then no prompt is sent to AI. Typically, this is used when the response is defined in the microapp. 
+    no_submission = models.BooleanField()
+
+    # The AI model used for the run. 
+    ai_model = models.CharField(max_length=50)
+    
+    # The temperature of the run. 
+    temperature = models.FloatField()
+
+    # The max_tokens value sent for the run. 
+    max_tokens = models.IntegerField()
+
+    # The top_p value sent for the run. 
+    top_p = models.FloatField()
+
+    # The frequency_penalty value sent for the run. 
+    frequency_penalty = models.FloatField()
+
+    # The presence_penalty value sent for the run. 
+    presence_penalty = models.FloatField()
+
+    # The number of input tokens used for the run. This data is returned from the AI model. 
+    input_tokens = models.IntegerField()
+
+    # The number of output tokens used for the run. This data is returned from the AI model. 
+    output_tokens = models.IntegerField()
+
+    # The price per 1M input tokens for this request at the time of the run. 
+    price_input_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
+
+    # The price per 1M output tokens for this request at the time of the run. 
+    price_output_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
+
+    # If true, then the     
+    scored_run = models.BooleanField()
+
+    # The total score of the run, returned from the AI model. 
+    run_score = models.JSONField()
+
+    # The minimum score required to pass the run. 
+    minimum_score = models.FloatField()
+
+    # The rubric used to score the run. 
+    rubric = models.TextField()
+
+    # If true, then the run is passed. 
+    run_passed = models.BooleanField(default=True)
+
+    # If true, then the run is skippable. 
+    skippable_phase = models.BooleanField(default=False)
+
+    # The owner ID of the app, at the time of the run. 
+    owner_id = models.ForeignKey(settings.AUTH_USER_MODEL, related_name = "ma_owner_runs", on_delete=models.CASCADE, blank=True, null=True)
+
+    # The user IP of the run.   
+    user_ip = models.CharField(max_length=20, blank=True)
+    
     def __str__(self):
         return self.ai_model
 
 class AIModelConfig(models.Model):
+    # The name of the AI model (gpt-4o-mini, claude-3-opus-20240229, etc.) used when calling the API. 
     model_name = models.CharField(max_length=50, unique=True)
+
+    # The minimum range value for the frequency penalty of the AI model. 
     frequency_penalty_min = models.FloatField(default=0)
+
+    # The maximum range value for the frequency penalty of the AI model. 
     frequency_penalty_max = models.FloatField(default=0)
+
+    # The minimum range value for the presence penalty of the AI model. 
     presence_penalty_min = models.FloatField(default=0)
+
+    # The maximum range value for the presence penalty of the AI model. 
     presence_penalty_max = models.FloatField(default=0)
+
+    # The minimum range value for the top_p of the AI model. 
     top_p_min = models.FloatField(default=0)
+
+    # The maximum range value for the top_p of the AI model. 
     top_p_max = models.FloatField(default=0)
-    temperature_min = models.FloatField(default=0)
+
+    # The minimum range value for the temperature of the AI model. 
+    temperature_min = models.FloatField(default=0)  
+
+    # The maximum range value for the temperature of the AI model. 
     temperature_max = models.FloatField(default=0)
+
+    # The default maximum number of tokens allowed in the output. 
     max_tokens_default = models.IntegerField()
+
+    # The price per 1M input tokens for this model
     input_token_price = models.FloatField()
+
+    # The price per 1M output tokens for this model
     output_token_price = models.FloatField()
 
     def __str__(self):
