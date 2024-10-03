@@ -439,7 +439,7 @@ class UserApps(APIView):
             OpenApiParameter(name="end_date", description="Optional End Date", required=False),
         ],
     ),
-    post=extend_schema(request=RunPostSerializer, responses={200: RunPostSerializer}),
+    post=extend_schema(request=RunPostSerializer, responses={200: RunGetSerializer}),
     patch=extend_schema(request=RunPostSerializer, responses={200: RunPostSerializer})
 )
 class RunList(APIView):
@@ -593,7 +593,7 @@ class RunList(APIView):
                 response = model.get_response(api_params)
             # Create reponse data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
-            serializer = RunPostSerializer(data=run_data)
+            serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
