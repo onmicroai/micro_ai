@@ -11,6 +11,12 @@ from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
 import re
+import environ
+import os
+from pathlib import Path
+BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+env.read_env(os.path.join(BASE_DIR, ".env"))
 
 
 def handle_exception(e):
@@ -414,7 +420,7 @@ class GPTModel(BaseAIModel):
     def get_default_params(self, data):
         try:
             return {
-                "model": data.get("ai_model"),
+                "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
                 "temperature": data.get("temperature", 0),
                 "frequency_penalty": data.get("frequency_penalty", 0),
@@ -547,7 +553,7 @@ class GeminiModel(BaseAIModel):
     
     def get_default_params(self, data):
         return {
-            "model": data.get("ai_model"),
+            "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
             "messages": data.get("message_history", []) + data.get("prompt", []),
             "temperature": data.get("temperature", 0),
             "frequency_penalty": data.get("frequency_penalty", 0),
@@ -685,7 +691,7 @@ class ClaudeModel(BaseAIModel):
     
     def get_default_params(self, data):
         return {
-            "model": data.get("ai_model"),
+            "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
             "messages": data.get("message_history", []) + data.get("prompt", []),
             "temperature": data.get("temperature", 0),
             "frequency_penalty": data.get("frequency_penalty", 0),
