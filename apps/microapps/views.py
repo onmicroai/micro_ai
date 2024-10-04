@@ -448,34 +448,29 @@ class RunList(APIView):
     score_result = True
 
     def check_payload(self, data, request):
-        try:
-            if request.user.id:
-                required_fields = [
-                "user_id",
-                "ma_id",
-                "no_submission",
-                "ai_model",
-                "scored_run",
-                "request_skip",
-                ]
-            else:
-                required_fields = [
-                "no_submission",
-                "ai_model",
-                "scored_run",
-                "request_skip",
-                ]
-            required_fields.append("prompt") if data.get("no_submission") == False else None
-            for field in required_fields:
-                if data.get(field) is None:
+            try:
+                if request.user.id:
+                    required_fields = [
+                    "user_id",
+                    "ma_id"
+                    ]
+                else:
+                    required_fields = []
+                
+                if data.get("no_submission") is not True:
+                    required_fields.append("prompt")
+
+                for field in required_fields:
+                    if data.get(field) is None:
+                        return False
+
+                if data.get("scored_run") and (data.get("minimum_score") is None or data.get("rubric") is None):
                     return False
 
-            if data.get("scored_run") and (data.get("minimum_score") is None or data.get("rubric") is None):
-                return False
+                return True
 
-            return True
-        except Exception as e:
-            log.error(e)
+            except Exception as e:
+                log.error(e)
 
     def route_api_response(self, response, data, api_params,model, app_owner_id, ip):
        try:
@@ -489,19 +484,19 @@ class RunList(APIView):
                 "session_id": str(session_id),
                 "satisfaction": 0,
                 "prompt": api_params["messages"],
-                "no_submission": data.get("no_submission"),
+                "no_submission": data.get("no_submission", False),
                 "ai_model": api_params["model"],
                 "temperature": api_params["temperature"],
                 "max_tokens": data.get("max_tokens", model.model_config['max_tokens_default']),
                 "top_p": api_params["top_p"],
                 "frequency_penalty": api_params["frequency_penalty"],
                 "presence_penalty": api_params["presence_penalty"],
-                "scored_run": data.get("scored_run"),
+                "scored_run": data.get("scored_run", False),
                 "run_score": self.ai_score,
-                "minimum_score": data.get("minimum_score"),
+                "minimum_score": data.get("minimum_score", 0.0),
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
-                "request_skip": data.get("request_skip"),
+                "request_skip": data.get("request_skip", False),
                 "credits": 0,
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
@@ -552,7 +547,7 @@ class RunList(APIView):
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
             # Return model instance based on AI-model name
-            model = AIModelRoute().get_ai_model(data.get("ai_model"))
+            model = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
             if not model:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
