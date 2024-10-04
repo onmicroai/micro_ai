@@ -9,4 +9,5 @@ urlpatterns = [
     path('user/apps/<int:collection_id>', views.UserCollectionMicroAppsList.as_view(), name='user_collections_microapps'),   
     path('apps/<int:collection_id>', views.CollectionMicroAppsList.as_view(), name='collections_microapps'), 
     path('<int:collection_id>/microapp/<int:app_id>', views.CollectionMicroAppsDetails.as_view(), name='collections_microapps'), 
+    path('app/<int:app_id>/collections/', views.AppCollectionsList.as_view(), name='app_collections'),  # New URL pattern
 ]
