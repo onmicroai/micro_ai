@@ -35,7 +35,7 @@ class Migration(migrations.Migration):
                 ('frequency_penalty', models.FloatField()),
                 ('presence_penalty', models.FloatField()),
                 ('max_prompts', models.IntegerField()),
-                ('copy_allowed', models.BooleanField()),
+                ('copy_allowed', models.BooleanField(default=True)),
                 ('app_json', models.JSONField()),
             ],
         ),
