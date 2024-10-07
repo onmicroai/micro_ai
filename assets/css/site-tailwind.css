@@ -9059,6 +9059,41 @@ details.collapse summary::-webkit-details-marker {
       font-size: 14px;
       padding: 20px;
  }
+ nav.open {
+  opacity: 1;
+  display: block;
+  visibility: unset;
+  left: 0;
+  width: 100%;
+}
+
+.open ul.menu-bar {
+position: absolute;
+left: 0;
+display: block;
+background: #464646;
+padding: 0;
+width: 100%;
+}
+.open ul li {
+display: block;
+width: 100%;
+padding: 15px;
+border: none;
+border-bottom: 1px solid #5b5b5b;
+}
+.rightpan nav.open ul li .btn-signup {
+padding: 9px 20px;
+font-size: 15px;
+margin-left: 12px;
+}
+.header-wrapper .leftpan svg {
+max-width: 175px;
+}
+.open ul li a {
+font-size: 15px;
+}
+
 }
 @media screen and (max-width: 767px) {
   .hero-text-area, .hero-btns {
