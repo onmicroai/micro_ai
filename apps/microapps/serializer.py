@@ -6,6 +6,36 @@ class MicroAppSerializer(serializers.ModelSerializer):
         model = Microapp
         fields = '__all__'
 
+    def to_internal_value(self, data):
+        # If app_json is not provided or is empty, set the default pages
+        if 'app_json' not in data or not data['app_json']:
+            data['app_json'] = {
+                "pages": [
+                    {
+                        "name": "page1",
+                        "elements": [
+                            {
+                                "name": "AI Prompt 1",
+                                "type": "ai-prompt",
+                                "title": "AI Prompt 1",
+                                "aiPromptProperty": "Say hello to {Name} {Surname} "
+                            },
+                            {
+                                "name": "Name",
+                                "type": "text",
+                                "title": "Name"
+                            },
+                            {
+                                "name": "Surname",
+                                "type": "text",
+                                "title": "Surname"
+                            }
+                        ]
+                    }
+                ]
+            }
+        return super().to_internal_value(data)
+
 class MicroappUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = MicroAppUserJoin
