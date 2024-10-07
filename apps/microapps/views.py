@@ -28,7 +28,8 @@ from apps.microapps.serializer import (
     AssetsSerializer,
     AssetsMicroappSerializer,
     RunPostSerializer,
-    RunGetSerializer
+    RunGetSerializer,
+    RunPatchSerializer
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
@@ -439,8 +440,8 @@ class UserApps(APIView):
             OpenApiParameter(name="end_date", description="Optional End Date", required=False),
         ],
     ),
-    post=extend_schema(request=RunPostSerializer, responses={200: RunGetSerializer}),
-    patch=extend_schema(request=RunPostSerializer, responses={200: RunPostSerializer})
+    post=extend_schema(request = RunPostSerializer, responses={200: RunGetSerializer}),
+    patch=extend_schema(request = RunPatchSerializer, responses={200: RunGetSerializer}, summary = 'Also add "id" in request payoad while calling PATCH API')
 )
 class RunList(APIView):
     permission_classes = [AllowAny]
@@ -637,12 +638,28 @@ class RunList(APIView):
     def patch(self, request):
         try:
             data = request.data
-            run_object = Run.objects.get(id = data.get("id"))
-            serializer = RunPostSerializer(run_object, {"cost": data.get("cost")}, partial=True)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(serializer.data)
-            return Response(serializer.errors)
+            if self.checkPatchPayload(data):
+                id = data.get("id")
+                del data["id"]
+                run_object = Run.objects.get(id = id)
+                serializer = RunGetSerializer(run_object, data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(serializer.data)
+                return Response(serializer.errors)
+            return Response(error.INVALID_PAYLOAD, status = status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return handle_exception(e)
+    
+    def checkPatchPayload(self, data):
+        try:
+            if not data.get("id"):
+                return False
+            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id"]
+            for field in immutable_fields:
+                if data.get(field):
+                    return False
+            return True
         except Exception as e:
             return handle_exception(e)
 
