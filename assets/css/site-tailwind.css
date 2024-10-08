@@ -2183,12 +2183,19 @@ option {
   }
 
   .sidebar {
-      width: 90%;
-      box-shadow: 1px 1px 50px 1px rgba(128, 128, 128, 0.455);
-      position: absolute;
-      z-index: 100;
-      opacity: 2;
-  }
+    position: relative;
+    width:100%  
+}
+
+.container.flex.flex-row {
+  display: flex;
+  flex-direction: column;
+}
+
+.container.flex.flex-row .w-64 {
+  width: 100%;
+}
+
 }
 
 .contact-us .form-box {
