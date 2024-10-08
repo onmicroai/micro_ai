@@ -50,7 +50,7 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
-          git pull origin master
+          git pull origin dev
 
     - name: Deploy - Start Updated Backend 
       uses: appleboy/ssh-action@v1.0.3
