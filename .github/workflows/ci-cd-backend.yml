@@ -60,6 +60,7 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
+          sudo docker-compose -f docker-compose-prod.yml build --no-cache
           sudo docker-compose -f docker-compose-prod.yml up -d
 
     - name: Deploy - Restarted frontend with new docker network
