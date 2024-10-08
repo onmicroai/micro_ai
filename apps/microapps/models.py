@@ -403,16 +403,24 @@ class GPTModel(BaseAIModel):
 
     def validate_params(self, data):
         try:
+            temperature_min = self.model_config["temperature_min"]
+            temperature_max = self.model_config["temperature_max"]
+            temperature = float(data.get("temperature", temperature_min))
+            top_p_min = self.model_config["top_p_min"]
+            top_p_max = self.model_config["top_p_max"]
+            top_p = float(data.get("top_p", top_p_min))            
             params = {
-                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
+                "temperature": (temperature, temperature_min, temperature_max),
                 "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
                 "presence_penalty": (data.get("presence_penalty"), self.model_config["presence_penalty_min"], self.model_config["presence_penalty_max"]),
-                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
+                "top_p": (top_p, top_p_min, top_p_max),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
                     return {"status": False, "message": f"Invalid {param} value"}
             return {"status": True}
+        except ValueError:
+            return {"status": False, "message": "Invalid input: temperature and top_p must be numeric values."}
         except Exception as e:
             log.error(e)
             return {"status": False, "message": error.VALIDATION_ERROR}
@@ -539,14 +547,22 @@ class GeminiModel(BaseAIModel):
         
     def validate_params(self, data):
         try:
+            temperature_min = self.model_config["temperature_min"]
+            temperature_max = self.model_config["temperature_max"]
+            temperature = float(data.get("temperature", temperature_min))
+            top_p_min = self.model_config["top_p_min"]
+            top_p_max = self.model_config["top_p_max"]
+            top_p = float(data.get("top_p", top_p_min)) 
             params = {
-                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
-                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
+                "temperature": (temperature, temperature_min, temperature_max),
+                "top_p": (top_p, top_p_min, top_p_max),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
                     return {"status": False, "message": f"Invalid {param} value"}
             return {"status": True}
+        except ValueError:
+            return {"status": False, "message": "Invalid input: temperature and top_p must be numeric values."}
         except Exception as e:
             log.error(e)
             return {"status": False, "message": error.VALIDATION_ERROR}
@@ -677,14 +693,22 @@ class ClaudeModel(BaseAIModel):
         
     def validate_params(self, data):
         try:
+            temperature_min = self.model_config["temperature_min"]
+            temperature_max = self.model_config["temperature_max"]
+            temperature = float(data.get("temperature", temperature_min))
+            top_p_min = self.model_config["top_p_min"]
+            top_p_max = self.model_config["top_p_max"]
+            top_p = float(data.get("top_p", top_p_min)) 
             params = {
-                "temperature": (data.get("temperature"), self.model_config["temperature_min"], self.model_config["temperature_max"]),
-                "top_p": (data.get("top_p"), self.model_config["top_p_min"], self.model_config["top_p_max"]),
+                "temperature": (temperature, temperature_min, temperature_max),
+                "top_p": (top_p, top_p_min, top_p_max),
             }
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (value == -1 or (min_val <= value <= max_val)):
                     return {"status": False, "message": f"Invalid {param} value"}
             return {"status": True}
+        except ValueError:
+            return {"status": False, "message": "Invalid input: temperature and top_p must be numeric values."}
         except Exception as e:
             log.error(e)
             return {"status": False, "message": error.VALIDATION_ERROR}
