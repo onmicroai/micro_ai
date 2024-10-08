@@ -31,9 +31,9 @@ jobs:
     - name: Deploy - Take Down Current Production Containers
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           cd /home/ubuntu/microai-frontend
@@ -44,9 +44,9 @@ jobs:
     - name: Deploy - Pull Latest Code
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
@@ -55,9 +55,9 @@ jobs:
     - name: Deploy - Start Updated Backend 
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
@@ -67,9 +67,9 @@ jobs:
     - name: Deploy - Restarted frontend with new docker network
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           cd /home/ubuntu/microai-frontend
@@ -79,9 +79,9 @@ jobs:
       uses: appleboy/ssh-action@v1.0.3
       id: check-containers
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           # Check if the specified containers are running
@@ -106,9 +106,9 @@ jobs:
     - name: Deploy - Prune unused Docker containers, images
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           echo "Pruning unused Docker images, containers, volumes..."
