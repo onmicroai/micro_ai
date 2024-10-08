@@ -245,19 +245,13 @@
                 </div>
             </section>
         </div>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
     </body>
     {% endblock content %}
 
     <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            fetch("subscriptions/api/active-products/")
-                .then(response => response.json())
-                .then(data => {
-                    console.log("Data fetched on page load:", data);
-                    // Handle the response data here
-                })
-                .catch(error => {
-                    console.error("Error fetching data:", error);
-                });
+        $('.toggle-btn').click(function() {
+            $('nav').toggleClass('open'); // Toggle the 'open' class on nav
         });
     </script>
