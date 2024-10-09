@@ -457,9 +457,6 @@ class RunList(APIView):
                     ]
                 else:
                     required_fields = []
-                
-                if data.get("no_submission") is not True:
-                    required_fields.append("prompt")
 
                 for field in required_fields:
                     if data.get(field) is None:
@@ -574,6 +571,9 @@ class RunList(APIView):
                     response = self.no_submission_phase()
             # Handle score phase
             elif data.get("scored_run"):
+                # check required prompt property for score phase
+                if not data.get("prompt"):
+                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
                 score_response = model.score_response(api_params, data.get("minimum_score"))
@@ -586,8 +586,11 @@ class RunList(APIView):
                 response["price_output_token_1M"] = model.calculate_output_token_price(response)
             # Handle basic feedback phase
             else:
+                # check required prompt property for basic feedback phase
+                if not data.get("prompt"):
+                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
-            # Create reponse data
+            # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
