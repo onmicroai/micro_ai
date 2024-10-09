@@ -120,3 +120,8 @@ jobs:
           sudo docker container prune -f
           sudo docker image prune -a -f
           sudo docker volume prune -f
+          sudo docker builder prune -f
+          for volume in $(sudo docker volume ls -q); do
+            echo "Removing volume: $volume"
+            sudo docker volume rm $volume
+          done
