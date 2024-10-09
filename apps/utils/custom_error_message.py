@@ -13,6 +13,7 @@ class ErrorMessages:
     UNSUPPORTED_AI_MODEL = "unsupported AI model"
     EMAIL_ALREADY_EXIST = 'email already exist'
     VALIDATION_ERROR = "An error occurred during validation"
+    PROMPT_REQUIRED = {"error": "Prompt field required for this phase", "status": status.HTTP_400_BAD_REQUEST}
     
     @staticmethod
     def validation_error(errors):
