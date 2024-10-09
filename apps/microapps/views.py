@@ -476,7 +476,7 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
             run_data = {
-                "ma_id": data.get("ma_id"),
+                "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
@@ -484,7 +484,7 @@ class RunList(APIView):
                 "prompt": api_params["messages"],
                 "no_submission": data.get("no_submission", False),
                 "ai_model": api_params["model"],
-                "temperature": api_params["temperature"],
+                "temperature": float(api_params["temperature"]),
                 "max_tokens": data.get("max_tokens", model.model_config['max_tokens_default']),
                 "top_p": api_params["top_p"],
                 "frequency_penalty": api_params["frequency_penalty"],
