@@ -571,6 +571,7 @@ class RunList(APIView):
                     response = self.no_submission_phase()
             # Handle score phase
             elif data.get("scored_run"):
+                # check required prompt property for score phase
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
@@ -585,6 +586,7 @@ class RunList(APIView):
                 response["price_output_token_1M"] = model.calculate_output_token_price(response)
             # Handle basic feedback phase
             else:
+                # check required prompt property for basic feedback phase
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
