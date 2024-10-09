@@ -571,7 +571,7 @@ class GeminiModel(BaseAIModel):
         return {
             "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
             "messages": data.get("message_history", []) + data.get("prompt", []),
-            "temperature": data.get("temperature", 0),
+            "temperature": float(data.get("temperature", 0)),
             "frequency_penalty": data.get("frequency_penalty", 0),
             "presence_penalty": data.get("presence_penalty", 0),
             "top_p": data.get("top_p", 1),
