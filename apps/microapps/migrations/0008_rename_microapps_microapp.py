@@ -7,7 +7,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('collection', '0001_initial'),
-        ('global_microapps', '0001_initial'),
         ('microapps', '0007_alter_run_cost'),
     ]
 

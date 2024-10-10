@@ -36,6 +36,17 @@ class MicroAppSerializer(serializers.ModelSerializer):
             }
         return super().to_internal_value(data)
 
+class MicroAppSwaggerPostSerializer(serializers.ModelSerializer):
+    collection_id = serializers.IntegerField(write_only=True)
+    class Meta:
+        model = Microapp
+        fields = ["collection_id", "app_json"]
+
+class MicroAppSwaggerPutSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Microapp
+        fields = ["app_json"]
+
 class MicroappUserSerializer(serializers.ModelSerializer):
     class Meta:
         model = MicroAppUserJoin

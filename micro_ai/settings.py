@@ -99,7 +99,6 @@ PROJECT_APPS = [
     "apps.api.apps.APIConfig",
     "apps.web",
     "apps.teams.apps.TeamConfig",
-    "apps.global_microapps",
     "apps.microapps",
     "apps.collection",
     "apps.pages"

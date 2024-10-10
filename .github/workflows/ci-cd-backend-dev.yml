@@ -108,7 +108,7 @@ jobs:
     
           echo "All required containers are running."
 
-    - name: Deploy - Prune unused Docker containers, images
+    - name: Deploy - Prune unused Docker containers, images, and volumes
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
@@ -120,3 +120,8 @@ jobs:
           sudo docker container prune -f
           sudo docker image prune -a -f
           sudo docker volume prune -f
+          sudo docker builder prune -f
+          for volume in $(sudo docker volume ls -q); do
+            echo "Attempting to remove volume: $volume"
+            sudo docker volume rm $volume 2>/dev/null || echo "Volume $volume is in use, skipping."
+          done
