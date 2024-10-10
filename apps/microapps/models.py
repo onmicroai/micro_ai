@@ -404,10 +404,10 @@ class GPTModel(BaseAIModel):
         try:
             temperature_min = self.model_config["temperature_min"]
             temperature_max = self.model_config["temperature_max"]
-            temperature = float(data.get("temperature", temperature_min))
+            temperature = data.get("temperature", temperature_min)
             top_p_min = self.model_config["top_p_min"]
             top_p_max = self.model_config["top_p_max"]
-            top_p = float(data.get("top_p", top_p_min))            
+            top_p = data.get("top_p", top_p_min)            
             params = {
                 "temperature": (temperature, temperature_min, temperature_max),
                 "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
