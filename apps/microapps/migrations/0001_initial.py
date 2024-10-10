@@ -10,7 +10,6 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('global_microapps', '0001_initial'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
@@ -47,7 +46,6 @@ class Migration(migrations.Migration):
                 ('max_prompts', models.IntegerField()),
                 ('copy_allowed', models.BooleanField()),
                 ('app_json', models.JSONField()),
-                ('global_ma_id', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='global_microapps.globalmicroapps')),
             ],
         ),
         migrations.CreateModel(

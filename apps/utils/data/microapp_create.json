@@ -1,0 +1,112 @@
+{
+    "data": [
+        {
+            "title": "App Template 3",
+            "explanation": "Explanation",
+            "type": "public",
+            "temperature": 1,
+            "ai_model": "gpt-4o-mini",
+            "top_p": 1,
+            "frequency_penalty": 1,
+            "presence_penalty": 1,
+            "copy_allowed": true,
+            "app_json": {
+                "glossary": {
+                    "title": "example glossary",
+                    "GlossDiv": {
+                        "title": "S",
+                        "GlossList": {
+                            "GlossEntry": {
+                                "ID": "SGML",
+                                "Abbrev": "ISO 8879:1986",
+                                "SortAs": "SGML",
+                                "Acronym": "SGML",
+                                "GlossDef": {
+                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                                    "GlossSeeAlso": [
+                                        "GML",
+                                        "XML"
+                                    ]
+                                },
+                                "GlossSee": "markup",
+                                "GlossTerm": "Standard Generalized Markup Language"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "title": "App Template 2",
+            "explanation": "Explanation",
+            "type": "public",
+            "temperature": 1,
+            "ai_model": "gpt-4o-mini",
+            "top_p": 1,
+            "frequency_penalty": 1,
+            "presence_penalty": 1,
+            "copy_allowed": true,
+            "app_json": {
+                "glossary": {
+                    "title": "example glossary",
+                    "GlossDiv": {
+                        "title": "S",
+                        "GlossList": {
+                            "GlossEntry": {
+                                "ID": "SGML",
+                                "Abbrev": "ISO 8879:1986",
+                                "SortAs": "SGML",
+                                "Acronym": "SGML",
+                                "GlossDef": {
+                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                                    "GlossSeeAlso": [
+                                        "GML",
+                                        "XML"
+                                    ]
+                                },
+                                "GlossSee": "markup",
+                                "GlossTerm": "Standard Generalized Markup Language"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "title": "App Template 1",
+            "explanation": "Explanation",
+            "type": "public",
+            "temperature": 1,
+            "ai_model": "gpt-4o-mini",
+            "top_p": 1,
+            "frequency_penalty": 1,
+            "presence_penalty": 1,
+            "copy_allowed": true,
+            "app_json": {
+                "glossary": {
+                    "title": "example glossary",
+                    "GlossDiv": {
+                        "title": "S",
+                        "GlossList": {
+                            "GlossEntry": {
+                                "ID": "SGML",
+                                "Abbrev": "ISO 8879:1986",
+                                "SortAs": "SGML",
+                                "Acronym": "SGML",
+                                "GlossDef": {
+                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
+                                    "GlossSeeAlso": [
+                                        "GML",
+                                        "XML"
+                                    ]
+                                },
+                                "GlossSee": "markup",
+                                "GlossTerm": "Standard Generalized Markup Language"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}

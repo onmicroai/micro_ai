@@ -2199,6 +2199,7 @@ option {
 .welcome-wrapper {
   margin: 0 auto;
   max-width: 450px;
+  width: 90%;
 }
 .welcome-wrapper h1 {
   text-align: center;
@@ -2211,7 +2212,7 @@ option {
 .welcome-wrapper .welcome-form .welcome-field input {
   font-size: 16px;
   margin-bottom: 20px;
-  padding: 25px;
+  padding: 25px 30px;
 }
 .welcome-wrapper .welcome-form .welcome-field {
   max-width: 450px;
@@ -2237,15 +2238,44 @@ option {
 .welcome-wrapper .welcome-social svg {
   margin: 10px !important;
 }
+.register {
+  background-color: #000;
+  background-image: none;
+}
+.password-reset {
+  padding: 22px;
+}
+.welcome {
+  background: #000;
+}
+span.login-password-toggle-icon,
+span.password-toggle-icon,
+span.confirm-password-toggle-icon  {
+  top: 50%;
+}
 
+span.login-password-toggle-icon i,
+span.password-toggle-icon i,
+span.confirm-password-toggle-icon i {
+  font-size: 14px;
+}
+.app-card {
+  padding: 0;
+}
+.profile .form-control input {
+  margin-bottom: 15px;
+}
+ul.menu.bg-base-100 {
+  margin-bottom: 40px;
+}
 }
 
 @media only screen and (max-width: 480px) {
   .welcome-wrapper .welcome-form .welcome-field input {
-      font-size: 16px;
-      margin-bottom: 10px;
-      padding: 25px 10px;
-  }
+    font-size: 16px;
+    margin-bottom: 10px;
+    padding: 25px 10px;
+}
   }
 
 .contact-us .form-box {

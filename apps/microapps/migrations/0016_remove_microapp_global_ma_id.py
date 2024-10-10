@@ -9,9 +9,4 @@ class Migration(migrations.Migration):
         ('microapps', '0015_alter_run_response'),
     ]
 
-    operations = [
-        migrations.RemoveField(
-            model_name='microapp',
-            name='global_ma_id',
-        ),
-    ]
+    operations = []
