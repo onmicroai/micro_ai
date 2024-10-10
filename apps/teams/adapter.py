@@ -1,12 +1,13 @@
 import django
+import json
+import os
 from django.forms import model_to_dict
 from django.urls import reverse
-
+from django.conf import settings
 from rest_framework import serializers
 from apps.collection.models import Collection
 from apps.collection.serializer import CollectionSerializer
 from apps.collection.views import CollectionList
-from apps.global_microapps.models import GlobalMicroapps
 from apps.microapps.models import Microapp
 from apps.microapps.serializer import MicroAppSerializer
 from apps.microapps.views import MicroAppList
@@ -16,6 +17,11 @@ from .invitations import clear_invite_from_session
 from django.conf import settings
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.global_varibales import CollectionVariables
+
+json_file_path = os.path.join(settings.BASE_DIR, 'apps/utils', 'data', 'microapp_create.json')
+with open(json_file_path, 'r') as file:
+    data = json.load(file)
+
 class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     """
     Adapter that checks for an invitation id in the session and redirects
@@ -48,7 +54,6 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                 user = super().save_user(request, user, form, commit)
                 if user.pk is None: 
                     user.save()
-
                 self.collection_details(user)
                 return user
         except django.db.utils.IntegrityError as e:  
@@ -61,16 +66,15 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
         
         try:
             current_user_id = user.id
-            global_apps = GlobalMicroapps.objects.all()
             micro_app_list = MicroAppList
-            for global_app in global_apps:
-                global_app_dict = model_to_dict(global_app)
-                del global_app_dict["id"]
-                serializer = MicroAppSerializer(data=global_app_dict)
+            app_templates = data["data"]
+            for app in app_templates:
+                serializer = MicroAppSerializer(data = app)
                 if serializer.is_valid():
                     microapp = serializer.save()
-                    micro_app_list.add_microapp_user(self, uid=current_user_id, microapp=microapp)
+                    micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp)
                     micro_app_list.add_collection_microapp(self, cid, microapp)
+                print(serializer.errors)
         except Exception as e:
            raise Exception(error.SERVER_ERROR)
             
