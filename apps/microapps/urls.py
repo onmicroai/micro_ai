@@ -12,4 +12,5 @@ urlpatterns = [
     path('apps', views.UserApps.as_view(), name = "user_apps"),
     path('run', views.RunList.as_view(), name="run_model"),
     path('models/available/', views.AvailableModelsView.as_view(), name="available_models"),
+    path('models/configuration/', views.AIModelConfigurations.as_view(), name="models_configuration"),
 ]
