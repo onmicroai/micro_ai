@@ -496,6 +496,13 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
+            if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
+            if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
+            if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
+            if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
+            if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
+            
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
