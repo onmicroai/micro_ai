@@ -2259,6 +2259,15 @@ span.password-toggle-icon i,
 span.confirm-password-toggle-icon i {
   font-size: 14px;
 }
+.app-card {
+  padding: 0;
+}
+.profile .form-control input {
+  margin-bottom: 15px;
+}
+ul.menu.bg-base-100 {
+  margin-bottom: 40px;
+}
 }
 
 @media only screen and (max-width: 480px) {
