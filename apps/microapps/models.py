@@ -6,7 +6,7 @@ import logging as log
 from rest_framework.response import Response
 from apps.utils.custom_error_message import ErrorMessages as error
 from rest_framework import status
-from apps.utils.global_varibales import AIModelVariables
+from apps.utils.global_varibales import AIModelVariables, MicroappVariables
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -28,61 +28,60 @@ def handle_exception(e):
 
 
 class Microapp(models.Model):
+
+    PUBLIC = 'public'
+    PRIVATE = 'private'
+    RESTRICTED = 'restricted'
+
+    APP_PRIVACY = [
+        (PUBLIC, 'public'),
+        (PRIVATE, 'private'),
+        (RESTRICTED, 'restricted')
+    ]
+
     # The name of the microapp, shown on dashboard and the top of the app. 
-    title = models.CharField(max_length=50)
+    title = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_NAME)
     
     # A user-facing description of what the app does. 
     # (e.g. "This app allows you to generate customized multiple choice questions for your students.")
-    explanation = models.TextField()
-    
-    # Identifier for assets shared across multiple microapps
-    #shared_assets = models.CharField(max_length=50)
+    explanation = models.TextField(blank = True, default = "")
     
     # public, private, or restricted. 
     # Public apps can be shared by link and utilized by any user, even without logging in. 
     # Private apps can only be accessed by logged in owners and admins. 
     # Restricted apps are restricted by the domain, and can only be run within iFrames on approved domains. 
-    type = models.CharField(max_length=50)
-    
-    # Reference to the knowledge base used by the microapp
-    #knowledge_base = models.CharField(max_length=50)
-    
-    # The app-wide default maximum number of tokens allowed in the output. 
-    #max_output = models.IntegerField()
+    privacy = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_PRIVACY, choices = APP_PRIVACY)
     
     # The app-wide default temperature for randomness in output generation (0.0 to 1.0)
     # Temperature is a parameter that controls the randomness of the output. 
     # This can be overridden by the paramater on each prompt field. 
-    temperature = models.FloatField()
+    temperature = models.FloatField(default = 1)
     
     # The app-wide default AI model used by the microapp (e.g. gpt-4o-mini, claude-3-opus, etc.)
     # This can be overridden by the paramater on each prompt field. 
-    ai_model = models.CharField(max_length=50)
+    ai_model = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_AI_MODEL)
     
     # The app-wide default cumulative probability cutoff for token selection
     # Top_p is a parameter that controls the randomness of the output. 
     # This can be overridden by the paramater on each prompt field. 
-    top_p = models.FloatField()
+    top_p = models.FloatField(default = 1)
     
     # The app-wide default frequency penalty for repeating the same line verbatim (0.0 to 2.0)
     # Frequency penalty is a parameter that controls the likelihood of the model repeating the same line verbatim. 
     # A high frequency penalty reduces redundancy by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
     # A low frequency penalty (or a value of zero) increases the likelihood of redundancy because the model isn't discouraged from repeating words or phrases it has already used.
     # This can be overridden by the paramater on each prompt field. 
-    frequency_penalty = models.FloatField()
+    frequency_penalty = models.FloatField(default = 0)
     
     # The app-wide default presence penalty for increasing the model's likelihood to talk about new topics (0.0 to 2.0)
     # Presence penalty is a parameter that controls the likelihood of the model talking about new topics. 
     # A high presence penalty reduces the likelihood of the model talking about new topics by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
     # A low presence penalty (or a value of zero) increases the likelihood of the model talking about new topics because the model isn't discouraged from repeating words or phrases it has already used.
     # This can be overridden by the paramater on each prompt field. 
-    presence_penalty = models.FloatField()
-    
-    # The maximum runs allowed for this microapp. 
-    # max_prompts = models.IntegerField()
+    presence_penalty = models.FloatField(default = 0)
     
     # Indicates whether this microapp can be cloned (copied) by other users.
-    copy_allowed = models.BooleanField()
+    copy_allowed = models.BooleanField(default = True)
     
     # Stores the majority of the configuration for the microapp in JSON format  
     # This field can get quite large with large and complex apps, or apps that include objects that are converted to long base64 strings.   
@@ -571,7 +570,7 @@ class GeminiModel(BaseAIModel):
         return {
             "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
             "messages": data.get("message_history", []) + data.get("prompt", []),
-            "temperature": data.get("temperature", 0),
+            "temperature": float(data.get("temperature", 0)),
             "frequency_penalty": data.get("frequency_penalty", 0),
             "presence_penalty": data.get("presence_penalty", 0),
             "top_p": data.get("top_p", 1),

@@ -25,6 +25,8 @@ from apps.microapps.serializer import (
     AiModelConfigSerializer,
     MicroAppSerializer,
     MicroappUserSerializer,
+    MicroAppSwaggerPostSerializer,
+    MicroAppSwaggerPutSerializer,
     AssetsSerializer,
     AssetsMicroappSerializer,
     RunPostSerializer,
@@ -55,8 +57,8 @@ def handle_exception(e):
     )
 
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
-    post=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}),
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get all microapps on a platform"),
+    post=extend_schema(request=MicroAppSwaggerPostSerializer, responses={200: MicroAppSerializer}, summary = "Add microapp"),
 )
 class MicroAppList(APIView):
     permission_classes = [IsAuthenticated]
@@ -78,33 +80,6 @@ class MicroAppList(APIView):
         try:
             data = {"ma_id": microapp.id, "collection_id": cid}
             serializer = CollectionMicroappSerializer(data=data)
-            if serializer.is_valid():
-                return serializer.save()
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as e:
-            return handle_exception(e)
-
-    def add_assets(self, request, microapp):
-        try:
-            assets = request.data.get("assets")
-            serializer = AssetsSerializer(data=assets)
-            if serializer.is_valid():
-                asset = serializer.save()
-                return self.add_microapp_assets(microapp=microapp, asset=asset)
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as e:
-            return handle_exception(e)
-
-    def add_microapp_assets(self, microapp, asset):
-        try:
-            data = {"ma_id": microapp.id, "asset_id": asset.id}
-            serializer = AssetsMicroappSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
             return Response(
@@ -157,8 +132,8 @@ class MicroAppList(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
-    put=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}),
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get microapp by id"),
+    put=extend_schema(request=MicroAppSwaggerPutSerializer, responses={200: MicroAppSerializer}, summary = "Update by microapp"),
 )
 class MicroAppDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -476,7 +451,7 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
             run_data = {
-                "ma_id": data.get("ma_id"),
+                "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
@@ -484,7 +459,7 @@ class RunList(APIView):
                 "prompt": api_params["messages"],
                 "no_submission": data.get("no_submission", False),
                 "ai_model": api_params["model"],
-                "temperature": api_params["temperature"],
+                "temperature": float(api_params["temperature"]),
                 "max_tokens": data.get("max_tokens", model.model_config['max_tokens_default']),
                 "top_p": api_params["top_p"],
                 "frequency_penalty": api_params["frequency_penalty"],
@@ -700,3 +675,23 @@ class AvailableModelsView(APIView):
         
         # Return the models as a JSON response
         return Response({"available_models": available_models}, status=status.HTTP_200_OK)
+
+class AIModelConfigurations(APIView):
+    permission_classes = [AllowAny]
+
+    @extend_schema(
+        responses={200: str},
+        summary="Get available AI models configuration"
+    )
+
+    def get(self, request, format = None):
+        try:
+            models = [
+            {"model": env("OPENAI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("GEMINI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("CLAUDE_MODEL_NAME"), "temperature_range": {"min": 0, "max": 1}}]
+
+            return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+

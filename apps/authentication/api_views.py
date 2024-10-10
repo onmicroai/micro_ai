@@ -4,7 +4,6 @@ from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp import TOTP
 from django.forms import model_to_dict
-from apps.global_microapps.models import GlobalMicroapps
 from dj_rest_auth.serializers import JWTSerializer
 from dj_rest_auth.views import LoginView
 from drf_spectacular.utils import extend_schema
@@ -104,28 +103,6 @@ class VerifyOTPView(GenericAPIView):
         else:
             # OTP is invalid
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
-        
-class CustomRegisterView(RegisterView):
-
-    def perform_create(self, serializer):
-        user = serializer.save(self.request)
-        super().perform_create(serializer) 
-        self.add_app_templates(user)
-        return user
-
-    def add_app_templates(self, user):
-        
-        app_instances = []
-
-        global_apps = GlobalMicroapps.objects.all()
-
-        for app_template in global_apps:
-            app_dict = model_to_dict(app_template)
-            app_dict['global_ma_id_id'] = app_dict.pop('id')
-            app_instances.append(Microapp(**app_dict))
-
-        Microapp.objects.bulk_create(app_instances)
-
 
 class APICustomLogoutView(APIView):
     #TODO: Doesn't delete cookies, need to review Django logout methods
