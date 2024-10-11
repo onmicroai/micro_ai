@@ -541,7 +541,7 @@ class RunList(APIView):
             api_params = model.get_default_params(data)
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
-            # Handle skippbale phase
+            # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
             elif data.get("no_submission"):
@@ -579,7 +579,7 @@ class RunList(APIView):
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
                 # Handle hardcoded phase response
-                if(run_data["response"] == ""):
+                if run_data["response"] == "":
                     return Response(
                     {"data": [], "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
