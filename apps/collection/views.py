@@ -4,7 +4,7 @@ from rest_framework.response import Response
 import logging as log
 from rest_framework.permissions import IsAuthenticated
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
-from .serializer import CollectionSerializer, CollectionMicroappSerializer, CollectionUserSerializer
+from .serializer import CollectionSerializer, CollectionMicroappSerializer, CollectionUserSerializer, CollectionMicroAppSwaggerGetSerializer
 from apps.microapps.models import Microapp
 from apps.microapps.serializer import MicroAppSerializer
 from drf_spectacular.utils import extend_schema, extend_schema_view
@@ -311,5 +311,28 @@ class AppCollectionsList(APIView):
                 {"data": serializer.data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: CollectionMicroAppSwaggerGetSerializer(many=True)}, summary="Get Collection and their Associated Microapps"),
+)
+class CollectionMicroApps(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, format = None):
+        try:
+            user_id = request.user.id    
+            collections = Collection.objects.filter(collectionuserjoin__user_id=user_id)
+            response = []
+            for collection in collections:
+                microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection.id)
+                serializer = MicroAppSerializer(microapps, many=True)
+                response.append({
+                    'collection_id': collection.id,
+                    'collection_name': collection.name,  
+                    'microapps': serializer.data
+                })
+            return Response({"data": response, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+
         except Exception as e:
             return handle_exception(e)
