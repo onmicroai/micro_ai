@@ -2215,7 +2215,7 @@ option {
   padding: 25px 30px;
 }
 .welcome-wrapper .welcome-form .welcome-field {
-  max-width: 450px;
+  max-width: 420px;
   margin: 0 auto;
 }
 .welcome-wrapper .welcome-form input[type="submit"] {
@@ -9021,6 +9021,25 @@ details.collapse summary::-webkit-details-marker {
   transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter, -webkit-backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
+}
+
+
+.errorlist.nonfield {
+  font-size: 14px;
+  text-align: left;
+  margin-bottom: 20px;
+  letter-spacing: -0.5px;
+  padding: 0px 20px;
+}
+.welcome-field .errorlist {
+  font-size: 14px;
+  text-align: left;
+  margin: 10px 0;
+  letter-spacing: -0.5px;
+  padding: 0px 5px;
+}
+.welcome-form input[type="submit"] {
+  margin-bottom: 15px;
 }
 
 /* set css variables to DaisyUI default colors: https://daisyui.com/docs/colors/ */
