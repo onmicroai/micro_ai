@@ -209,18 +209,18 @@ class CollectionMicroAppsList(APIView):
 
     def get(self, request, collection_id, format=None):
         try:
-            ma_ids = CollectionMaJoin.objects.filter(collection_id=collection_id).values_list(
-                "ma_id", flat=True
-            )
-            collection_ma = Microapp.objects.filter(id__in=ma_ids)
-            serializer = MicroAppSerializer(collection_ma, many=True)
+            current_user = request.user.id
+            if not CollectionUserJoin.objects.filter(collection_id = collection_id, user_id = current_user).exists():
+                return Response(error.COLLECTION_VIEW_FORBIDDEN, status = status.HTTP_403_FORBIDDEN)
+            microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection_id)
+            serializer = MicroAppSerializer(microapps, many=True)
             return Response(
                 {"data": serializer.data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )  
         except Exception as e:
             return handle_exception(e)
-        
+
 @extend_schema_view(
     get=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}, summary="Get microapps created by user of a collection"),
 )

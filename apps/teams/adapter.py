@@ -74,7 +74,6 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                     microapp = serializer.save()
                     micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp)
                     micro_app_list.add_collection_microapp(self, cid, microapp)
-                print(serializer.errors)
         except Exception as e:
            raise Exception(error.SERVER_ERROR)
             
