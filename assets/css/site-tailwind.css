@@ -9042,6 +9042,14 @@ details.collapse summary::-webkit-details-marker {
   margin-bottom: 15px;
 }
 
+header {
+  position: relative;
+  z-index: 1;
+}
+
+ul.menu-bar.profile-menu li:last-child a {
+  padding: 0 20px;
+}
 /* set css variables to DaisyUI default colors: https://daisyui.com/docs/colors/ */
 
 :root {
