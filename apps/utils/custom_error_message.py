@@ -14,6 +14,7 @@ class ErrorMessages:
     EMAIL_ALREADY_EXIST = 'email already exist'
     VALIDATION_ERROR = "An error occurred during validation"
     PROMPT_REQUIRED = {"error": "Prompt field required for this phase", "status": status.HTTP_400_BAD_REQUEST}
+    COLLECTION_VIEW_FORBIDDEN = {"error": "You do not have permission to view this collection", "status": status.HTTP_403_FORBIDDEN } 
     
     @staticmethod
     def validation_error(errors):
