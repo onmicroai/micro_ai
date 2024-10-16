@@ -403,6 +403,24 @@ class UserApps(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
+)
+class PublicMicroApps(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request, id):
+        try:
+            microapp = Microapp.objects.get(id = id)    
+            serializer = MicroAppSerializer(microapp)
+            if serializer.data["privacy"] != "public":
+                return Response({"error": "The App is not public", "status": status.HTTP_403_FORBIDDEN}, status = status.HTTP_403_FORBIDDEN)
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+        
+        except Microapp.DoesNotExist:
+            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_404_NOT_FOUND)
+
+        except Exception as e:
+            return handle_exception(e)
 
 @extend_schema_view(
     get=extend_schema(
