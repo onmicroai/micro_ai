@@ -1,7 +1,7 @@
 from rest_framework import status
 
 class ErrorMessages:
-    MICROAPP_NOT_EXIST = {"error": "microapp not exist", "status": status.HTTP_400_BAD_REQUEST}
+    MICROAPP_NOT_EXIST = {"error": "microapp not exist", "status": status.HTTP_404_NOT_FOUND}
     USER_NOT_EXIST = {"error": "user not exist", "status": status.HTTP_400_BAD_REQUEST}
     COLLECTION_NOT_EXIST = {"error": "collection not exist", "status": status.HTTP_400_BAD_REQUEST}
     OPERATION_NOT_ALLOWED = {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN}

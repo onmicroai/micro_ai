@@ -8,7 +8,7 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 class MicroappVariables:
     APP_OWNER = "owner"
     DEFAULT_MICROAPP_NAME = "Untitled App"
-    DEFAULT_MICROAPP_PRIVACY = "Private"
+    DEFAULT_MICROAPP_PRIVACY = "private"
     DEFAULT_MICROAPP_AI_MODEL = "gpt-4o-mini"
 
 class CollectionVariables:
