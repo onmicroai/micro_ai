@@ -334,7 +334,15 @@ EMAIL_SUBJECT_PREFIX = "[Micro AI] "
 
 SITE_ID = 1
 
-#Wagtail config
+#Wagtail config]
+WAGTAILADMIN_RICH_TEXT_EDITORS = {
+    'default': {
+        'WIDGET': 'wagtail.admin.rich_text.DraftailRichTextArea',
+        'OPTIONS': {
+            'features': ['h2', 'h3', 'bold', 'italic', 'link', 'ol', 'ul']
+        }
+    },
+}
 WAGTAIL_SITE_NAME = "MicroAI"
 WAGTAILADMIN_BASE_URL = "http://localhost:8000/wagtail/admin"
 
