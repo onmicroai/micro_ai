@@ -207,8 +207,14 @@ class MicroAppDetails(APIView):
 class MicroAppArchive(APIView):
     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, pk):
-        microapp = self.get_object(pk)
+    def get_object(self, app_id):
+        try:
+            return Microapp.objects.get(id=app_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    def delete(self, request, app_id, format=None):
+        microapp = self.get_object(app_id)
         if not microapp:
             return Response({'error': 'Microapp not found'}, status=status.HTTP_404_NOT_FOUND)
 
