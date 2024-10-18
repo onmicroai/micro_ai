@@ -231,6 +231,7 @@ class CloneMicroApp(APIView):
                 if MicroAppUasge.microapp_related_info(request.user.id):
                     microapp_dict = model_to_dict(microapp)
                     del microapp_dict["id"]
+                    microapp_dict["title"] = microapp_dict["title"] + " copy"
                     serializer = MicroAppSerializer(data = microapp_dict)
                     if serializer.is_valid():
                         microapp = serializer.save()
