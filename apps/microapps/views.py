@@ -91,7 +91,7 @@ class MicroAppList(APIView):
 
     def get(self, request, format=None):
         try:
-            micro_apps = Microapp.objects.all()
+            micro_apps = Microapp.objects.filter(is_archived=False)
             serializer = MicroAppSerializer(micro_apps, many=True)
             return Response(
                 {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -147,7 +147,7 @@ class MicroAppDetails(APIView):
     def get(self, request, app_id, format=None):
         try:
             snippet = self.get_object(app_id)
-            if snippet:
+            if snippet and not snippet.is_archived:
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -155,7 +155,7 @@ class MicroAppDetails(APIView):
                 )
             return Response(
                 error.MICROAPP_NOT_EXIST,
-                status=status.HTTP_400_BAD_REQUEST,
+                status=status.HTTP_404_NOT_FOUND,
             )
         except Exception as e:
             return handle_exception(e)
