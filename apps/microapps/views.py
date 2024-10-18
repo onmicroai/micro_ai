@@ -201,6 +201,22 @@ class MicroAppDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
+class MicroAppArchive(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, pk):
+        microapp = self.get_object(pk)
+        if not microapp:
+            return Response({'error': 'Microapp not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        # Toggle the is_archived status
+        microapp.archive()
+
+        return Response(
+                {"data": {}, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
+            )
+
 
 class CloneMicroApp(APIView):
     permission_classes = [IsAuthenticated]

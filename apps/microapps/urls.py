@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path('', views.MicroAppList.as_view(), name='microapp_list'), 
     path('<int:app_id>', views.MicroAppDetails.as_view(), name='microapp_details'),
+    path('<int:app_id>/archive', views.MicroAppArchive.as_view(), name='microapp_archive'),
     path('<int:pk>/<int:collection_id>/clone', views.CloneMicroApp.as_view(), name="clone_microapp"),
     path('user', views.UserMicroAppsDetails.as_view(), name="users-roles"),
     path('app/<int:app_id>', views.UserMicroAppList.as_view(), name="users-roles"),
