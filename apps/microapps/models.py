@@ -89,6 +89,14 @@ class Microapp(models.Model):
 
     # Add this new field
     is_archived = models.BooleanField(default=False)
+    
+    def archive(self):
+        self.is_archived = True
+        self.save()
+
+    def unarchive(self):
+        self.is_archived = False
+        self.save()
 
     def __str__(self):
         return self.title
