@@ -212,7 +212,7 @@ class CollectionMicroAppsList(APIView):
             current_user = request.user.id
             if not CollectionUserJoin.objects.filter(collection_id = collection_id, user_id = current_user).exists():
                 return Response(error.COLLECTION_VIEW_FORBIDDEN, status = status.HTTP_403_FORBIDDEN)
-            microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection_id)
+            microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection_id, is_archived=False)
             serializer = MicroAppSerializer(microapps, many=True)
             return Response(
                 {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -240,9 +240,8 @@ class UserCollectionMicroAppsList(APIView):
                 "ma_id", flat=True
             )
 
-            # Filter out micro-apps created by the current user
-            collection_ma = Microapp.objects.filter(id__in=ma_ids, microappuserjoin__user_id=current_user)
-
+            # Filter out micro-apps created by the current user and not archived
+            collection_ma = Microapp.objects.filter(id__in=ma_ids, microappuserjoin__user_id=current_user, is_archived=False)
             serializer = MicroAppSerializer(collection_ma, many=True)
 
             return Response(
@@ -325,7 +324,7 @@ class CollectionMicroApps(APIView):
             collections = Collection.objects.filter(collectionuserjoin__user_id=user_id)
             response = []
             for collection in collections:
-                microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection.id)
+                microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection.id, is_archived=False)
                 serializer = MicroAppSerializer(microapps, many=True)
                 response.append({
                     'collection_id': collection.id,
