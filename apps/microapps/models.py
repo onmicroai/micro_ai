@@ -87,6 +87,9 @@ class Microapp(models.Model):
     # This field can get quite large with large and complex apps, or apps that include objects that are converted to long base64 strings.   
     app_json = models.JSONField()
 
+    # Add this new field
+    is_archived = models.BooleanField(default=False)
+
     def __str__(self):
         return self.title
 
