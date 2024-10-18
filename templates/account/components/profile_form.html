@@ -16,7 +16,7 @@
   </div>
   <div class="pg-column">
     <h2 class="pg-subtitle">{% translate "My Details" %}</h2>
-    <form method="post">
+    <form method="post" class="hidden-eye">
       {% csrf_token %}
       {% render_text_input form.email %}
       {% render_text_input form.first_name %}

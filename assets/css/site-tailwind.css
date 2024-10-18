@@ -1776,12 +1776,9 @@ footer,
   color: #fff;
 }
 
-.profile .form-control input {
-  color: #000;
-}
-
 .profile .form-control {
   margin-bottom: 0.5vw;
+  position: relative;
 }
 
 .wrapper-container {
@@ -2151,14 +2148,36 @@ option {
   display: block;
 }
 
+@media screen and (min-width: 1025px) {
+  .for-mobile {
+      display: none;
+  }
+  }
+
 @media only screen and (max-width: 1024px) {
+
+  .flex-col.sidebar {
+    display: none;
+  }
+
   #app-container {
       position: relative;
       width: 100vw;
       overflow: hidden;
   }
 
-  .form-control:before {
+  .open ul.menu-bar li span {
+    color: #fff;
+    font-family: "Figtree", sans-serif;
+    padding: 0 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+.rightpan nav ul li a i {
+    margin-right: 10px;
+}
+
+  .input-image .form-control:before {
     content: '';
     background: url('../images/web/left-input.png');
      background-repeat: no-repeat;
@@ -2171,7 +2190,7 @@ option {
    
   }
 
-  .form-control:after {
+  .input-image .form-control:after {
     content: '';
     background: url('../images/web/right-input.png');
     background-repeat: no-repeat;
@@ -2313,8 +2332,9 @@ span.confirm-password-toggle-icon i {
 .app-card {
   padding: 0;
 }
+
 .profile .form-control input {
-  margin-bottom: 15px;
+  margin-bottom: 0px;
 }
 ul.menu.bg-base-100 {
   margin-bottom: 40px;
@@ -2369,9 +2389,11 @@ ul.menu.bg-base-100 {
 .password-toggle-icon i:hover,
 .confirm-password-toggle-icon i:hover,
 .login-password-toggle-icon i:hover {
-  color: #000;
+  color: #fff;
 }
-
+.hidden-eye .password-toggle-icon {
+    display:none
+}
 /*dahboard css*/
 .dashboard-main-container {
   background-color: #000;

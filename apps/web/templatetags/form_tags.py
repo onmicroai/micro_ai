@@ -28,7 +28,7 @@ def render_text_input(form_field, **attrs):
 
     TEXT_INPUT_TEMPLATE = """<div class="form-control w-full" {% include "django/forms/attrs.html" %}>
       {{ form_field }}
-    <span class="login-password-toggle-icon"><i class="fas fa-eye"></i></span>
+    <span class="password-toggle-icon"><i class="fas fa-eye"></i></span>
     </div>
       {{ form_field.errors }}
 
