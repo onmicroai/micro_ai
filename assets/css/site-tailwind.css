@@ -2158,6 +2158,41 @@ option {
       overflow: hidden;
   }
 
+  .form-control:before {
+    content: '';
+    background: url('../images/web/left-input.png');
+     background-repeat: no-repeat;
+    background-size: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 30px;
+    height: 30px;
+   
+  }
+
+  .form-control:after {
+    content: '';
+    background: url('../images/web/right-input.png');
+    background-repeat: no-repeat;
+    background-size: 100%;
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 15px;
+    height: 15px;
+  }
+
+  .form-control.w-full {
+    position: relative;
+    margin-bottom: 15px;
+  }
+
+  .password-toggle-icon i, .confirm-password-toggle-icon i, .login-password-toggle-icon i {
+    margin-bottom: 0;
+  }
+
+
   .app-container {
       gap: 0;
   }
@@ -2210,10 +2245,15 @@ option {
   margin: 0 auto;
 }
 .welcome-wrapper .welcome-form .welcome-field input {
-  font-size: 16px;
-  margin-bottom: 20px;
-  padding: 25px 30px;
+    height: auto;
+    margin-bottom: 0;
+    padding: 20px;
+    font-size:16px;
+    background: #000000;
+    border-radius: 0;
+    border: 2px solid #7d7d7d;
 }
+
 .welcome-wrapper .welcome-form .welcome-field {
   max-width: 420px;
   margin: 0 auto;
@@ -2241,6 +2281,17 @@ option {
 .register {
   background-color: #000;
   background-image: none;
+}
+.errorlist.nonfield {
+  position: relative;
+  top: -5px;
+  padding: 0;
+  max-width: 420px;
+  margin: 0 auto 20px;
+}
+
+.register .welcome-wrapper h1 {
+  margin-bottom: 25px;
 }
 .password-reset {
   padding: 22px;
@@ -2273,8 +2324,7 @@ ul.menu.bg-base-100 {
 @media only screen and (max-width: 480px) {
   .welcome-wrapper .welcome-form .welcome-field input {
     font-size: 16px;
-    margin-bottom: 10px;
-    padding: 25px 10px;
+    padding: 15px 10px;
 }
   }
 
@@ -2313,7 +2363,7 @@ ul.menu.bg-base-100 {
   line-height: 1;
   color: #a7a7a7;
   transition: color 0.3s ease-in-out;
-  margin-bottom: 20px;
+  margin-bottom: 0px;
 }
 
 .password-toggle-icon i:hover,
@@ -8670,6 +8720,39 @@ details.collapse summary::-webkit-details-marker {
   color: #7a7a7a;
 }
 
+/*wagtail*/
+.content-section {
+  padding: 5% 10%;
+  color: #ffffff;  /* Assuming you want white text on dark background */
+}
+
+.page-title {
+  color: #53B6E1;
+  font-size: 2em;
+  margin-bottom: 1em;
+}
+
+.content-heading {
+  font-size: 1.5em;
+  margin-top: 1em;
+  margin-bottom: 0.5em;
+  color: #53B6E1;
+}
+
+.content-paragraph {
+  margin-bottom: 1em;
+  line-height: 1.6;
+}
+
+.content-bullet-list {
+  list-style-type: disc;
+  margin-left: 2em;
+  margin-bottom: 1em;
+}
+
+.content-bullet-list li {
+  margin-bottom: 0.5em;
+}
 /* cards */
 
 /*.pg-card-image*/
@@ -9029,7 +9112,7 @@ details.collapse summary::-webkit-details-marker {
   text-align: left;
   margin-bottom: 20px;
   letter-spacing: -0.5px;
-  padding: 0px 20px;
+  padding: 0px;
 }
 .welcome-field .errorlist {
   font-size: 14px;
