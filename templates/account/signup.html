@@ -58,82 +58,66 @@
   <div class="welcome-wrapper">
       <div class="wrapper-content">
           <h1>Register</h1>
-          <form class="welcome-form" method="post">    
+          <form class="welcome-form input-image" method="post">    
               {% csrf_token %}            
-              <!-- <div class="welcome-field">
-                  <input type="text" placeholder="Full Name" name="full_name">
-              </div>                 -->
+              
+              <div class="welcome-field hidden-eye">
+                  {% render_field form.email %}
+              </div>
+
               <div class="welcome-field">
-                {% render_field form.email %}
-              </div>
-              <!-- <div class="welcome-field">
-                  <input type="text" placeholder="Username" name="username">
-              </div> -->
-              <div class="welcome-field" >
                 {% render_field form.password1 %}
-                <span class="password-toggle-icon"><i class="fas fa-eye"></i></span>
               </div>
+
               {% if project_settings.ACCOUNT_SIGNUP_PASSWORD_ENTER_TWICE %}
               <div class="welcome-field">
                 {% render_field form.password2 %}
-                <span class="confirm-password-toggle-icon"><i class="fas fa-eye"></i></span>
+
               </div>
               {% endif %}
-           
-              <!-- {% render_field form.terms_agreement %} -->
               <input type="submit" value="{% translate "Sign Up" %}">
-                <!-- {% translate "Already have account?" %} -->
-              <a href="{% url 'account_login' %}">Already have an account? Log in
-                <!-- {% translate "Go to sign in." %} -->
-              </a>
+              <a href="{% url 'account_login' %}">Already have an account? Log in</a>
           </form>
       </div>
   </div>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+    // Set placeholders for specific fields
+    var passwordField = document.querySelector('.welcome-field input[name="password2"]');
+    var emailField = document.querySelector('.welcome-field input[name="email"]');
+
+    if (passwordField) {
+        passwordField.setAttribute('placeholder', 'Confirm Password');
+    }
+
+    if (emailField) {
+        emailField.setAttribute('placeholder', 'Email');
+    }
+
+    // Password toggle functionality
+    const passwordFields = document.querySelectorAll('input[type="password"]');
+
+    passwordFields.forEach(field => {
+        const toggleIcon = field.nextElementSibling;
+        if (toggleIcon && toggleIcon.classList.contains('password-toggle-icon')) {
+            const eyeIcon = toggleIcon.querySelector('i');
+            
+            toggleIcon.addEventListener('click', function() {
+                if (field.type === "password") {
+                    field.type = "text";
+                    eyeIcon.classList.remove("fa-eye");
+                    eyeIcon.classList.add("fa-eye-slash");
+                } else {
+                    field.type = "password";
+                    eyeIcon.classList.remove("fa-eye-slash");
+                    eyeIcon.classList.add("fa-eye");
+                }
+            });
+        }
+    });
+});
+  </script>
 </body>
-<script>
-  document.addEventListener("DOMContentLoaded", function() {
-      var passwordField = document.querySelector('.welcome-field input[name="password2"]');
-      var emailField = document.querySelector('.welcome-field input[name="email"]');
 
-        if (passwordField) {
-            passwordField.setAttribute('placeholder', 'Confirm Password');
-        }
-
-        if(emailField){
-          emailField.setAttribute('placeholder', 'Email');
-        }
-  });
-
-  // password toogle functionality
-  const passwordField = document.getElementById("id_password1");
-        const togglePassword = document.querySelector(".password-toggle-icon i");
-        const confirmPasswordField = document.getElementById("id_password2");
-        const toggleConfirmPassword = document.querySelector(".confirm-password-toggle-icon i");
-
-        togglePassword.addEventListener("click", function () {
-        if (passwordField.type === "password") {
-            passwordField.type = "text";
-            togglePassword.classList.remove("fa-eye");
-            togglePassword.classList.add("fa-eye-slash");
-        } else {
-            passwordField.type = "password";
-            togglePassword.classList.remove("fa-eye-slash");
-            togglePassword.classList.add("fa-eye");
-        }
-        });
-
-        toggleConfirmPassword.addEventListener('click',()=>{
-            if (confirmPasswordField.type === 'password'){
-                confirmPasswordField.type = "text";
-                toggleConfirmPassword.classList.remove("fa-eye");
-                toggleConfirmPassword.classList.add("fa-eye-slash");
-            }
-            else{
-                confirmPasswordField.type = "password";
-                toggleConfirmPassword.classList.remove("fa-eye-slash");
-                toggleConfirmPassword.classList.add("fa-eye");
-            }
-        })
-
-</script> 
 </html>

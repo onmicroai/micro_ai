@@ -69,9 +69,9 @@
                     fill="white" />
             </svg>
             <h1>Welcome to MicroAI</h1>
-            <form class="welcome-form" id="login_form" method="post">
+            <form class="welcome-form input-image" id="login_form" method="post">
                 {% csrf_token %}
-                <div class="welcome-field">
+                <div class="welcome-field hidden-eye">
                     {% render_field form.login %}
                 </div>
                 <div class="welcome-field">

@@ -38,17 +38,46 @@
             </button>
             <nav>
                 {% if user.is_authenticated %}
-                <ul class="menu-bar profile-menu">
-                    <li>
-                        <a href="{% url 'web:dashboard' %}">Dashboard</a>
+                <ul class="menu-bar profile-menu for-mobile">
+                    <li class="menu-title">
+                       <span>Application</span>
                     </li>
                     <li>
-                        <a href="{% url 'users:user_profile' %}">Profile</a>
+                       <a href="{% url 'web:dashboard' %}">
+                       <i class="fa fa-home h-4 w-4"></i>
+                       Dashboard
+                       </a>
                     </li>
                     <li>
-                        <a href="{% url 'account_loading_logout' %}">Logout</a>
+                       <a href="{% url 'subscriptions_team:subscription_details' request.team.slug %}">
+                       <i class="fa fa-repeat h-4 w-4"></i>
+                       Subscription
+                       </a>
                     </li>
-                </ul>
+                    <li class="menu-title">
+                       <span>My Account</span>
+                    </li>
+                    <ul class="menu-list for-mobile">
+                       <li>
+                          <a href="{% url 'users:user_profile' %}" class="active">
+                          <i class="fa fa-user h-4 w-4"></i>
+                          Profile
+                          </a>
+                       </li>
+                       <li>
+                          <a href="{% url 'account_change_password' %}">
+                          <i class="fa fa-unlock-alt h-4 w-4"></i>
+                          Change Password
+                          </a>
+                       </li>
+                       <li>
+                          <a href="{% url 'account_loading_logout' %}">
+                          <i class="fa fa-sign-out h-4 w-4"></i>
+                          Sign out
+                          </a>
+                       </li>
+                    </ul>
+                 </ul>
                 {% else %}
 
                 <ul class="menu-bar">
