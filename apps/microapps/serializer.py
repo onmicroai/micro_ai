@@ -18,6 +18,8 @@ class MicroAppSerializer(serializers.ModelSerializer):
                                 "name": "AI Prompt 1",
                                 "type": "ai-prompt",
                                 "title": "AI Prompt 1",
+                                "aiModel": "gpt-4o-mini",
+                                "temperature": 1.0,
                                 "aiPromptProperty": "Say hello to {Name} {Surname} "
                             },
                             {
