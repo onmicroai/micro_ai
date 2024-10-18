@@ -201,6 +201,9 @@ class MicroAppDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
+)
 class MicroAppArchive(APIView):
     permission_classes = [IsAuthenticated]
 
