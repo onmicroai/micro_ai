@@ -2148,6 +2148,12 @@ option {
   display: block;
 }
 
+.custom-color input[type="text"], 
+.custom-color input[type="email"],
+.custom-color input[type="password"]{
+  color: #000 !important;
+}
+
 @media screen and (min-width: 1025px) {
   .for-mobile {
       display: none;
