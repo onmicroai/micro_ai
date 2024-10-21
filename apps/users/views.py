@@ -19,6 +19,7 @@ from .helpers import require_email_confirmation, user_has_confirmed_email_addres
 from .models import CustomUser
 from PIL import Image
 import os
+import logging as log
 
 @login_required
 def profile(request):
@@ -103,64 +104,69 @@ def revoke_api_key(request):
 
 @login_required
 def get_resized_avatar(request, image_name):
-    original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
+    try:
+        original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
     
-    if not os.path.exists(original_image_path):
-        raise Http404("Avatar not found.")
-    
-    query_params = request.GET
-    width = query_params.get('w')
-    height = query_params.get('h')
-    
-    base, ext = os.path.splitext(image_name)
-
-    resized_image_path = original_image_path  # Fallback to the original
-
-    if width is not None or height is not None:
-        # Setup target dimensions
-        target_width = int(width) if width else None
-        target_height = int(height) if height else None
+        if not os.path.exists(original_image_path):
+            raise Http404("Avatar not found.")
         
-        resized_image_filename = f"{base}_{target_width if target_width else 'auto'}x{target_height if target_height else 'auto'}{ext}"
-        resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
+        query_params = request.GET
+        width = query_params.get('w')
+        height = query_params.get('h')
+        
+        base, ext = os.path.splitext(image_name)
 
-        if os.path.exists(resized_image_path):
-            with open(resized_image_path, 'rb') as f:
-                return HttpResponse(f.read(), content_type="image/jpeg")
+        resized_image_path = original_image_path  # Fallback to the original
 
-        with Image.open(original_image_path) as img:
-            original_width, original_height = img.size
+        if width is not None or height is not None:
+            # Setup target dimensions
+            target_width = int(width) if width else None
+            target_height = int(height) if height else None
             
-            # Determine target dimensions for square resizing if only one dimension is given
-            if target_width is None and target_height is None:
-                raise ValueError("Must provide either width or height.")
+            resized_image_filename = f"{base}_{target_width if target_width else 'auto'}x{target_height if target_height else 'auto'}{ext}"
+            resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
 
-            if target_width is None:
-                target_width = target_height
-            elif target_height is None:
-                target_height = target_width
+            if os.path.exists(resized_image_path):
+                with open(resized_image_path, 'rb') as f:
+                    return HttpResponse(f.read(), content_type="image/jpeg")
 
-            # Calculate resize ratios
-            width_ratio = target_width / original_width
-            height_ratio = target_height / original_height
+            with Image.open(original_image_path) as img:
+                original_width, original_height = img.size
+                
+                # Determine target dimensions for square resizing if only one dimension is given
+                if target_width is None and target_height is None:
+                    raise ValueError("Must provide either width or height.")
 
-            if width_ratio > height_ratio:
-                new_width = target_width
-                new_height = int(original_height * width_ratio)
-                img = img.resize((new_width, new_height), Image.LANCZOS)
-                crop_top_bottom = (new_height - target_height) // 2
-                img = img.crop((0, crop_top_bottom, new_width, crop_top_bottom + target_height))
-            else:
-                new_height = target_height
-                new_width = int(original_width * height_ratio)
-                img = img.resize((new_width, new_height), Image.LANCZOS)
-                crop_left_right = (new_width - target_width) // 2
-                img = img.crop((crop_left_right, 0, crop_left_right + target_width, new_height))
+                if target_width is None:
+                    target_width = target_height
+                elif target_height is None:
+                    target_height = target_width
 
-            if img.mode == 'RGBA':
-                img = img.convert('RGB')
+                # Calculate resize ratios
+                width_ratio = target_width / original_width
+                height_ratio = target_height / original_height
 
-            img.save(resized_image_path, format='JPEG')
+                if width_ratio > height_ratio:
+                    new_width = target_width
+                    new_height = int(original_height * width_ratio)
+                    img = img.resize((new_width, new_height), Image.LANCZOS)
+                    crop_top_bottom = (new_height - target_height) // 2
+                    img = img.crop((0, crop_top_bottom, new_width, crop_top_bottom + target_height))
+                else:
+                    new_height = target_height
+                    new_width = int(original_width * height_ratio)
+                    img = img.resize((new_width, new_height), Image.LANCZOS)
+                    crop_left_right = (new_width - target_width) // 2
+                    img = img.crop((crop_left_right, 0, crop_left_right + target_width, new_height))
 
-    with open(resized_image_path, 'rb') as f:
-        return HttpResponse(f.read(), content_type="image/jpeg")
+                if img.mode == 'RGBA':
+                    img = img.convert('RGB')
+
+                img.save(resized_image_path, format='JPEG')
+
+        with open(resized_image_path, 'rb') as f:
+            return HttpResponse(f.read(), content_type="image/jpeg")
+    
+    except Execption as e:
+        log.error(f"Error in get_resized_avatar: {e}")
+        return HttpResponse(status=500)   
