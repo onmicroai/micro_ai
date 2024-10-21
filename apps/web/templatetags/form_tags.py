@@ -7,8 +7,6 @@ register = template.Library()
 @register.simple_tag
 def render_form_fields(form):
     rendered_values = [render_field(form[field]) for field in form.fields]
-
-    print("render_form_fields " +str(rendered_values)) 
     return mark_safe("".join(rendered_values))
 
 
@@ -19,7 +17,6 @@ def render_field(form_field, **attrs):
         "checkbox": render_checkbox_input,
     }.get(form_field.widget_type, render_text_input)
     
-    print("render_field " +str(render_function))
     return render_function(form_field, **attrs)
 
 
@@ -51,8 +48,6 @@ def render_select_input(form_field, **attrs):
       {{ form_field.errors }}
     </div>
     """
-
-    print("render_select_input " + str(SELECT_INPUT_TEMPLATE))
     return _render_field(SELECT_INPUT_TEMPLATE, form_field, **attrs)
 
 
@@ -70,8 +65,6 @@ def render_checkbox_input(form_field, **attrs):
       {{ form_field.errors }}
     </div>
     """
- 
-    print("render_checkbox_input "+ str(CHECKBOX_INPUT_TEMPLATE))
     return _render_field(CHECKBOX_INPUT_TEMPLATE, form_field, **attrs)
 
 

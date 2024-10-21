@@ -38,7 +38,7 @@
             </button>
             <nav>
                 {% if user.is_authenticated %}
-                <ul class="menu-bar profile-menu">
+                <ul class="menu-bar profile-menu for-mobile">
                     <li class="menu-title">
                        <span>Application</span>
                     </li>
@@ -48,12 +48,14 @@
                        Dashboard
                        </a>
                     </li>
+                    {% if not user.is_superuser %}
                     <li>
                        <a href="{% url 'subscriptions_team:subscription_details' request.team.slug %}">
                        <i class="fa fa-repeat h-4 w-4"></i>
                        Subscription
                        </a>
                     </li>
+                    {% endif %}
                     <li class="menu-title">
                        <span>My Account</span>
                     </li>
