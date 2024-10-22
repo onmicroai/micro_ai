@@ -20,6 +20,7 @@ from .models import CustomUser
 from PIL import Image
 import os
 import logging as log
+log.basicConfig(level=log.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 @login_required
 def profile(request):
@@ -64,10 +65,16 @@ def profile(request):
 def upload_profile_image(request):
     user = request.user
     form = UploadAvatarForm(request.POST, request.FILES)
+    log.info(f"__RP__ {request.POST}")
+    log.info(f"__RF__ {request.FILES}")
     if form.is_valid():
-        user.avatar = request.FILES["avatar"]
-        user.save()
-        return HttpResponse(_("Success!"))
+        try:
+            user.avatar = request.FILES["avatar"]
+            user.save()
+            return HttpResponse(_("Success!"))
+        except Exception as e:
+            log.error(f"Error uploading image: {e}")
+            return JsonResponse(status=500, data={"errors": "Error uploading image."})
     else:
         readable_errors = ", ".join(str(error) for key, errors in form.errors.items() for error in errors)
         return JsonResponse(status=403, data={"errors": readable_errors})
