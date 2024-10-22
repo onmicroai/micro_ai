@@ -112,6 +112,7 @@ def revoke_api_key(request):
 @login_required
 def get_resized_avatar(request, image_name):
     try:
+        log.info(f"get_resized_avatar_image: {image_name}")
         original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
         log.info(f"__OP__ {original_image_path}")
     
