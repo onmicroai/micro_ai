@@ -113,6 +113,7 @@ def revoke_api_key(request):
 def get_resized_avatar(request, image_name):
     try:
         original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
+        log.info(f"__OP__ {original_image_path}")
     
         if not os.path.exists(original_image_path):
             raise Http404("Avatar not found.")
@@ -124,6 +125,7 @@ def get_resized_avatar(request, image_name):
         base, ext = os.path.splitext(image_name)
 
         resized_image_path = original_image_path  # Fallback to the original
+        log.info(f"__RP__ {original_image_path}")
 
         if width is not None or height is not None:
             # Setup target dimensions
@@ -131,8 +133,9 @@ def get_resized_avatar(request, image_name):
             target_height = int(height) if height else None
             
             resized_image_filename = f"{base}_{target_width if target_width else 'auto'}x{target_height if target_height else 'auto'}{ext}"
+            log.info(f"__RF__ {resized_image_filename}")
             resized_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', resized_image_filename)
-
+            log.info(f"__RPP__ {resized_image_path}")
             if os.path.exists(resized_image_path):
                 with open(resized_image_path, 'rb') as f:
                     return HttpResponse(f.read(), content_type="image/jpeg")
