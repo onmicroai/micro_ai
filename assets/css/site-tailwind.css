@@ -2153,7 +2153,18 @@ option {
 .custom-color input[type="password"]{
   color: #000 !important;
 }
-
+.welcome {
+  background: url('../images/web/login-bg-min.jpg');
+  background-repeat: no-repeat;
+  background-size: 50%;
+  background-position: right center;
+}
+.register {
+  background: url('../images/web/micro-ai-min.png');
+  background-repeat: no-repeat;
+  background-size: 50%;
+  background-position: right center;
+}
 @media screen and (min-width: 1025px) {
   .for-mobile {
       display: none;
