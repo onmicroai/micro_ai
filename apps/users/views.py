@@ -112,6 +112,7 @@ def revoke_api_key(request):
 @login_required
 def get_resized_avatar(request, image_name):
     try:
+        log.info(f"User: {request.user.username} - Is superuser: {request.user.is_superuser}")
         log.info(f"get_resized_avatar_image: {image_name}")
         original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
         log.info(f"__OP__ {original_image_path}")
@@ -179,5 +180,5 @@ def get_resized_avatar(request, image_name):
             return HttpResponse(f.read(), content_type="image/jpeg")
     
     except Exception as e:
-        log.error(f"Error in get_resized_avatar: {e}")
+        log.info(f"Error in get_resized_avatar: {e}")
         return HttpResponse(status=500)   
