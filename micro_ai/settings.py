@@ -328,7 +328,7 @@ DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 # see https://github.com/anymail/django-anymail for more details/examples
 # EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
 
-EMAIL_SUBJECT_PREFIX = "[Micro AI] "
+EMAIL_SUBJECT_PREFIX = "[OnMicro.AI] "
 
 # Django sites
 
@@ -389,7 +389,7 @@ CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 
 SPECTACULAR_SETTINGS = {
-    "TITLE": "Micro AI",
+    "TITLE": "OnMicro.AI",
     "DESCRIPTION": "Build Micro Apps with No Code",
     "VERSION": "0.1.0",
     "SERVE_INCLUDE_SCHEMA": False,
@@ -433,7 +433,7 @@ WAFFLE_FLAG_MODEL = "teams.Flag"
 
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
-    "NAME": gettext_lazy("Micro AI"),
+    "NAME": gettext_lazy("OnMicro.AI"),
     "URL": "http://localhost:8000",
     "DESCRIPTION": gettext_lazy("Build Micro Apps with No Code"),
     "IMAGE": "https://upload.wikimedia.org/wikipedia/commons/2/20/PEO-pegasus_black.svg",
