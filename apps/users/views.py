@@ -170,5 +170,4 @@ def get_resized_avatar(request, image_name):
             return HttpResponse(f.read(), content_type="image/jpeg")
     
     except Exception as e:
-        log.error(f"Error in get_resized_avatar: {e}")
         return HttpResponse(status=500)   
