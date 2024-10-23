@@ -19,7 +19,7 @@ default_context:
   include_static_files: y
   marketing_email_platform: none
   post_process: y
-  project_name: Micro AI
+  project_name: OnMicro.AI
   project_slug: micro_ai
   standalone_front_end: none
   stripe_payment_mode: checkout
