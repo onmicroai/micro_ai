@@ -709,6 +709,9 @@ class AIModelRoute:
         except Exception as e:
            return handle_exception(e) 
    
+from django.utils.deprecation import deprecated
+
+@deprecated(reason="This view is deprecated. Use AIModelConfigurations instead.")
 class AvailableModelsView(APIView):
     permission_classes = [AllowAny]
     
