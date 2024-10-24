@@ -720,9 +720,9 @@ class AIModelConfigurations(APIView):
     def get(self, request, format = None):
         try:
             models = [
-            {"model": env("OPENAI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("GEMINI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("CLAUDE_MODEL_NAME"), "temperature_range": {"min": 0, "max": 1}}]
+            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "GPT-4o", "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini-1.5", "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude-Opus", "temperature_range": {"min": 0, "max": 1}}]
 
             return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
         except Exception as e:
