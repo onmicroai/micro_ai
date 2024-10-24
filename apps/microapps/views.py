@@ -709,27 +709,6 @@ class AIModelRoute:
         except Exception as e:
            return handle_exception(e) 
    
-from django.utils.deprecation import deprecated
-
-@deprecated(reason="This view is deprecated. Use AIModelConfigurations instead.")
-class AvailableModelsView(APIView):
-    permission_classes = [AllowAny]
-    
-    @extend_schema(
-        responses={200: str},
-        summary="Get available LLM models"
-    )
-    def get(self, request, format=None):
-        # Read available models from the environment variable
-        available_models = [
-            env("OPENAI_MODEL_NAME"), 
-            env("GEMINI_MODEL_NAME"), 
-            env("CLAUDE_MODEL_NAME"),
-            ]
-        
-        # Return the models as a JSON response
-        return Response({"available_models": available_models}, status=status.HTTP_200_OK)
-
 class AIModelConfigurations(APIView):
     permission_classes = [AllowAny]
 
