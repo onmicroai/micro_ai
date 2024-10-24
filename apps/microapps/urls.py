@@ -12,8 +12,6 @@ urlpatterns = [
     path('<int:app_id>/user/<int:user_id>', views.UserMicroApps.as_view(), name="user-role"),
     path('apps', views.UserApps.as_view(), name = "user_apps"),
     path('run', views.RunList.as_view(), name="run_model"),
-    # Deprecated: Use 'models/configuration/' instead
-    path('models/available/', views.AvailableModelsView.as_view(), name="available_models"),
     path('models/configuration/', views.AIModelConfigurations.as_view(), name="models_configuration"),
     path('public/app/<int:id>', views.PublicMicroApps.as_view(), name = "public_microapps")
 ]
