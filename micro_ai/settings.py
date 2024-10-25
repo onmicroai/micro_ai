@@ -343,7 +343,7 @@ WAGTAILADMIN_RICH_TEXT_EDITORS = {
         }
     },
 }
-WAGTAIL_SITE_NAME = "MicroAI"
+WAGTAIL_SITE_NAME = "OnMicro.AI"
 WAGTAILADMIN_BASE_URL = "http://localhost:8000/wagtail/admin"
 
 # DRF config
