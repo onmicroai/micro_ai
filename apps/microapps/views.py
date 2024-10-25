@@ -709,24 +709,6 @@ class AIModelRoute:
         except Exception as e:
            return handle_exception(e) 
    
-class AvailableModelsView(APIView):
-    permission_classes = [AllowAny]
-    
-    @extend_schema(
-        responses={200: str},
-        summary="Get available LLM models"
-    )
-    def get(self, request, format=None):
-        # Read available models from the environment variable
-        available_models = [
-            env("OPENAI_MODEL_NAME"), 
-            env("GEMINI_MODEL_NAME"), 
-            env("CLAUDE_MODEL_NAME"),
-            ]
-        
-        # Return the models as a JSON response
-        return Response({"available_models": available_models}, status=status.HTTP_200_OK)
-
 class AIModelConfigurations(APIView):
     permission_classes = [AllowAny]
 
@@ -738,9 +720,9 @@ class AIModelConfigurations(APIView):
     def get(self, request, format = None):
         try:
             models = [
-            {"model": env("OPENAI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("GEMINI_MODEL_NAME"), "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("CLAUDE_MODEL_NAME"), "temperature_range": {"min": 0, "max": 1}}]
+            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "Gpt", "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini", "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
 
             return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
         except Exception as e:
