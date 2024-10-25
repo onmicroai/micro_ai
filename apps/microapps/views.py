@@ -720,7 +720,7 @@ class AIModelConfigurations(APIView):
     def get(self, request, format = None):
         try:
             models = [
-            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "GPT", "temperature_range": {"min": 0, "max": 2}},
+            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "Gpt", "temperature_range": {"min": 0, "max": 2}},
             {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini", "temperature_range": {"min": 0, "max": 2}},
             {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
 
