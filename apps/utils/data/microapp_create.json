@@ -1,7 +1,7 @@
 {
     "data": [
         {
-            "title": "App Template 3",
+            "title": "App Template 1",
             "explanation": "Explanation",
             "type": "public",
             "temperature": 1,
@@ -11,29 +11,21 @@
             "presence_penalty": 1,
             "copy_allowed": true,
             "app_json": {
-                "glossary": {
-                    "title": "example glossary",
-                    "GlossDiv": {
-                        "title": "S",
-                        "GlossList": {
-                            "GlossEntry": {
-                                "ID": "SGML",
-                                "Abbrev": "ISO 8879:1986",
-                                "SortAs": "SGML",
-                                "Acronym": "SGML",
-                                "GlossDef": {
-                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                                    "GlossSeeAlso": [
-                                        "GML",
-                                        "XML"
-                                    ]
-                                },
-                                "GlossSee": "markup",
-                                "GlossTerm": "Standard Generalized Markup Language"
+                "pages": [
+                    {
+                        "name": "page1",
+                        "elements": [
+                            {
+                                "name": "AI Prompt 1",
+                                "type": "ai-prompt",
+                                "title": "AI Prompt 1",
+                                "aiModel": "gpt-4o-mini",
+                                "temperature": 1,
+                                "aiPromptProperty": "Say hello to {Name} {Surname} "
                             }
-                        }
+                        ]
                     }
-                }
+                ]
             }
         },
         {
@@ -47,33 +39,25 @@
             "presence_penalty": 1,
             "copy_allowed": true,
             "app_json": {
-                "glossary": {
-                    "title": "example glossary",
-                    "GlossDiv": {
-                        "title": "S",
-                        "GlossList": {
-                            "GlossEntry": {
-                                "ID": "SGML",
-                                "Abbrev": "ISO 8879:1986",
-                                "SortAs": "SGML",
-                                "Acronym": "SGML",
-                                "GlossDef": {
-                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                                    "GlossSeeAlso": [
-                                        "GML",
-                                        "XML"
-                                    ]
-                                },
-                                "GlossSee": "markup",
-                                "GlossTerm": "Standard Generalized Markup Language"
+                "pages": [
+                    {
+                        "name": "page1",
+                        "elements": [
+                            {
+                                "name": "AI Prompt 1",
+                                "type": "ai-prompt",
+                                "title": "AI Prompt 1",
+                                "aiModel": "gpt-4o-mini",
+                                "temperature": 1,
+                                "aiPromptProperty": "Say hello to {Name} {Surname} "
                             }
-                        }
+                        ]
                     }
-                }
+                ]
             }
         },
         {
-            "title": "App Template 1",
+            "title": "App Template 3",
             "explanation": "Explanation",
             "type": "public",
             "temperature": 1,
@@ -83,29 +67,21 @@
             "presence_penalty": 1,
             "copy_allowed": true,
             "app_json": {
-                "glossary": {
-                    "title": "example glossary",
-                    "GlossDiv": {
-                        "title": "S",
-                        "GlossList": {
-                            "GlossEntry": {
-                                "ID": "SGML",
-                                "Abbrev": "ISO 8879:1986",
-                                "SortAs": "SGML",
-                                "Acronym": "SGML",
-                                "GlossDef": {
-                                    "para": "A meta-markup language, used to create markup languages such as DocBook.",
-                                    "GlossSeeAlso": [
-                                        "GML",
-                                        "XML"
-                                    ]
-                                },
-                                "GlossSee": "markup",
-                                "GlossTerm": "Standard Generalized Markup Language"
+                "pages": [
+                    {
+                        "name": "page1",
+                        "elements": [
+                            {
+                                "name": "AI Prompt 1",
+                                "type": "ai-prompt",
+                                "title": "AI Prompt 1",
+                                "aiModel": "gpt-4o-mini",
+                                "temperature": 1,
+                                "aiPromptProperty": "Say hello to {Name} {Surname} "
                             }
-                        }
+                        ]
                     }
-                }
+                ]
             }
         }
     ]
