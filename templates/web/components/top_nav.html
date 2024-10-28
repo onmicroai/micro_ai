@@ -38,7 +38,40 @@
             </button>
             <nav>
                 {% if user.is_authenticated %}
-                <ul class="menu-bar profile-menu for-mobile">
+                <ul class="menu-bar profile-menu for-desktop">
+                    {% if not user.is_superuser %}
+                    <li>
+                        <a href="/">
+                        <i class="h-4 w-4"></i>
+                        What are MicroApps?
+                        </a>
+                     </li>
+                    <li>
+                       <a href="/">
+                       <i class="h-4 w-4"></i>
+                       Pricing
+                       </a>
+                    </li>
+                    <li>
+                        <a href="/">
+                        <i class="h-4 w-4"></i>
+                        About
+                        </a>
+                     </li>
+                     <li>
+                        <div id="profile-picture-home" class="pg-column-one-quarter">
+                            <div class="pg-text-centered">
+                              <img class="avatar" src="{{ user.avatar_url }}?w=128">
+                              <div id='profile-upload-holder'>
+                                <input id="profile-upload" type="file" accept="image/*"/>
+                              </div>
+                            </div>
+                          </div>
+                     </li>
+                    {% endif %}
+                 </ul>
+
+                 <ul class="menu-bar profile-menu for-mobile">
                     <li class="menu-title">
                        <span>Application</span>
                     </li>
