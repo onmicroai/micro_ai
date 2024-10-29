@@ -927,6 +927,25 @@ footer,
   fill-opacity: 1;
 }
 
+.white-color h1,
+.white-color h2,
+.white-color h3,
+.white-color h4,
+.white-color h5,
+.white-color h6,
+.white-color p, 
+.white-color a {
+  color: #fff;
+}
+
+.password-box .form-control {
+  position: relative;
+  margin-bottom: 20px;
+}
+.password-box .form-control .password-toggle-icon {
+  display:none;
+}
+
 /* Library Page */
 .library {
   background: url('../images/web/lib-bg.png');
@@ -2165,14 +2184,26 @@ option {
   background-size: 50%;
   background-position: right center;
 }
+#profile-picture-home img.avatar {
+  object-fit: cover;
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+}
 @media screen and (min-width: 1025px) {
   .for-mobile {
       display: none;
+  }
+  .for-desktop {
+    display: block;
   }
   }
 
 @media only screen and (max-width: 1024px) {
 
+  .for-desktop {
+    display: none;
+  }
   .flex-col.sidebar {
     display: none;
   }
