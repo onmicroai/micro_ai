@@ -79,5 +79,5 @@ urlpatterns = [
     # wagtail urls
     path('wagtail/admin/', include(wagtailadmin_urls)),
     path('wagtail/documents/', include(wagtaildocs_urls)),
-    path('wagtail/pages/', include(wagtail_urls)),
+    path('page/', include(wagtail_urls)),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
