@@ -8712,6 +8712,7 @@ details.collapse summary::-webkit-details-marker {
   padding-top: 0.75rem;
   padding-bottom: 0.75rem;
   vertical-align: middle;
+  color: #ffff;
 }
 
 .pg-table tr.active,

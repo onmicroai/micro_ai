@@ -41,19 +41,19 @@
                 <ul class="menu-bar profile-menu for-desktop">
                     {% if not user.is_superuser %}
                     <li>
-                        <a href="/">
+                        <a href="/page/what-are-ai-microapps/">
                         <i class="h-4 w-4"></i>
                         What are MicroApps?
                         </a>
                      </li>
                     <li>
-                       <a href="/">
+                       <a href="/page/pricing/">
                        <i class="h-4 w-4"></i>
                        Pricing
                        </a>
                     </li>
                     <li>
-                        <a href="/">
+                        <a href="/page/about/">
                         <i class="h-4 w-4"></i>
                         About
                         </a>
@@ -117,13 +117,13 @@
 
                 <ul class="menu-bar">
                     <li>
-                        <a href="#">{% translate "What are MicroApps?" %}</a>
+                        <a href="page/what-are-ai-microapps/">{% translate "What are MicroApps?" %}</a>
                     </li>
                     <li>
-                        <a href="#">{% translate "Pricing" %}</a>
+                        <a href="page/pricing/">{% translate "Pricing" %}</a>
                     </li>
                     <li>
-                        <a href="#">{% translate "About" %}</a>
+                        <a href="page/about/">{% translate "About" %}</a>
                     </li>
                     <li>
                         <a href="{% url 'account_login' %}">{% translate "Sign In" %}</a>
