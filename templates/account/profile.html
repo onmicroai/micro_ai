@@ -8,7 +8,7 @@
 <section class="app-card">
   {% include 'account/components/social/social_accounts.html' %}
 </section>
-{% include 'account/components/api_keys.html' %}
+<!-- {% include 'account/components/api_keys.html' %} -->
 {% endblock %}
 {% block page_js %}
 <script src="{% static 'js/app-bundle.js' %}" defer></script>
@@ -58,7 +58,8 @@
             response.json().then(function (errorResponse) {
               console.error(errorResponse);
               const errorText = errorResponse.errors;
-              uploadlabel.innerHTML = '<span title="' + errorText + '" ><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed!</span></span>';
+              console.log(errorText);
+              uploadlabel.innerHTML = `<span title="${errorText}" style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! ${errorText}</span></span>`;
               uploadlabel.classList.add('pg-text-danger');
             });
           }

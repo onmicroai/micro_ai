@@ -1241,6 +1241,10 @@ footer,
   margin: 0 0 1.563vw;
 }
 
+.welcome-form .password-toggle-icon{
+  display: block;
+}
+
 .welcome-form .welcome-field input {
   background: url("data:image/svg+xml,%3Csvg width='642' height='79' viewBox='0 0 642 79' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 25.4574V14.6521L14.039 1.04639H637.644C639.503 1.04639 641 2.58292 641 4.49119V65.6054L627.961 78.0464H4.35633C2.49707 78.0464 1 76.5099 1 74.6016V55.4941' stroke='white' stroke-miterlimit='10'/%3E%3C/svg%3E%0A");
   background-size: 100% 100%;
@@ -4977,6 +4981,11 @@ details.collapse summary::-webkit-details-marker {
 
 .input-bordered {
   border-color: var(--fallback-bc, oklch(var(--bc)/0.2));
+  color: #000;
+}
+
+.password-toggle-icon{
+  display: none;
 }
 
 .input:focus,
