@@ -2194,6 +2194,14 @@ option {
   height: 45px;
   border-radius: 50%;
 }
+#plan-selector .plan   {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+form#checkout-form {
+  margin-top: 20px;
+}
 @media screen and (min-width: 1025px) {
   .for-mobile {
       display: none;

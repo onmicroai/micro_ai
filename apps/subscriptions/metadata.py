@@ -175,8 +175,8 @@ def get_active_plan_interval_metadata() -> List[PlanIntervalMetadata]:
 # Remove one of them to only allow monthly/annual pricing.
 # The first element is considered the default
 ACTIVE_PLAN_INTERVALS = [
-    PlanInterval.year,
     PlanInterval.month,
+    PlanInterval.year,
 ]
 
 
