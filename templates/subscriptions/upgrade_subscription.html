@@ -6,10 +6,5 @@
   {% include 'subscriptions/components/subscription_hero.html' %}
   <hr>
   {% include 'subscriptions/components/plan_selector.html' %}
-  <form action="{{ subscription_urls.create_checkout_session }}" method="POST" id="checkout-form">
-    {% csrf_token %}
-    <input type="hidden" name="priceId" x-model="selectedProduct.active_prices[selectedInterval].id" value="" id="price-input"/>
-    <button type="submit" class="pg-button-primary" id="subscribe-button">Upgrade</button>
-  </form>
 </section>
 {% endblock %}
