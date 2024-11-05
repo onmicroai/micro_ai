@@ -2430,7 +2430,7 @@ ul.menu.bg-base-100 {
 .confirm-password-toggle-icon,
 .login-password-toggle-icon {
   position: absolute;
-  top: 2.5vw;
+  top: 50%;
   right: 2vw;
   transform: translateY(-50%);
   cursor: pointer;
