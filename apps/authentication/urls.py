@@ -6,6 +6,7 @@ from dj_rest_auth.views import UserDetailsView, PasswordChangeView
 from django.urls import path
 from rest_framework_simplejwt.views import TokenVerifyView
 from . import api_views
+from . import views
 
 app_name = "authentication"
 
@@ -14,7 +15,7 @@ urlpatterns = [
     path("login/", api_views.LoginViewWith2fa.as_view(), name="rest_login"),
     path("verify-otp/", api_views.VerifyOTPView.as_view(), name="verify_otp"),
     path("logout/", api_views.APICustomLogoutView.as_view(), name="rest_logout"),
-    path("user/", UserDetailsView.as_view(), name="rest_user_details"),
+    path("user/", views.CustomUserDetailsView.as_view(), name="rest_user_details"),
     path("password/change/", PasswordChangeView.as_view(), name="change_password"),
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
     path("token/refresh/", get_refresh_view().as_view(), name="token_refresh"),
