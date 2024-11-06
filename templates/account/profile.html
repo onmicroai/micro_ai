@@ -39,47 +39,58 @@
       reader.readAsDataURL(file);
     }
 
-    function uploadImage(file) {
-      // update UI
-      let uploadlabel = document.getElementById("profile-upload-label")
+    function uploadImage(file)   
+ {
+      let uploadlabel = document.getElementById("profile-upload-label");
       uploadlabel.innerHTML = '<span class="pg-icon"><i class="fa fa-refresh"></i></span><span>Uploading...</span>';
-      uploadlabel.classList.add('is-active');
-      // upload to server
+      uploadlabel.classList.add('is-active');   
+
 
       let formData = new FormData();
       formData.append("avatar", file);
       formData.append('csrfmiddlewaretoken', App.Cookies.get('csrftoken'));
 
-      fetch(uploadUrl, {method: "POST", body: formData, credentials: 'same-origin'}).then(
-        function (response) {
-          if (response.ok) {
-            response.text().then(function (text) {
-              // update UI
-              uploadlabel.innerHTML = '<span class="pg-icon"><i class="fa fa-check"></i></span><span>' + text + '</span>';
-              uploadlabel.classList.remove('is-active');
-              uploadlabel.classList.add('pg-text-success');
-            });
-          } else {
-            response.json().then(function (errorResponse) {
-              console.error(errorResponse);
-              const errorText = errorResponse.errors || "An error occurred.";
-              uploadLabel.innerHTML = `<span title="${errorText}" style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! ${errorText}</span></span>`;
-              uploadLabel.classList.remove('is-active');
-              uploadLabel.classList.add('pg-text-danger');
-            }).catch(() => {
-              // In case the response is not JSON (like an HTML error page)
-              uploadLabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! Unexpected error.</span></span>`;
-              uploadLabel.classList.remove('is-active');
-              uploadLabel.classList.add('pg-text-danger');
-            });
+      fetch(uploadUrl, {
+        method: "POST",
+        body: formData,
+        credentials: 'same-origin'
+      })
+      .then(response => {
+        return response.text(); // Get text for both success and error
+      })
+      .then(text => {
+        if (response.ok) {
+          // Handle success
+          uploadlabel.innerHTML = '<span class="pg-icon"><i class="fa fa-check"></i></span><span>' + text + '</span>';
+          uploadlabel.classList.remove('is-active');
+          uploadlabel.classList.add('pg-text-success');   
+
+        } else 
+        if (response.status === 413) {
+          uploadlabel.innerHTML = '<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! File size exceeds limit.</span></span>';
+          uploadlabel.classList.remove('is-active');
+          uploadlabel.classList.add('pg-text-danger');
+        } else {
+            try {
+              // Try parsing JSON response for error message
+              const errorData = JSON.parse(text);
+              const errorMessage = errorData.message || 'Upload failed!';
+              uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>${errorMessage}</span></span>`;
+            } catch (e) {
+              // If parsing JSON fails, fallback to the raw text
+              uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! ${text}</span></span>`;
+            }
+            uploadlabel.classList.remove('is-active');
+            uploadlabel.classList.add('pg-text-danger');
           }
-        })
-        .catch(function (error) {
-          console.error('Fetch error:', error);
-          uploadLabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! Network error.</span></span>`;
-          uploadLabel.classList.remove('is-active');
-          uploadLabel.classList.add('pg-text-danger');
-        });
+      })
+      .catch(error => {
+        // Handle network errors
+        console.error('Fetch error:', error);
+        uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! Network error.</span></span>`;
+        uploadlabel.classList.remove('is-active');
+        uploadlabel.classList.add('pg-text-danger');
+      });
     }
   });
 </script>
