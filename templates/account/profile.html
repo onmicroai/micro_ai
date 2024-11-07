@@ -71,7 +71,8 @@
               // Handle other errors with JSON response or fallback to text
               try {
                 const errorData = JSON.parse(text);
-                const errorMessage = errorData.message || 'Upload failed!';
+                console.log(errorData)
+                const errorMessage = errorData.errors || 'Upload failed!';
                 uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>${errorMessage}</span></span>`;
               } catch (e) {
                 uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! ${text}</span></span>`;
