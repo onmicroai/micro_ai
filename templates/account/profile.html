@@ -64,7 +64,7 @@
               uploadlabel.classList.add('pg-text-success');
             } else if (response.status === 413) {
               // Handle file too large error
-              uploadlabel.innerHTML = '<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! File size exceeds limit.</span></span>';
+              uploadlabel.innerHTML = '<span style="color: red;"><span class="pg-icon"></span><span>Upload failed! File size exceeds limit.</span></span>';
               uploadlabel.classList.remove('is-active');
               uploadlabel.classList.add('pg-text-danger');
             } else {
@@ -73,9 +73,9 @@
                 const errorData = JSON.parse(text);
                 console.log(errorData)
                 const errorMessage = errorData.errors || 'Upload failed!';
-                uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>${errorMessage}</span></span>`;
+                uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"></span><span>${errorMessage}</span></span>`;
               } catch (e) {
-                uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"><i class="fa fa-times"></i></span><span>Upload failed! ${text}</span></span>`;
+                uploadlabel.innerHTML = `<span style="color: red;"><span class="pg-icon"></span><span>Upload failed! ${text}</span></span>`;
               }
               uploadlabel.classList.remove('is-active');
               uploadlabel.classList.add('pg-text-danger');
