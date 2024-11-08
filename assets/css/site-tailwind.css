@@ -2202,6 +2202,21 @@ option {
 form#checkout-form {
   margin-top: 20px;
 }
+
+.main-heading {
+  font-size: 2em; /* Larger font size for the heading */
+  font-weight: bold;
+  color: #fff; /* Dark color for contrast */
+  margin-bottom: 10px; /* Space between heading and subtitle */
+}
+
+.subtitle-text {
+  font-size: 1em; /* Smaller font size for the subtitle */
+  font-weight: normal;
+  color: #fff; /* Slightly lighter color for a softer look */
+  line-height: 1.5; /* Better readability */
+}
+
 @media screen and (min-width: 1025px) {
   .for-mobile {
       display: none;
