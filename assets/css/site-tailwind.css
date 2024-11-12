@@ -1334,10 +1334,11 @@ footer,
 
 /* Register */
 .register {
-  background: url('../images/web/register-bg.png');
+  background:#0000;
+  /* background: url('../images/web/register-bg.png');
   background-size: 100% 100%;
   z-index: -1;
-  background-repeat: no-repeat;
+  background-repeat: no-repeat; */
   min-height: 100vh;
 }
 
@@ -2183,10 +2184,11 @@ option {
   background-position: right center;
 }
 .register {
-  background: url('../images/web/micro-ai-min.png');
+  background:#000;
+  /* background: url('../images/web/micro-ai-min.png');
   background-repeat: no-repeat;
   background-size: 50%;
-  background-position: right center;
+  background-position: right center; */
 }
 #profile-picture-home img.avatar {
   object-fit: cover;
@@ -2445,7 +2447,7 @@ ul.menu.bg-base-100 {
 .confirm-password-toggle-icon,
 .login-password-toggle-icon {
   position: absolute;
-  top: 50%;
+  top: 2vw;
   right: 2vw;
   transform: translateY(-50%);
   cursor: pointer;
@@ -9218,14 +9220,14 @@ details.collapse summary::-webkit-details-marker {
   padding: 0px;
 }
 .welcome-field .errorlist {
-  font-size: 14px;
+  font-size: 0.972vw;
   text-align: left;
-  margin: 10px 0;
-  letter-spacing: -0.5px;
-  padding: 0px 5px;
+  margin: 0.694vw 0;
+  letter-spacing: -0.035vw;
+  padding: 0px 0.347vw;
 }
 .welcome-form input[type="submit"] {
-  margin-bottom: 15px;
+  margin-bottom: 1.042vw;
 }
 
 header {
@@ -9396,6 +9398,13 @@ font-size: 15px;
 
 }
 @media screen and (max-width: 767px) {
+  .welcome-field .errorlist {
+    font-size: 14px;
+    margin: 10px 0;
+    letter-spacing: -0.5px;
+    padding: 0px 5px;
+  }
+
   .hero-text-area, .hero-btns {
       flex-direction: column;
  }

@@ -71,7 +71,6 @@
               // Handle other errors with JSON response or fallback to text
               try {
                 const errorData = JSON.parse(text);
-                console.log(errorData)
                 const errorMessage = errorData.errors || 'Upload failed!';
                 uploadlabel.innerHTML = `<span style="color: red;"><span>${errorMessage}</span></span>`;
               } catch (e) {
@@ -84,7 +83,6 @@
         })
         .catch(error => {
           // Handle network errors
-          console.error('Fetch error:', error);
           uploadlabel.innerHTML = `<span style="color: red;"><span>Upload failed! Network error.</span></span>`;
           uploadlabel.classList.remove('is-active');
           uploadlabel.classList.add('pg-text-danger');
