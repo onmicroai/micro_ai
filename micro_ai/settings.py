@@ -440,13 +440,13 @@ PROJECT_METADATA = {
     "DESCRIPTION": gettext_lazy("Build Micro Apps with No Code"),
     "IMAGE": "https://upload.wikimedia.org/wikipedia/commons/2/20/PEO-pegasus_black.svg",
     "KEYWORDS": "SaaS, django",
-    "CONTACT_EMAIL": "yibrahim@knysys.com",
+    "CONTACT_EMAIL": ["yibrahim@knysys.com", "john@curricu.me"],
 }
 
 # set this to True in production to have URLs generated with https instead of http
 USE_HTTPS_IN_ABSOLUTE_URLS = env.bool("USE_HTTPS_IN_ABSOLUTE_URLS", default=False)
 
-ADMINS = [("Yibrahim", "yibrahim@knysys.com")]
+ADMINS = [("Yibrahim", "yibrahim@knysys.com"), ("John", "john@curricu.me")]
 
 # Add your google analytics ID to the environment to connect to Google Analytics
 GOOGLE_ANALYTICS_ID = env("GOOGLE_ANALYTICS_ID", default="")
@@ -460,6 +460,7 @@ STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="pk_live_***")
 STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="sk_live_***")
 STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="pk_test_***")
 STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="sk_test_***")
+# STRIPE_PRICING_TABLE_ID = env("STRIPE_PRICING_TABLE_ID", default="***")
 # Change to True in production
 STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
 
