@@ -15,6 +15,7 @@ from rest_framework.fields import DictField
 
 from .exceptions import SubscriptionConfigError
 from .serializers import PriceSerializer, ProductSerializer
+from django.conf import settings
 
 
 @dataclass
@@ -179,53 +180,10 @@ ACTIVE_PLAN_INTERVALS = [
     PlanInterval.year,
 ]
 
-
-# These are the products that will be shown to users in the UI and allowed to be associated
-# with plans on your side
-# ACTIVE_PRODUCTS = [
-#     ProductMetadata(
-#         stripe_id="",
-#         slug="starter",
-#         name=_("Starter"),
-#         description=_("For hobbyists and side-projects"),
-#         features=[
-#             _("Up to 100 Widgets"),
-#             _("Unlimited Widget Editing"),
-#         ],
-#     ),
-#     ProductMetadata(
-#         stripe_id="",
-#         slug="standard",
-#         name=_("Standard"),
-#         description=_("For small businesses and teams"),
-#         is_default=True,
-#         features=[
-#             _("Up to 500 Widgets"),
-#             _("Unlimited Widget Editing"),
-#             _("Advanced Widget Editing Features"),
-#         ],
-#     ),
-#     ProductMetadata(
-#         stripe_id="",
-#         slug="premium",
-#         name=_("Premium"),
-#         description=_("For small businesses and teams"),
-#         features=[
-#             _("Unlimited Widgets"),
-#             _("All Features"),
-#             _("Priority Support and Training"),
-#         ],
-#     ),
-# ]
-
-free = ['Use public Micro-Apps', 'Build your own Micro-Apps', '3 App Limit', 'Shared and Embed Micro-Apps', 'Basic AI Models (GPT 3.5, Claude, Haiku, Google Gemini Flash)']
-enterprise = ['Use public Micro-Apps', 'Build your own Micro-Apps', 'Unlimited App Limit', 'Shared and Embed Micro-Apps', 'Basic AI Models (GPT 3.5, Claude, Haiku, Google Gemini Flash)', 'Advanced AI Models(GPT-4o, GPT-4, Gemini Pro, Gemini Ultra, Claude Sonnet, Claude Opus)', 'Vector Storage', 'Remove MicroAI Branding', '10$ Monthy Usage']
-individual = ['Use public Micro-Apps', 'Build your own Micro-Apps', 'Unlimited App Limit', 'Shared and Embed Micro-Apps', 'Basic AI Models (GPT 3.5, Claude, Haiku, Google Gemini Flash)', 'Advanced AI Models(GPT-4o, GPT-4, Gemini Pro, Gemini Ultra, Claude Sonnet, Claude Opus)', 'Vector Storage', 'Remove MicroAI Branding', '40$ Monthy Usage', 'SSO', 'Analytics']
-
 ACTIVE_PRODUCTS = [
-    ProductMetadata(stripe_id='prod_QMvi8mPnLMCLEm', slug='free', name='Free', features=free, price_displays={}, description='The Free plan', is_default=True),
-    ProductMetadata(stripe_id='prod_QMvhlkS2E6r9LS', slug='enterprise', name='Enterprise', features=enterprise, price_displays={}, description='The Enterprise plan', is_default=False),
-    ProductMetadata(stripe_id='prod_QMvaVwWKcMNM8W', slug='individual', name='Individual', features=individual, price_displays={}, description='The Individual plan', is_default=False),
+    ProductMetadata(stripe_id=settings.FREE_PLAN_PID, slug='free', name=settings.FREE_PLAN_NAME, features=settings.FREE_PLAN_FEATURES, price_displays={}, description=settings.FREE_PLAN_DESC, is_default=True),
+    ProductMetadata(stripe_id=settings.INDIVIDUAL_PLAN_PID, slug='individual', name=settings.INDIVIDUAL_PLAN_NAME, features=settings.INDIVIDUAL_PLAN_FEATURES, price_displays={}, description=settings.INDIVIDUAL_PLAN_DESC, is_default=False),
+    ProductMetadata(stripe_id=settings.ENTERPRISE_PLAN_PID, slug='enterprise', name=settings.ENTERPRISE_PLAN_NAME, features=settings.ENTERPRISE_PLAN_FEATURES, price_displays={}, description=settings.ENTERPRISE_PLAN_DESC, is_default=False),
 ]
 
 ACTIVE_PRODUCTS_BY_ID = {p.stripe_id: p for p in ACTIVE_PRODUCTS}   

@@ -463,6 +463,22 @@ STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="sk_test_***")
 # Change to True in production
 STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
 
+FREE_PLAN_FEATURES = env("FREE_PLAN_FEATURES").split(";")
+INDIVIDUAL_PLAN_FEATURES = env("INDIVIDUAL_PLAN_FEATURES").split(";")
+ENTERPRISE_PLAN_FEATURES = env("ENTERPRISE_PLAN_FEATURES").split(";")
+
+FREE_PLAN_PID = env("FREE_PLAN_PID")
+INDIVIDUAL_PLAN_PID = env("INDIVIDUAL_PLAN_PID")
+ENTERPRISE_PLAN_PID = env("ENTERPRISE_PLAN_PID")
+
+FREE_PLAN_DESC = env("FREE_PLAN_DESC")
+INDIVIDUAL_PLAN_DESC = env("INDIVIDUAL_PLAN_DESC")
+ENTERPRISE_PLAN_DESC = env("ENTERPRISE_PLAN_DESC")
+
+FREE_PLAN_NAME = env("FREE_PLAN_NAME")
+INDIVIDUAL_PLAN_NAME = env("INDIVIDUAL_PLAN_NAME")
+ENTERPRISE_PLAN_NAME = env("ENTERPRISE_PLAN_NAME")
+
 # djstripe settings
 # Get it from the section in the Stripe dashboard where you added the webhook endpoint
 # or from the stripe CLI when testing
