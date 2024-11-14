@@ -275,6 +275,10 @@ footer,
 
 .tryit-app .try-boxes .try-box .try-box-text {
   padding: 2vw;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  height: 380px;
 }
 
 .tryit-app .try-boxes .try-box p {
@@ -1202,10 +1206,10 @@ footer,
 
 /* Welcome */
 .welcome {
-  background: url('../images/web/login-bg.png');
-  background-size: 100% 100%;
+  /* background: url('../images/web/login-bg.png'); */
+  /* background-size: 100% 100%; */
   z-index: -1;
-  background-repeat: no-repeat;
+  /* background-repeat: no-repeat; */
   min-height: 100vh;
   height: 100%;
 }
@@ -1217,7 +1221,7 @@ footer,
   align-items: center;
   justify-content: start;
   min-height: 100vh;
-  margin: 0 0 0 8.333vw;
+  margin: 0 auto;
   width: 100%;
 }
 
@@ -2177,12 +2181,12 @@ option {
 .custom-color input[type="password"]{
   color: #000 !important;
 }
-.welcome {
-  background: url('../images/web/login-bg-min.jpg');
+/* .welcome { */
+  /* background: url('../images/web/login-bg-min.jpg');
   background-repeat: no-repeat;
   background-size: 50%;
-  background-position: right center;
-}
+  background-position: right center; */
+/* } */
 .register {
   background:#000;
   /* background: url('../images/web/micro-ai-min.png');
