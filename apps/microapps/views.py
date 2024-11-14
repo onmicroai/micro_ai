@@ -7,14 +7,11 @@ from pathlib import Path
 import environ
 import logging as log
 from django.forms import model_to_dict
-from rest_framework import status, serializers
+from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
 from rest_framework.permissions import IsAuthenticated, AllowAny 
-from openai import OpenAI
-import google.generativeai as genai
-from anthropic import Anthropic
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
@@ -22,13 +19,10 @@ from apps.utils.custom_permissions import (
     AdminRole
 )
 from apps.microapps.serializer import (
-    AiModelConfigSerializer,
     MicroAppSerializer,
     MicroappUserSerializer,
     MicroAppSwaggerPostSerializer,
     MicroAppSwaggerPutSerializer,
-    AssetsSerializer,
-    AssetsMicroappSerializer,
     RunPostSerializer,
     RunGetSerializer,
     RunPatchSerializer
@@ -725,6 +719,34 @@ class AIModelConfigurations(APIView):
             {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
 
             return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroAppSerializer}, summary="Get microapp by hash_id"),
+)
+class MicroAppDetailsByHash(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self, hash_id):
+        try:
+            return Microapp.objects.get(hash_id=hash_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    def get(self, request, hash_id, format=None):
+        try:
+            snippet = self.get_object(hash_id)
+            if snippet and not snippet.is_archived:
+                serializer = MicroAppSerializer(snippet)
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                error.MICROAPP_NOT_EXIST,
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except Exception as e:
             return handle_exception(e)
 
