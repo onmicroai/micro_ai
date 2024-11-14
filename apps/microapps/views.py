@@ -30,11 +30,10 @@ from apps.microapps.serializer import (
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
 from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
-from django.db.models import Sum
-from apps.utils.global_varibales import AIModelVariables, AIModelConstants, MicroappVariables
+from apps.utils.global_varibales import AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
-from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
-from apps.collection.serializer import CollectionMicroappSerializer, CollectionUserSerializer
+from apps.collection.models import Collection, CollectionUserJoin
+from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 
@@ -424,7 +423,7 @@ class UserApps(APIView):
             return handle_exception(e)
 
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}), summary="Get microapp by id without authentication"
 )
 class PublicMicroApps(APIView):
     permission_classes = [AllowAny]
@@ -747,6 +746,25 @@ class MicroAppDetailsByHash(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary="Get microapp by hash_id without authentication")
+)
+class PublicMicroAppsByHash(APIView):
+    permission_classes = [AllowAny]
+    def get(self, request, hash_id):
+        try:
+            microapp = Microapp.objects.get(hash_id=hash_id)    
+            serializer = MicroAppSerializer(microapp)
+            if serializer.data["privacy"] != "public":
+                return Response({"error": "The App is not public", "status": status.HTTP_403_FORBIDDEN}, status = status.HTTP_403_FORBIDDEN)
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+        
+        except Microapp.DoesNotExist:
+            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_404_NOT_FOUND)
+
         except Exception as e:
             return handle_exception(e)
 

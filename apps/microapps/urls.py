@@ -14,5 +14,6 @@ urlpatterns = [
     path('apps', views.UserApps.as_view(), name = "user_apps"),
     path('run', views.RunList.as_view(), name="run_model"),
     path('models/configuration/', views.AIModelConfigurations.as_view(), name="models_configuration"),
-    path('public/app/<int:id>', views.PublicMicroApps.as_view(), name = "public_microapps")
+    path('public/app/<int:id>', views.PublicMicroApps.as_view(), name = "public_microapps"),
+    path('public/hash/<str:hash_id>', views.PublicMicroAppsByHash.as_view(), name = "public_microapps_by_hash"),
 ]
