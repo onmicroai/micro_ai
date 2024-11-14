@@ -1,11 +1,13 @@
 {% extends "web/base.html" %}
 {% load wagtailcore_tags %}
+{% load wagtailimages_tags %}
 {% load static %}
 {% load i18n %}
 
 {% block body %}
 <section class="content-section">
     <h1 class="page-title">{{ page.title }}</h1>
+
     <div class="page-content">
         {% for block in page.content %}
             {% if block.block_type == 'heading' %}
@@ -20,6 +22,39 @@
                         <li>{{ item|richtext }}</li>
                     {% endfor %}
                 </ul>
+            {% elif block.block_type == 'image' %}
+                <figure class="content-image">
+                    {% image block.value width-1600 as img %}
+                    <img src="{{ img.url }}" alt="{{ img.alt }}" class="rounded-lg shadow-lg mx-auto">
+                    {% if img.caption %}
+                        <figcaption class="text-center text-gray-400 mt-2">{{ img.caption }}</figcaption>
+                    {% endif %}
+                </figure>
+            {% elif block.block_type == 'tile' %}
+            <div id="tryit-app" class="tryit-app">
+                <div class="container">
+                    <div class="content-tile">
+                        <div class="try-boxes">
+                            <div class="try-box">
+                                {% image block.value.image width-1600 as img %}
+                                <img src="{{ img.url }}" alt="{{ block.value.title }}" class="tile-image">
+                                <div class="try-box-text">
+                                    <h4 >{{ block.value.title }}</h4>
+                                    <p >{{ block.value.description }}</p>
+                                    <a class="btn-blue" href="{{ block.value.url }}">Try it</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% elif block.block_type == 'faq' %}
+                <div class="faq-item">
+                    <h3 class="faq-question">{{ block.value.question }}</h3>
+                    <div class="faq-answer">
+                        {{ block.value.answer|richtext }}
+                    </div>
+                </div>
             {% endif %}
         {% endfor %}
     </div>

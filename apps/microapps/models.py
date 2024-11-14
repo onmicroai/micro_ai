@@ -14,6 +14,7 @@ import re
 import environ
 import os
 from pathlib import Path
+import uuid
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
@@ -90,6 +91,16 @@ class Microapp(models.Model):
     # Add this new field
     is_archived = models.BooleanField(default=False)
     
+    # A unique hash identifier for the microapp
+    # This is automatically generated when the app is created
+    hash_id = models.CharField(max_length=50, unique=True, blank=True)
+    
+    def save(self, *args, **kwargs):
+        # Generate hash_id for new instances
+        if not self.hash_id:
+            self.hash_id = str(uuid.uuid4())[:8]
+        super().save(*args, **kwargs)
+
     def archive(self):
         self.is_archived = True
         self.save()
