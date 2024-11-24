@@ -96,9 +96,13 @@ class Microapp(models.Model):
     hash_id = models.CharField(max_length=50, unique=True, blank=True)
     
     def save(self, *args, **kwargs):
-        # Generate hash_id for new instances
+        print("Hash ID",self.hash_id)
         if not self.hash_id:
-            self.hash_id = str(uuid.uuid4())[:8]
+            while True:
+                candidate = str(uuid.uuid4())[:16]
+                if not Microapp.objects.filter(hash_id=candidate).exists():
+                    self.hash_id = candidate
+                    break
         super().save(*args, **kwargs)
 
     def archive(self):

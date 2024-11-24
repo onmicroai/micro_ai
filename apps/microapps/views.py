@@ -247,17 +247,21 @@ class CloneMicroApp(APIView):
 
             if collection_id:
                 if MicroAppUasge.microapp_related_info(request.user.id):
-                    microapp_dict = model_to_dict(microapp)
-                    del microapp_dict["id"]
-                    microapp_dict["title"] = microapp_dict["title"] + " copy"
-                    serializer = MicroAppSerializer(data = microapp_dict)
+                    # Instead of using model_to_dict, use the serializer to get the data
+                    original_data = MicroAppSerializer(microapp).data
+                    # Remove the fields we don't want to copy
+                    original_data.pop('id', None)
+                    original_data.pop('hash_id', None)
+                    original_data['title'] = original_data['title'] + " copy"
+                    
+                    serializer = MicroAppSerializer(data=original_data)
                     if serializer.is_valid():
-                        microapp = serializer.save()
+                        new_microapp = serializer.save()
                         micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
-                        micro_app_list.add_collection_microapp(self, collection_id, microapp)
+                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp)
+                        micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
                         return Response(
-                            {"data": serializer.data, "status": status.HTTP_200_OK},
+                            {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
                             status=status.HTTP_200_OK,
                         )
                     return Response(
@@ -533,6 +537,7 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            print('Data:', data)
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -615,6 +620,8 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
+                print('Run Data:', run_data)
+                print('Run Data Response:', run_data["response"])
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(
