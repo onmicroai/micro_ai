@@ -5,7 +5,7 @@ class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
         model = Microapp
         fields = '__all__'
-        extra_kwargs = {'is_archived': {'write_only': True}}
+        extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
 
     def to_internal_value(self, data):
         # If app_json is not provided or is empty, set the default pages
