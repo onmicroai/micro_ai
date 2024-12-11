@@ -141,6 +141,11 @@ class MicroAppDetails(APIView):
         try:
             snippet = self.get_object(app_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -150,6 +155,8 @@ class MicroAppDetails(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -744,6 +751,11 @@ class MicroAppDetailsByHash(APIView):
         try:
             snippet = self.get_object(hash_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                    
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -753,6 +765,8 @@ class MicroAppDetailsByHash(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
