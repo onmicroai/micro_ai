@@ -463,6 +463,9 @@ class RunList(APIView):
     permission_classes = [AllowAny]
     ai_score = ""
     score_result = True
+    app_hash_id = ""
+    response_type = ""
+    price_scale = ""
 
     def check_payload(self, data, request):
             try:
@@ -519,7 +522,13 @@ class RunList(APIView):
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
                 "owner_id": app_owner_id,
-                "user_ip": ip
+                "user_ip": ip,
+                "system_prompt": data.get("system_prompt", {}),
+                "phase_instructions": data.get("phase_instructions", {}),
+                "user_prompt": data.get("user_prompt", {}),
+                "app_hash_id": self.app_hash_id,
+                "response_type": self.response_type,
+                "price_scale": self.price_scale
                 }
             return run_data
        except Exception as e:
@@ -562,6 +571,9 @@ class RunList(APIView):
                 # Get microapp owner id
                 app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
                 app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+                # Get ma hash_id
+                ma_data = Microapp.objects.get(id=data.get("ma_id"))
+                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
@@ -569,7 +581,9 @@ class RunList(APIView):
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
             # Return model instance based on AI-model name
-            model = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            model = model_router["model"]
+            self.price_scale = model_router["config"]["price_scale"]
             if not model:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
@@ -586,13 +600,16 @@ class RunList(APIView):
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
+                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
                     response = self.hard_coded_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
                     response = self.no_submission_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
                 # check required prompt property for score phase
@@ -608,12 +625,15 @@ class RunList(APIView):
                 response["cost"] = model.calculate_cost(response)
                 response["price_input_token_1M"] = model.calculate_input_token_price(response)
                 response["price_output_token_1M"] = model.calculate_output_token_price(response)
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
                 # check required prompt property for basic feedback phase
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunGetSerializer(data=run_data)
@@ -699,11 +719,11 @@ class AIModelRoute:
         try:
             model_config = AIModelConstants.get_configs(model_name)
             if "gpt" in model_name and model_config:
-                return GPTModel(model_config["api_key"], model_config) 
+                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config} 
             elif "gemini" in model_name and model_config:
-                return GeminiModel(model_config["api_key"], model_name, model_config)
+                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config} 
             elif "claude" in model_name and model_config:
-                return ClaudeModel(model_config["api_key"], model_config)
+                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
             else:
                 return False
         except Exception as e:
