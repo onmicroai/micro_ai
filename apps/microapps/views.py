@@ -498,6 +498,7 @@ class RunList(APIView):
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
                 "satisfaction": 0,
                 "prompt": api_params["messages"],
@@ -704,7 +705,7 @@ class RunList(APIView):
         try:
             if not data.get("id"):
                 return False
-            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id"]
+            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id"]
             for field in immutable_fields:
                 if data.get(field):
                     return False
