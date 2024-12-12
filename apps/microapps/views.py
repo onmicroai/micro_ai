@@ -141,6 +141,11 @@ class MicroAppDetails(APIView):
         try:
             snippet = self.get_object(app_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -150,6 +155,8 @@ class MicroAppDetails(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -765,6 +772,11 @@ class MicroAppDetailsByHash(APIView):
         try:
             snippet = self.get_object(hash_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                    
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -774,6 +786,8 @@ class MicroAppDetailsByHash(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -796,3 +810,45 @@ class PublicMicroAppsByHash(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp using hash_id"),
+)
+class UserMicroAppsRoleByHash(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_microapp(self, hash_id):
+        try:
+            return Microapp.objects.get(hash_id=hash_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    def get_objects(self, uid, hash_id):
+        try:
+            microapp = self.get_microapp(hash_id)
+            if not microapp:
+                return None
+            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+        except Exception as e:
+            return handle_exception(e)
+
+    def get(self, request, hash_id, user_id):
+        try:
+            # Check owner permission
+            self.permission_classes = [IsAdminOrOwner]
+            self.check_permissions(request)
+            
+            user_role = self.get_objects(user_id, hash_id)
+            if user_role:
+                serializer = MicroappUserSerializer(user_role, many=True)
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                error.USER_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return handle_exception(e)
