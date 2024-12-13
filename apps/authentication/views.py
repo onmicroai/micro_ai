@@ -23,13 +23,13 @@ class CustomLogoutLoadingView(AllAuthLogoutView):
     
 class CustomLoginView(LoginView):
     def get_success_url(self):
-        # Redirect to the dashboard page after successful login
-        return reverse('dashboard:dashboard')
+        # Redirect to the dashboard/all page after successful login
+        return reverse('dashboard:all')
     
 class CustomSignupView(SignupView):
     def get_success_url(self):
-        # Redirect to the dashboard page after successful registration
-        return reverse('dashboard:dashboard')
+        # Redirect to the dashboard/all page after successful registration
+        return reverse('dashboard:all')
     
 class CustomUserDetailsView(UserDetailsView):
     def get(self, request, *args, **kwargs):
