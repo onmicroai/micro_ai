@@ -845,3 +845,31 @@ class UserMicroAppsRoleByHash(APIView):
             )
         except Exception as e:
             return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: dict}, summary="Get app's visibility status by hash_id")
+)
+class MicroAppVisibility(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, hash_id):
+        try:
+            # Try to get the app
+            microapp = Microapp.objects.get(hash_id=hash_id)    
+            return Response({
+                "data": {
+                    "isPublic": microapp.privacy == "public"
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        
+        except Microapp.DoesNotExist:
+            # Return the same response as if the app exists but is private
+            return Response({
+                "data": {
+                    "isPublic": False
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)

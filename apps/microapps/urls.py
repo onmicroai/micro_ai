@@ -17,4 +17,5 @@ urlpatterns = [
     path('models/configuration/', views.AIModelConfigurations.as_view(), name="models_configuration"),
     path('public/app/<int:id>', views.PublicMicroApps.as_view(), name = "public_microapps"),
     path('public/hash/<str:hash_id>', views.PublicMicroAppsByHash.as_view(), name = "public_microapps_by_hash"),
+    path('visibility/<str:hash_id>', views.MicroAppVisibility.as_view(), name="app_visibility"),
 ]
