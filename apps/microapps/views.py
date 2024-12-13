@@ -832,10 +832,6 @@ class UserMicroAppsRoleByHash(APIView):
 
     def get(self, request, hash_id, user_id):
         try:
-            # Check owner permission
-            self.permission_classes = [IsAdminOrOwner]
-            self.check_permissions(request)
-            
             user_role = self.get_objects(user_id, hash_id)
             if user_role:
                 serializer = MicroappUserSerializer(user_role, many=True)
@@ -847,7 +843,5 @@ class UserMicroAppsRoleByHash(APIView):
                 error.USER_NOT_EXIST,
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
