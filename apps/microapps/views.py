@@ -833,10 +833,6 @@ class UserMicroAppsRoleByHash(APIView):
 
     def get(self, request, hash_id, user_id):
         try:
-            # Check owner permission
-            self.permission_classes = [IsAdminOrOwner]
-            self.check_permissions(request)
-            
             user_role = self.get_objects(user_id, hash_id)
             if user_role:
                 serializer = MicroappUserSerializer(user_role, many=True)
@@ -848,7 +844,33 @@ class UserMicroAppsRoleByHash(APIView):
                 error.USER_NOT_EXIST,
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: dict}, summary="Get app's visibility status by hash_id")
+)
+class MicroAppVisibility(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, hash_id):
+        try:
+            # Try to get the app
+            microapp = Microapp.objects.get(hash_id=hash_id)    
+            return Response({
+                "data": {
+                    "isPublic": microapp.privacy == "public"
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        
+        except Microapp.DoesNotExist:
+            # Return the same response as if the app exists but is private
+            return Response({
+                "data": {
+                    "isPublic": False
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
