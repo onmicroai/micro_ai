@@ -9,7 +9,7 @@ class MicroAppSerializer(serializers.ModelSerializer):
 
     def to_internal_value(self, data):
         # If app_json is not provided or is empty, set the default pages
-        if 'app_json' not in data or not data['app_json']:
+        if 'app_json' not in data or data['app_json'] is None:
             data['app_json'] = {
                 "pages": [
                     {
