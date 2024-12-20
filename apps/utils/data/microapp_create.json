@@ -6,354 +6,361 @@
             "privacy": "private",
             "temperature": 1,
             "aiModel": "gpt-4o-mini",
-            "phases": [
-              {
-                "id": "1",
-                "title": "Phase 1",
-                "rubric": "",
-                "prompts": [
-                  {
-                    "id": "aiInstructions-1734490607819",
-                    "name": "aiInstructions1",
-                    "text": "Generate the alt text for the image url(s).",
-                    "type": "aiInstructions",
-                    "label": "",
-                    "isRequired": false
-                  },
-                  {
-                    "id": "prompt-1734411758020",
-                    "name": "prompt1",
-                    "text": "I am sending you one or more app_images. Please provide separate appropriate alt text for each image I send. The alt text should:\n- Aim to put the most important information at the beginning.",
-                    "type": "prompt",
-                    "label": "",
-                    "isRequired": false
-                  },
-                  {
-                    "id": "prompt-1734490731595",
-                    "name": "prompt5",
-                    "text": "- Make sure to include any text in this image as part of the alt text",
-                    "type": "prompt",
-                    "label": "",
-                    "isRequired": false,
-                    "conditionalLogic": {
-                      "value": true,
-                      "operator": "equals",
-                      "sourceFieldId": "boolean-1734490531574"
+            "app_json": {
+              "completedHtml": "You've reached the end",
+              "phases": [
+                {
+                  "id": "1",
+                  "title": "Phase 1",
+                  "rubric": "",
+                  "prompts": [
+                    {
+                      "id": "aiInstructions-1734490607819",
+                      "name": "aiInstructions1",
+                      "text": "Generate the alt text for the image url(s).",
+                      "type": "aiInstructions",
+                      "label": "",
+                      "isRequired": false
+                    },
+                    {
+                      "id": "prompt-1734411758020",
+                      "name": "prompt1",
+                      "text": "I am sending you one or more app_images. Please provide separate appropriate alt text for each image I send. The alt text should:\n- Aim to put the most important information at the beginning.",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false
+                    },
+                    {
+                      "id": "prompt-1734490731595",
+                      "name": "prompt5",
+                      "text": "- Make sure to include any text in this image as part of the alt text",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false,
+                      "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734490531574"
+                      }
+                    },
+                    {
+                      "id": "prompt-1734490669128",
+                      "name": "prompt4",
+                      "text": "One or more of my images are complex. Please provide a short description to identify the image, and a long description to represent the essential information conveyed by the image. \nPlease provide your output in this format: \n\n**Short Description:**\n[Short Description]\n\n**Long Description:**\n[Long Description]",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false,
+                      "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734490588349"
+                      }
                     }
-                  },
-                  {
-                    "id": "prompt-1734490669128",
-                    "name": "prompt4",
-                    "text": "One or more of my images are complex. Please provide a short description to identify the image, and a long description to represent the essential information conveyed by the image. \nPlease provide your output in this format: \n\n**Short Description:**\n[Short Description]\n\n**Long Description:**\n[Long Description]",
-                    "type": "prompt",
-                    "label": "",
-                    "isRequired": false,
-                    "conditionalLogic": {
-                      "value": true,
-                      "operator": "equals",
-                      "sourceFieldId": "boolean-1734490588349"
+                  ],
+                  "elements": [
+                    {
+                      "id": "imageUpload-1734411633943",
+                      "name": "alt_text_image_6",
+                      "type": "imageUpload",
+                      "label": "Please enter images",
+                      "maxFiles": 2,
+                      "multiple": true,
+                      "isRequired": false,
+                      "maxFileSize": 6,
+                      "allowedFileTypes": [
+                        "image/jpeg",
+                        "image/png"
+                      ]
+                    },
+                    {
+                      "id": "boolean-1734490531574",
+                      "name": "important_text",
+                      "type": "boolean",
+                      "label": "The text in my images is important",
+                      "isRequired": false,
+                      "description": "If text is important, it should be included in the alt text. If it is irrelevant or covered in text elsewhere on the page, it should not be included.",
+                      "defaultValue": false
+                    },
+                    {
+                      "id": "boolean-1734490588349",
+                      "name": "complex_image",
+                      "type": "boolean",
+                      "label": "My image is a complex image (chart, infographic, etc...)",
+                      "isRequired": false,
+                      "description": "Complex app_images get both a short and a long description of the image"
                     }
-                  }
-                ],
-                "elements": [
-                  {
-                    "id": "imageUpload-1734411633943",
-                    "name": "alt_text_image_6",
-                    "type": "imageUpload",
-                    "label": "Please enter images",
-                    "maxFiles": 2,
-                    "multiple": true,
-                    "isRequired": false,
-                    "maxFileSize": 6,
-                    "allowedFileTypes": [
-                      "image/jpeg",
-                      "image/png"
-                    ]
-                  },
-                  {
-                    "id": "boolean-1734490531574",
-                    "name": "important_text",
-                    "type": "boolean",
-                    "label": "The text in my images is important",
-                    "isRequired": false,
-                    "description": "If text is important, it should be included in the alt text. If it is irrelevant or covered in text elsewhere on the page, it should not be included.",
-                    "defaultValue": false
-                  },
-                  {
-                    "id": "boolean-1734490588349",
-                    "name": "complex_image",
-                    "type": "boolean",
-                    "label": "My image is a complex image (chart, infographic, etc...)",
-                    "isRequired": false,
-                    "description": "Complex app_images get both a short and a long description of the image"
-                  }
-                ],
-                "minScore": 0,
-                "skipPhase": false,
-                "description": "",
-                "scoredPhase": false
-              }
-            ],
-            "completedHtml": "You've reached the end"
+                  ],
+                  "minScore": 0,
+                  "skipPhase": false,
+                  "description": "",
+                  "scoredPhase": false
+                }
+              ]
+          }
         },
         {
-            "title": "Rubric Generator",
-            "explanation": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
-            "collection": 1,
-            "privacySettings": "private",
-            "clonable": true,
-            "phases": [
-              {
-                "id": "1",
-                "title": "Assignment Details",
-                "description": "",
-                "skipPhase": false,
-                "scoredPhase": false,
-                "rubric": "",
-                "minScore": 0,
-                "fields": [
+          "title": "Rubric Generator",
+          "explanation": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
+          "privacy": "private",
+          "copy_allowed": true,
+          "app_json": {
+              "collection": 1,
+              "phases": [
                   {
-                    "id": "textarea-1734201588378",
-                    "type": "textarea",
-                    "name": "assignment_description",
-                    "label": "Describe the assignment",
-                    "isRequired": false,
-                    "placeholder": "In this assignment, you will create a concept map that visually represents the key concepts, processes, and relationships involved in human memory, as covered in this course. Your concept map should include at least five major concepts discussed in class (e.g., encoding, storage, retrieval, types of memory, etc.) and demonstrate how they are interconnected. You will also provide brief explanations for each connection to showcase your understanding of how these processes work together to form a cohesive memory system."
-                  },
-                  {
-                    "id": "text-1734586006067",
-                    "type": "text",
-                    "name": "subject",
-                    "label": "Subject:",
-                    "isRequired": false,
-                    "placeholder": "Cognitive Psychology"
-                  },
-                  {
-                    "id": "text-1734201607140",
-                    "type": "text",
-                    "name": "max_points",
-                    "label": "Maximum Points",
-                    "isRequired": false,
-                    "placeholder": "100"
-                  },
-                  {
-                    "id": "slider-1734201618653",
-                    "type": "slider",
-                    "name": "num_criteria",
-                    "label": "Number of Criteria",
-                    "description": "Number of rows in the rubric",
-                    "isRequired": false,
-                    "maxValue": 6,
-                    "defaultValue": 3
-                  },
-                  {
-                    "id": "slider-1734201650919",
-                    "type": "slider",
-                    "name": "num_levels",
-                    "label": "Number of Scoring Levels",
-                    "isRequired": false,
-                    "maxValue": 6,
-                    "defaultValue": 3
-                  },
-                  {
-                    "id": "radio-1734201673398",
-                    "type": "radio",
-                    "name": "grade_level",
-                    "label": "What is the grade level of your audience?",
-                    "isRequired": false,
-                    "choices": [
-                      {
-                        "text": "Undergraduate",
-                        "value": "Item 1"
-                      },
-                      {
-                        "text": "Graduate",
-                        "value": "Item 2"
-                      },
-                      {
-                        "text": "Post Graduate",
-                        "value": "Item 3"
-                      }
-                    ],
-                    "showOtherItem": true
-                  },
-                  {
-                    "id": "textarea-1734586088986",
-                    "type": "textarea",
-                    "name": "learning_objectives",
-                    "label": "Align with the following learning objectives:",
-                    "isRequired": false,
-                    "placeholder": "- Demonstrate knowledge of the basic concepts and processes involved in human cognition, particularly memory.\n- Break down the complex interactions between different types of memory and how they contribute to overall cognitive functioning.\n- Use concept mapping to visually organize and relate theoretical concepts from the course to better understand their practical implications.\n- Present ideas clearly and concisely through a well-structured concept map, supported by logical explanations of relationships between concepts."
+                      "id": "1",
+                      "title": "Assignment Details",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "fields": [
+                          {
+                              "id": "textarea-1734201588378",
+                              "type": "textarea",
+                              "name": "assignment_description",
+                              "label": "Describe the assignment",
+                              "isRequired": false,
+                              "placeholder": "In this assignment, you will create a concept map that visually represents the key concepts, processes, and relationships involved in human memory, as covered in this course. Your concept map should include at least five major concepts discussed in class (e.g., encoding, storage, retrieval, types of memory, etc.) and demonstrate how they are interconnected. You will also provide brief explanations for each connection to showcase your understanding of how these processes work together to form a cohesive memory system."
+                          },
+                          {
+                              "id": "text-1734586006067",
+                              "type": "text",
+                              "name": "subject",
+                              "label": "Subject:",
+                              "isRequired": false,
+                              "placeholder": "Cognitive Psychology"
+                          },
+                          {
+                              "id": "text-1734201607140",
+                              "type": "text",
+                              "name": "max_points",
+                              "label": "Maximum Points",
+                              "isRequired": false,
+                              "placeholder": "100"
+                          },
+                          {
+                              "id": "slider-1734201618653",
+                              "type": "slider",
+                              "name": "num_criteria",
+                              "label": "Number of Criteria",
+                              "description": "Number of rows in the rubric",
+                              "isRequired": false,
+                              "maxValue": 6,
+                              "defaultValue": 3
+                          },
+                          {
+                              "id": "slider-1734201650919",
+                              "type": "slider",
+                              "name": "num_levels",
+                              "label": "Number of Scoring Levels",
+                              "isRequired": false,
+                              "maxValue": 6,
+                              "defaultValue": 3
+                          },
+                          {
+                              "id": "radio-1734201673398",
+                              "type": "radio",
+                              "name": "grade_level",
+                              "label": "What is the grade level of your audience?",
+                              "isRequired": false,
+                              "choices": [
+                                  {
+                                      "text": "Undergraduate",
+                                      "value": "Item 1"
+                                  },
+                                  {
+                                      "text": "Graduate",
+                                      "value": "Item 2"
+                                  },
+                                  {
+                                      "text": "Post Graduate",
+                                      "value": "Item 3"
+                                  }
+                              ],
+                              "showOtherItem": true
+                          },
+                          {
+                              "id": "textarea-1734586088986",
+                              "type": "textarea",
+                              "name": "learning_objectives",
+                              "label": "Align with the following learning objectives:",
+                              "isRequired": false,
+                              "placeholder": "- Demonstrate knowledge of the basic concepts and processes involved in human cognition, particularly memory.\n- Break down the complex interactions between different types of memory and how they contribute to overall cognitive functioning.\n- Use concept mapping to visually organize and relate theoretical concepts from the course to better understand their practical implications.\n- Present ideas clearly and concisely through a well-structured concept map, supported by logical explanations of relationships between concepts."
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "aiInstructions-1734201767465",
+                              "type": "aiInstructions",
+                              "name": "aiInstructions1",
+                              "text": "Generate the rubric in the form of a markdown table. The first row heading for the table should include the achievement levels and points. The first column on the left of the table should display the criteria. The descriptors for each component and score should be listed under the correct achievement level and points column and criteria row. Make the descriptors in the table as specific to the objectives as possible.\n\nPlease provide no other preamble or post-text, just the table. "
+                          },
+                          {
+                              "id": "prompt-1734201711785",
+                              "type": "prompt",
+                              "name": "prompt1",
+                              "text": "Act as an experienced {subject} teacher and create a well crafted and clear grading rubric with {num_criteria} criteria and {num_levels} achievement levels per criteria, based on an assignment description that I will provide. Use {grade_level} student friendly language. The maximum points for the assignment is {max_points}, please make sure the rubric's maximum value adds up to that number.\n\nIf provided, please align the rubric to the following learning objectives: \n{learning_objectives}\n\nHere is the assignment description for the rubric: \n{assignment_description}"
+                          }
+                      ]
                   }
-                ],
-                "prompts": [
-                  {
-                    "id": "aiInstructions-1734201767465",
-                    "type": "aiInstructions",
-                    "name": "aiInstructions1",
-                    "text": "Generate the rubric in the form of a markdown table. The first row heading for the table should include the achievement levels and points. The first column on the left of the table should display the criteria. The descriptors for each component and score should be listed under the correct achievement level and points column and criteria row. Make the descriptors in the table as specific to the objectives as possible.\n\nPlease provide no other preamble or post-text, just the table. "
-                  },
-                  {
-                    "id": "prompt-1734201711785",
-                    "type": "prompt",
-                    "name": "prompt1",
-                    "text": "Act as an experienced {subject} teacher and create a well crafted and clear grading rubric with {num_criteria} criteria and {num_levels} achievement levels per criteria, based on an assignment description that I will provide. Use {grade_level} student friendly language. The maximum points for the assignment is {max_points}, please make sure the rubric's maximum value adds up to that number.\n\nIf provided, please align the rubric to the following learning objectives: \n{learning_objectives}\n\nHere is the assignment description for the rubric: \n{assignment_description}"
-                  }
-                ]
-              }
-            ]
+              ]
+          }
         },
+        
         {
-            "title": "Debate an AI",
-            "explanation": "",
-            "privacySettings": "private",
-            "clonable": true,
-            "completedHtml": "Great debating!",
-            "phases": [
-              {
-                "id": "1",
-                "title": "About You",
-                "description": "",
-                "skipPhase": false,
-                "scoredPhase": false,
-                "rubric": "",
-                "minScore": 0,
-                "fields": [
+          "title": "Debate an AI",
+          "explanation": "",
+          "privacy": "private",
+          "copy_allowed": true,
+          "app_json": {
+              "completedHtml": "Great debating!",
+              "phases": [
                   {
-                    "id": "text-1734203658981",
-                    "type": "text",
-                    "name": "name",
-                    "label": "What is your name?",
-                    "isRequired": true
-                  }
-                ],
-                "prompts": [
-                  {
-                    "id": "fixedResponse-1734203665565",
-                    "type": "fixedResponse",
-                    "name": "fixedResponse1",
-                    "text": "Welcome, {name}! Let's have a friendly debate!"
-                  }
-                ]
-              },
-              {
-                "id": "2",
-                "title": "Begin the debate",
-                "description": "",
-                "skipPhase": false,
-                "scoredPhase": false,
-                "rubric": "",
-                "minScore": 0,
-                "fields": [
-                  {
-                    "id": "radio-1734203705057",
-                    "type": "radio",
-                    "name": "experience",
-                    "label": "Do you have debate experience?",
-                    "isRequired": false,
-                    "choices": [
-                      {
-                        "text": "Yes",
-                        "value": "Item 1"
-                      },
-                      {
-                        "text": "No",
-                        "value": "Item 2"
-                      }
-                    ]
+                      "id": "1",
+                      "title": "About You",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "fields": [
+                          {
+                              "id": "text-1734203658981",
+                              "type": "text",
+                              "name": "name",
+                              "label": "What is your name?",
+                              "isRequired": true
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "fixedResponse-1734203665565",
+                              "type": "fixedResponse",
+                              "name": "fixedResponse1",
+                              "text": "Welcome, {name}! Let's have a friendly debate!"
+                          }
+                      ]
                   },
                   {
-                    "id": "text-1734203727107",
-                    "type": "text",
-                    "name": "years",
-                    "label": "How many years of experience do you have?",
-                    "isRequired": false,
-                    "conditionalLogic": {
-                      "sourceFieldId": "radio-1734203705057",
-                      "operator": "equals",
-                      "value": "Yes"
-                    }
+                      "id": "2",
+                      "title": "Begin the debate",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "fields": [
+                          {
+                              "id": "radio-1734203705057",
+                              "type": "radio",
+                              "name": "experience",
+                              "label": "Do you have debate experience?",
+                              "isRequired": false,
+                              "choices": [
+                                  {
+                                      "text": "Yes",
+                                      "value": "Item 1"
+                                  },
+                                  {
+                                      "text": "No",
+                                      "value": "Item 2"
+                                  }
+                              ]
+                          },
+                          {
+                              "id": "text-1734203727107",
+                              "type": "text",
+                              "name": "years",
+                              "label": "How many years of experience do you have?",
+                              "isRequired": false,
+                              "conditionalLogic": {
+                                  "sourceFieldId": "radio-1734203705057",
+                                  "operator": "equals",
+                                  "value": "Yes"
+                              }
+                          },
+                          {
+                              "id": "text-1734203762590",
+                              "type": "text",
+                              "name": "topic",
+                              "label": "Please provide a topic for our debate",
+                              "isRequired": true
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "prompt-1734203778641",
+                              "type": "prompt",
+                              "name": "prompt1",
+                              "text": "Let's have a two round debate. I will provide a topic and you provide an opening argument. Then I will respond. \nHere is the topic: {topic}"
+                          },
+                          {
+                              "id": "prompt-1734203800024",
+                              "type": "prompt",
+                              "name": "prompt2",
+                              "text": "I have {years} years debate experience. Please adjust your difficulty for a seasoned debater like myself. ",
+                              "conditionalLogic": {
+                                  "sourceFieldId": "text-1734203727107",
+                                  "operator": "is_not_empty"
+                              }
+                          }
+                      ]
                   },
                   {
-                    "id": "text-1734203762590",
-                    "type": "text",
-                    "name": "topic",
-                    "label": "Please provide a topic for our debate",
-                    "isRequired": true
-                  }
-                ],
-                "prompts": [
-                  {
-                    "id": "prompt-1734203778641",
-                    "type": "prompt",
-                    "name": "prompt1",
-                    "text": "Let's have a two round debate. I will provide a topic and you provide an opening argument. Then I will respond. \nHere is the topic: {topic}"
+                      "id": "3",
+                      "title": "Respond to the opening argument",
+                      "description": "The AI has made their opening statement. Now is your chance to respond. ",
+                      "skipPhase": false,
+                      "scoredPhase": true,
+                      "rubric": "Specific Points\n2 points - The user's argument references at least two specific points from the assistant's opening statement. \n0 points - The user's argument does not reference at least two specific points from the assistant's opening statement. ",
+                      "minScore": 2,
+                      "fields": [
+                          {
+                              "id": "textarea-1734203877925",
+                              "type": "textarea",
+                              "name": "response",
+                              "label": "Please respond to the opening argument from the AI",
+                              "description": "Make sure that you reference at least two specific points brought up by the AI. ",
+                              "isRequired": false
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "aiInstructions-1734203925249",
+                              "type": "aiInstructions",
+                              "name": "aiInstructions1",
+                              "text": "The user will respond to your opening argument and has been instructed to reference two specific points from your opening statement. \n\nYou will respond to their counterpoint. "
+                          },
+                          {
+                              "id": "prompt-1734203939975",
+                              "type": "prompt",
+                              "name": "prompt3",
+                              "text": "{response}"
+                          }
+                      ]
                   },
                   {
-                    "id": "prompt-1734203800024",
-                    "type": "prompt",
-                    "name": "prompt2",
-                    "text": "I have {years} years debate experience. Please adjust your difficulty for a seasoned debater like myself. ",
-                    "conditionalLogic": {
-                      "sourceFieldId": "text-1734203727107",
-                      "operator": "is_not_empty"
-                    }
+                      "id": "4",
+                      "title": "Phase 4",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "fields": [
+                          {
+                              "id": "text-1734203985163",
+                              "type": "text",
+                              "name": "text4",
+                              "label": "",
+                              "isRequired": false
+                          }
+                      ],
+                      "prompts": []
                   }
-                ]
-              },
-              {
-                "id": "3",
-                "title": "Respond to the opening argument",
-                "description": "The AI has made their opening statement. Now is your chance to respond. ",
-                "skipPhase": false,
-                "scoredPhase": true,
-                "rubric": "Specific Points\n2 points - The user's argument references at least two specific points from the assistant's opening statement. \n0 points - The user's argument does not reference at least two specific points from the assistant's opening statement. ",
-                "minScore": 2,
-                "fields": [
-                  {
-                    "id": "textarea-1734203877925",
-                    "type": "textarea",
-                    "name": "response",
-                    "label": "Please respond to the opening argument from the AI",
-                    "description": "Make sure that you reference at least two specific points brought up by the AI. ",
-                    "isRequired": false
-                  }
-                ],
-                "prompts": [
-                  {
-                    "id": "aiInstructions-1734203925249",
-                    "type": "aiInstructions",
-                    "name": "aiInstructions1",
-                    "text": "The user will respond to your opening argument and has been instructed to reference two specific points from your opening statement. \n\nYou will respond to their counterpoint. "
-                  },
-                  {
-                    "id": "prompt-1734203939975",
-                    "type": "prompt",
-                    "name": "prompt3",
-                    "text": "{response}"
-                  }
-                ]
-              },
-              {
-                "id": "4",
-                "title": "Phase 4",
-                "description": "",
-                "skipPhase": false,
-                "scoredPhase": false,
-                "rubric": "",
-                "minScore": 0,
-                "fields": [
-                  {
-                    "id": "text-1734203985163",
-                    "type": "text",
-                    "name": "text4",
-                    "label": "",
-                    "isRequired": false
-                  }
-                ],
-                "prompts": []
-              }
-            ]
+              ]
+          }
         },
         {
             "title": "App Template 2",
