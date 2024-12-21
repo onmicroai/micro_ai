@@ -1,8 +1,254 @@
 {
     "data": [
+    {
+        "title": "MCQ Generator",
+        "description": "This micro-app allows you to generate multiple-choice questions quickly and consistently. \nIt work with either GPT-3.5 Turbo, GPT-4, or both.\nOptionally, users can modify the AI configuration by opening the left sidebar.",
+        "privacy": "private",
+        "temperature": 1,
+        "aiModel": "gpt-4o-mini",
+        "app_json": {
+            "completedHtml": "You've reached the end",
+            "phases": [
+            {
+                "id": "1",
+                "title": "MCQ Generator",
+                "rubric": "",
+                "prompts": [
+                    {
+                        "id": "prompt-1734748849075",
+                        "name": "prompt1",
+                        "text": "Please write {questions_num} {question_level} level multiple-choice question(s), each with {correct_ans_num} correct answer(s) and {distractors_num} distractors, based on text that I will provide.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "prompt-1734748888396",
+                        "name": "prompt2",
+                        "text": "Please create questions based solely on the provided text.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748594529"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734748915476",
+                        "name": "prompt3",
+                        "text": "Please create questions that incorporate both the provided text as well as your knowledge of the topic. ",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": false,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748594529"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734748946706",
+                        "name": "prompt4",
+                        "text": "Distractors should be obviously incorrect options.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": "Obvious",
+                        "operator": "equals",
+                        "sourceFieldId": "radio-1734748792342"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749014260",
+                        "name": "prompt5",
+                        "text": "Distractors should sound like they could be plausible, but are ultimately incorrect.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": "Challenging",
+                        "operator": "equals",
+                        "sourceFieldId": "radio-1734748792342"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749050973",
+                        "name": "prompt6",
+                        "text": "Focus on meeting the following learning objective(s): {learning_objective}",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "operator": "is_not_empty",
+                        "sourceFieldId": "textarea-1734748622067"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749075244",
+                        "name": "prompt7",
+                        "text": "Please provide a feedback section for each question that says why the correct answer is the best answer and the other options are incorrect. ",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748814483"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749115751",
+                        "name": "prompt8",
+                        "text": "Also, include a hint for each question.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748825768"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749144277",
+                        "name": "prompt9",
+                        "text": "Format each question like the following:\nQuestion: [Question Text] \nA) [Answer A] \nB) [Answer B] \n....\nN) [Answer N] \n\nSolution: [Answer A, B...N]",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "prompt-1734749193118",
+                        "name": "prompt10",
+                        "text": "Here is the content/topic:\n================\n{topic_content}",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    }
+                ],
+                "elements": [
+                    {
+                        "id": "textarea-1734749230606",
+                        "name": "topic_content",
+                        "type": "textarea",
+                        "label": "Enter the content for question generation:",
+                        "isRequired": true
+                    },
+                    {
+                        "id": "boolean-1734748594529",
+                        "name": "original_content_only",
+                        "type": "boolean",
+                        "label": "Focus only on the provided text?",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "textarea-1734748622067",
+                        "name": "learning_objective",
+                        "type": "textarea",
+                        "label": "Specify a learning objective (optional)",
+                        "isRequired": false,
+                        "placeholder": ""
+                    },
+                    {
+                        "id": "slider-1734748649583",
+                        "name": "questions_num",
+                        "type": "slider",
+                        "label": "Number of questions",
+                        "maxValue": 6,
+                        "isRequired": false,
+                        "defaultValue": 1
+                    },
+                    {
+                        "id": "slider-1734748678142",
+                        "name": "correct_ans_num",
+                        "type": "slider",
+                        "label": "Correct answers per question",
+                        "maxValue": 4,
+                        "isRequired": false,
+                        "defaultValue": 1
+                    },
+                    {
+                        "id": "checkbox-1734748705188",
+                        "name": "question_level",
+                        "type": "checkbox",
+                        "label": "Question difficulty level:",
+                        "choices": [
+                            {
+                                "text": "Grade School",
+                                "value": "Item 1"
+                            },
+                            {
+                                "text": "High School",
+                                "value": "Item 2"
+                            },
+                            {
+                                "text": "University",
+                                "value": "Item 3"
+                            }
+                        ],
+                        "isRequired": false,
+                        "showOtherItem": true
+                    },
+                    {
+                        "id": "slider-1734748744876",
+                        "name": "distractors_num",
+                        "type": "slider",
+                        "label": "Number of Distractors",
+                        "maxValue": 6,
+                        "isRequired": false,
+                        "defaultValue": 3
+                    },
+                    {
+                        "id": "radio-1734748792342",
+                        "name": "distractors_difficulty",
+                        "type": "radio",
+                        "label": "Distractors difficulty",
+                        "choices": [
+                            {
+                                "text": "Normal",
+                                "value": "Item 1"
+                            },
+                            {
+                                "text": "Obvious",
+                                "value": "Item 2"
+                            },
+                            {
+                                "text": "Challenging",
+                                "value": "Item 3"
+                            }
+                        ],
+                        "isRequired": false,
+                        "defaultValue": "Item 1"
+                    },
+                    {
+                        "id": "boolean-1734748814483",
+                        "name": "feedback",
+                        "type": "boolean",
+                        "label": "Include Learner Feedback?",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "boolean-1734748825768",
+                        "name": "hints",
+                        "type": "boolean",
+                        "label": "Include hints?",
+                        "isRequired": false
+                    }
+                ],
+                "minScore": 0,
+                "skipPhase": false,
+                "description": "",
+                "scoredPhase": false
+                }
+                ]  
+            }
+        },
         {
             "title": "Alt Text Generator",
-            "explanation": "This app accepts images via upload or URL and returns alt text for accessibility.",
+            "description": "This app accepts images via upload or URL and returns alt text for accessibility.",
             "privacy": "private",
             "temperature": 1,
             "aiModel": "gpt-4o-mini",
@@ -99,115 +345,116 @@
           }
         },
         {
-          "title": "Rubric Generator",
-          "explanation": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
-          "privacy": "private",
-          "copy_allowed": true,
-          "app_json": {
-              "collection": 1,
-              "phases": [
-                  {
-                      "id": "1",
-                      "title": "Assignment Details",
-                      "description": "",
-                      "skipPhase": false,
-                      "scoredPhase": false,
-                      "rubric": "",
-                      "minScore": 0,
-                      "fields": [
-                          {
-                              "id": "textarea-1734201588378",
-                              "type": "textarea",
-                              "name": "assignment_description",
-                              "label": "Describe the assignment",
-                              "isRequired": false,
-                              "placeholder": "In this assignment, you will create a concept map that visually represents the key concepts, processes, and relationships involved in human memory, as covered in this course. Your concept map should include at least five major concepts discussed in class (e.g., encoding, storage, retrieval, types of memory, etc.) and demonstrate how they are interconnected. You will also provide brief explanations for each connection to showcase your understanding of how these processes work together to form a cohesive memory system."
-                          },
-                          {
-                              "id": "text-1734586006067",
-                              "type": "text",
-                              "name": "subject",
-                              "label": "Subject:",
-                              "isRequired": false,
-                              "placeholder": "Cognitive Psychology"
-                          },
-                          {
-                              "id": "text-1734201607140",
-                              "type": "text",
-                              "name": "max_points",
-                              "label": "Maximum Points",
-                              "isRequired": false,
-                              "placeholder": "100"
-                          },
-                          {
-                              "id": "slider-1734201618653",
-                              "type": "slider",
-                              "name": "num_criteria",
-                              "label": "Number of Criteria",
-                              "description": "Number of rows in the rubric",
-                              "isRequired": false,
-                              "maxValue": 6,
-                              "defaultValue": 3
-                          },
-                          {
-                              "id": "slider-1734201650919",
-                              "type": "slider",
-                              "name": "num_levels",
-                              "label": "Number of Scoring Levels",
-                              "isRequired": false,
-                              "maxValue": 6,
-                              "defaultValue": 3
-                          },
-                          {
-                              "id": "radio-1734201673398",
-                              "type": "radio",
-                              "name": "grade_level",
-                              "label": "What is the grade level of your audience?",
-                              "isRequired": false,
-                              "choices": [
-                                  {
-                                      "text": "Undergraduate",
-                                      "value": "Item 1"
-                                  },
-                                  {
-                                      "text": "Graduate",
-                                      "value": "Item 2"
-                                  },
-                                  {
-                                      "text": "Post Graduate",
-                                      "value": "Item 3"
-                                  }
-                              ],
-                              "showOtherItem": true
-                          },
-                          {
-                              "id": "textarea-1734586088986",
-                              "type": "textarea",
-                              "name": "learning_objectives",
-                              "label": "Align with the following learning objectives:",
-                              "isRequired": false,
-                              "placeholder": "- Demonstrate knowledge of the basic concepts and processes involved in human cognition, particularly memory.\n- Break down the complex interactions between different types of memory and how they contribute to overall cognitive functioning.\n- Use concept mapping to visually organize and relate theoretical concepts from the course to better understand their practical implications.\n- Present ideas clearly and concisely through a well-structured concept map, supported by logical explanations of relationships between concepts."
-                          }
-                      ],
-                      "prompts": [
-                          {
-                              "id": "aiInstructions-1734201767465",
-                              "type": "aiInstructions",
-                              "name": "aiInstructions1",
-                              "text": "Generate the rubric in the form of a markdown table. The first row heading for the table should include the achievement levels and points. The first column on the left of the table should display the criteria. The descriptors for each component and score should be listed under the correct achievement level and points column and criteria row. Make the descriptors in the table as specific to the objectives as possible.\n\nPlease provide no other preamble or post-text, just the table. "
-                          },
-                          {
-                              "id": "prompt-1734201711785",
-                              "type": "prompt",
-                              "name": "prompt1",
-                              "text": "Act as an experienced {subject} teacher and create a well crafted and clear grading rubric with {num_criteria} criteria and {num_levels} achievement levels per criteria, based on an assignment description that I will provide. Use {grade_level} student friendly language. The maximum points for the assignment is {max_points}, please make sure the rubric's maximum value adds up to that number.\n\nIf provided, please align the rubric to the following learning objectives: \n{learning_objectives}\n\nHere is the assignment description for the rubric: \n{assignment_description}"
-                          }
-                      ]
-                  }
-              ]
-          }
-        },
-        
+            "title": "Rubric Generator",
+            "explanation": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
+            "privacy": "private",
+            "temperature": 1,
+            "aiModel": "gpt-4o-mini",
+            "app_json": {
+                "completedHtml": "You've reached the end2",
+                "phases": [
+                    {
+                        "id": "1",
+                        "title": "Assignment Details",
+                        "skipPhase": false,
+                        "scoredPhase": false,
+                        "rubric": "",
+                        "minScore": 0,
+                        "prompts": [
+                            {
+                                "id": "aiInstructions-1734201767465",
+                                "type": "aiInstructions",
+                                "name": "aiInstructions1",
+                                "text": "Generate the rubric in the form of a markdown table. The first row heading for the table should include the achievement levels and points. The first column on the left of the table should display the criteria. The descriptors for each component and score should be listed under the correct achievement level and points column and criteria row. Make the descriptors in the table as specific to the objectives as possible.\n\nPlease provide no other preamble or post-text, just the table. ",
+                                "label": ""
+                            },
+                            {
+                                "id": "prompt-1734201711785",
+                                "type": "prompt",
+                                "name": "prompt1",
+                                "text": "Act as an experienced {subject} teacher and create a well crafted and clear grading rubric with {num_criteria} criteria and {num_levels} achievement levels per criteria, based on an assignment description that I will provide. Use {grade_level} student friendly language. The maximum points for the assignment is {max_points}, please make sure the rubric's maximum value adds up to that number.\n\nIf provided, please align the rubric to the following learning objectives: \n{learning_objectives}\n\nHere is the assignment description for the rubric: \n{assignment_description}",
+                                "label": ""
+                            }
+                        ],
+                        "elements": [
+                            {
+                                "id": "textarea-1734201588378",
+                                "type": "textarea",
+                                "name": "assignment_description",
+                                "label": "Describe the assignment",
+                                "isRequired": false,
+                                "placeholder": "In this assignment, you will create a concept map that visually represents the key concepts, processes, and relationships involved in human memory, as covered in this course. Your concept map should include at least five major concepts discussed in class (e.g., encoding, storage, retrieval, types of memory, etc.) and demonstrate how they are interconnected. You will also provide brief explanations for each connection to showcase your understanding of how these processes work together to form a cohesive memory system."
+                            },
+                            {
+                                "id": "text-1734586006067",
+                                "type": "text",
+                                "name": "subject",
+                                "label": "Subject:",
+                                "isRequired": false,
+                                "placeholder": "Cognitive Psychology"
+                            },
+                            {
+                                "id": "text-1734201607140",
+                                "type": "text",
+                                "name": "max_points",
+                                "label": "Maximum Points",
+                                "isRequired": false,
+                                "placeholder": "100"
+                            },
+                            {
+                                "id": "slider-1734201618653",
+                                "type": "slider",
+                                "name": "num_criteria",
+                                "label": "Number of Criteria",
+                                "description": "Number of rows in the rubric",
+                                "isRequired": false,
+                                "maxValue": 6,
+                                "defaultValue": 3
+                            },
+                            {
+                                "id": "slider-1734201650919",
+                                "type": "slider",
+                                "name": "num_levels",
+                                "label": "Number of Scoring Levels",
+                                "isRequired": false,
+                                "maxValue": 6,
+                                "defaultValue": 3
+                            },
+                            {
+                                "id": "radio-1734201673398",
+                                "type": "radio",
+                                "name": "grade_level",
+                                "label": "What is the grade level of your audience?",
+                                "isRequired": false,
+                                "choices": [
+                                    {
+                                        "text": "Undergraduate",
+                                        "value": "Item 1"
+                                    },
+                                    {
+                                        "text": "Graduate",
+                                        "value": "Item 2"
+                                    },
+                                    {
+                                        "text": "Post Graduate",
+                                        "value": "Item 3"
+                                    }
+                                ],
+                                "showOtherItem": true
+                            },
+                            {
+                                "id": "textarea-1734586088986",
+                                "type": "textarea",
+                                "name": "learning_objectives",
+                                "label": "Align with the following learning objectives:",
+                                "isRequired": false,
+                                "placeholder": "- Demonstrate knowledge of the basic concepts and processes involved in human cognition, particularly memory.\n- Break down the complex interactions between different types of memory and how they contribute to overall cognitive functioning.\n- Use concept mapping to visually organize and relate theoretical concepts from the course to better understand their practical implications.\n- Present ideas clearly and concisely through a well-structured concept map, supported by logical explanations of relationships between concepts."
+                            }
+                          ]
+                    }
+                ]
+            }
+        },        
         {
           "title": "Debate an AI",
           "explanation": "",
@@ -224,7 +471,7 @@
                       "scoredPhase": false,
                       "rubric": "",
                       "minScore": 0,
-                      "fields": [
+                      "elements": [
                           {
                               "id": "text-1734203658981",
                               "type": "text",
@@ -250,7 +497,7 @@
                       "scoredPhase": false,
                       "rubric": "",
                       "minScore": 0,
-                      "fields": [
+                      "elements": [
                           {
                               "id": "radio-1734203705057",
                               "type": "radio",
@@ -315,7 +562,7 @@
                       "scoredPhase": true,
                       "rubric": "Specific Points\n2 points - The user's argument references at least two specific points from the assistant's opening statement. \n0 points - The user's argument does not reference at least two specific points from the assistant's opening statement. ",
                       "minScore": 2,
-                      "fields": [
+                      "elements": [
                           {
                               "id": "textarea-1734203877925",
                               "type": "textarea",
@@ -348,7 +595,7 @@
                       "scoredPhase": false,
                       "rubric": "",
                       "minScore": 0,
-                      "fields": [
+                      "elements": [
                           {
                               "id": "text-1734203985163",
                               "type": "text",
@@ -361,33 +608,6 @@
                   }
               ]
           }
-        },
-        {
-            "title": "App Template 2",
-            "explanation": "Explanation",
-            "type": "public",
-            "temperature": 1,
-            "ai_model": "gpt-4o-mini",
-            "top_p": 1,
-            "frequency_penalty": 1,
-            "presence_penalty": 1,
-            "app_json": {
-                "pages": [
-                    {
-                        "name": "page1",
-                        "elements": [
-                            {
-                                "name": "AI Prompt 1",
-                                "type": "ai-prompt",
-                                "title": "AI Prompt 1",
-                                "aiModel": "gpt-4o-mini",
-                                "temperature": 1,
-                                "aiPromptProperty": "Say hello to {Name} {Surname} "
-                            }
-                        ]
-                    }
-                ]
-            }
         }
     ]
 }
