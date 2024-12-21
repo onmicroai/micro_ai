@@ -35,8 +35,8 @@ class AIModelConstants:
         "temperature_min": 0,
         "temperature_max": 2,
         "max_tokens_default": 500,
-        "input_token_price": 3,
-        "output_token_price": 6,
+        "input_token_price": .15,
+        "output_token_price": .60,
         "price_scale": 1_000_000,
         "api_key": env("OPENAI_API_KEY")
     }
