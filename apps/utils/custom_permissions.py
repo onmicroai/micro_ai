@@ -7,13 +7,29 @@ from rest_framework.permissions import BasePermission
 
 class BaseMicroAppPermission(BasePermission):
     def get_app_id(self, request, view):
+        # First try to get from request data
         data = request.data
         if data.get('app_id'):
             return data.get('app_id')
-        
         elif data.get('ma_id'):
             return data.get('ma_id')
-        return view.kwargs.get('app_id')
+        
+        # Then try to get from URL kwargs
+        app_id = view.kwargs.get('app_id')
+        if app_id:
+            return app_id
+            
+        # If we have a hash_id, get the app_id from the microapp object
+        hash_id = view.kwargs.get('hash_id')
+        if hash_id:
+            from apps.microapps.models import Microapp
+            try:
+                microapp = Microapp.objects.get(hash_id=hash_id)
+                return microapp.id
+            except Microapp.DoesNotExist:
+                return None
+                
+        return None
     
 class IsAdminOrOwner(BaseMicroAppPermission):
     def has_permission(self, request, view):

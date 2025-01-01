@@ -10,6 +10,8 @@ class MicroappVariables:
     DEFAULT_MICROAPP_NAME = "Untitled App"
     DEFAULT_MICROAPP_PRIVACY = "private"
     DEFAULT_MICROAPP_AI_MODEL = "gpt-4o-mini"
+    DEFAULT_RESPONSE_TYPE = "AI"
+    FIXED_RESPONSE_TYPE = "Fixed_Response"
 
 class CollectionVariables:
     MY_COLLECTION = "My Collection"
@@ -33,8 +35,8 @@ class AIModelConstants:
         "temperature_min": 0,
         "temperature_max": 2,
         "max_tokens_default": 500,
-        "input_token_price": 3,
-        "output_token_price": 6,
+        "input_token_price": .15,
+        "output_token_price": .60,
         "price_scale": 1_000_000,
         "api_key": env("OPENAI_API_KEY")
     }

@@ -5,11 +5,11 @@ class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
         model = Microapp
         fields = '__all__'
-        extra_kwargs = {'is_archived': {'write_only': True}}
+        extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
 
     def to_internal_value(self, data):
         # If app_json is not provided or is empty, set the default pages
-        if 'app_json' not in data or not data['app_json']:
+        if 'app_json' not in data or data['app_json'] is None:
             data['app_json'] = {
                 "pages": [
                     {
@@ -69,7 +69,7 @@ class AssetsMicroappSerializer(serializers.ModelSerializer):
 class RunPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Run
-        fields = ['ma_id', 'user_id', 'session_id', 'ai_model', 'prompt', 'no_submission', 'request_skip', 'scored_run', 'minimum_score', 'rubric','frequency_penalty', 'presence_penalty', 'top_p', 'temperature', 'max_tokens', 'satisfaction', 'response']
+        fields = ['ma_id', 'user_id', 'session_id', 'ai_model', 'no_submission', 'request_skip', 'scored_run', 'minimum_score', 'rubric','frequency_penalty', 'presence_penalty', 'top_p', 'temperature', 'max_tokens', 'satisfaction', 'response']
 
 class RunGetSerializer(serializers.ModelSerializer):
     class Meta:
