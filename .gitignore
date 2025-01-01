@@ -2,6 +2,7 @@
 *.pyc
 *~
 db.sqlite3
+venv/
 .sass-cache/
 celerybeat-schedule
 micro_ai/localsettings.py
