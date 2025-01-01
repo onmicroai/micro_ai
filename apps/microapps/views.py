@@ -141,6 +141,11 @@ class MicroAppDetails(APIView):
         try:
             snippet = self.get_object(app_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -150,6 +155,8 @@ class MicroAppDetails(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -247,17 +254,21 @@ class CloneMicroApp(APIView):
 
             if collection_id:
                 if MicroAppUasge.microapp_related_info(request.user.id):
-                    microapp_dict = model_to_dict(microapp)
-                    del microapp_dict["id"]
-                    microapp_dict["title"] = microapp_dict["title"] + " copy"
-                    serializer = MicroAppSerializer(data = microapp_dict)
+                    # Instead of using model_to_dict, use the serializer to get the data
+                    original_data = MicroAppSerializer(microapp).data
+                    # Remove the fields we don't want to copy
+                    original_data.pop('id', None)
+                    original_data.pop('hash_id', None)
+                    original_data['title'] = original_data['title'] + " copy"
+                    
+                    serializer = MicroAppSerializer(data=original_data)
                     if serializer.is_valid():
-                        microapp = serializer.save()
+                        new_microapp = serializer.save()
                         micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=microapp)
-                        micro_app_list.add_collection_microapp(self, collection_id, microapp)
+                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp)
+                        micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
                         return Response(
-                            {"data": serializer.data, "status": status.HTTP_200_OK},
+                            {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
                             status=status.HTTP_200_OK,
                         )
                     return Response(
@@ -459,6 +470,9 @@ class RunList(APIView):
     permission_classes = [AllowAny]
     ai_score = ""
     score_result = True
+    app_hash_id = ""
+    response_type = ""
+    price_scale = ""
 
     def check_payload(self, data, request):
             try:
@@ -491,6 +505,7 @@ class RunList(APIView):
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
                 "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "updated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
                 "satisfaction": 0,
                 "prompt": api_params["messages"],
@@ -515,7 +530,13 @@ class RunList(APIView):
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
                 "owner_id": app_owner_id,
-                "user_ip": ip
+                "user_ip": ip,
+                "system_prompt": data.get("system_prompt", {}),
+                "phase_instructions": data.get("phase_instructions", {}),
+                "user_prompt": data.get("user_prompt", {}),
+                "app_hash_id": self.app_hash_id,
+                "response_type": self.response_type,
+                "price_scale": self.price_scale
                 }
             return run_data
        except Exception as e:
@@ -533,6 +554,7 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            print('Data:', data)
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -557,6 +579,9 @@ class RunList(APIView):
                 # Get microapp owner id
                 app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
                 app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+                # Get ma hash_id
+                ma_data = Microapp.objects.get(id=data.get("ma_id"))
+                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
@@ -564,7 +589,9 @@ class RunList(APIView):
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
             # Return model instance based on AI-model name
-            model = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            model = model_router["model"]
+            self.price_scale = model_router["config"]["price_scale"]
             if not model:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
@@ -581,13 +608,16 @@ class RunList(APIView):
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
+                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
                     response = self.hard_coded_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
                     response = self.no_submission_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
                 # check required prompt property for score phase
@@ -603,18 +633,23 @@ class RunList(APIView):
                 response["cost"] = model.calculate_cost(response)
                 response["price_input_token_1M"] = model.calculate_input_token_price(response)
                 response["price_output_token_1M"] = model.calculate_output_token_price(response)
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
                 # check required prompt property for basic feedback phase
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
+                print('Run Data:', run_data)
+                print('Run Data Response:', run_data["response"])
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(
@@ -677,7 +712,7 @@ class RunList(APIView):
         try:
             if not data.get("id"):
                 return False
-            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id"]
+            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id"]
             for field in immutable_fields:
                 if data.get(field):
                     return False
@@ -692,11 +727,11 @@ class AIModelRoute:
         try:
             model_config = AIModelConstants.get_configs(model_name)
             if "gpt" in model_name and model_config:
-                return GPTModel(model_config["api_key"], model_config) 
+                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config} 
             elif "gemini" in model_name and model_config:
-                return GeminiModel(model_config["api_key"], model_name, model_config)
+                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config} 
             elif "claude" in model_name and model_config:
-                return ClaudeModel(model_config["api_key"], model_config)
+                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
             else:
                 return False
         except Exception as e:
@@ -737,6 +772,11 @@ class MicroAppDetailsByHash(APIView):
         try:
             snippet = self.get_object(hash_id)
             if snippet and not snippet.is_archived:
+                # Check permissions if app is private
+                if snippet.privacy == "private":
+                    self.permission_classes = [IsAdminOrOwner]
+                    self.check_permissions(request)
+                    
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -746,6 +786,8 @@ class MicroAppDetailsByHash(APIView):
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
             )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 
@@ -768,3 +810,67 @@ class PublicMicroAppsByHash(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp using hash_id"),
+)
+class UserMicroAppsRoleByHash(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_microapp(self, hash_id):
+        try:
+            return Microapp.objects.get(hash_id=hash_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    def get_objects(self, uid, hash_id):
+        try:
+            microapp = self.get_microapp(hash_id)
+            if not microapp:
+                return None
+            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+        except Exception as e:
+            return handle_exception(e)
+
+    def get(self, request, hash_id, user_id):
+        try:
+            user_role = self.get_objects(user_id, hash_id)
+            if user_role:
+                serializer = MicroappUserSerializer(user_role, many=True)
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                error.USER_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: dict}, summary="Get app's visibility status by hash_id")
+)
+class MicroAppVisibility(APIView):
+    permission_classes = [AllowAny]
+    
+    def get(self, request, hash_id):
+        try:
+            # Try to get the app
+            microapp = Microapp.objects.get(hash_id=hash_id)    
+            return Response({
+                "data": {
+                    "isPublic": microapp.privacy == "public"
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        
+        except Microapp.DoesNotExist:
+            # Return the same response as if the app exists but is private
+            return Response({
+                "data": {
+                    "isPublic": False
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
