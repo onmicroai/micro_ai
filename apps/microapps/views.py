@@ -887,7 +887,19 @@ class RunStatistics(APIView):
     def get(self, request):
         try:
             user_id = request.user.id
-            runs = Run.objects.filter(owner_id = user_id).values('ma_id').annotate(
+            app_id = request.GET.get('app_id')
+            hash_id = request.GET.get('hash_id')
+
+            # Base query for user's runs
+            query = Run.objects.filter(owner_id=user_id)
+
+            # Filter by app_id or hash_id if provided
+            if app_id:
+                query = query.filter(ma_id=app_id)
+            elif hash_id:
+                query = query.filter(app_hash_id=hash_id)
+
+            runs = query.values('ma_id').annotate(
                 response_count=Count(
                     Case(
                         When(satisfaction__in=[1, -1], then=1)
@@ -924,13 +936,14 @@ class RunStatistics(APIView):
                 total_cost=Sum(
                     'cost'
                 ),
-                distinct_sessions=Count('session_id', distinct=True),
-                avg_cost_session = F('total_cost') / F('distinct_sessions'),
+                unique_users=Count('user_ip', distinct=True),
+                sessions=Count('session_id', distinct=True),
+                avg_cost_session = F('total_cost') / F('sessions'),
 
 
-            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'distinct_sessions' ,'avg_cost_session')
+            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'unique_users', 'sessions' ,'avg_cost_session')
        
-            return Response({"data": runs, "status": status.HTTP_200_OK }, status=status.HTTP_200_OK)  
+            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)  
               
         except Exception as e:
             return handle_exception(e)
