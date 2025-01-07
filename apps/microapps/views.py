@@ -881,7 +881,7 @@ class MicroAppVisibility(APIView):
 @extend_schema_view(
     get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
 )
-class RunStatistics(APIView):
+class AppStatistics(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
