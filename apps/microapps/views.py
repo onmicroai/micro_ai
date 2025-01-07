@@ -1010,3 +1010,45 @@ class AppConversations(APIView):
 
         except Exception as e:
             return handle_exception(e)
+
+class AppConversationDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            session_id = request.GET.get('session_id')
+            if not session_id:
+                return Response(
+                    error.FIELD_MISSING,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the conversation details, but only if user is the owner
+            conversation = Run.objects.filter(
+                session_id=session_id,
+                owner_id=request.user.id
+            ).values(
+                'timestamp',
+                'system_prompt',
+                'phase_instructions',
+                'user_prompt',
+                'response',
+                'rubric',
+                'run_score',
+                'run_passed'
+            ).order_by('timestamp')
+
+            if not conversation.exists():
+                return Response(
+                    {"error": "Conversation not found or you don't have permission to view it", 
+                     "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            return Response(
+                {"data": list(conversation), "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return handle_exception(e)
