@@ -36,8 +36,7 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
-from django.db.models import Case, When, Count, F, Sum, Value, FloatField, Q, CharField
-from django.db.models.functions import Cast
+from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -912,7 +911,7 @@ class AppStatistics(APIView):
                     ),
                     default=Sum(
                         Case(
-                            When(satisfaction__in=[1, -1], then=F('satisfaction')),
+                            When(satisfaction__in=[1], then=F('satisfaction')),
                             default=Value(0)
                         )
                     ) * 1.0 / F('response_count'),
@@ -945,5 +944,69 @@ class AppStatistics(APIView):
        
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)  
               
+        except Exception as e:
+            return handle_exception(e)
+
+class AppConversations(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user_id = request.user.id
+            app_id = request.GET.get('app_id')
+            hash_id = request.GET.get('hash_id')
+
+            # Base query for user's runs
+            query = Run.objects.filter(owner_id=user_id)
+
+            # Filter by app_id or hash_id if provided
+            if app_id:
+                query = query.filter(ma_id=app_id)
+            elif hash_id:
+                query = query.filter(app_hash_id=hash_id)
+
+            # Step 1: Add annotations for satisfaction and model mode
+            conversations = query.values('session_id').annotate(
+                start_time=Min('timestamp'),
+                total_cost=Sum('cost'),
+                messages_count=Count('id')
+            )
+
+            # Step 2: For satisfaction and ai_model, calculate mode separately
+            for conversation in conversations:
+                session_id = conversation['session_id']
+
+                # Calculate mode for 'satisfaction'
+                satisfaction_mode = (
+                    query.filter(
+                        session_id=session_id,
+                        satisfaction__isnull=False,  # Exclude NULL values
+                        satisfaction__in=[1, -1]     # Only consider valid satisfaction values
+                    )
+                    .values('satisfaction')
+                    .annotate(count=Count('satisfaction'))
+                    .order_by('-count', 'satisfaction')
+                    .first()
+                )
+                conversation['satisfaction'] = satisfaction_mode['satisfaction'] if satisfaction_mode else None
+
+                # Calculate mode for 'ai_model'
+                model_mode = (
+                    query.filter(session_id=session_id)
+                    .values('ai_model')
+                    .annotate(count=Count('ai_model'))
+                    .order_by('-count', 'ai_model')  # Secondary order by 'ai_model' for consistency
+                    .first()
+                )
+                conversation['model'] = model_mode['ai_model'] if model_mode else None
+
+            # Step 3: Order by start_time
+            conversations = sorted(conversations, key=lambda x: x['start_time'], reverse=True)
+
+            return Response(
+                {"data": conversations, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK
+            )
+
         except Exception as e:
             return handle_exception(e)

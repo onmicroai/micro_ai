@@ -19,4 +19,5 @@ urlpatterns = [
     path('public/hash/<str:hash_id>', views.PublicMicroAppsByHash.as_view(), name = "public_microapps_by_hash"),
     path('visibility/<str:hash_id>', views.MicroAppVisibility.as_view(), name="app_visibility"),
     path('stats/run', views.AppStatistics.as_view(), name="app_stats"),
+    path('stats/conversations', views.AppConversations.as_view(), name="app_conversations"),
 ]
