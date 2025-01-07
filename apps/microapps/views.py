@@ -36,6 +36,8 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
+from django.db.models import Case, When, Count, F, Sum, Value, FloatField, Q, CharField
+from django.db.models.functions import Cast
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -554,7 +556,6 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
-            print('Data:', data)
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -588,13 +589,17 @@ class RunList(APIView):
                 # Checking for usage limit
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+                
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
-            model = model_router["model"]
-            self.price_scale = model_router["config"]["price_scale"]
-            if not model:
+           
+            if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
+           
+            model = model_router["model"]
+            self.price_scale = model_router["config"]["price_scale"]
+            
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
@@ -648,8 +653,6 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
-                print('Run Data:', run_data)
-                print('Run Data Response:', run_data["response"])
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(
@@ -872,5 +875,62 @@ class MicroAppVisibility(APIView):
                 }, 
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
+)
+class RunStatistics(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user_id = request.user.id
+            runs = Run.objects.filter(owner_id = user_id).values('ma_id').annotate(
+                response_count=Count(
+                    Case(
+                        When(satisfaction__in=[1, -1], then=1)
+                    )
+                ),
+                net_satisfaction_score=Case(
+                    When(
+                        Q(response_count=0),
+                        then=Value(0, output_field=FloatField()) 
+                    ),
+                    default=Sum(
+                        Case(
+                            When(satisfaction__in=[1, -1], then=F('satisfaction')),
+                            default=Value(0)
+                        )
+                    ) * 1.0 / F('response_count'),
+                    output_field=FloatField()  
+                ),
+                thumbs_up_count=Count(
+                    Case(
+                        When(satisfaction=1, then=1)
+                    )
+                ),
+                thumbs_down_count=Count(
+                    Case(
+                        When(satisfaction=-1, then=1)
+                    )
+                ),
+                total_responses=Count(
+                    Case(
+                        When(satisfaction__in=[1, -1], then=1)
+                    )
+                ),
+                total_cost=Sum(
+                    'cost'
+                ),
+                distinct_sessions=Count('session_id', distinct=True),
+                avg_cost_session = F('total_cost') / F('distinct_sessions'),
+
+
+            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'distinct_sessions' ,'avg_cost_session')
+       
+            return Response({"data": runs, "status": status.HTTP_200_OK }, status=status.HTTP_200_OK)  
+              
         except Exception as e:
             return handle_exception(e)
