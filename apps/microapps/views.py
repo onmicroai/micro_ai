@@ -37,6 +37,7 @@ from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
+from django.db.models.functions import Round
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -909,12 +910,15 @@ class AppStatistics(APIView):
                         Q(response_count=0),
                         then=Value(0, output_field=FloatField()) 
                     ),
-                    default=Sum(
-                        Case(
-                            When(satisfaction__in=[1], then=F('satisfaction')),
-                            default=Value(0)
-                        )
-                    ) * 1.0 / F('response_count'),
+                    default=Round(
+                        Sum(
+                            Case(
+                                When(satisfaction__in=[1], then=F('satisfaction')),
+                                default=Value(0)
+                            )
+                        ) * 1.0 / F('response_count'),
+                        4
+                    ),
                     output_field=FloatField()  
                 ),
                 thumbs_up_count=Count(
