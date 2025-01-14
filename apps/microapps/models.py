@@ -380,6 +380,8 @@ class GPTModel(BaseAIModel):
 
     def get_response(self, api_params):
         try:
+            if api_params.get("system_prompt"):
+                api_params.pop("system_prompt")
             response = self.client.chat.completions.create(**api_params)
             usage = response.usage
             ai_response = response.choices[0].message.content
@@ -398,6 +400,8 @@ class GPTModel(BaseAIModel):
 
     def score_response(self, api_params, minimum_score):
         try:
+            if api_params.get("system_prompt"):
+                api_params.pop("system_prompt")
             response = self.client.chat.completions.create(**api_params)
             usage = response.usage
             ai_score = response.choices[0].message.content
@@ -487,6 +491,8 @@ class GPTModel(BaseAIModel):
     
     def get_model_message(self, messages, data):
         try:
+            if data.get("system_prompt"):
+                messages.insert(0, {"role": "system", "content": data.get("system_prompt")})
             return messages
         except Exception as e:
             log.error(e)
@@ -515,7 +521,7 @@ class GeminiModel(BaseAIModel):
     def get_response(self, api_params):
         try:
             if api_params.get("system_prompt"):
-                self.model = genai.GenerativeModel(api_params["model"], system_instruction="Your name is Rookie. First introduce yourself")
+                self.model = genai.GenerativeModel(api_params["model"], system_instruction = api_params.get("system_prompt"))
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
                 temperature = api_params["temperature"],
@@ -541,7 +547,7 @@ class GeminiModel(BaseAIModel):
     def score_response(self, api_params, minimum_score):
         try:
             if api_params.get("system_prompt"):
-                self.model = genai.GenerativeModel(api_params["model"], system_instruction="Your name is Rookie. First introduce yourself")   
+                self.model = genai.GenerativeModel(api_params["model"], system_instruction = api_params.get("system_prompt")) 
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
                 temperature = api_params["temperature"],
@@ -670,7 +676,6 @@ class ClaudeModel(BaseAIModel):
             }
             if api_params.get("system_prompt"):
                 create_params["system"] = api_params["system_prompt"]
-            
             response = self.client.messages.create(**create_params)
             ai_response = response.content[0].text
             usage = response.usage
@@ -698,7 +703,6 @@ class ClaudeModel(BaseAIModel):
             }
             if api_params.get("system_prompt"):
                 create_params["system"] = api_params["system_prompt"]
-            
             response = self.client.messages.create(**create_params)
             ai_score = response.content[0].text
             usage = response.usage

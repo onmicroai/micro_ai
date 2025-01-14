@@ -605,7 +605,8 @@ class RunList(APIView):
             api_params = model.get_default_params(data)
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
-            api_params["system_prompt"] = data.get("system_prompt")
+            if data.get("system_prompt"):
+              api_params["system_prompt"] = data.get("system_prompt")
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
