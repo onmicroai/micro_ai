@@ -96,7 +96,6 @@ class Microapp(models.Model):
     hash_id = models.CharField(max_length=50, unique=True, blank=True)
     
     def save(self, *args, **kwargs):
-        print("Hash ID",self.hash_id)
         if not self.hash_id:
             while True:
                 candidate = str(uuid.uuid4())[:16]
@@ -515,15 +514,18 @@ class GeminiModel(BaseAIModel):
 
     def get_response(self, api_params):
         try:
+            if api_params.get("system_prompt"):
+                self.model = genai.GenerativeModel(api_params["model"], system_instruction="Your name is Rookie. First introduce yourself")
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
                 temperature = api_params["temperature"],
                 top_p = api_params["top_p"],
                 max_output_tokens = api_params["max_tokens"]
+
             ))   
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
-            calculation = { "completion_tokens":usage.candidates_token_count,"prompt_tokens": usage.prompt_token_count,"total_tokens": usage.total_token_count}
+            calculation = {"completion_tokens":usage.candidates_token_count,"prompt_tokens": usage.prompt_token_count,"total_tokens": usage.total_token_count}
             return {
                     "completion_tokens":usage.candidates_token_count,
                     "prompt_tokens": usage.prompt_token_count,
@@ -538,6 +540,8 @@ class GeminiModel(BaseAIModel):
 
     def score_response(self, api_params, minimum_score):
         try:
+            if api_params.get("system_prompt"):
+                self.model = genai.GenerativeModel(api_params["model"], system_instruction="Your name is Rookie. First introduce yourself")   
             messages = api_params["messages"]
             response = self.model.generate_content(messages,generation_config=genai.types.GenerationConfig(
                 temperature = api_params["temperature"],
@@ -657,16 +661,19 @@ class ClaudeModel(BaseAIModel):
 
     def get_response(self, api_params):
         try:
-            response = self.client.messages.create(
-            max_tokens = api_params["max_tokens"],
-            messages = api_params["messages"], 
-            model = api_params["model"],
-            temperature = api_params["temperature"],
-            top_p = api_params["top_p"],
-            ),             
-            message_data = response[0]
-            ai_response = message_data.content[0].text
-            usage = message_data.usage
+            create_params = {
+                "max_tokens": api_params["max_tokens"],
+                "messages": api_params["messages"],
+                "model": api_params["model"],
+                "temperature": api_params["temperature"],
+                "top_p": api_params["top_p"]
+            }
+            if api_params.get("system_prompt"):
+                create_params["system"] = api_params["system_prompt"]
+            
+            response = self.client.messages.create(**create_params)
+            ai_response = response.content[0].text
+            usage = response.usage
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
             return {
                 "completion_tokens": usage.output_tokens,
@@ -682,16 +689,19 @@ class ClaudeModel(BaseAIModel):
 
     def score_response(self, api_params, minimum_score):
         try:
-            response = self.client.messages.create(
-            max_tokens = api_params["max_tokens"],
-            messages = api_params["messages"], 
-            model = api_params["model"],
-            temperature = api_params["temperature"],
-            top_p = api_params["top_p"],
-            ),             
-            message_data = response[0]
-            ai_score = message_data.content[0].text
-            usage = message_data.usage
+            create_params = {
+                "max_tokens": api_params["max_tokens"],
+                "messages": api_params["messages"],
+                "model": api_params["model"],
+                "temperature": api_params["temperature"],
+                "top_p": api_params["top_p"]
+            }
+            if api_params.get("system_prompt"):
+                create_params["system"] = api_params["system_prompt"]
+            
+            response = self.client.messages.create(**create_params)
+            ai_score = response.content[0].text
+            usage = response.usage
             score_result = False
             if self.extract_score(ai_score) >= minimum_score:
                 score_result = True

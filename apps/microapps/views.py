@@ -128,7 +128,7 @@ class MicroAppList(APIView):
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get microapp by id"),
     put=extend_schema(request=MicroAppSwaggerPutSerializer, responses={200: MicroAppSerializer}, summary = "Update by microapp"),
 )
-class MicroAppDetails(APIView):
+class MicroAppDetails(APIView): # now handling single appp crud using MicroappDetailsByHash except Update
     permission_classes = [IsAuthenticated]
 
     def get_object(self, pk):
@@ -204,6 +204,7 @@ class MicroAppDetails(APIView):
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
 )
+
 class MicroAppArchive(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -291,7 +292,7 @@ class CloneMicroApp(APIView):
     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
     delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
 )
-class UserMicroApps(APIView):
+class UserMicroApps(APIView): # probably not used at FE
     permission_classes = [IsAuthenticated]
 
     def get_object(self, uid, aid):
@@ -401,7 +402,7 @@ class UserMicroAppsDetails(APIView):
 @extend_schema_view(
     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
 )
-class UserMicroAppList(generics.ListAPIView):
+class UserMicroAppList(generics.ListAPIView):   # probably not used at FE
     serializer_class = MicroappUserSerializer
     permission_classes = [IsAuthenticated]
 
@@ -415,7 +416,7 @@ class UserMicroAppList(generics.ListAPIView):
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
 )
-class UserApps(APIView):
+class UserApps(APIView):    # probably not used at FE
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -554,7 +555,6 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
-            print('Data:', data)
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -605,6 +605,7 @@ class RunList(APIView):
             api_params = model.get_default_params(data)
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+            api_params["system_prompt"] = data.get("system_prompt")
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
@@ -648,8 +649,6 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 run_data["id"] = serialize.id
-                print('Run Data:', run_data)
-                print('Run Data Response:', run_data["response"])
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(
@@ -748,9 +747,15 @@ class AIModelConfigurations(APIView):
     def get(self, request, format = None):
         try:
             models = [
-            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "Gpt", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
+                {"model": env.list("OPENAI_MODEL_NAME")[0], "friendly_name": "gpt-4o-mini", "temperature_range": {"min": 0, "max": 2}},
+                {"model": env.list("OPENAI_MODEL_NAME")[1], "friendly_name": "gpt-4o", "temperature_range": {"min": 0, "max": 2}},
+                {"model": env.list("GEMINI_MODEL_NAME")[0], "friendly_name": "gemini-1.5-flash", "temperature_range": {"min": 0, "max": 2}},
+                {"model": env.list("GEMINI_MODEL_NAME")[1], "friendly_name": "gemini-1.5-pro", "temperature_range": {"min": 0, "max": 2}},
+                {"model": env.list("GEMINI_MODEL_NAME")[2], "friendly_name": "gemini-2.0-flash-exp", "temperature_range": {"min": 0, "max": 2}},
+                {"model": env.list("CLAUDE_MODEL_NAME")[0], "friendly_name": "claude-3-opus-latest", "temperature_range": {"min": 0, "max": 1}},
+                {"model": env.list("CLAUDE_MODEL_NAME")[1], "friendly_name": "claude-3-haiku-latest", "temperature_range": {"min": 0, "max": 1}},
+                {"model": env.list("CLAUDE_MODEL_NAME")[2], "friendly_name": "claude-3-5-sonnet-latest", "temperature_range": {"min": 0, "max": 1}}
+            ]
 
             return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
         except Exception as e:

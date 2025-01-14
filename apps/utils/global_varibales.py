@@ -23,9 +23,8 @@ class AIModelVariables:
 
 class AIModelConstants:
 
-    GPT_CONSTANTS = [
-        {
-        "model_name": env("OPENAI_MODEL_NAME"),
+    GPT_CONSTANTS = {
+        "model_name": env.list("OPENAI_MODEL_NAME"),
         "frequency_penalty_min": -2,
         "frequency_penalty_max": 2,
         "presence_penalty_min": -2,
@@ -40,10 +39,8 @@ class AIModelConstants:
         "price_scale": 1_000_000,
         "api_key": env("OPENAI_API_KEY")
     }
-    ]
-    GEMINI_CONSTANTS =[
-        {
-        "model_name": env("GEMINI_MODEL_NAME"),
+    GEMINI_CONSTANTS = {
+        "model_name": env.list("GEMINI_MODEL_NAME"),
         "frequency_penalty_min": 0,
         "frequency_penalty_max": 0,
         "presence_penalty_min": 0,
@@ -58,10 +55,8 @@ class AIModelConstants:
         "price_scale": 1_000_000,
         "api_key": env("GEMINI_API_KEY")
     }
-    ]
-    CLAUDE_CONSTANTS =[
-        {
-        "model_name": env("CLAUDE_MODEL_NAME"),
+    CLAUDE_CONSTANTS = {
+        "model_name": env.list("CLAUDE_MODEL_NAME"),
         "frequency_penalty_min": 0,
         "frequency_penalty_max": 0,
         "presence_penalty_min": 0,
@@ -76,23 +71,20 @@ class AIModelConstants:
         "price_scale": 1_000_000,
         "api_key": env("CLAUDE_API_KEY")
     }
-    ]
 
     @staticmethod
     def get_configs(model_name):
         if "gpt" in model_name:
-            for object in AIModelConstants.GPT_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
+            if model_name in AIModelConstants.GPT_CONSTANTS["model_name"]:
+                return AIModelConstants.GPT_CONSTANTS
+        
         elif "gemini" in model_name:
-            for object in AIModelConstants.GEMINI_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
+            if model_name in AIModelConstants.GEMINI_CONSTANTS["model_name"]:
+                return AIModelConstants.GEMINI_CONSTANTS
+            
         elif "claude" in model_name:
-            for object in AIModelConstants.CLAUDE_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
-                
+            if model_name in AIModelConstants.CLAUDE_CONSTANTS["model_name"]:
+                return AIModelConstants.CLAUDE_CONSTANTS                
         return False
     
 class UsageVariables:
