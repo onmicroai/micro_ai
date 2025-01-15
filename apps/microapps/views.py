@@ -590,11 +590,13 @@ class RunList(APIView):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
-            model = model_router["model"]
-            self.price_scale = model_router["config"]["price_scale"]
-            if not model:
+
+            if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
+            
+            model = model_router["model"]
+            self.price_scale = model_router["config"]["price_scale"]
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
