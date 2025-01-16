@@ -36,6 +36,8 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
+from apps.subscriptions.models import BillingCycle, UsageEvent
+from apps.subscriptions.serializers import UsageEventSerializer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -551,10 +553,46 @@ class RunList(APIView):
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
+    # hardcoded credits calculation
+    def calculate_credits(self):
+        try:
+            credits = 0
+            if self.response_type == "AI":
+                credits = 10
+                if self.ai_score != "":
+                    credits = 20
+            else:
+                credits = 5
+            return credits
+        except Exception as e:
+            pass
+    
+    def update_user_credits(self, run_id, user_id):
+        try:
+            billing_cycle = BillingCycle.objects.filter(user = user_id, status = "open")
+
+            if billing_cycle:
+                credit_charged = self.calculate_credits()  
+                usage_event_data = {"billing_cycle": billing_cycle[0].id, "user": user_id, "run_id": run_id, "credits_charged": credit_charged, "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                serializer = UsageEventSerializer(data = usage_event_data)
+                
+                if serializer.is_valid():
+                    serializer.save()
+                    updated_credits_used = billing_cycle[0].credits_used + credit_charged
+                    updated_credits_remaining = billing_cycle[0].credits_remaining - credit_charged
+                    billing_cycle.update(credits_used = updated_credits_used, credits_remaining = updated_credits_remaining)
+                    return True
+                
+                log.error(serializer.error)
+
+            return False
+        except Exception as e:
+            log.error(e)
+            return False
+
     def post(self, request, format=None):
         try:
             data = request.data
-            print('Data:', data)
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -624,15 +662,20 @@ class RunList(APIView):
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
-                response["prompt_tokens"] += score_response["prompt_tokens"]
-                response["completion_tokens"] += score_response["completion_tokens"]
-                response["cost"] = model.calculate_cost(response)
-                response["price_input_token_1M"] = model.calculate_input_token_price(response)
-                response["price_output_token_1M"] = model.calculate_output_token_price(response)
+                response.update({
+                    "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
+                    "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
+                })
+                response.update({
+                    "cost": model.calculate_cost(response),
+                    "price_input_token_1M": model.calculate_input_token_price(response),
+                    "price_output_token_1M": model.calculate_output_token_price(response)
+                })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
@@ -640,16 +683,19 @@ class RunList(APIView):
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                if not response["status"]:
+                    return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+                response = response["data"]
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
-
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
+                self.update_user_credits(serialize.id, request.user.id)
                 run_data["id"] = serialize.id
-                print('Run Data:', run_data)
-                print('Run Data Response:', run_data["response"])
+                # run_data["credits"] = self.credits
+
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(

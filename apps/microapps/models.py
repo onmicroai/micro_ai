@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from apps.utils.custom_error_message import ErrorMessages as error
 from rest_framework import status
 from apps.utils.global_varibales import AIModelVariables, MicroappVariables
+import openai
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -27,6 +28,8 @@ def handle_exception(e):
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
+def handle_functional_exception(e):
+    log.error(e)
 
 class Microapp(models.Model):
 
@@ -385,17 +388,20 @@ class GPTModel(BaseAIModel):
             usage = response.usage
             ai_response = response.choices[0].message.content
             calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
-            return {
-                "completion_tokens": usage.completion_tokens,
-                "prompt_tokens": usage.prompt_tokens,
-                "total_tokens": usage.total_tokens,
-                "ai_response": ai_response,
-                "cost": self.calculate_cost(calculation),
-                "price_input_token_1M": self.calculate_input_token_price(calculation),
-                "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.completion_tokens,
+                        "prompt_tokens": usage.prompt_tokens,
+                        "total_tokens": usage.total_tokens,
+                        "ai_response": ai_response,
+                        "cost": self.calculate_cost(calculation),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
+        
         except Exception as e:
-            return handle_exception(e)
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
 
     def score_response(self, api_params, minimum_score):
         try:
@@ -524,17 +530,19 @@ class GeminiModel(BaseAIModel):
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
             calculation = { "completion_tokens":usage.candidates_token_count,"prompt_tokens": usage.prompt_token_count,"total_tokens": usage.total_token_count}
-            return {
-                    "completion_tokens":usage.candidates_token_count,
-                    "prompt_tokens": usage.prompt_token_count,
-                    "total_tokens": usage.total_token_count,
-                    "ai_response": ai_response,
-                    "cost": self.calculate_cost(calculation),
-                    "price_input_token_1M": self.calculate_input_token_price(calculation),
-                    "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            return {"status": True,
+                    "data": {
+                        "completion_tokens":usage.candidates_token_count,
+                        "prompt_tokens": usage.prompt_token_count,
+                        "total_tokens": usage.total_token_count,
+                        "ai_response": ai_response,
+                        "cost": self.calculate_cost(calculation),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
         except Exception as e:
-             return handle_exception(e)
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
 
     def score_response(self, api_params, minimum_score):
         try:
@@ -668,18 +676,20 @@ class ClaudeModel(BaseAIModel):
             ai_response = message_data.content[0].text
             usage = message_data.usage
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
-            return {
-                "completion_tokens": usage.output_tokens,
-                "prompt_tokens": usage.input_tokens,
-                "total_tokens": usage.input_tokens + usage.output_tokens,
-                "ai_response": ai_response,
-                "cost": self.calculate_cost(calculation),
-                "price_input_token_1M": self.calculate_input_token_price(calculation),
-                "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.output_tokens,
+                        "prompt_tokens": usage.input_tokens,
+                        "total_tokens": usage.input_tokens + usage.output_tokens,
+                        "ai_response": ai_response,
+                        "cost": self.calculate_cost(calculation),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
         except Exception as e:
-            return handle_exception(e)
-
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
+        
     def score_response(self, api_params, minimum_score):
         try:
             response = self.client.messages.create(
