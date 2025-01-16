@@ -7,9 +7,11 @@ from django.utils.functional import cached_property
 from django.utils.translation import gettext_lazy as _
 from djstripe.enums import SubscriptionStatus
 from djstripe.models import Customer, Subscription
+from micro_ai import settings
 
 from apps.subscriptions.wrappers import SubscriptionWrapper
-
+from apps.microapps.models import Run
+from apps.utils.global_varibales import SubscriptionVariables
 
 class SubscriptionModelBase(models.Model):
     """
@@ -81,3 +83,23 @@ class SubscriptionModelBase(models.Model):
     def get_quantity(self) -> int:
         # if you use "per-seat" billing, override this accordingly
         return 1
+
+class BillingCycle(models.Model):
+    Status_Choice = [
+        ("open", "open"),
+        ("closed", "closed")
+    ]
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    start_date = models.DateTimeField()
+    end_date = models.DateTimeField()
+    credits_allocated = models.FloatField()
+    credits_used = models.FloatField()
+    credits_remaining = models.FloatField()
+    status = models.CharField(max_length = 8, choices = Status_Choice, default = SubscriptionVariables.DEFAULT_BILLING_CYCLE_STATUS)
+
+class UsageEvent(models.Model):
+    billing_cycle = models.ForeignKey(BillingCycle, on_delete = models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
+    run_id = models.ForeignKey(Run, on_delete = models.CASCADE)
+    credits_charged = models.FloatField()
+    timestamp = models.DateTimeField(auto_now_add = True)

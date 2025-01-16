@@ -2,6 +2,7 @@ from djstripe.models import Product, Subscription, Price, SubscriptionItem, Plan
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
+from .models import UsageEvent, BillingCycle
 
 
 class PriceSerializer(serializers.ModelSerializer):
@@ -76,4 +77,10 @@ class PlansSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plan
+        fields = '__all__'
+
+class UsageEventSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = UsageEvent
         fields = '__all__'
