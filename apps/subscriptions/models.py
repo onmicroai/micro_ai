@@ -83,6 +83,15 @@ class SubscriptionModelBase(models.Model):
     def get_quantity(self) -> int:
         # if you use "per-seat" billing, override this accordingly
         return 1
+    
+class SubscriptionDetail(models.Model):
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
+    tier = models.CharField(max_length = 20)
+    max_apps = models.IntegerField()
+    base_credits_per_cycle = models.FloatField()
+    credit_pack_quantity = models.FloatField()
+    renewal_date = models.DateTimeField()
+    active = models.BooleanField()
 
 class BillingCycle(models.Model):
     Status_Choice = [
