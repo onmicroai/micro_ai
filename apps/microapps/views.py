@@ -36,6 +36,8 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
+from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
+from django.db.models.functions import Round
 from apps.subscriptions.models import BillingCycle, UsageEvent
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 
@@ -623,13 +625,17 @@ class RunList(APIView):
                 # Checking for usage limit
                 if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+                
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
-            model = model_router["model"]
-            self.price_scale = model_router["config"]["price_scale"]
-            if not model:
+           
+            if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
+           
+            model = model_router["model"]
+            self.price_scale = model_router["config"]["price_scale"]
+            
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
             if not ai_validation["status"]:
@@ -769,14 +775,19 @@ class AIModelRoute:
    def get_ai_model(model_name):
         try:
             model_config = AIModelConstants.get_configs(model_name)
-            if "gpt" in model_name and model_config:
-                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config} 
-            elif "gemini" in model_name and model_config:
-                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config} 
-            elif "claude" in model_name and model_config:
-                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
-            else:
+            if not model_config:
                 return False
+                
+            model_family = model_config["family"]
+            if model_family == "openai":
+                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config}
+            elif model_family == "gemini":
+                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config}
+            elif model_family == "anthropic":
+                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
+            
+            return False
+            
         except Exception as e:
            return handle_exception(e) 
    
@@ -787,15 +798,20 @@ class AIModelConfigurations(APIView):
         responses={200: str},
         summary="Get available AI models configuration"
     )
-
-    def get(self, request, format = None):
+    def get(self, request, format=None):
         try:
-            models = [
-            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "Gpt", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
+            models = []
+            for model_name, config in AIModelConstants.AI_MODELS.items():
+                models.append({
+                    "model": model_name,
+                    "friendly_name": config["model"],
+                    "temperature_range": {
+                        "min": config["temperature_min"],
+                        "max": config["temperature_max"]
+                    }
+                })
 
-            return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+            return Response({"data": models, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 
@@ -932,3 +948,197 @@ class BillingDetails(APIView):
         return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
 
+
+@extend_schema_view(
+    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
+)
+class BillingDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, format=None):
+        billing_details = BillingCycle.objects.filter(user = request.user.id)
+        serializer = BillingDetailsSerializer(billing_details, many = True)
+        if billing_details:
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
+        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
+
+
+@extend_schema_view(
+    get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
+)
+class AppStatistics(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user_id = request.user.id
+            app_id = request.GET.get('app_id')
+            hash_id = request.GET.get('hash_id')
+
+            # Base query for user's runs
+            query = Run.objects.filter(owner_id=user_id)
+
+            # Filter by app_id or hash_id if provided
+            if app_id:
+                query = query.filter(ma_id=app_id)
+            elif hash_id:
+                query = query.filter(app_hash_id=hash_id)
+
+            runs = query.values('ma_id').annotate(
+                response_count=Count(
+                    Case(
+                        When(satisfaction__in=[1, -1], then=1)
+                    )
+                ),
+                net_satisfaction_score=Case(
+                    When(
+                        Q(response_count=0),
+                        then=Value(0, output_field=FloatField()) 
+                    ),
+                    default=Round(
+                        Sum(
+                            Case(
+                                When(satisfaction__in=[1], then=F('satisfaction')),
+                                default=Value(0)
+                            )
+                        ) * 1.0 / F('response_count'),
+                        4
+                    ),
+                    output_field=FloatField()  
+                ),
+                thumbs_up_count=Count(
+                    Case(
+                        When(satisfaction=1, then=1)
+                    )
+                ),
+                thumbs_down_count=Count(
+                    Case(
+                        When(satisfaction=-1, then=1)
+                    )
+                ),
+                total_responses=Count(
+                    Case(
+                        When(satisfaction__in=[1, -1], then=1)
+                    )
+                ),
+                total_cost=Sum(
+                    'cost'
+                ),
+                unique_users=Count('user_ip', distinct=True),
+                sessions=Count('session_id', distinct=True),
+                avg_cost_session = F('total_cost') / F('sessions'),
+
+
+            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'unique_users', 'sessions' ,'avg_cost_session')
+       
+            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)  
+              
+        except Exception as e:
+            return handle_exception(e)
+
+class AppConversations(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user_id = request.user.id
+            app_id = request.GET.get('app_id')
+            hash_id = request.GET.get('hash_id')
+
+            # Base query for user's runs
+            query = Run.objects.filter(owner_id=user_id)
+
+            # Filter by app_id or hash_id if provided
+            if app_id:
+                query = query.filter(ma_id=app_id)
+            elif hash_id:
+                query = query.filter(app_hash_id=hash_id)
+
+            # Step 1: Add annotations for satisfaction and model mode
+            conversations = query.values('session_id').annotate(
+                start_time=Min('timestamp'),
+                total_cost=Sum('cost'),
+                messages_count=Count('id')
+            )
+
+            # Step 2: For satisfaction and ai_model, calculate mode separately
+            for conversation in conversations:
+                session_id = conversation['session_id']
+
+                # Calculate mode for 'satisfaction'
+                satisfaction_mode = (
+                    query.filter(
+                        session_id=session_id,
+                        satisfaction__isnull=False,  # Exclude NULL values
+                        satisfaction__in=[1, -1]     # Only consider valid satisfaction values
+                    )
+                    .values('satisfaction')
+                    .annotate(count=Count('satisfaction'))
+                    .order_by('-count', 'satisfaction')
+                    .first()
+                )
+                conversation['satisfaction'] = satisfaction_mode['satisfaction'] if satisfaction_mode else None
+
+                # Calculate mode for 'ai_model'
+                model_mode = (
+                    query.filter(session_id=session_id)
+                    .values('ai_model')
+                    .annotate(count=Count('ai_model'))
+                    .order_by('-count', 'ai_model')  # Secondary order by 'ai_model' for consistency
+                    .first()
+                )
+                conversation['model'] = model_mode['ai_model'] if model_mode else None
+
+            # Step 3: Order by start_time
+            conversations = sorted(conversations, key=lambda x: x['start_time'], reverse=True)
+
+            return Response(
+                {"data": conversations, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return handle_exception(e)
+
+class AppConversationDetails(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            session_id = request.GET.get('session_id')
+            if not session_id:
+                return Response(
+                    error.FIELD_MISSING,
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Get the conversation details, but only if user is the owner
+            conversation = Run.objects.filter(
+                session_id=session_id,
+                owner_id=request.user.id
+            ).values(
+                'timestamp',
+                'system_prompt',
+                'phase_instructions',
+                'user_prompt',
+                'response',
+                'rubric',
+                'run_score',
+                'run_passed'
+            ).order_by('timestamp')
+
+            if not conversation.exists():
+                return Response(
+                    {"error": "Conversation not found or you don't have permission to view it", 
+                     "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            return Response(
+                {"data": list(conversation), "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK
+            )
+
+        except Exception as e:
+            return handle_exception(e)
