@@ -475,6 +475,7 @@ class RunList(APIView):
     app_hash_id = ""
     response_type = ""
     price_scale = ""
+    credits = 0
 
     def check_payload(self, data, request):
             try:
@@ -556,14 +557,13 @@ class RunList(APIView):
     # hardcoded credits calculation
     def calculate_credits(self):
         try:
-            credits = 0
             if self.response_type == "AI":
-                credits = 10
+                self.credits = 10
                 if self.ai_score != "":
-                    credits = 20
+                    self.credits = 20
             else:
-                credits = 5
-            return credits
+                self.credits = 5
+            return self.credits
         except Exception as e:
             pass
     
@@ -694,7 +694,7 @@ class RunList(APIView):
                 serialize = serializer.save()
                 self.update_user_credits(serialize.id, request.user.id)
                 run_data["id"] = serialize.id
-                # run_data["credits"] = self.credits
+                run_data["credits"] = self.credits
 
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
