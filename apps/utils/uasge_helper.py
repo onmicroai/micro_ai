@@ -103,11 +103,14 @@ class RunUsage:
         return limit > total_cost
     
 class MicroAppUasge:
-
     @staticmethod
     def microapp_related_info(user_id):
         subscription = subscription_details(user_id)
-        userapps = MicroAppUserJoin.objects.filter(user_id=user_id, role="owner").aggregate(count = Count("id"))
+        userapps = MicroAppUserJoin.objects.filter(
+            user_id = user_id, 
+            role = "owner", 
+            counts_toward_max = True, 
+            is_archived = False).aggregate(count = Count("id"))
         if subscription and subscription["status"] == "active":
             plans = Plan.objects.get(djstripe_id=subscription["plan"])
             plan_data = PlansSerializer(plans)

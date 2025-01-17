@@ -30,14 +30,14 @@ from apps.microapps.serializer import (
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
 from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
-from apps.utils.global_varibales import AIModelConstants, MicroappVariables
+from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 from apps.subscriptions.models import BillingCycle, UsageEvent
-from apps.subscriptions.serializers import UsageEventSerializer
+from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -58,9 +58,9 @@ def handle_exception(e):
 class MicroAppList(APIView):
     permission_classes = [IsAuthenticated]
 
-    def add_microapp_user(self, uid, microapp):
+    def add_microapp_user(self, uid, microapp, max_count):
         try:
-            data = {"role": MicroappVariables.APP_OWNER, "ma_id": microapp.id, "user_id": uid}
+            data = {"role": MicroappVariables.APP_OWNER, "ma_id": microapp.id, "user_id": uid, "counts_toward_max": max_count}
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
@@ -104,7 +104,7 @@ class MicroAppList(APIView):
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
                         microapp = serializer.save()
-                        self.add_microapp_user(uid=request.user.id, microapp=microapp)
+                        self.add_microapp_user(uid=request.user.id, microapp=microapp, max_count = True)
                         self.add_collection_microapp(cid,microapp)
                         return Response(
                             {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -267,7 +267,7 @@ class CloneMicroApp(APIView):
                     if serializer.is_valid():
                         new_microapp = serializer.save()
                         micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp)
+                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
                         micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
                         return Response(
                             {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
@@ -557,12 +557,12 @@ class RunList(APIView):
     # hardcoded credits calculation
     def calculate_credits(self):
         try:
-            if self.response_type == "AI":
-                self.credits = 10
-                if self.ai_score != "":
-                    self.credits = 20
-            else:
-                self.credits = 5
+            if self.response_type == "AI": # handler for default response
+                self.credits = SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
+                if self.ai_score != "": # handler for score response
+                    self.credits = SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            else:   # handler for ai respone (skip, hardcoded, no-submission)
+                self.credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
             return self.credits
         except Exception as e:
             pass
@@ -575,16 +575,13 @@ class RunList(APIView):
                 credit_charged = self.calculate_credits()  
                 usage_event_data = {"billing_cycle": billing_cycle[0].id, "user": user_id, "run_id": run_id, "credits_charged": credit_charged, "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
                 serializer = UsageEventSerializer(data = usage_event_data)
-                
                 if serializer.is_valid():
                     serializer.save()
                     updated_credits_used = billing_cycle[0].credits_used + credit_charged
                     updated_credits_remaining = billing_cycle[0].credits_remaining - credit_charged
                     billing_cycle.update(credits_used = updated_credits_used, credits_remaining = updated_credits_remaining)
-                    return True
-                
+                    return True                
                 log.error(serializer.error)
-
             return False
         except Exception as e:
             log.error(e)
@@ -920,3 +917,18 @@ class MicroAppVisibility(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
+)
+class BillingDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, format=None):
+        billing_details = BillingCycle.objects.filter(user = request.user.id)
+        serializer = BillingDetailsSerializer(billing_details, many = True)
+        if billing_details:
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
+        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
+

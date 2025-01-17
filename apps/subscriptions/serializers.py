@@ -84,3 +84,9 @@ class UsageEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = UsageEvent
         fields = '__all__'
+
+class BillingDetailsSerializer(serializers.ModelSerializer):
+
+    class Meta:
+        model = BillingCycle
+        fields = '__all__'
