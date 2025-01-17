@@ -22,78 +22,162 @@ class AIModelVariables:
     CLAUDE_USER_DUMMY_MESSAGE_LAST = {"role": "user", "content": "your thoughts on this"}
 
 class AIModelConstants:
-
-    GPT_CONSTANTS = [
-        {
-        "model_name": env("OPENAI_MODEL_NAME"),
-        "frequency_penalty_min": -2,
-        "frequency_penalty_max": 2,
-        "presence_penalty_min": -2,
-        "presence_penalty_max": 2,
-        "top_p_min": 0,
-        "top_p_max": 1,
-        "temperature_min": 0,
-        "temperature_max": 2,
-        "max_tokens_default": 500,
-        "input_token_price": .15,
-        "output_token_price": .60,
-        "price_scale": 1_000_000,
-        "api_key": env("OPENAI_API_KEY")
+    AI_MODELS = {
+        "gpt-4o-mini": {
+            "family": "openai",
+            "model": "gpt-4o-mini",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": -2,
+            "frequency_penalty_max": 2,
+            "presence_penalty_min": -2,
+            "presence_penalty_max": 2,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": False,
+            "input_token_price": 0.15,
+            "output_token_price": 0.60,
+            "price_scale": 1_000_000,
+            "api_key": env("OPENAI_API_KEY")
+        },
+        "gpt-4o": {
+            "family": "openai",
+            "model": "gpt-4o",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": -2,
+            "frequency_penalty_max": 2,
+            "presence_penalty_min": -2,
+            "presence_penalty_max": 2,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": True,
+            "input_token_price": 2.5,
+            "output_token_price": 10,
+            "price_scale": 1_000_000,
+            "api_key": env("OPENAI_API_KEY")
+        },
+        "gemini-1.5-flash": {
+            "family": "gemini",
+            "model": "gemini-1.5-flash",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": 0,
+            "frequency_penalty_max": 0,
+            "presence_penalty_min": 0,
+            "presence_penalty_max": 0,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": False,
+            "input_token_price": 0.15,
+            "output_token_price": 0.60,
+            "price_scale": 1_000_000,
+            "api_key": env("GEMINI_API_KEY")
+        },
+        "gemini-2.0-flash-exp": {
+            "family": "gemini",
+            "model": "gemini-2.0-flash-exp",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": 0,
+            "frequency_penalty_max": 0,
+            "presence_penalty_min": 0,
+            "presence_penalty_max": 0,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": False,
+            "input_token_price": 0.15,
+            "output_token_price": 0.60,
+            "price_scale": 1_000_000,
+            "api_key": env("GEMINI_API_KEY")
+        },
+        "gemini-1.5-pro": {
+            "family": "gemini",
+            "model": "gemini-1.5-pro",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": 0,
+            "frequency_penalty_max": 0,
+            "presence_penalty_min": 0,
+            "presence_penalty_max": 0,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,        
+            "supports_image": True,
+            "input_token_price": 2.5,
+            "output_token_price": 10.00,
+            "price_scale": 1_000_000,
+            "api_key": env("GEMINI_API_KEY")
+        },   
+        "claude-3-5-haiku-20241022": {
+            "family": "anthropic",
+            "model": "claude-3-5-haiku-20241022",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 1,        
+            "supports_image": True,
+            "input_token_price": .80,
+            "output_token_price": 4.00,
+            "price_scale": 1_000_000,
+            "api_key": env("CLAUDE_API_KEY")
+        }, 
+        "claude-3-5-sonnet-20241022": {
+            "family": "anthropic",
+            "model": "claude-3-5-sonnet-20241022",
+            "max_tokens": 1000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 0.95,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 1,        
+            "supports_image": True,
+            "input_token_price": 3.75,
+            "output_token_price": 15.00,
+            "price_scale": 1_000_000,
+            "api_key": env("CLAUDE_API_KEY")
+        }, 
     }
-    ]
-    GEMINI_CONSTANTS =[
-        {
-        "model_name": env("GEMINI_MODEL_NAME"),
-        "frequency_penalty_min": 0,
-        "frequency_penalty_max": 0,
-        "presence_penalty_min": 0,
-        "presence_penalty_max": 0,
-        "top_p_min": 0,
-        "top_p_max": 1,
-        "temperature_min": 0,
-        "temperature_max": 2,
-        "max_tokens_default": 500,
-        "input_token_price": 0.15,
-        "output_token_price": 0.0375,
-        "price_scale": 1_000_000,
-        "api_key": env("GEMINI_API_KEY")
-    }
-    ]
-    CLAUDE_CONSTANTS =[
-        {
-        "model_name": env("CLAUDE_MODEL_NAME"),
-        "frequency_penalty_min": 0,
-        "frequency_penalty_max": 0,
-        "presence_penalty_min": 0,
-        "presence_penalty_max": 0,
-        "top_p_min": 0,
-        "top_p_max": 1,
-        "temperature_min": 0,
-        "temperature_max": 1,
-        "max_tokens_default": 500,
-        "input_token_price": 3,
-        "output_token_price": 15,
-        "price_scale": 1_000_000,
-        "api_key": env("CLAUDE_API_KEY")
-    }
-    ]
 
     @staticmethod
     def get_configs(model_name):
-        if "gpt" in model_name:
-            for object in AIModelConstants.GPT_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
-        elif "gemini" in model_name:
-            for object in AIModelConstants.GEMINI_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
-        elif "claude" in model_name:
-            for object in AIModelConstants.CLAUDE_CONSTANTS:
-                if object["model_name"] == model_name:
-                    return object
-                
-        return False
+        return AIModelConstants.AI_MODELS.get(model_name, False)
+
     
 class UsageVariables:
     # Plan names
