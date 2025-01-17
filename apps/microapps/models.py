@@ -19,7 +19,7 @@ import uuid
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
-
+from django.db import transaction
 
 def handle_exception(e):
     log.error(e)
@@ -109,12 +109,16 @@ class Microapp(models.Model):
         super().save(*args, **kwargs)
 
     def archive(self):
-        self.is_archived = True
-        self.save()
+        with transaction.atomic():
+            self.is_archived = True
+            self.save()
+            MicroAppUserJoin.objects.filter(ma_id=self.id).update(is_archived=True)
 
     def unarchive(self):
-        self.is_archived = False
-        self.save()
+        with transaction.atomic():
+            self.is_archived = False
+            self.save()
+            MicroAppUserJoin.objects.filter(ma_id=self.id).update(is_archived=False)
 
     def __str__(self):
         return self.title
@@ -128,12 +132,22 @@ class MicroAppUserJoin(models.Model):
         (OWNER, 'Owner')
     ]
 
-    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
-    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    ma_id = models.ForeignKey(Microapp, on_delete = models.CASCADE)
+    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
+    role = models.CharField(max_length = 10, choices = ROLE_CHOICES)
+    counts_toward_max = models.BooleanField(default = False)
+    is_archived = models.BooleanField(default = False)
 
     def __str__(self):
         return f"{self.user_id} {self.role}"
+    
+    def archive(self):
+        self.is_archived = True
+        self.save()
+
+    def unarchive(self):
+        self.is_archived = False
+        self.save()
 
 class Asset(models.Model):
     file = models.TextField()
