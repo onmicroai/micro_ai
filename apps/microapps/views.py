@@ -29,7 +29,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
-from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
+from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionUserJoin
@@ -102,7 +102,7 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid is not None and isinstance(cid, int)):
-                if MicroAppUasge.microapp_related_info(request.user.id):
+                if MicroAppUsage.microapp_related_info(request.user.id):
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
                         microapp = serializer.save()
@@ -257,7 +257,7 @@ class CloneMicroApp(APIView):
                 )
 
             if collection_id:
-                if MicroAppUasge.microapp_related_info(request.user.id):
+                if MicroAppUsage.microapp_related_info(request.user.id):
                     # Instead of using model_to_dict, use the serializer to get the data
                     original_data = MicroAppSerializer(microapp).data
                     # Remove the fields we don't want to copy

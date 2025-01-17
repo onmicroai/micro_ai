@@ -102,22 +102,39 @@ class RunUsage:
         total_cost = RunUsage.cost_calculation(self, user_id, start_date, end_date)
         return limit > total_cost
     
-class MicroAppUasge:
+class MicroAppUsage:
     @staticmethod
     def microapp_related_info(user_id):
+        # Get user's subscription details if they exist
         subscription = subscription_details(user_id)
+        
+        # Count how many active microapps the user owns
+        # Filters for:
+        # - apps owned by this user
+        # - where they are the owner (not just a collaborator)
+        # - apps that count towards their usage limit
+        # - non-archived apps
         userapps = MicroAppUserJoin.objects.filter(
             user_id = user_id, 
             role = "owner", 
             counts_toward_max = True, 
             is_archived = False).aggregate(count = Count("id"))
+
+        # If user has an active subscription
         if subscription and subscription["status"] == "active":
+            # Get the plan details
             plans = Plan.objects.get(djstripe_id=subscription["plan"])
             plan_data = PlansSerializer(plans)
+            
+            # If user is on a free plan (monthly or yearly)
             if plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_MONTH or plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
+                # Check if they're under the free plan limit
                 return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT  
             else:
+                # For paid plans (Individual/Enterprise), no limit on microapps
                 return True
+                
+        # No active subscription - treat as free plan
         return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT
 
 class GuestUsage:
