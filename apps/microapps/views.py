@@ -729,14 +729,19 @@ class AIModelRoute:
    def get_ai_model(model_name):
         try:
             model_config = AIModelConstants.get_configs(model_name)
-            if "gpt" in model_name and model_config:
-                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config} 
-            elif "gemini" in model_name and model_config:
-                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config} 
-            elif "claude" in model_name and model_config:
-                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
-            else:
+            if not model_config:
                 return False
+                
+            model_family = model_config["family"]
+            if model_family == "openai":
+                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config}
+            elif model_family == "gemini":
+                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config}
+            elif model_family == "anthropic":
+                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
+            
+            return False
+            
         except Exception as e:
            return handle_exception(e) 
    
@@ -747,15 +752,20 @@ class AIModelConfigurations(APIView):
         responses={200: str},
         summary="Get available AI models configuration"
     )
-
-    def get(self, request, format = None):
+    def get(self, request, format=None):
         try:
-            models = [
-            {"model": env("OPENAI_MODEL_NAME"), "friendly_name": "Gpt", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("GEMINI_MODEL_NAME"), "friendly_name": "Gemini", "temperature_range": {"min": 0, "max": 2}},
-            {"model": env("CLAUDE_MODEL_NAME"), "friendly_name": "Claude Opus", "temperature_range": {"min": 0, "max": 1}}]
+            models = []
+            for model_name, config in AIModelConstants.AI_MODELS.items():
+                models.append({
+                    "model": model_name,
+                    "friendly_name": config["model"],
+                    "temperature_range": {
+                        "min": config["temperature_min"],
+                        "max": config["temperature_max"]
+                    }
+                })
 
-            return Response({"data": models, "status": status.HTTP_200_OK}, status = status.HTTP_200_OK)
+            return Response({"data": models, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 
