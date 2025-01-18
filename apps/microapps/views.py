@@ -501,11 +501,21 @@ class RunList(APIView):
             except Exception as e:
                 log.error(e)
 
-    def route_api_response(self, response, data, api_params,model, app_owner_id, ip):
-       try:
+    def route_api_response(self, response, data, api_params, model, app_owner_id, ip):
+        try:
             usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
+
+            # Get credits directly from the response
+            credits = response["credits"]  # This should be the value calculated by model.calculate_credits
+            if self.response_type == "AI" and self.ai_score != "":
+                credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            elif self.response_type != "AI":
+                credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
+
+            self.credits = credits  # Store for later use in update_user_credits
+
             run_data = {
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
@@ -527,7 +537,7 @@ class RunList(APIView):
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
-                "credits": 0,
+                "credits": credits,  # Use the credits value directly
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
                 "price_output_token_1M": response["price_output_token_1M"],
@@ -542,40 +552,49 @@ class RunList(APIView):
                 "app_hash_id": self.app_hash_id,
                 "response_type": self.response_type,
                 "price_scale": self.price_scale
-                }
+            }
             return run_data
-       except Exception as e:
+        except Exception as e:
             log.error(e)
+            log.error(f"Response data: {response}")
 
     def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     # hardcoded credits calculation
-    def calculate_credits(self):
+    def calculate_credits(self, usage):
         try:
-            if self.response_type == "AI": # handler for default response
-                self.credits = SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
-                if self.ai_score != "": # handler for score response
-                    self.credits = SubscriptionVariables.SCORE_RESPONSE_CREDIT
-            else:   # handler for ai respone (skip, hardcoded, no-submission)
+            if self.response_type == "AI":  # handler for AI responses
+                # Use the credits already calculated by the model
+                self.credits = int(usage.get("credits", 0))  # Ensure integer and handle missing key
+                if self.ai_score != "":  # Add extra credits for scoring
+                    self.credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            else:   # handler for non-AI responses (skip, hardcoded, no-submission)
                 self.credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
             return self.credits
         except Exception as e:
-            pass
+            log.error(e)
+            return 0  # Return a default value in case of error
     
     def update_user_credits(self, run_id, user_id):
         try:
             billing_cycle = BillingCycle.objects.filter(user = user_id, status = "open")
 
             if billing_cycle:
-                credit_charged = self.calculate_credits()  
-                usage_event_data = {"billing_cycle": billing_cycle[0].id, "user": user_id, "run_id": run_id, "credits_charged": credit_charged, "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+                credit_charged = self.credits  # Use the already calculated credits stored in self.credits
+                usage_event_data = {
+                    "billing_cycle": billing_cycle[0].id, 
+                    "user": user_id, 
+                    "run_id": run_id, 
+                    "credits_charged": credit_charged, 
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
                 serializer = UsageEventSerializer(data = usage_event_data)
                 if serializer.is_valid():
                     serializer.save()
@@ -676,6 +695,7 @@ class RunList(APIView):
                 })
                 response.update({
                     "cost": model.calculate_cost(response),
+                    "credits": model.calculate_credits(response),
                     "price_input_token_1M": model.calculate_input_token_price(response),
                     "price_output_token_1M": model.calculate_output_token_price(response)
                 })
