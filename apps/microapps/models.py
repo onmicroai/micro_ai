@@ -216,6 +216,10 @@ class Run(models.Model):
     # Calculated by the backend by multiplying the number of input and output tokens by the price per 1M input and output tokens for the AI model. 
     cost = models.DecimalField(max_digits=20, decimal_places=6)
 
+    # The number of credits used for the run. 
+    # Calculated by the backend by dividing the cost by the price per credit. 
+    credits = models.IntegerField()
+
     # If true, then no prompt is sent to AI. Typically, this is used when the response is defined in the microapp. 
     no_submission = models.BooleanField()
 
@@ -372,6 +376,9 @@ class BaseAIModel:
 
     def calculate_cost(self, usage):
         pass
+
+    def calculate_credits(self, cost):
+        pass
     
     def calculate_input_token_price(self, usage):
         pass
@@ -402,13 +409,15 @@ class GPTModel(BaseAIModel):
             usage = response.usage
             ai_response = response.choices[0].message.content
             calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
+            cost = self.calculate_cost(calculation)
             return {"status": True,
                     "data": {
                         "completion_tokens": usage.completion_tokens,
                         "prompt_tokens": usage.prompt_tokens,
                         "total_tokens": usage.total_tokens,
                         "ai_response": ai_response,
-                        "cost": self.calculate_cost(calculation),
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
                         "price_input_token_1M": self.calculate_input_token_price(calculation),
                         "price_output_token_1M": self.calculate_output_token_price(calculation)
                     }}
@@ -450,6 +459,13 @@ class GPTModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
@@ -544,13 +560,15 @@ class GeminiModel(BaseAIModel):
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
             calculation = { "completion_tokens":usage.candidates_token_count,"prompt_tokens": usage.prompt_token_count,"total_tokens": usage.total_token_count}
+            cost = self.calculate_cost(calculation)
             return {"status": True,
                     "data": {
                         "completion_tokens":usage.candidates_token_count,
                         "prompt_tokens": usage.prompt_token_count,
                         "total_tokens": usage.total_token_count,
                         "ai_response": ai_response,
-                        "cost": self.calculate_cost(calculation),
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
                         "price_input_token_1M": self.calculate_input_token_price(calculation),
                         "price_output_token_1M": self.calculate_output_token_price(calculation)
                     }}
@@ -596,6 +614,13 @@ class GeminiModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
@@ -690,13 +715,15 @@ class ClaudeModel(BaseAIModel):
             ai_response = message_data.content[0].text
             usage = message_data.usage
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
+            cost = self.calculate_cost(calculation)
             return {"status": True,
                     "data": {
                         "completion_tokens": usage.output_tokens,
                         "prompt_tokens": usage.input_tokens,
                         "total_tokens": usage.input_tokens + usage.output_tokens,
                         "ai_response": ai_response,
-                        "cost": self.calculate_cost(calculation),
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
                         "price_input_token_1M": self.calculate_input_token_price(calculation),
                         "price_output_token_1M": self.calculate_output_token_price(calculation)
                     }}
@@ -744,6 +771,13 @@ class ClaudeModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
