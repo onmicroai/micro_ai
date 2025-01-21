@@ -511,6 +511,8 @@ class RunList(APIView):
             credits = response["credits"]  # This should be the value calculated by model.calculate_credits
             if self.response_type == "AI" and self.ai_score != "":
                 credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            elif self.response_type == "AI" and self.ai_score == "":
+                credits += SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
             elif self.response_type != "AI":
                 credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
 
@@ -695,9 +697,11 @@ class RunList(APIView):
                 })
                 response.update({
                     "cost": model.calculate_cost(response),
-                    "credits": model.calculate_credits(response),
                     "price_input_token_1M": model.calculate_input_token_price(response),
                     "price_output_token_1M": model.calculate_output_token_price(response)
+                })
+                response.update({
+                    "credits": model.calculate_credits(response["cost"]),
                 })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
@@ -966,23 +970,6 @@ class BillingDetails(APIView):
             return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
         return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-
-
-
-@extend_schema_view(
-    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
-)
-class BillingDetails(APIView):
-    permission_classes = [IsAuthenticated]
-    def get(self, request, format=None):
-        billing_details = BillingCycle.objects.filter(user = request.user.id)
-        serializer = BillingDetailsSerializer(billing_details, many = True)
-        if billing_details:
-            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-
-        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-
-
 
 @extend_schema_view(
     get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
