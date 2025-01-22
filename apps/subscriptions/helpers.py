@@ -18,6 +18,7 @@ from apps.teams.models import Team
 from apps.users.models import CustomUser
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
+from django.conf import settings
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -84,11 +85,33 @@ def create_stripe_checkout_session(
 ) -> CheckoutSession:
     stripe = get_stripe_module()
     success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
-
     cancel_url = absolute_url(reverse("subscriptions_team:checkout_canceled", args=[subscription_holder.slug]))
 
     customer_kwargs = {}
-    if subscription_holder.customer:
+    subscription_data = {
+        "description": str(subscription_holder),
+        "metadata": get_checkout_metadata(subscription_holder, user),
+    }
+
+    # Add test clock for development
+    if not settings.STRIPE_LIVE_MODE:
+        # Create or retrieve a test clock
+        test_clock = stripe.test_helpers.TestClock.create(
+            frozen_time=int(timezone.now().timestamp())
+        )
+        
+        # Create a new customer with the test clock if one doesn't exist
+        if not subscription_holder.customer:
+            customer = stripe.Customer.create(
+                email=user.email,
+                test_clock=test_clock.id,
+                metadata={"team_id": subscription_holder.id}
+            )
+            customer_kwargs["customer"] = customer.id
+        else:
+            customer_kwargs["customer"] = subscription_holder.customer.id
+
+    elif subscription_holder.customer:
         customer_kwargs["customer"] = subscription_holder.customer.id
 
     checkout_session = stripe.checkout.Session.create(
@@ -104,10 +127,7 @@ def create_stripe_checkout_session(
             }
         ],
         allow_promotion_codes=True,
-        subscription_data={
-            "description": str(subscription_holder),
-            "metadata": get_checkout_metadata(subscription_holder, user),
-        },
+        subscription_data=subscription_data,
         metadata={
             "source": "subscriptions",
         },
