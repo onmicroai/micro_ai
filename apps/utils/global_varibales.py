@@ -184,10 +184,10 @@ class UsageVariables:
     FREE_PLAN = "free"
     INDIVIDUAL_PLAN = "individual"
     ENTERPRISE_PLAN = "enterprise"
-    # Plan limits
-    FREE_PLAN_LIMIT = 3
-    INDIVIDUAL_PLAN_LIMIT = 10
-    ENTERPRISE_PLAN_LIMIT = 40
+    # Plan limits in credits
+    FREE_PLAN_CREDIT_LIMIT = 10000
+    INDIVIDUAL_PLAN_CREDIT_LIMIT = 100000
+    ENTERPRISE_PLAN_CREDIT_LIMIT = 400000
     # Default values
     DEFAULT_PLAN_ID = 1
     DEFAULT_TOTAL_COST = 0
@@ -201,3 +201,9 @@ class UsageVariables:
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
     # Guest Users
     GUEST_USER_SESSION_LIMIT = 3
+
+class SubscriptionVariables:
+    DEFAULT_BILLING_CYCLE_STATUS = "open"
+    HARDCODED_RESPONSE_CREDIT = 5
+    DEFAULT_RESPONSE_CREDIT = 10
+    SCORE_RESPONSE_CREDIT = 20

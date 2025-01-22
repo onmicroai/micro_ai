@@ -21,4 +21,5 @@ urlpatterns = [
     path('stats/run', views.AppStatistics.as_view(), name="app_stats"),
     path('stats/conversations', views.AppConversations.as_view(), name="app_conversations"),
     path('stats/conversation-details', views.AppConversationDetails.as_view(), name="conversation_details"),
+    path('user/billing', views.BillingDetails.as_view(), name = "usage_details")
 ]

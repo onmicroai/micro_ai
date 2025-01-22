@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from apps.utils.custom_error_message import ErrorMessages as error
 from rest_framework import status
 from apps.utils.global_varibales import AIModelVariables, MicroappVariables
+import openai
 from openai import OpenAI
 import google.generativeai as genai
 from anthropic import Anthropic
@@ -18,7 +19,7 @@ import uuid
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
-
+from django.db import transaction
 
 def handle_exception(e):
     log.error(e)
@@ -27,6 +28,8 @@ def handle_exception(e):
         status=status.HTTP_500_INTERNAL_SERVER_ERROR,
     )
 
+def handle_functional_exception(e):
+    log.error(e)
 
 class Microapp(models.Model):
 
@@ -106,12 +109,16 @@ class Microapp(models.Model):
         super().save(*args, **kwargs)
 
     def archive(self):
-        self.is_archived = True
-        self.save()
+        with transaction.atomic():
+            self.is_archived = True
+            self.save()
+            MicroAppUserJoin.objects.filter(ma_id=self.id).update(is_archived=True)
 
     def unarchive(self):
-        self.is_archived = False
-        self.save()
+        with transaction.atomic():
+            self.is_archived = False
+            self.save()
+            MicroAppUserJoin.objects.filter(ma_id=self.id).update(is_archived=False)
 
     def __str__(self):
         return self.title
@@ -125,12 +132,22 @@ class MicroAppUserJoin(models.Model):
         (OWNER, 'Owner')
     ]
 
-    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
-    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    role = models.CharField(max_length=10, choices=ROLE_CHOICES)
+    ma_id = models.ForeignKey(Microapp, on_delete = models.CASCADE)
+    user_id = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
+    role = models.CharField(max_length = 10, choices = ROLE_CHOICES)
+    counts_toward_max = models.BooleanField(default = False)
+    is_archived = models.BooleanField(default = False)
 
     def __str__(self):
         return f"{self.user_id} {self.role}"
+    
+    def archive(self):
+        self.is_archived = True
+        self.save()
+
+    def unarchive(self):
+        self.is_archived = False
+        self.save()
 
 class Asset(models.Model):
     file = models.TextField()
@@ -198,6 +215,10 @@ class Run(models.Model):
     # The cost in USD the run. 
     # Calculated by the backend by multiplying the number of input and output tokens by the price per 1M input and output tokens for the AI model. 
     cost = models.DecimalField(max_digits=20, decimal_places=6)
+
+    # The number of credits used for the run. 
+    # Calculated by the backend by dividing the cost by the price per credit. 
+    credits = models.IntegerField()
 
     # If true, then no prompt is sent to AI. Typically, this is used when the response is defined in the microapp. 
     no_submission = models.BooleanField()
@@ -355,6 +376,9 @@ class BaseAIModel:
 
     def calculate_cost(self, usage):
         pass
+
+    def calculate_credits(self, cost):
+        pass
     
     def calculate_input_token_price(self, usage):
         pass
@@ -385,17 +409,22 @@ class GPTModel(BaseAIModel):
             usage = response.usage
             ai_response = response.choices[0].message.content
             calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
-            return {
-                "completion_tokens": usage.completion_tokens,
-                "prompt_tokens": usage.prompt_tokens,
-                "total_tokens": usage.total_tokens,
-                "ai_response": ai_response,
-                "cost": self.calculate_cost(calculation),
-                "price_input_token_1M": self.calculate_input_token_price(calculation),
-                "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            cost = self.calculate_cost(calculation)
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.completion_tokens,
+                        "prompt_tokens": usage.prompt_tokens,
+                        "total_tokens": usage.total_tokens,
+                        "ai_response": ai_response,
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
+        
         except Exception as e:
-            return handle_exception(e)
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
 
     def score_response(self, api_params, minimum_score):
         try:
@@ -430,6 +459,13 @@ class GPTModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
@@ -524,17 +560,21 @@ class GeminiModel(BaseAIModel):
             usage = response.usage_metadata
             ai_response = response.candidates[0].content.parts[0].text
             calculation = { "completion_tokens":usage.candidates_token_count,"prompt_tokens": usage.prompt_token_count,"total_tokens": usage.total_token_count}
-            return {
-                    "completion_tokens":usage.candidates_token_count,
-                    "prompt_tokens": usage.prompt_token_count,
-                    "total_tokens": usage.total_token_count,
-                    "ai_response": ai_response,
-                    "cost": self.calculate_cost(calculation),
-                    "price_input_token_1M": self.calculate_input_token_price(calculation),
-                    "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            cost = self.calculate_cost(calculation)
+            return {"status": True,
+                    "data": {
+                        "completion_tokens":usage.candidates_token_count,
+                        "prompt_tokens": usage.prompt_token_count,
+                        "total_tokens": usage.total_token_count,
+                        "ai_response": ai_response,
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
         except Exception as e:
-             return handle_exception(e)
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
 
     def score_response(self, api_params, minimum_score):
         try:
@@ -574,6 +614,13 @@ class GeminiModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
@@ -668,18 +715,22 @@ class ClaudeModel(BaseAIModel):
             ai_response = message_data.content[0].text
             usage = message_data.usage
             calculation = {"completion_tokens": usage.output_tokens, "prompt_tokens": usage.input_tokens, "total_tokens": usage.input_tokens + usage.output_tokens,}
-            return {
-                "completion_tokens": usage.output_tokens,
-                "prompt_tokens": usage.input_tokens,
-                "total_tokens": usage.input_tokens + usage.output_tokens,
-                "ai_response": ai_response,
-                "cost": self.calculate_cost(calculation),
-                "price_input_token_1M": self.calculate_input_token_price(calculation),
-                "price_output_token_1M": self.calculate_output_token_price(calculation)
-            }
+            cost = self.calculate_cost(calculation)
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.output_tokens,
+                        "prompt_tokens": usage.input_tokens,
+                        "total_tokens": usage.input_tokens + usage.output_tokens,
+                        "ai_response": ai_response,
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
         except Exception as e:
-            return handle_exception(e)
-
+            handle_functional_exception(e)
+            return {"status": False, "error": "Inavlid payload"}
+        
     def score_response(self, api_params, minimum_score):
         try:
             response = self.client.messages.create(
@@ -720,6 +771,13 @@ class ClaudeModel(BaseAIModel):
         try:
             cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
             return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
         except Exception as e:
             return handle_exception(e)
     
