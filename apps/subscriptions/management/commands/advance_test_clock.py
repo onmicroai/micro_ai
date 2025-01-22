@@ -4,17 +4,6 @@ from django.utils import timezone
 from django.core.management import call_command
 from apps.utils.billing import get_stripe_module
 
-##COMMANDS TO ADVANCE TEST CLOCK
-# Advance 1 month (default)
-# docker exec web python manage.py advance_test_clock
-
-# Advance multiple months
-# docker exec web python manage.py advance_test_clock --months 3
-
-# Use a specific clock ID
-# docker exec web python manage.py advance_test_clock --clock-id clock_xxx
-
-
 class Command(BaseCommand):
     help = 'Advances a Stripe test clock and syncs the resulting data'
 
