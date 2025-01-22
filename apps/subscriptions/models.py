@@ -84,14 +84,31 @@ class SubscriptionModelBase(models.Model):
         # if you use "per-seat" billing, override this accordingly
         return 1
     
-class SubscriptionDetail(models.Model):
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete = models.CASCADE)
-    tier = models.CharField(max_length = 20)
-    max_apps = models.IntegerField()
-    base_credits_per_cycle = models.FloatField()
-    credit_pack_quantity = models.FloatField()
-    renewal_date = models.DateTimeField()
-    active = models.BooleanField()
+class SubscriptionConfiguration(models.Model):
+    """
+    Extends djstripe's Subscription model with additional configuration fields.
+    """
+    subscription = models.OneToOneField(
+        Subscription,
+        on_delete=models.CASCADE,
+        related_name='configuration'
+    )
+    max_apps = models.IntegerField(
+        help_text="Maximum number of apps allowed for this subscription"
+    )
+
+    def __str__(self):
+        return f"Configuration for {self.subscription.id}"
+
+    @classmethod
+    def get_max_apps(cls, subscription):
+        """
+        Helper method to get max_apps for a subscription, with fallback to default.
+        """
+        try:
+            return subscription.configuration.max_apps
+        except (AttributeError, cls.DoesNotExist):
+            return 0  # or whatever your default should be
 
 class BillingCycle(models.Model):
     Status_Choice = [

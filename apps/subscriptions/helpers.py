@@ -184,6 +184,15 @@ def provision_subscription(subscription_holder: Team, subscription_id: str) -> S
     if not subscription_holder.customer:
         subscription_holder.customer = djstripe_subscription.customer
         subscription_holder.save()
+    
+    # Get the product from the first subscription item
+    if djstripe_subscription.items.exists():
+        subscription_item = djstripe_subscription.items.first()
+        product = subscription_item.price.product
+        # Get max_apps from product metadata, default to 0 if not set
+        max_apps = int(product.metadata.get('max_apps', 0))
+        set_subscription_max_apps(djstripe_subscription, max_apps)
+    
     return djstripe_subscription
 
 
@@ -195,3 +204,28 @@ def cancel_subscription(subscription_id: str):
             log.error("Error deleting Stripe subscription: %s", e.user_message)
     else:
         Subscription.sync_from_stripe_data(subscription)
+
+
+def set_subscription_max_apps(subscription: Subscription, max_apps: int) -> None:
+    """
+    Sets the max_apps configuration for a subscription.
+    Creates the configuration if it doesn't exist.
+    """
+    from .models import SubscriptionConfiguration
+    
+    config, _ = SubscriptionConfiguration.objects.get_or_create(
+        subscription=subscription,
+        defaults={'max_apps': max_apps}
+    )
+    if config.max_apps != max_apps:
+        config.max_apps = max_apps
+        config.save()
+
+
+def get_subscription_max_apps(subscription: Subscription) -> int:
+    """
+    Gets the max_apps configuration for a subscription.
+    Returns 0 if no configuration exists.
+    """
+    from .models import SubscriptionConfiguration
+    return SubscriptionConfiguration.get_max_apps(subscription)
