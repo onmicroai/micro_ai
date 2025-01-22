@@ -1150,3 +1150,27 @@ class AppConversationDetails(APIView):
 
         except Exception as e:
             return handle_exception(e)
+
+class AppQuota(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Get usage info from MicroAppUsage
+            usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+            
+            # Calculate remaining apps
+            remaining_apps = usage_info["limit"] - usage_info["current_count"]
+            
+            return Response({
+                "data": {
+                    "limit": usage_info["limit"],
+                    "used": usage_info["current_count"],
+                    "remaining": remaining_apps,
+                    "can_create": usage_info["can_create"]
+                },
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+            
+        except Exception as e:
+            return handle_exception(e)
