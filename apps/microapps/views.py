@@ -102,7 +102,8 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid is not None and isinstance(cid, int)):
-                if MicroAppUsage.microapp_related_info(request.user.id):
+                usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+                if usage_info["can_create"]:
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
                         microapp = serializer.save()
@@ -117,7 +118,7 @@ class MicroAppList(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 return Response(
-                    error.MICROAPP_USAGE_LIMIT_EXCEED,
+                    error.microapp_usage_limit_exceed(usage_info["limit"], usage_info["current_count"]),
                     status = status.HTTP_400_BAD_REQUEST
                 )
             return Response(
