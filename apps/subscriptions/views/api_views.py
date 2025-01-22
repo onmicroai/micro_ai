@@ -168,3 +168,44 @@ class ReportUsageAPI(APIView):
             })
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
+
+
+@extend_schema(tags=["subscriptions"])
+class ListUsageRecordsAPI(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+
+    def get(self, request):
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=401)
+        
+        if not request.team or not request.team.subscription:
+            return Response({"detail": "No active subscription found"}, status=404)
+
+        try:
+            subscription_item = SubscriptionItem.objects.get(
+                subscription=request.team.subscription,
+                price__recurring__usage_type="metered"
+            )
+        except SubscriptionItem.DoesNotExist:
+            return Response(
+                {"detail": "No metered subscription item found"}, 
+                status=404
+            )
+
+        stripe = get_stripe_module()
+        try:
+            # Get usage record summaries for the subscription item
+            usage_records = stripe.SubscriptionItem.list_usage_record_summaries(
+                subscription_item.id,
+                limit=100
+            )
+            return Response({
+                "subscription_item": subscription_item.id,
+                "usage_records": usage_records.data
+            })
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+
+
+# Add the new class to the imports at the top of the file
+__all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI']
