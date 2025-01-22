@@ -29,8 +29,8 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
-from apps.utils.uasge_helper import RunUsage, MicroAppUasge, GuestUsage, get_user_ip
-from apps.utils.global_varibales import AIModelConstants, MicroappVariables
+from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
+from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
@@ -38,6 +38,8 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
 from django.db.models.functions import Round
+from apps.subscriptions.models import BillingCycle, UsageEvent
+from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -58,9 +60,9 @@ def handle_exception(e):
 class MicroAppList(APIView):
     permission_classes = [IsAuthenticated]
 
-    def add_microapp_user(self, uid, microapp):
+    def add_microapp_user(self, uid, microapp, max_count):
         try:
-            data = {"role": MicroappVariables.APP_OWNER, "ma_id": microapp.id, "user_id": uid}
+            data = {"role": MicroappVariables.APP_OWNER, "ma_id": microapp.id, "user_id": uid, "counts_toward_max": max_count}
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 return serializer.save()
@@ -100,11 +102,11 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid is not None and isinstance(cid, int)):
-                if MicroAppUasge.microapp_related_info(request.user.id):
+                if MicroAppUsage.microapp_related_info(request.user.id):
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
                         microapp = serializer.save()
-                        self.add_microapp_user(uid=request.user.id, microapp=microapp)
+                        self.add_microapp_user(uid=request.user.id, microapp=microapp, max_count = True)
                         self.add_collection_microapp(cid,microapp)
                         return Response(
                             {"data": serializer.data, "status": status.HTTP_200_OK},
@@ -255,7 +257,7 @@ class CloneMicroApp(APIView):
                 )
 
             if collection_id:
-                if MicroAppUasge.microapp_related_info(request.user.id):
+                if MicroAppUsage.microapp_related_info(request.user.id):
                     # Instead of using model_to_dict, use the serializer to get the data
                     original_data = MicroAppSerializer(microapp).data
                     # Remove the fields we don't want to copy
@@ -267,7 +269,7 @@ class CloneMicroApp(APIView):
                     if serializer.is_valid():
                         new_microapp = serializer.save()
                         micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp)
+                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
                         micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
                         return Response(
                             {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
@@ -475,6 +477,7 @@ class RunList(APIView):
     app_hash_id = ""
     response_type = ""
     price_scale = ""
+    credits = 0
 
     def check_payload(self, data, request):
             try:
@@ -498,11 +501,23 @@ class RunList(APIView):
             except Exception as e:
                 log.error(e)
 
-    def route_api_response(self, response, data, api_params,model, app_owner_id, ip):
-       try:
+    def route_api_response(self, response, data, api_params, model, app_owner_id, ip):
+        try:
             usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
+
+            # Get credits directly from the response
+            credits = response["credits"]  # This should be the value calculated by model.calculate_credits
+            if self.response_type == "AI" and self.ai_score != "":
+                credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            elif self.response_type == "AI" and self.ai_score == "":
+                credits += SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
+            elif self.response_type != "AI":
+                credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
+
+            self.credits = credits  # Store for later use in update_user_credits
+
             run_data = {
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
@@ -524,7 +539,7 @@ class RunList(APIView):
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
-                "credits": 0,
+                "credits": credits,  # Use the credits value directly
                 "cost": response["cost"],
                 "price_input_token_1M": response["price_input_token_1M"],
                 "price_output_token_1M": response["price_output_token_1M"],
@@ -539,19 +554,61 @@ class RunList(APIView):
                 "app_hash_id": self.app_hash_id,
                 "response_type": self.response_type,
                 "price_scale": self.price_scale
-                }
+            }
             return run_data
-       except Exception as e:
+        except Exception as e:
             log.error(e)
+            log.error(f"Response data: {response}")
 
     def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+
+    # hardcoded credits calculation
+    def calculate_credits(self, usage):
+        try:
+            if self.response_type == "AI":  # handler for AI responses
+                # Use the credits already calculated by the model
+                self.credits = int(usage.get("credits", 0))  # Ensure integer and handle missing key
+                if self.ai_score != "":  # Add extra credits for scoring
+                    self.credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
+            else:   # handler for non-AI responses (skip, hardcoded, no-submission)
+                self.credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
+            return self.credits
+        except Exception as e:
+            log.error(e)
+            return 0  # Return a default value in case of error
+    
+    def update_user_credits(self, run_id, user_id):
+        try:
+            billing_cycle = BillingCycle.objects.filter(user = user_id, status = "open")
+
+            if billing_cycle:
+                credit_charged = self.credits  # Use the already calculated credits stored in self.credits
+                usage_event_data = {
+                    "billing_cycle": billing_cycle[0].id, 
+                    "user": user_id, 
+                    "run_id": run_id, 
+                    "credits_charged": credit_charged, 
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                serializer = UsageEventSerializer(data = usage_event_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    updated_credits_used = billing_cycle[0].credits_used + credit_charged
+                    updated_credits_remaining = billing_cycle[0].credits_remaining - credit_charged
+                    billing_cycle.update(credits_used = updated_credits_used, credits_remaining = updated_credits_remaining)
+                    return True                
+                log.error(serializer.error)
+            return False
+        except Exception as e:
+            log.error(e)
+            return False
 
     def post(self, request, format=None):
         try:
@@ -629,15 +686,23 @@ class RunList(APIView):
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
                 score_response = model.score_response(api_params, data.get("minimum_score"))
                 self.ai_score = score_response["ai_score"]
                 self.score_result = score_response["score_result"]
-                response["prompt_tokens"] += score_response["prompt_tokens"]
-                response["completion_tokens"] += score_response["completion_tokens"]
-                response["cost"] = model.calculate_cost(response)
-                response["price_input_token_1M"] = model.calculate_input_token_price(response)
-                response["price_output_token_1M"] = model.calculate_output_token_price(response)
+                response.update({
+                    "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
+                    "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
+                })
+                response.update({
+                    "cost": model.calculate_cost(response),
+                    "price_input_token_1M": model.calculate_input_token_price(response),
+                    "price_output_token_1M": model.calculate_output_token_price(response)
+                })
+                response.update({
+                    "credits": model.calculate_credits(response["cost"]),
+                })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
@@ -645,14 +710,19 @@ class RunList(APIView):
                 if not data.get("prompt"):
                     return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
+                if not response["status"]:
+                    return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+                response = response["data"]
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
-
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
                 serialize = serializer.save()
+                self.update_user_credits(serialize.id, request.user.id)
                 run_data["id"] = serialize.id
+                run_data["credits"] = self.credits
+
                 # Handle hardcoded phase response
                 if run_data["response"] == "":
                     return Response(
@@ -887,6 +957,19 @@ class MicroAppVisibility(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
+)
+class BillingDetails(APIView):
+    permission_classes = [IsAuthenticated]
+    def get(self, request, format=None):
+        billing_details = BillingCycle.objects.filter(user = request.user.id)
+        serializer = BillingDetailsSerializer(billing_details, many = True)
+        if billing_details:
+            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
+        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
 @extend_schema_view(
     get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
