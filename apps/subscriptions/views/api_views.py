@@ -46,15 +46,17 @@ class ProductsListAPI(APIView):
 
     @extend_schema(responses={200: ProductWithPriceSerializer(many=True)})
     def get(self, request):
-
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication credentials were not provided."}, status=401)
 
         products = Product.objects.filter(active=True).prefetch_related('prices')
         for product in products:
-            # Set the default price for each product (assuming one price per product for simplicity)
-            product.default_price = product.prices.first()
+            # Set the default price for each product (only considering active prices)
+            active_prices = [p for p in product.prices.all() if p.active]
+            product.default_price = active_prices[0] if active_prices else None
         
+        # Only return products that have at least one active price
+        products = [p for p in products if p.default_price]
         serializer = self.serializer_class(products, many=True)
         return Response(serializer.data)
 
