@@ -4,7 +4,8 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from djstripe.models import Product, Price
+from djstripe.models import Product, Price, SubscriptionItem
+from apps.utils.billing import get_stripe_module
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
 from apps.teams.decorators import team_admin_required
@@ -110,3 +111,60 @@ class CreatePortalSession(APIView):
             return Response(portal_session.url)
         except SubscriptionConfigError as e:
             return Response(str(e), status=500)
+
+
+class ReportUsageSerializer(rest_framework.serializers.Serializer):
+    quantity = rest_framework.serializers.IntegerField(min_value=1)
+    timestamp = rest_framework.serializers.IntegerField(required=False)  # Unix timestamp
+    action = rest_framework.serializers.CharField(required=False)  # Optional metadata
+
+
+@extend_schema(tags=["subscriptions"])
+class ReportUsageAPI(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    serializer_class = ReportUsageSerializer
+
+    @extend_schema(
+        operation_id="report_usage",
+        request=ReportUsageSerializer,
+        responses={200: None},
+    )
+    def post(self, request):
+        if not request.user.is_authenticated:
+            return Response({"detail": "Authentication required"}, status=401)
+        
+        if not request.team or not request.team.subscription:
+            return Response({"detail": "No active subscription found"}, status=404)
+
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        # Get the subscription item for metered billing
+        try:
+            subscription_item = SubscriptionItem.objects.get(
+                subscription=request.team.subscription,
+                price__recurring__usage_type="metered"
+            )
+        except SubscriptionItem.DoesNotExist:
+            return Response(
+                {"detail": "No metered subscription item found"}, 
+                status=404
+            )
+
+        stripe = get_stripe_module()
+        try:
+            # Create the usage record using the legacy API
+            usage_record = stripe.SubscriptionItem.create_usage_record(
+                subscription_item.id,
+                quantity=serializer.validated_data['quantity'],
+                timestamp=serializer.validated_data.get('timestamp'),
+                action=serializer.validated_data.get('action', 'increment')
+            )
+            return Response({
+                "usage_record": usage_record.id,
+                "quantity": usage_record.quantity,
+                "subscription_item": subscription_item.id
+            })
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
