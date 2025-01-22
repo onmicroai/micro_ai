@@ -1151,6 +1151,29 @@ class AppConversationDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get user's app quota information",
+        description="Returns information about the user's app creation limits and current usage, including total limit, used count, remaining apps, and whether they can create more apps.",
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "description": "Total number of apps allowed based on subscription"},
+                            "used": {"type": "integer", "description": "Current number of apps created"},
+                            "remaining": {"type": "integer", "description": "Number of apps that can still be created"},
+                            "can_create": {"type": "boolean", "description": "Whether the user can create more apps"}
+                        }
+                    },
+                    "status": {"type": "integer", "example": 200}
+                }
+            }
+        }
+    )
+)
 class AppQuota(APIView):
     permission_classes = [IsAuthenticated]
 
