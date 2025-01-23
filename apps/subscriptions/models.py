@@ -111,17 +111,115 @@ class SubscriptionConfiguration(models.Model):
             return 0  # or whatever your default should be
 
 class BillingCycle(models.Model):
-    Status_Choice = [
-        ("open", "open"),
-        ("closed", "closed")
-    ]
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    CYCLE_STATUS = (
+        ('open', 'Open'),
+        ('closed', 'Closed'),
+        ('error', 'Error'),
+    )
+
+    user = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE)
+    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, null=True)
+    subscription = models.ForeignKey(Subscription, on_delete=models.SET_NULL, null=True)
+    status = models.CharField(max_length=10, choices=CYCLE_STATUS, default='open')
+    
+    # Credit tracking
+    credits_allocated = models.IntegerField(default=0)
+    credits_used = models.IntegerField(default=0)
+    credits_remaining = models.IntegerField(default=0)
+    
+    # Period tracking
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
-    credits_allocated = models.FloatField()
-    credits_used = models.FloatField()
-    credits_remaining = models.FloatField()
-    status = models.CharField(max_length = 8, choices = Status_Choice, default = SubscriptionVariables.DEFAULT_BILLING_CYCLE_STATUS)
+    
+    # New fields
+    stripe_subscription_item_id = models.CharField(max_length=255, null=True, blank=True)
+    last_usage_record_timestamp = models.DateTimeField(null=True, blank=True)
+    is_prorated = models.BooleanField(default=False)
+    previous_cycle = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
+    
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-start_date']
+
+    def __str__(self):
+        return f"{self.user.email} - {self.start_date.strftime('%Y-%m-%d')} to {self.end_date.strftime('%Y-%m-%d')}"
+
+    @property
+    def is_active(self):
+        now = timezone.now()
+        return (
+            self.status == 'open' and 
+            self.start_date <= now <= self.end_date
+        )
+
+    @property
+    def usage_percentage(self):
+        if self.credits_allocated == 0:
+            return 0
+        return (self.credits_used / self.credits_allocated) * 100
+
+    def record_usage(self, credits):
+        """Record credit usage and update remaining credits"""
+        if self.status != 'open':
+            raise ValueError("Cannot record usage on a closed or error billing cycle")
+        
+        if credits > self.credits_remaining:
+            raise ValueError("Insufficient credits remaining")
+        
+        self.credits_used += credits
+        self.credits_remaining -= credits
+        self.save()
+
+    def close_cycle(self):
+        """Close the current billing cycle"""
+        if self.status == 'open':
+            self.status = 'closed'
+            self.save()
+
+    @classmethod
+    def create_next_cycle(cls, previous_cycle, new_period_end):
+        """Create a new billing cycle based on the previous one"""
+        return cls.objects.create(
+            user=previous_cycle.user,
+            subscription=previous_cycle.subscription,
+            credits_allocated=previous_cycle.credits_allocated,  # Maintain same allocation
+            credits_remaining=previous_cycle.credits_allocated,  # Reset remaining to full
+            credits_used=0,  # Start fresh
+            start_date=previous_cycle.end_date,
+            end_date=new_period_end,
+            stripe_subscription_item_id=previous_cycle.stripe_subscription_item_id,
+            previous_cycle=previous_cycle
+        )
+
+    @classmethod
+    def get_or_create_active_cycle(cls, user, subscription, period_start, period_end, credits_allocated, subscription_item_id):
+        """Get the active billing cycle or create a new one"""
+        # Get the team from the subscription
+        team = subscription.customer.subscriber if subscription and subscription.customer else None
+        
+        active_cycle = cls.objects.filter(
+            user=user,
+            team=team,
+            status='open',
+            start_date__lte=timezone.now(),
+            end_date__gte=timezone.now()
+        ).first()
+
+        if active_cycle:
+            return active_cycle
+
+        return cls.objects.create(
+            user=user,
+            team=team,
+            subscription=subscription,
+            credits_allocated=credits_allocated,
+            credits_remaining=credits_allocated,
+            start_date=period_start,
+            end_date=period_end,
+            stripe_subscription_item_id=subscription_item_id
+        )
 
 class UsageEvent(models.Model):
     billing_cycle = models.ForeignKey(BillingCycle, on_delete = models.CASCADE)
