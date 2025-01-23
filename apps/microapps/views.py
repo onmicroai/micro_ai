@@ -40,6 +40,8 @@ from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, 
 from django.db.models.functions import Round
 from apps.subscriptions.models import BillingCycle, UsageEvent
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
+from django.utils import timezone
+import stripe
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -587,26 +589,63 @@ class RunList(APIView):
     
     def update_user_credits(self, run_id, user_id):
         try:
-            billing_cycle = BillingCycle.objects.filter(user = user_id, status = "open")
+            billing_cycle = BillingCycle.objects.filter(
+                user=user_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
 
             if billing_cycle:
-                credit_charged = self.credits  # Use the already calculated credits stored in self.credits
-                usage_event_data = {
-                    "billing_cycle": billing_cycle[0].id, 
-                    "user": user_id, 
-                    "run_id": run_id, 
-                    "credits_charged": credit_charged, 
-                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                serializer = UsageEventSerializer(data = usage_event_data)
-                if serializer.is_valid():
-                    serializer.save()
-                    updated_credits_used = billing_cycle[0].credits_used + credit_charged
-                    updated_credits_remaining = billing_cycle[0].credits_remaining - credit_charged
-                    billing_cycle.update(credits_used = updated_credits_used, credits_remaining = updated_credits_remaining)
-                    return True                
-                log.error(serializer.error)
+                credit_charged = self.credits
+                
+                try:
+                    # Record usage in our system
+                    billing_cycle.record_usage(credit_charged)
+                    
+                    # Create usage event
+                    usage_event_data = {
+                        "billing_cycle": billing_cycle.id,
+                        "user": user_id,
+                        "run_id": run_id,
+                        "credits_charged": credit_charged,
+                        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    serializer = UsageEventSerializer(data=usage_event_data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        
+                        # Submit usage to Stripe if we have a subscription item ID
+                        if billing_cycle.stripe_subscription_item_id:
+                            try:
+                                # Initialize Stripe API key
+                                stripe.api_key = env("STRIPE_TEST_SECRET_KEY")
+                                
+                                log.info(f"Submitting usage to Stripe: {billing_cycle.stripe_subscription_item_id}, {credit_charged}, {int(datetime.datetime.now().timestamp())}")
+                                stripe.SubscriptionItem.create_usage_record(
+                                    billing_cycle.stripe_subscription_item_id,
+                                    quantity=credit_charged,
+                                    timestamp=int(datetime.datetime.now().timestamp()),
+                                    action='increment'
+                                )
+                                billing_cycle.last_usage_record_timestamp = timezone.now()
+                                billing_cycle.save()
+                            except Exception as e:
+                                log.error(f"Failed to submit usage to Stripe: {str(e)}")
+                        else:
+                            log.info("No subscription item ID found")
+                        
+                        return True
+                    
+                    log.error(serializer.errors)
+                    return False
+                    
+                except ValueError as e:
+                    log.error(f"Error recording usage: {str(e)}")
+                    return False
+                    
             return False
+            
         except Exception as e:
             log.error(e)
             return False
