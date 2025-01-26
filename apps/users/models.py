@@ -22,6 +22,11 @@ class CustomUser(AbstractUser):
     Add additional fields to the user model here.
     """
 
+    class Meta(AbstractUser.Meta):
+        permissions = [
+            ("is_beta_tester", "Can access beta features"),
+        ]
+
     avatar = models.FileField(upload_to=_get_avatar_filename, blank=True, validators=[validate_profile_picture])
 
     def __str__(self):
@@ -46,3 +51,7 @@ class CustomUser(AbstractUser):
     @cached_property
     def has_verified_email(self):
         return EmailAddress.objects.filter(user=self, verified=True).exists()
+
+    @property
+    def is_beta_tester(self) -> bool:
+        return self.has_perm('users.is_beta_tester')
