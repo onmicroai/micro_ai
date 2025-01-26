@@ -42,11 +42,11 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/microai-frontend
-          sudo docker-compose -f docker-compose.prod.yml stop -t 30
-          sudo docker-compose -f docker-compose.prod.yml down
+          sudo docker-compose -f docker-compose.dev.yml stop -t 30
+          sudo docker-compose -f docker-compose.dev.yml down
           cd /home/ubuntu/micro_ai
-          sudo docker-compose -f docker-compose-prod.yml stop -t 30
-          sudo docker-compose -f docker-compose-prod.yml down
+          sudo docker-compose -f docker-compose-dev.yml stop -t 30
+          sudo docker-compose -f docker-compose-dev.yml down
           
     - name: Deploy - Pull Latest Code
       uses: appleboy/ssh-action@v1.0.3
@@ -68,8 +68,8 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
-          sudo docker-compose -f docker-compose-prod.yml build --no-cache
-          sudo docker-compose -f docker-compose-prod.yml up -d
+          sudo docker-compose -f docker-compose-dev.yml build --no-cache
+          sudo docker-compose -f docker-compose-dev.yml up -d
 
     - name: Wait for Backend Containers
       uses: appleboy/ssh-action@v1.0.3
@@ -109,7 +109,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
-          timeout=900
+          timeout=300
           while [ $timeout -gt 0 ]; do
             if docker ps | grep -q nginx && docker ps | grep -q frontend; then
               echo "Frontend containers running"
