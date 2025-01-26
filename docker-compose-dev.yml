@@ -40,6 +40,8 @@ services:
       - media_data:/code/media
     expose:
       - "8000"
+    environment:
+      - DEBUG=1
     env_file:
       - ./.env
     restart: unless-stopped
