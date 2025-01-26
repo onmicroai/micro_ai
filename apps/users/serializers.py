@@ -11,9 +11,11 @@ class CustomUserSerializer(serializers.ModelSerializer):
     Extend with any fields your app needs.
     """
 
+    is_beta_tester = serializers.BooleanField(read_only=True)
+
     class Meta:
         model = CustomUser
-        fields = ("id", "first_name", "last_name", "email", "avatar_url", "get_display_name")
+        fields = ("id", "first_name", "last_name", "email", "avatar_url", "get_display_name", "is_beta_tester")
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
