@@ -109,7 +109,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
-          timeout=300
+          timeout=900
           while [ $timeout -gt 0 ]; do
             if docker ps | grep -q nginx && docker ps | grep -q frontend; then
               echo "Frontend containers running"
