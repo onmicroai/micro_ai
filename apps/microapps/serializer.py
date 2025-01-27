@@ -7,38 +7,6 @@ class MicroAppSerializer(serializers.ModelSerializer):
         fields = '__all__'
         extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
 
-    def to_internal_value(self, data):
-        # If app_json is not provided or is empty, set the default pages
-        if 'app_json' not in data or data['app_json'] is None:
-            data['app_json'] = {
-                "pages": [
-                    {
-                        "name": "page1",
-                        "elements": [
-                            {
-                                "name": "AI Prompt 1",
-                                "type": "ai-prompt",
-                                "title": "AI Prompt 1",
-                                "aiModel": "gpt-4o-mini",
-                                "temperature": 1.0,
-                                "aiPromptProperty": "Say hello to {Name} {Surname} "
-                            },
-                            {
-                                "name": "Name",
-                                "type": "text",
-                                "title": "Name"
-                            },
-                            {
-                                "name": "Surname",
-                                "type": "text",
-                                "title": "Surname"
-                            }
-                        ]
-                    }
-                ]
-            }
-        return super().to_internal_value(data)
-
 class MicroAppSwaggerPostSerializer(serializers.ModelSerializer):
     collection_id = serializers.IntegerField(write_only=True)
     class Meta:
