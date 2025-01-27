@@ -42,8 +42,10 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/microai-frontend
+          sudo docker-compose -f docker-compose.prod.yml stop -t 30
           sudo docker-compose -f docker-compose.prod.yml down
           cd /home/ubuntu/micro_ai
+          sudo docker-compose -f docker-compose-prod.yml stop -t 30
           sudo docker-compose -f docker-compose-prod.yml down
           
     - name: Deploy - Pull Latest Code
@@ -69,6 +71,25 @@ jobs:
           sudo docker-compose -f docker-compose-prod.yml build --no-cache
           sudo docker-compose -f docker-compose-prod.yml up -d
 
+    - name: Wait for Backend Containers
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          timeout=300
+          while [ $timeout -gt 0 ]; do
+            if docker ps | grep -q web && docker ps | grep -q redis && docker ps | grep -q celery && docker ps | grep -q db; then
+              echo "Backend containers running"
+              exit 0
+            fi
+            sleep 5
+            timeout=$((timeout-5))
+          done
+          exit 1
+
     - name: Deploy - Restarted frontend with new docker network
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -79,6 +100,25 @@ jobs:
         script: |
           cd /home/ubuntu/microai-frontend
           sudo docker-compose -f docker-compose.prod.yml up -d
+
+    - name: Wait for Frontend Containers
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+          timeout=300
+          while [ $timeout -gt 0 ]; do
+            if docker ps | grep -q nginx && docker ps | grep -q frontend; then
+              echo "Frontend containers running"
+              exit 0
+            fi
+            sleep 5
+            timeout=$((timeout-5))
+          done
+          exit 1
 
     - name: Deploy - Checking that all necessary containers are running before prunning
       uses: appleboy/ssh-action@v1.0.3

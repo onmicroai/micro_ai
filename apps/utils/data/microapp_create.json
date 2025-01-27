@@ -2,12 +2,13 @@
     "data": [
     {
         "title": "MCQ Generator",
-        "description": "This micro-app allows you to generate multiple-choice questions quickly and consistently. \nIt work with either GPT-3.5 Turbo, GPT-4, or both.\nOptionally, users can modify the AI configuration by opening the left sidebar.",
-        "privacy": "private",
-        "temperature": 1,
-        "aiModel": "gpt-4o-mini",
         "app_json": {
+            "title": "MCQ Generator",
             "completedHtml": "You've reached the end",
+            "description": "This micro-app allows you to generate multiple-choice questions quickly and consistently. \nIt work with either GPT-3.5 Turbo, GPT-4, or both.\nOptionally, users can modify the AI configuration by opening the left sidebar.",
+            "privacySettings": "private",
+            "temperature": 0.7,
+            "aiModel": "gpt-4o-mini",
             "phases": [
             {
                 "id": "1",
@@ -248,11 +249,13 @@
         },
         {
             "title": "Alt Text Generator",
-            "description": "This app accepts images via upload or URL and returns alt text for accessibility.",
-            "privacy": "private",
-            "temperature": 1,
-            "aiModel": "gpt-4o-mini",
             "app_json": {
+              "title": "Alt Text Generator",
+              "description": "This app accepts images via upload or URL and returns alt text for accessibility.",
+              "privacySettings": "private",
+              "clonable": true,
+              "temperature": 0.7,
+              "aiModel": "gpt-4o-mini",
               "completedHtml": "You've reached the end",
               "phases": [
                 {
@@ -346,11 +349,13 @@
         },
         {
             "title": "Rubric Generator",
-            "explanation": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
-            "privacy": "private",
-            "temperature": 1,
-            "aiModel": "gpt-4o-mini",
             "app_json": {
+                "title": "Rubric Generator",
+                "description": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
+                "privacySettings": "private",
+                "clonable": true,
+                "temperature": 0.7,
+                "aiModel": "gpt-4o-mini",
                 "completedHtml": "You've reached the end2",
                 "phases": [
                     {
@@ -457,10 +462,11 @@
         },        
         {
           "title": "Debate an AI",
-          "explanation": "",
-          "privacy": "private",
-          "copy_allowed": true,
           "app_json": {
+              "title": "Debate an AI",
+              "description": "This app allows you to engage in a mock debate with an AI over a topic of your choice. You can choose the difficulty of the debate and the topic.",
+              "privacySettings": "private",
+              "clonable": true,
               "completedHtml": "Great debating!",
               "phases": [
                   {
