@@ -40,6 +40,8 @@ from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, 
 from django.db.models.functions import Round
 from apps.subscriptions.models import BillingCycle, UsageEvent
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
+from django.utils import timezone
+import stripe
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -102,7 +104,8 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid is not None and isinstance(cid, int)):
-                if MicroAppUsage.microapp_related_info(request.user.id):
+                usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+                if usage_info["can_create"]:
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
                         microapp = serializer.save()
@@ -117,7 +120,7 @@ class MicroAppList(APIView):
                         status=status.HTTP_400_BAD_REQUEST,
                     )
                 return Response(
-                    error.MICROAPP_USAGE_LIMIT_EXCEED,
+                    error.microapp_usage_limit_exceed(usage_info["limit"], usage_info["current_count"]),
                     status = status.HTTP_400_BAD_REQUEST
                 )
             return Response(
@@ -586,26 +589,63 @@ class RunList(APIView):
     
     def update_user_credits(self, run_id, user_id):
         try:
-            billing_cycle = BillingCycle.objects.filter(user = user_id, status = "open")
+            billing_cycle = BillingCycle.objects.filter(
+                user=user_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
 
             if billing_cycle:
-                credit_charged = self.credits  # Use the already calculated credits stored in self.credits
-                usage_event_data = {
-                    "billing_cycle": billing_cycle[0].id, 
-                    "user": user_id, 
-                    "run_id": run_id, 
-                    "credits_charged": credit_charged, 
-                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                serializer = UsageEventSerializer(data = usage_event_data)
-                if serializer.is_valid():
-                    serializer.save()
-                    updated_credits_used = billing_cycle[0].credits_used + credit_charged
-                    updated_credits_remaining = billing_cycle[0].credits_remaining - credit_charged
-                    billing_cycle.update(credits_used = updated_credits_used, credits_remaining = updated_credits_remaining)
-                    return True                
-                log.error(serializer.error)
+                credit_charged = self.credits
+                
+                try:
+                    # Record usage in our system
+                    billing_cycle.record_usage(credit_charged)
+                    
+                    # Create usage event
+                    usage_event_data = {
+                        "billing_cycle": billing_cycle.id,
+                        "user": user_id,
+                        "run_id": run_id,
+                        "credits_charged": credit_charged,
+                        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+                    serializer = UsageEventSerializer(data=usage_event_data)
+                    if serializer.is_valid():
+                        serializer.save()
+                        
+                        # Submit usage to Stripe if we have a subscription item ID
+                        if billing_cycle.stripe_subscription_item_id:
+                            try:
+                                # Initialize Stripe API key
+                                stripe.api_key = env("STRIPE_TEST_SECRET_KEY")
+                                
+                                log.info(f"Submitting usage to Stripe: {billing_cycle.stripe_subscription_item_id}, {credit_charged}, {int(datetime.datetime.now().timestamp())}")
+                                stripe.SubscriptionItem.create_usage_record(
+                                    billing_cycle.stripe_subscription_item_id,
+                                    quantity=credit_charged,
+                                    timestamp=int(datetime.datetime.now().timestamp()),
+                                    action='increment'
+                                )
+                                billing_cycle.last_usage_record_timestamp = timezone.now()
+                                billing_cycle.save()
+                            except Exception as e:
+                                log.error(f"Failed to submit usage to Stripe: {str(e)}")
+                        else:
+                            log.info("No subscription item ID found")
+                        
+                        return True
+                    
+                    log.error(serializer.errors)
+                    return False
+                    
+                except ValueError as e:
+                    log.error(f"Error recording usage: {str(e)}")
+                    return False
+                    
             return False
+            
         except Exception as e:
             log.error(e)
             return False
@@ -1147,5 +1187,52 @@ class AppConversationDetails(APIView):
                 status=status.HTTP_200_OK
             )
 
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Get user's app quota information",
+        description="Returns information about the user's app creation limits and current usage, including total limit, used count, remaining apps, and whether they can create more apps.",
+        responses={
+            200: {
+                "type": "object",
+                "properties": {
+                    "data": {
+                        "type": "object",
+                        "properties": {
+                            "limit": {"type": "integer", "description": "Total number of apps allowed based on subscription"},
+                            "used": {"type": "integer", "description": "Current number of apps created"},
+                            "remaining": {"type": "integer", "description": "Number of apps that can still be created"},
+                            "can_create": {"type": "boolean", "description": "Whether the user can create more apps"}
+                        }
+                    },
+                    "status": {"type": "integer", "example": 200}
+                }
+            }
+        }
+    )
+)
+class AppQuota(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            # Get usage info from MicroAppUsage
+            usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+            
+            # Calculate remaining apps
+            remaining_apps = usage_info["limit"] - usage_info["current_count"]
+            
+            return Response({
+                "data": {
+                    "limit": usage_info["limit"],
+                    "used": usage_info["current_count"],
+                    "remaining": remaining_apps,
+                    "can_create": usage_info["can_create"]
+                },
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+            
         except Exception as e:
             return handle_exception(e)
