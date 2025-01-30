@@ -8,6 +8,7 @@ from apps.utils.global_varibales import UsageVariables
 from apps.microapps.models import MicroAppUserJoin
 from apps.microapps.serializer import MicroappUserSerializer
 from django.db.models import Count
+from apps.subscriptions.helpers import get_subscription_max_apps
 
 def subscription_details(user_id):
     subscription = Subscription.objects.filter(metadata__contains={'user_id': str(user_id)})
@@ -115,27 +116,32 @@ class MicroAppUsage:
         # - apps that count towards their usage limit
         # - non-archived apps
         userapps = MicroAppUserJoin.objects.filter(
-            user_id = user_id, 
-            role = "owner", 
-            counts_toward_max = True, 
-            is_archived = False).aggregate(count = Count("id"))
+            user_id=user_id, 
+            role="owner", 
+            counts_toward_max=True, 
+            is_archived=False).aggregate(count=Count("id"))
+        
+        current_app_count = userapps["count"] or 0
 
         # If user has an active subscription
         if subscription and subscription["status"] == "active":
-            # Get the plan details
-            plans = Plan.objects.get(djstripe_id=subscription["plan"])
-            plan_data = PlansSerializer(plans)
-            
-            # If user is on a free plan (monthly or yearly)
-            if plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_MONTH or plan_data.data["amount"] == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
-                # Check if they're under the free plan limit
-                return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT  
-            else:
-                # For paid plans (Individual/Enterprise), no limit on microapps
-                return True
+            # Get the subscription object
+            subscription_obj = Subscription.objects.get(id=subscription["id"])
+            # Get max_apps from subscription configuration
+            max_apps = get_subscription_max_apps(subscription_obj)
+            # Return status and limit
+            return {
+                "can_create": current_app_count < max_apps,
+                "limit": max_apps,
+                "current_count": current_app_count
+            }
                 
-        # No active subscription - treat as free plan
-        return userapps["count"] < UsageVariables.FREE_PLAN_MICROAPP_LIMIT
+        # No active subscription - treat as free plan with default limit
+        return {
+            "can_create": current_app_count < UsageVariables.FREE_PLAN_MICROAPP_LIMIT,
+            "limit": UsageVariables.FREE_PLAN_MICROAPP_LIMIT,
+            "current_count": current_app_count
+        }
 
 class GuestUsage:
     
