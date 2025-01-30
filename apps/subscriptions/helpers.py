@@ -18,6 +18,7 @@ from apps.teams.models import Team
 from apps.users.models import CustomUser
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
+from django.conf import settings
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -84,11 +85,33 @@ def create_stripe_checkout_session(
 ) -> CheckoutSession:
     stripe = get_stripe_module()
     success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
-
     cancel_url = absolute_url(reverse("subscriptions_team:checkout_canceled", args=[subscription_holder.slug]))
 
     customer_kwargs = {}
-    if subscription_holder.customer:
+    subscription_data = {
+        "description": str(subscription_holder),
+        "metadata": get_checkout_metadata(subscription_holder, user),
+    }
+
+    # Add test clock for development
+    if not settings.STRIPE_LIVE_MODE:
+        # Create or retrieve a test clock
+        test_clock = stripe.test_helpers.TestClock.create(
+            frozen_time=int(timezone.now().timestamp())
+        )
+        
+        # Create a new customer with the test clock if one doesn't exist
+        if not subscription_holder.customer:
+            customer = stripe.Customer.create(
+                email=user.email,
+                test_clock=test_clock.id,
+                metadata={"team_id": subscription_holder.id}
+            )
+            customer_kwargs["customer"] = customer.id
+        else:
+            customer_kwargs["customer"] = subscription_holder.customer.id
+
+    elif subscription_holder.customer:
         customer_kwargs["customer"] = subscription_holder.customer.id
 
     checkout_session = stripe.checkout.Session.create(
@@ -104,10 +127,7 @@ def create_stripe_checkout_session(
             }
         ],
         allow_promotion_codes=True,
-        subscription_data={
-            "description": str(subscription_holder),
-            "metadata": get_checkout_metadata(subscription_holder, user),
-        },
+        subscription_data=subscription_data,
         metadata={
             "source": "subscriptions",
         },
@@ -164,6 +184,15 @@ def provision_subscription(subscription_holder: Team, subscription_id: str) -> S
     if not subscription_holder.customer:
         subscription_holder.customer = djstripe_subscription.customer
         subscription_holder.save()
+    
+    # Get the product from the first subscription item
+    if djstripe_subscription.items.exists():
+        subscription_item = djstripe_subscription.items.first()
+        product = subscription_item.price.product
+        # Get max_apps from product metadata, default to 0 if not set
+        max_apps = int(product.metadata.get('max_apps', 0))
+        set_subscription_max_apps(djstripe_subscription, max_apps)
+    
     return djstripe_subscription
 
 
@@ -175,3 +204,28 @@ def cancel_subscription(subscription_id: str):
             log.error("Error deleting Stripe subscription: %s", e.user_message)
     else:
         Subscription.sync_from_stripe_data(subscription)
+
+
+def set_subscription_max_apps(subscription: Subscription, max_apps: int) -> None:
+    """
+    Sets the max_apps configuration for a subscription.
+    Creates the configuration if it doesn't exist.
+    """
+    from .models import SubscriptionConfiguration
+    
+    config, _ = SubscriptionConfiguration.objects.get_or_create(
+        subscription=subscription,
+        defaults={'max_apps': max_apps}
+    )
+    if config.max_apps != max_apps:
+        config.max_apps = max_apps
+        config.save()
+
+
+def get_subscription_max_apps(subscription: Subscription) -> int:
+    """
+    Gets the max_apps configuration for a subscription.
+    Returns 0 if no configuration exists.
+    """
+    from .models import SubscriptionConfiguration
+    return SubscriptionConfiguration.get_max_apps(subscription)
