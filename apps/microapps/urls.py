@@ -23,4 +23,5 @@ urlpatterns = [
     path('stats/conversation-details', views.AppConversationDetails.as_view(), name="conversation_details"),
     path('user/billing', views.BillingDetails.as_view(), name = "usage_details"),
     path('quota/', views.AppQuota.as_view(), name='app-quota'),
+    path('<int:pk>/upload-image/', views.MicroAppList.as_view({'post': 'upload_image'}), name='microapp-upload-image'),
 ]
