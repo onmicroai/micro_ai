@@ -25,4 +25,5 @@ openai==1.2.0
 google-generativeai
 anthropic
 pillow==10.4.0
-wagtail 
+wagtail
+boto3 
