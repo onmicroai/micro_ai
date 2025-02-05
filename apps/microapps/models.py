@@ -44,7 +44,7 @@ class Microapp(models.Model):
     ]
 
     # The name of the microapp, shown on dashboard and the top of the app. 
-    title = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_NAME)
+    title = models.CharField(max_length = 150, default = MicroappVariables.DEFAULT_MICROAPP_NAME)
     
     # A user-facing description of what the app does. 
     # (e.g. "This app allows you to generate customized multiple choice questions for your students.")
