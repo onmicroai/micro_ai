@@ -864,3 +864,161 @@ class ClaudeModel(BaseAIModel):
             return messages
         except Exception as e:
             log.error(e)
+
+
+class PerplexityModel(BaseAIModel):
+    def __init__(self, api_key, model_config):
+        super().__init__(api_key, model_config)
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url="https://api.perplexity.ai"
+        )
+
+    def get_response(self, api_params):
+        try:
+            log.info(f"PerplexityModel.get_response - Starting with params: {api_params}")
+            response = self.client.chat.completions.create(**api_params)
+            log.info("PerplexityModel.get_response - API call successful")
+            usage = response.usage
+            ai_response = response.choices[0].message.content
+            calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
+            cost = self.calculate_cost(calculation)
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.completion_tokens,
+                        "prompt_tokens": usage.prompt_tokens,
+                        "total_tokens": usage.total_tokens,
+                        "ai_response": ai_response,
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
+        
+        except Exception as e:
+            log.error(f"PerplexityModel.get_response - Error occurred: {str(e)}")
+            log.error(f"PerplexityModel.get_response - API params that caused error: {api_params}")
+            handle_functional_exception(e)
+            return {"status": False, "error": f"Invalid payload: {str(e)}"}
+
+    def score_response(self, api_params, minimum_score):
+        try:
+            response = self.client.chat.completions.create(**api_params)
+            usage = response.usage
+            ai_score = response.choices[0].message.content
+            score_result = False
+            if self.extract_score(ai_score) >= minimum_score:
+                score_result = True
+            return {
+                    "completion_tokens": usage.completion_tokens,
+                    "prompt_tokens": usage.prompt_tokens,
+                    "total_tokens": usage.total_tokens,
+                    "ai_score": ai_score,
+                    "score_result": score_result
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def extract_score(self, response):
+        try:
+            pattern = r'"total":\s*"?(\d+)"?'
+            match = re.search(pattern, response)
+            if match:
+                return int(match.group(1))
+            else:
+                return 0
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_cost(self, usage):
+        try:
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
+            return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calculate_input_token_price(self, usage):
+        try:
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"], 6)    
+            return price_input_token_1M
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calculate_output_token_price(self, usage):
+        try:
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
+            return price_output_token_1M
+        except Exception as e:
+            return handle_exception(e)
+
+    def validate_params(self, data):
+        try:
+            temperature_min = self.model_config["temperature_min"]
+            temperature_max = self.model_config["temperature_max"]
+            temperature = data.get("temperature", temperature_min)
+            top_p_min = self.model_config["top_p_min"]
+            top_p_max = self.model_config["top_p_max"]
+            top_p = data.get("top_p", top_p_min)            
+            params = {
+                "temperature": (temperature, temperature_min, temperature_max),
+                "presence_penalty": (data.get("presence_penalty"), self.model_config["presence_penalty_min"], self.model_config["presence_penalty_max"]),
+                "top_p": (top_p, top_p_min, top_p_max),
+            }
+
+            # Special validation for frequency_penalty which must be > 0 for Perplexity
+            frequency_penalty = data.get("frequency_penalty")
+            if frequency_penalty is not None and frequency_penalty <= 0:
+                return {"status": False, "message": "Frequency penalty must be greater than 0 for Perplexity models"}
+
+            for param, (value, min_val, max_val) in params.items():
+                if value is not None and not (min_val <= value <= max_val):
+                    return {"status": False, "message": f"Invalid {param} value"}
+            return {"status": True}
+        except ValueError:
+            return {"status": False, "message": "Invalid input: temperature and top_p must be numeric values."}
+        except Exception as e:
+            log.error(e)
+            return {"status": False, "message": error.VALIDATION_ERROR}
+    
+    def get_default_params(self, data):
+        try:
+            return {
+                "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
+                "messages": data.get("message_history", []) + data.get("prompt", []),
+                "temperature": data.get("temperature", 0),
+                "frequency_penalty": data.get("frequency_penalty", 1),  # Default to 0.1 instead of 0
+                "presence_penalty": data.get("presence_penalty", 0),
+                "top_p": data.get("top_p", 1),
+                "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
+            }
+        except Exception as e:
+                log.error(e)
+                return {}
+    
+    def get_model_message(self, messages, data):
+        try:
+            return messages
+        except Exception as e:
+            log.error(e)
+            return []
+    
+    def build_instruction(self, data, messages):
+        try:
+            instruction = (
+            "Please provide a score for the previous user message. Use the following rubric:" 
+            + str(data.get("rubric")) 
+            + " Output your response as JSON, using this format: "
+            + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+            + " Make sure to include the 'total' key and its value in your response."
+            )
+            messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(e)
