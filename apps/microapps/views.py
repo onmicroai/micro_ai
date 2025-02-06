@@ -1295,7 +1295,18 @@ class MicroAppImageUpload(APIView):
                 ExpiresIn=300
             )
 
-            return Response(response)
+            # Restructure the response to include the full URL to the picture
+            formatted_response = {
+                'data': {
+                    'url': f"{response['url']}microapp-images/{pk}/{filename}",  # Full URL to the picture
+                    'fields': {
+                        'Content-Type': content_type,
+                        
+                    }
+                }
+            }
+
+            return Response(formatted_response)
         except Exception as e:
             return handle_exception(e)
 
