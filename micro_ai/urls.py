@@ -65,8 +65,8 @@ urlpatterns = [
     path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
     # cutom API's
-    path("microapps/", include(microapp_urls)),
-    path("collection/", include(collection_urls)),
+    path("api/microapps/", include(microapp_urls)),
+    path("api/collection/", include(collection_urls)),
     # auth API
     path("api/auth/", include("apps.authentication.urls")),
     # API docs

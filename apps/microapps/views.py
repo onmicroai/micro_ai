@@ -143,54 +143,6 @@ class MicroAppList(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    @action(detail=True, methods=['post'])
-    @extend_schema(
-        request=ImageUploadSerializer,
-        responses={200: PresignedUrlResponse},
-        summary="Upload image for microapp"
-    )
-    def upload_image(self, request, pk=None):
-        try:
-            microapp = self.get_object()
-            serializer = ImageUploadSerializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            
-            s3_client = boto3.client(
-                's3',
-                region_name=settings.AWS_S3_REGION_NAME,
-                config=Config(signature_version='s3v4'),
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            )
-            
-            filename = serializer.validated_data['filename']
-            content_type = serializer.validated_data['content_type']
-            
-            # Generate a unique key for the file
-            key = f"microapps/{microapp.id}/images/{filename}"
-            
-            # Generate presigned URL
-            presigned_data = s3_client.generate_presigned_post(
-                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                Key=key,
-                Fields={
-                    'Content-Type': content_type,
-                },
-                Conditions=[
-                    {'Content-Type': content_type},
-                    ['content-length-range', 0, 10485760],  # up to 10MB
-                ],
-                ExpiresIn=3600  # URL expires in 1 hour
-            )
-            
-            return Response(
-                {"data": presigned_data, "status": status.HTTP_200_OK},
-                status=status.HTTP_200_OK
-            )
-        except Exception as e:
-            return handle_exception(e)
-
-
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get microapp by id"),
     put=extend_schema(request=MicroAppSwaggerPutSerializer, responses={200: MicroAppSerializer}, summary = "Update by microapp"),
@@ -1294,6 +1246,56 @@ class AppQuota(APIView):
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
             
+        except Exception as e:
+            return handle_exception(e)
+
+class MicroAppImageUpload(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=ImageUploadSerializer,
+        responses={200: PresignedUrlResponse},
+        summary="Upload image for microapp"
+    )
+    def post(self, request, pk=None):
+        """
+        Upload image for microapp
+        """
+        serializer = ImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = serializer.validated_data['filename']
+        content_type = serializer.validated_data['content_type']
+
+        try:
+            s3_client = boto3.client(
+                's3',
+                config=Config(signature_version='s3v4'),
+                region_name=settings.AWS_S3_REGION_NAME,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+            )
+
+            conditions = [
+                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
+                ['starts-with', '$key', f'microapp-images/{pk}/'],
+                {'Content-Type': content_type}
+            ]
+
+            expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+            
+            response = s3_client.generate_presigned_post(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=f'microapp-images/{pk}/{filename}',
+                Fields={
+                    'Content-Type': content_type
+                },
+                Conditions=conditions,
+                ExpiresIn=300
+            )
+
+            return Response(response)
         except Exception as e:
             return handle_exception(e)
 
