@@ -8,5 +8,5 @@ gunicorn==22.0.0
     # via -r requirements/prod-requirements.in
 packaging==24.0
     # via
-    #   -c requirements/requirements.txt
+    #   -c /code/requirements/requirements.txt
     #   gunicorn
