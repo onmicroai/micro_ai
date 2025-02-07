@@ -255,7 +255,33 @@ class CloneMicroApp(APIView):
         except Microapp.DoesNotExist:
             return None
 
-    def post(self, request, pk, collection_id):
+    def get_or_create_default_collection(self, user_id):
+        try:
+            # First try to get user's collections
+            user_collections = Collection.objects.filter(
+                collectionuserjoin__user_id=user_id
+            ).first()
+
+            if user_collections:
+                return user_collections
+
+            # If no collections exist, create a default one
+            default_collection = Collection.objects.create(
+                name="My Apps",
+                description="Your personal collection of apps"
+            )
+            # Add user as admin of the collection
+            CollectionUserJoin.objects.create(
+                collection_id=default_collection.id,
+                user_id=user_id,
+                role="admin"
+            )
+            return default_collection
+        except Exception as e:
+            log.error(f"Error getting/creating default collection: {e}")
+            return None
+
+    def post(self, request, pk, collection_id=None):
         try:
             microapp = self.get_microapp(pk)
             if not microapp:
@@ -271,35 +297,41 @@ class CloneMicroApp(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            if collection_id:
-                if MicroAppUsage.microapp_related_info(request.user.id):
-                    # Instead of using model_to_dict, use the serializer to get the data
-                    original_data = MicroAppSerializer(microapp).data
-                    # Remove the fields we don't want to copy
-                    original_data.pop('id', None)
-                    original_data.pop('hash_id', None)
-                    original_data['title'] = original_data['title'] + " copy"
-                    
-                    serializer = MicroAppSerializer(data=original_data)
-                    if serializer.is_valid():
-                        new_microapp = serializer.save()
-                        micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
-                        micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
-                        return Response(
-                            {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
-                            status=status.HTTP_200_OK,
-                        )
+            # If collection_id is 0 or None, get or create a default collection
+            target_collection_id = collection_id if collection_id and collection_id > 0 else None
+            if not target_collection_id:
+                default_collection = self.get_or_create_default_collection(request.user.id)
+                if not default_collection:
                     return Response(
-                        error.validation_error(serializer.errors),
-                        status=status.HTTP_400_BAD_REQUEST,
+                        {"error": "Could not find or create a default collection.", "status": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                target_collection_id = default_collection.id
+
+            if MicroAppUsage.microapp_related_info(request.user.id):
+                # Instead of using model_to_dict, use the serializer to get the data
+                original_data = MicroAppSerializer(microapp).data
+                # Remove the fields we don't want to copy
+                original_data.pop('id', None)
+                original_data.pop('hash_id', None)
+                original_data['title'] = original_data['title'] + " copy"
+                
+                serializer = MicroAppSerializer(data=original_data)
+                if serializer.is_valid():
+                    new_microapp = serializer.save()
+                    micro_app_list = MicroAppList
+                    micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
+                    micro_app_list.add_collection_microapp(self, target_collection_id, new_microapp)
+                    return Response(
+                        {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
                     )
                 return Response(
-                        error.MICROAPP_USAGE_LIMIT_EXCEED,
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
-                    error.FIELD_MISSING,
+                    error.MICROAPP_USAGE_LIMIT_EXCEED,
                     status=status.HTTP_400_BAD_REQUEST,
                 ) 
         except Exception as e:
