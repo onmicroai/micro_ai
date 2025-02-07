@@ -1270,6 +1270,9 @@ class MicroAppImageUpload(APIView):
         filename = serializer.validated_data['filename']
         content_type = serializer.validated_data['content_type']
 
+        # Sanitize filename to remove any potentially problematic characters
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', filename)
+        
         try:
             s3_client = boto3.client(
                 's3',
@@ -1278,6 +1281,9 @@ class MicroAppImageUpload(APIView):
                 aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
             )
+
+            # The key includes the microapp ID and filename
+            file_key = f'microapp-images/{pk}/{filename}'
 
             conditions = [
                 {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
@@ -1289,7 +1295,7 @@ class MicroAppImageUpload(APIView):
             
             response = s3_client.generate_presigned_post(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                Key=f'microapp-images/{pk}/{filename}',
+                Key=file_key,
                 Fields={
                     'Content-Type': content_type
                 },
@@ -1300,10 +1306,10 @@ class MicroAppImageUpload(APIView):
             # Return the complete presigned POST response
             formatted_response = {
                 'data': {
-                    'url': response['url'],  # Base S3 URL
+                    'url': response['url'],
                     'fields': {
-                        **response['fields'],  # Include all fields from the presigned POST response
-                        'key': f'microapp-images/{pk}/{filename}'  # Add the key explicitly
+                        **response['fields'],
+                        'key': file_key
                     }
                 }
             }
