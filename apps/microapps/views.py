@@ -1297,18 +1297,19 @@ class MicroAppImageUpload(APIView):
                 ExpiresIn=300
             )
 
-            # Restructure the response to include the full URL to the picture
+            # Return the complete presigned POST response
             formatted_response = {
                 'data': {
-                    'url': f"{response['url']}microapp-images/{pk}/{filename}",  # Full URL to the picture
+                    'url': response['url'],  # Base S3 URL
                     'fields': {
-                        'Content-Type': content_type,
-                        
+                        **response['fields'],  # Include all fields from the presigned POST response
+                        'key': f'microapp-images/{pk}/{filename}'  # Add the key explicitly
                     }
                 }
             }
 
             return Response(formatted_response)
         except Exception as e:
+            log.error(f"S3 presigned URL generation error: {str(e)}")
             return handle_exception(e)
 
