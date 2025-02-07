@@ -42,10 +42,23 @@ from apps.subscriptions.models import BillingCycle, UsageEvent
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
 import stripe
+import boto3
+from botocore.config import Config
+from rest_framework import serializers
+from rest_framework.decorators import action
+from django.conf import settings
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
+
+class ImageUploadSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    content_type = serializers.CharField()
+
+class PresignedUrlResponse(serializers.Serializer):
+    url = serializers.CharField()
+    fields = serializers.DictField()
 
 
 def handle_exception(e):
@@ -129,7 +142,6 @@ class MicroAppList(APIView):
                 )
         except Exception as e:
             return handle_exception(e)
-
 
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get microapp by id"),
@@ -1238,3 +1250,65 @@ class AppQuota(APIView):
             
         except Exception as e:
             return handle_exception(e)
+
+class MicroAppImageUpload(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=ImageUploadSerializer,
+        responses={200: PresignedUrlResponse},
+        summary="Upload image for microapp"
+    )
+    def post(self, request, pk=None):
+        """
+        Upload image for microapp
+        """
+        serializer = ImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = serializer.validated_data['filename']
+        content_type = serializer.validated_data['content_type']
+
+        try:
+            s3_client = boto3.client(
+                's3',
+                config=Config(signature_version='s3v4'),
+                region_name=settings.AWS_S3_REGION_NAME,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+            )
+
+            conditions = [
+                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
+                ['starts-with', '$key', f'microapp-images/{pk}/'],
+                {'Content-Type': content_type}
+            ]
+
+            expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+            
+            response = s3_client.generate_presigned_post(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=f'microapp-images/{pk}/{filename}',
+                Fields={
+                    'Content-Type': content_type
+                },
+                Conditions=conditions,
+                ExpiresIn=300
+            )
+
+            # Restructure the response to include the full URL to the picture
+            formatted_response = {
+                'data': {
+                    'url': f"{response['url']}microapp-images/{pk}/{filename}",  # Full URL to the picture
+                    'fields': {
+                        'Content-Type': content_type,
+                        
+                    }
+                }
+            }
+
+            return Response(formatted_response)
+        except Exception as e:
+            return handle_exception(e)
+
