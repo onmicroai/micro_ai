@@ -195,6 +195,29 @@ class AIModelConstants:
             "price_scale": 1_000_000,
             "api_key": env("PERPLEXITY_API_KEY")
         }, 
+        "deepseek-chat": {
+            "family": "deepseek",
+            "model": "deepseek-chat",
+            "max_tokens": 8192,
+            "max_tokens_default": 8192,
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": -2,
+            "frequency_penalty_max": 2,
+            "presence_penalty_min": -2,
+            "presence_penalty_max": 2,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": False,
+            "input_token_price": 0.14,
+            "output_token_price": 0.28,
+            "price_scale": 1_000_000,
+            "api_key": env("DEEPSEEK_API_KEY")
+        },
     }
 
     @staticmethod
