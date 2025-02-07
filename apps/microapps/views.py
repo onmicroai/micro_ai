@@ -47,6 +47,7 @@ from botocore.config import Config
 from rest_framework import serializers
 from rest_framework.decorators import action
 from django.conf import settings
+import json
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -315,6 +316,17 @@ class CloneMicroApp(APIView):
                 original_data.pop('id', None)
                 original_data.pop('hash_id', None)
                 original_data['title'] = original_data['title'] + " copy"
+
+                # Update the title in the app_json as well
+                try:
+                    app_json = original_data.get('app_json', '{}')
+                    if isinstance(app_json, str):
+                        app_json = json.loads(app_json)
+                    if isinstance(app_json, dict):
+                        app_json['title'] = original_data['title']
+                        original_data['app_json'] = json.dumps(app_json)
+                except Exception as e:
+                    log.error(f"Error updating app_json title: {e}")
                 
                 serializer = MicroAppSerializer(data=original_data)
                 if serializer.is_valid():
