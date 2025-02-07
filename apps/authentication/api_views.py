@@ -105,15 +105,10 @@ class VerifyOTPView(GenericAPIView):
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
 
 class APICustomLogoutView(APIView):
-    #TODO: Doesn't delete cookies, need to review Django logout methods
-    
     permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
 
     def post(self, request, *args, **kwargs):
-
-        # Delete the `refresh_token` cookie
+        # Delete only the refresh_token cookie
         response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
         response.delete_cookie('refresh_token')
-        response.delete_cookie('sessionid')
-
         return response
