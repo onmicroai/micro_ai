@@ -105,10 +105,46 @@ class VerifyOTPView(GenericAPIView):
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
 
 class APICustomLogoutView(APIView):
-    permission_classes = [IsAuthenticated]  # Ensure the user is authenticated
+    permission_classes = [IsAuthenticated]
+
+    from django.conf import settings
+import os
+
+class APICustomLogoutView(APIView):
+    permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        # Delete only the refresh_token cookie
-        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
-        response.delete_cookie('refresh_token')
-        return response
+        try:
+            refresh_token = request.COOKIES.get('refresh_token')
+            if refresh_token:
+                try:
+                    token = RefreshToken(refresh_token)
+                    token.blacklist()
+                    access_token = token.access_token
+                    access_token.blacklist()
+                except Exception:
+                    pass
+
+            is_production = os.getenv('PRODUCTION', 'False') == 'True'
+            samesite = 'None' if is_production else 'Lax'
+            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+
+            response = Response(
+                {"detail": "Successfully logged out."},
+                status=status.HTTP_200_OK
+            )
+            
+            response.delete_cookie(
+                'refresh_token',
+                path='/',
+                domain=cookies_domain,
+                secure=is_production,
+                samesite=samesite,
+            )
+            return response
+            
+        except Exception as e:
+            return Response(
+                {"detail": "Successfully logged out."},
+                status=status.HTTP_200_OK
+            )
