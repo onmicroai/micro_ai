@@ -876,9 +876,7 @@ class PerplexityModel(BaseAIModel):
 
     def get_response(self, api_params):
         try:
-            log.info(f"PerplexityModel.get_response - Starting with params: {api_params}")
             response = self.client.chat.completions.create(**api_params)
-            log.info("PerplexityModel.get_response - API call successful")
             usage = response.usage
             ai_response = response.choices[0].message.content
             calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
@@ -968,15 +966,10 @@ class PerplexityModel(BaseAIModel):
             top_p = data.get("top_p", top_p_min)            
             params = {
                 "temperature": (temperature, temperature_min, temperature_max),
+                "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
                 "presence_penalty": (data.get("presence_penalty"), self.model_config["presence_penalty_min"], self.model_config["presence_penalty_max"]),
                 "top_p": (top_p, top_p_min, top_p_max),
             }
-
-            # Special validation for frequency_penalty which must be > 0 for Perplexity
-            frequency_penalty = data.get("frequency_penalty")
-            if frequency_penalty is not None and frequency_penalty <= 0:
-                return {"status": False, "message": "Frequency penalty must be greater than 0 for Perplexity models"}
-
             for param, (value, min_val, max_val) in params.items():
                 if value is not None and not (min_val <= value <= max_val):
                     return {"status": False, "message": f"Invalid {param} value"}
@@ -993,7 +986,7 @@ class PerplexityModel(BaseAIModel):
                 "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
                 "messages": data.get("message_history", []) + data.get("prompt", []),
                 "temperature": data.get("temperature", 0),
-                "frequency_penalty": data.get("frequency_penalty", 1),  # Default to 0.1 instead of 0
+                "frequency_penalty": data.get("frequency_penalty", 1),
                 "presence_penalty": data.get("presence_penalty", 0),
                 "top_p": data.get("top_p", 1),
                 "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
@@ -1004,7 +997,41 @@ class PerplexityModel(BaseAIModel):
     
     def get_model_message(self, messages, data):
         try:
-            return messages
+            new_message = []
+            
+            # Handle first message
+            if messages[0]["role"] == "system":
+                # Check if second message exists and is not a user message
+                if len(messages) > 1 and messages[1]["role"] != "user":
+                    new_message.append({"role": "system", "content": messages[0]["content"]}) 
+                    new_message.append({"role": "user", "content": "Hello there"})  # Dummy user message after system
+                elif len(messages) > 1 and messages[1]["role"] == "user":
+                    new_message.append({"role": "system", "content": messages[0]["content"]}) 
+            elif (data.get('prompt') or data.get('message_history')) and messages[0]["role"] != "user":
+                new_message.append({"role": "user", "content": "Hello!"})  # Dummy first user message
+
+            # Add remaining messages
+            start_idx = 1 if messages[0]["role"] == "system" else 0
+            new_message.extend(
+                {"content": msg["content"], "role": "assistant" if msg["role"] in ["assistant", "model"] else "user"}
+                for msg in messages[start_idx:]
+            )
+            
+            # Check for consecutive assistant messages and insert dummy user messages
+            final_messages = []
+            for i, msg in enumerate(new_message):
+                final_messages.append(msg)
+                if (i < len(new_message) - 1 and 
+                    msg["role"] == "assistant" and 
+                    new_message[i + 1]["role"] == "assistant"):
+                    final_messages.append({"role": "user", "content": "Continue"})
+            
+            # Still maintain the last message check
+            if final_messages and final_messages[-1]["role"] == "assistant":
+                final_messages.append({"role": "user", "content": "Continue"})
+
+            log.info(f"PerplexityModel.get_model_message - New message: {final_messages}")
+            return final_messages
         except Exception as e:
             log.error(e)
             return []
@@ -1022,3 +1049,188 @@ class PerplexityModel(BaseAIModel):
             return messages
         except Exception as e:
             log.error(e)
+
+class DeepSeekModel(BaseAIModel):
+    def __init__(self, api_key, model_config):
+        super().__init__(api_key, model_config)
+        self.client = OpenAI(
+            api_key=self.api_key,
+            base_url="https://api.deepseek.ai/v1"
+        )
+
+    def get_response(self, api_params):
+        try:
+            response = self.client.chat.completions.create(**api_params)
+            usage = response.usage
+            ai_response = response.choices[0].message.content
+            calculation = {"completion_tokens": usage.completion_tokens, "prompt_tokens": usage.prompt_tokens, "total_tokens": usage.total_tokens,}
+            cost = self.calculate_cost(calculation)
+            return {"status": True,
+                    "data": {
+                        "completion_tokens": usage.completion_tokens,
+                        "prompt_tokens": usage.prompt_tokens,
+                        "total_tokens": usage.total_tokens,
+                        "ai_response": ai_response,
+                        "cost": cost,
+                        "credits": self.calculate_credits(cost),
+                        "price_input_token_1M": self.calculate_input_token_price(calculation),
+                        "price_output_token_1M": self.calculate_output_token_price(calculation)
+                    }}
+        
+        except Exception as e:
+            log.error(f"DeepSeekModel.get_response - Error occurred: {str(e)}")
+            log.error(f"DeepSeekModel.get_response - API params that caused error: {api_params}")
+            handle_functional_exception(e)
+            return {"status": False, "error": f"Invalid payload: {str(e)}"}
+
+    def score_response(self, api_params, minimum_score):
+        try:
+            response = self.client.chat.completions.create(**api_params)
+            usage = response.usage
+            ai_score = response.choices[0].message.content
+            score_result = False
+            if self.extract_score(ai_score) >= minimum_score:
+                score_result = True
+            return {
+                    "completion_tokens": usage.completion_tokens,
+                    "prompt_tokens": usage.prompt_tokens,
+                    "total_tokens": usage.total_tokens,
+                    "ai_score": ai_score,
+                    "score_result": score_result
+            }
+        except Exception as e:
+            return handle_exception(e)
+
+    def extract_score(self, response):
+        try:
+            pattern = r'"total":\s*"?(\d+)"?'
+            match = re.search(pattern, response)
+            if match:
+                return int(match.group(1))
+            else:
+                return 0
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_cost(self, usage):
+        try:
+            cost = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"] + self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
+            return cost
+        except Exception as e:
+            return handle_exception(e)
+        
+    def calculate_credits(self, cost):
+        try:
+            credits = max(round(cost / .0001,0), 1)
+            return credits
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calculate_input_token_price(self, usage):
+        try:
+            price_input_token_1M = round(self.model_config["input_token_price"] * usage["prompt_tokens"] / self.model_config["price_scale"], 6)    
+            return price_input_token_1M
+        except Exception as e:
+            return handle_exception(e)
+    
+    def calculate_output_token_price(self, usage):
+        try:
+            price_output_token_1M = round(self.model_config["output_token_price"] * usage["completion_tokens"] / self.model_config["price_scale"], 6)
+            return price_output_token_1M
+        except Exception as e:
+            return handle_exception(e)
+
+    def validate_params(self, data):
+        try:
+            temperature_min = self.model_config["temperature_min"]
+            temperature_max = self.model_config["temperature_max"]
+            temperature = data.get("temperature", temperature_min)
+            top_p_min = self.model_config["top_p_min"]
+            top_p_max = self.model_config["top_p_max"]
+            top_p = data.get("top_p", top_p_min)            
+            params = {
+                "temperature": (temperature, temperature_min, temperature_max),
+                "frequency_penalty": (data.get("frequency_penalty"), self.model_config["frequency_penalty_min"], self.model_config["frequency_penalty_max"]),
+                "presence_penalty": (data.get("presence_penalty"), self.model_config["presence_penalty_min"], self.model_config["presence_penalty_max"]),
+                "top_p": (top_p, top_p_min, top_p_max),
+            }
+            for param, (value, min_val, max_val) in params.items():
+                if value is not None and not (min_val <= value <= max_val):
+                    return {"status": False, "message": f"Invalid {param} value"}
+            return {"status": True}
+        except ValueError:
+            return {"status": False, "message": "Invalid input: temperature and top_p must be numeric values."}
+        except Exception as e:
+            log.error(e)
+            return {"status": False, "message": error.VALIDATION_ERROR}
+    
+    def get_default_params(self, data):
+        try:
+            return {
+                "model": data.get("ai_model", env("DEFAULT_AI_MODEL")),
+                "messages": data.get("message_history", []) + data.get("prompt", []),
+                "temperature": data.get("temperature", 0),
+                "frequency_penalty": data.get("frequency_penalty", 1),
+                "presence_penalty": data.get("presence_penalty", 0),
+                "top_p": data.get("top_p", 1),
+                "max_tokens": data.get("max_tokens", self.model_config["max_tokens_default"])
+            }
+        except Exception as e:
+                log.error(e)
+                return {}
+    
+    def get_model_message(self, messages, data):
+        try:
+            new_message = []
+            
+            # Handle first message
+            if messages[0]["role"] == "system":
+                # Check if second message exists and is not a user message
+                if len(messages) > 1 and messages[1]["role"] != "user":
+                    new_message.append({"role": "system", "content": messages[0]["content"]}) 
+                    new_message.append({"role": "user", "content": "Hello there"})  # Dummy user message after system
+                elif len(messages) > 1 and messages[1]["role"] == "user":
+                    new_message.append({"role": "system", "content": messages[0]["content"]}) 
+            elif (data.get('prompt') or data.get('message_history')) and messages[0]["role"] != "user":
+                new_message.append({"role": "user", "content": "Hello!"})  # Dummy first user message
+
+            # Add remaining messages
+            start_idx = 1 if messages[0]["role"] == "system" else 0
+            new_message.extend(
+                {"content": msg["content"], "role": "assistant" if msg["role"] in ["assistant", "model"] else "user"}
+                for msg in messages[start_idx:]
+            )
+            
+            # Check for consecutive assistant messages and insert dummy user messages
+            final_messages = []
+            for i, msg in enumerate(new_message):
+                final_messages.append(msg)
+                if (i < len(new_message) - 1 and 
+                    msg["role"] == "assistant" and 
+                    new_message[i + 1]["role"] == "assistant"):
+                    final_messages.append({"role": "user", "content": "Continue"})
+            
+            # Still maintain the last message check
+            if final_messages and final_messages[-1]["role"] == "assistant":
+                final_messages.append({"role": "user", "content": "Continue"})
+
+            log.info(f"PerplexityModel.get_model_message - New message: {final_messages}")
+            return final_messages
+        except Exception as e:
+            log.error(e)
+            return []
+    
+    def build_instruction(self, data, messages):
+        try:
+            instruction = (
+            "Please provide a score for the previous user message. Use the following rubric:" 
+            + str(data.get("rubric")) 
+            + " Output your response as JSON, using this format: "
+            + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+            + " Make sure to include the 'total' key and its value in your response."
+            )
+            messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(e)
+
