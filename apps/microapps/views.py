@@ -31,7 +31,7 @@ from apps.users.serializers import UserSerializer
 from apps.users.models import CustomUser
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel, DeepSeekModel
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
@@ -907,6 +907,8 @@ class AIModelRoute:
                 return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
             elif model_family == "perplexity":
                 return {"model": PerplexityModel(model_config["api_key"], model_config), "config": model_config}
+            elif model_family == "deepseek":
+                return {"model": DeepSeekModel(model_config["api_key"], model_config), "config": model_config}
             
             return False
             
