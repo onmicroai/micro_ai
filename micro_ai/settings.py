@@ -199,7 +199,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Allauth setup
 
-ACCOUNT_ADAPTER = "apps.users.adapter.EmailAsUsernameAdapter"
+ACCOUNT_ADAPTER = "apps.users.adapter.AcceptInvitationAdapter"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
