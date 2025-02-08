@@ -33,3 +33,11 @@ def google_analytics_id(request):
         }
     else:
         return {}
+
+
+def email_context(request):
+    """Add email-related context variables"""
+    return {
+        'domain': settings.DOMAIN,
+        'user_email': getattr(request.user, 'email', '') if request.user.is_authenticated else '',
+    }

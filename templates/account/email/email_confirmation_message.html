@@ -1,7 +1,13 @@
-{% extends 'account/email/email_template_base.html' %}
+{% extends "account/email/email_template_base.html" %}
 {% load i18n %}
-{% block message_body %}{% blocktranslate with site_name=current_site.name %}
-  Please click the confirmation link below to activate your {{ site_name }} account.
-{% endblocktranslate %}{% endblock %}
+
+{% block message_body %}
+<h2 style="color: #374151; font-family: Helvetica, Arial, sans-serif; font-size: 20px; margin: 0;">{% translate "Hi" %} {{ user.username }},</h2>
+
+<p style="color: #6B7280; font-family: Helvetica, Arial, sans-serif; font-size: 16px; line-height: 24px; margin-top: 16px;">
+    {% blocktranslate with site_name=current_site.name %}Please click the confirmation link below to activate your {{ site_name }} account.{% endblocktranslate %}
+</p>
+{% endblock %}
+
 {% block cta_link %}{{ activate_url }}{% endblock %}
 {% block cta_text %}{% translate "Confirm Email Address" %}{% endblock %}
