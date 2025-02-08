@@ -1,4 +1,3 @@
-# \micro_ai\apps\microapps\views.py
 import datetime
 import re
 import uuid
@@ -6,7 +5,6 @@ import os
 from pathlib import Path
 import environ
 import logging as log
-from django.forms import model_to_dict
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -38,7 +36,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
 from django.db.models.functions import Round
-from apps.subscriptions.models import BillingCycle, UsageEvent
+from apps.subscriptions.models import BillingCycle
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
 import stripe
@@ -206,20 +204,20 @@ class MicroAppDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self, request, app_id, format=None):
-        try:
-            self.permission_classes = [IsOwner]
-            self.check_permissions(request)
-            micro_apps = self.get_object(app_id)
-            if micro_apps:
-                micro_apps.delete()
-                return Response(status=status.HTTP_200_OK)
-            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
+    # def delete(self, request, app_id, format=None):
+    #     try:
+    #         self.permission_classes = [IsOwner]
+    #         self.check_permissions(request)
+    #         micro_apps = self.get_object(app_id)
+    #         if micro_apps:
+    #             micro_apps.delete()
+    #             return Response(status=status.HTTP_200_OK)
+    #         return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
         
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
+    #     except PermissionDenied:
+    #         return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+    #     except Exception as e:
+    #         return handle_exception(e)
 
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
@@ -245,7 +243,6 @@ class MicroAppArchive(APIView):
                 {"data": {}, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )
-
 
 class CloneMicroApp(APIView):
     permission_classes = [IsAuthenticated]
@@ -349,9 +346,8 @@ class CloneMicroApp(APIView):
         except Exception as e:
             return handle_exception(e)
 
-
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
+    # get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
     delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
 )
 class UserMicroApps(APIView):
@@ -363,28 +359,28 @@ class UserMicroApps(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def get_objects(self, uid, aid):
-        try:
-            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
-        except Exception as e:
-            return handle_exception(e)
+    # def get_objects(self, uid, aid):
+    #     try:
+    #         return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
+    #     except Exception as e:
+    #         return handle_exception(e)
 
-    def get(self, request, app_id, user_id=None):
-        try:
-            if user_id:
-                user_role = self.get_objects(user_id, app_id)
-                if user_role:
-                    serializer = MicroappUserSerializer(user_role, many=True)
-                    return Response(
-                        {"data": serializer.data, "status": status.HTTP_200_OK},
-                        status=status.HTTP_200_OK,
-                    )
-                return Response(
-                    error.USER_NOT_EXIST,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        except Exception as e:
-            return handle_exception(e)
+    # def get(self, request, app_id, user_id=None):
+    #     try:
+    #         if user_id:
+    #             user_role = self.get_objects(user_id, app_id)
+    #             if user_role:
+    #                 serializer = MicroappUserSerializer(user_role, many=True)
+    #                 return Response(
+    #                     {"data": serializer.data, "status": status.HTTP_200_OK},
+    #                     status=status.HTTP_200_OK,
+    #                 )
+    #             return Response(
+    #                 error.USER_NOT_EXIST,
+    #                 status=status.HTTP_400_BAD_REQUEST,
+    #             )
+    #     except Exception as e:
+    #         return handle_exception(e)
 
     def delete(self, request, app_id, user_id, format=None):
         try:
@@ -461,19 +457,19 @@ class UserMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-@extend_schema_view(
-    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
-)
-class UserMicroAppList(generics.ListAPIView):
-    serializer_class = MicroappUserSerializer
-    permission_classes = [IsAuthenticated]
+# @extend_schema_view(
+#     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
+# )
+# class UserMicroAppList(generics.ListAPIView):
+#     serializer_class = MicroappUserSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        try:
-            app_id = self.kwargs['app_id']
-            return MicroAppUserJoin.objects.filter(ma_id=app_id)
-        except Exception as e:
-            return handle_exception(e)
+#     def get_queryset(self):
+#         try:
+#             app_id = self.kwargs['app_id']
+#             return MicroAppUserJoin.objects.filter(ma_id=app_id)
+#         except Exception as e:
+#             return handle_exception(e)
             
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),

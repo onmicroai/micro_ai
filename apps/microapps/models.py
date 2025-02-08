@@ -1,5 +1,3 @@
-# \micro_ai\apps\microapps\models.py
-
 from django.db import models
 from micro_ai import settings
 import logging as log
@@ -153,16 +151,9 @@ class Asset(models.Model):
     file = models.TextField()
     label = models.TextField()
 
-
 class AssetsMaJoin(models.Model):
     ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE)
     asset_id = models.ForeignKey(Asset, on_delete=models.CASCADE)
-
-
-class KnowledgeBase(models.Model):
-
-    file = models.TextField()
-
 
 class Run(models.Model):
 
