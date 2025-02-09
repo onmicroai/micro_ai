@@ -2,6 +2,7 @@ from typing import Dict, Any, Optional
 import litellm
 from django.conf import settings
 import logging
+from apps.utils.global_variables import AIModelConstants, AIModelDefaults
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +21,6 @@ class UnifiedLLMInterface:
                 - api_key: The API key for the model provider
                 - temperature: Default temperature
                 - max_tokens: Default max tokens
-                - max_completion_tokens: Default max completion tokens
                 - price_scale: Price scaling factor (usually 1M for per-million pricing)
                 - stream: Whether to stream the response
         """
@@ -30,36 +30,26 @@ class UnifiedLLMInterface:
         # Set the API key for the model provider
         litellm.api_key = model_config.get("api_key")
         
-        # Default parameters
+        # Use base defaults, overridden by model-specific config
         self.default_params = {
             "model": self.model_name,
-            "temperature": model_config.get("temperature", 1.0),
-            "max_completion_tokens": model_config.get("max_completion_tokens_default", 2000),
-            "top_p": model_config.get("top_p", 1.0),
-            "frequency_penalty": model_config.get("frequency_penalty", 0),
-            "presence_penalty": model_config.get("presence_penalty", 0),
-            "stream": model_config.get("stream", False)
+            **{k: model_config.get(k, v) for k, v in AIModelDefaults.BASE_DEFAULTS.items()}
         }
         
         # Price configuration
-        self.price_scale = model_config.get("price_scale", 1_000_000.0)
+        self.price_scale = model_config.get("price_scale", AIModelDefaults.BASE_DEFAULTS["price_scale"])
         self.input_token_price = model_config.get("input_token_price", 0)
         self.output_token_price = model_config.get("output_token_price", 0)
 
     def validate_params(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the parameters for the model"""
         try:
+            
             # Validate temperature
             if "temperature" in data:
                 temp = float(data["temperature"])
                 if temp < self.model_config.get("temperature_min", 0) or temp > self.model_config.get("temperature_max", 2):
                     return {"status": False, "message": f"Temperature must be between {self.model_config.get('temperature_min', 0)} and {self.model_config.get('temperature_max', 2)}"}
-
-            # Validate max_tokens
-            if "max_tokens" in data:
-                tokens = int(data["max_tokens"])
-                if tokens < 1 or tokens > self.model_config.get("max_tokens_limit", 4000):
-                    return {"status": False, "message": f"Max tokens must be between 1 and {self.model_config.get('max_tokens_limit', 4000)}"}
 
             return {"status": True, "message": "Parameters validated successfully"}
         except ValueError as e:
@@ -75,10 +65,13 @@ class UnifiedLLMInterface:
         # Add default empty messages list
         params["messages"] = data.get("messages", [])
         
-        # Override defaults with provided values
+        # Override defaults with provided values, ensuring max_tokens has a valid default
         for key in ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"]:
             if key in data:
                 params[key] = float(data[key]) if key != "max_tokens" else int(data[key])
+            elif key == "max_tokens":
+                # Ensure max_tokens has the model's default value if not provided
+                params[key] = self.model_config.get("max_tokens", AIModelDefaults.BASE_DEFAULTS["max_tokens"])
         
         return params
 
@@ -99,7 +92,7 @@ class UnifiedLLMInterface:
                 messages=params["messages"],
                 temperature=params["temperature"],
                 top_p=params["top_p"],
-                max_completion_tokens=params["max_completion_tokens"],
+                max_tokens=params["max_tokens"],
                 presence_penalty=params["presence_penalty"],
                 frequency_penalty=params["frequency_penalty"],
                 stream=params["stream"],

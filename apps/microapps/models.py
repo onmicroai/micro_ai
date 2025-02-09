@@ -339,7 +339,7 @@ class AIModelConfig(models.Model):
     temperature_max = models.FloatField(default=0)
 
     # The default maximum number of tokens allowed in the output. 
-    max_tokens_default = models.IntegerField()
+    max_tokens = models.IntegerField(null=True, blank=True)
 
     # The price per 1M input tokens for this model
     input_token_price = models.FloatField()

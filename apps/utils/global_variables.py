@@ -21,254 +21,125 @@ class AIModelVariables:
     CLAUDE_USER_DUMMY_MESSAGE_FIRST = {"role": "user", "content": "This is a conversation between user and assistant"}
     CLAUDE_USER_DUMMY_MESSAGE_LAST = {"role": "user", "content": "your thoughts on this"}
 
+class AIModelDefaults:
+    """Base default values for all AI models"""
+    BASE_DEFAULTS = {
+        "temperature": 1.0,
+        "top_p": 1.0,
+        "max_tokens": 8192,
+        "presence_penalty": 0,
+        "frequency_penalty": 0,
+        "temperature_min": 0,
+        "temperature_max": 2,
+        "presence_penalty_min": -2,
+        "presence_penalty_max": 2,
+        "frequency_penalty_min": -2,
+        "frequency_penalty_max": 2,
+        "top_p_min": 0,
+        "top_p_max": 1,
+        "price_scale": 1_000_000,
+        "supports_image": False,
+        "stream": False
+    }
+
+class AIModelFamilyDefaults:
+    """Family-specific defaults that inherit and override base defaults"""
+    OPENAI = {
+        "family": "openai",
+        **AIModelDefaults.BASE_DEFAULTS
+    }
+    
+    ANTHROPIC = {
+        "family": "anthropic",
+        "temperature_max": 1,  # Anthropic has different temperature range
+        **AIModelDefaults.BASE_DEFAULTS
+    }
+    
+    GEMINI = {
+        "family": "gemini",
+        **AIModelDefaults.BASE_DEFAULTS
+    }
+    
+    PERPLEXITY = {
+        "family": "perplexity",
+        "frequency_penalty_min": 0,  # Perplexity has different penalty ranges
+        **AIModelDefaults.BASE_DEFAULTS
+    }
+    
+    DEEPSEEK = {
+        "family": "deepseek",
+        **AIModelDefaults.BASE_DEFAULTS
+    }
+
 class AIModelConstants:
+    """Model-specific configurations that inherit from family defaults"""
     AI_MODELS = {
         "gpt-4o-mini": {
             "model": "openai/gpt-4o-mini",
-            "max_tokens": 1000,
-            "max_tokens_default": 2000,
-            "max_completion_tokens": 2000,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": -2,
-            "frequency_penalty_max": 2,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": False,
             "input_token_price": 0.15,
             "output_token_price": 0.60,
-            "price_scale": 1_000_000,
-            "api_key": env("OPENAI_API_KEY")
+            "api_key": env("OPENAI_API_KEY"),
+            **AIModelFamilyDefaults.OPENAI
         },
         "claude-3-opus": {
             "model": "anthropic/claude-3-opus-20240229",
-            "max_tokens": 4000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": -2,
-            "frequency_penalty_max": 2,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": True,
             "input_token_price": 0.15,
             "output_token_price": 0.75,
-            "price_scale": 1_000_000,
-            "api_key": env("ANTHROPIC_API_KEY")
+            "supports_image": True,
+            "api_key": env("ANTHROPIC_API_KEY"),
+            **AIModelFamilyDefaults.ANTHROPIC
+        },
+        "claude-3-5-haiku": {
+            "model": "anthropic/claude-3-5-haiku-20241022",
+            "input_token_price": 0.15,
+            "output_token_price": 0.75,
+            "max_tokens": 8192,
+            "api_key": env("ANTHROPIC_API_KEY"),
+            **AIModelFamilyDefaults.ANTHROPIC
         },
         "gemini-pro": {
-            "model": "google/gemini-pro",
-            "max_tokens": 2048,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": -2,
-            "frequency_penalty_max": 2,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": True,
+            "model": "gemini/gemini-pro",
             "input_token_price": 0.001,
             "output_token_price": 0.001,
-            "price_scale": 1_000_000,
-            "api_key": env("GOOGLE_API_KEY")
-        },
-        "gpt-4o": {
-            "family": "openai",
-            "model": "gpt-4o",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": -2,
-            "frequency_penalty_max": 2,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
             "supports_image": True,
-            "input_token_price": 2.5,
-            "output_token_price": 10,
-            "price_scale": 1_000_000,
-            "api_key": env("OPENAI_API_KEY")
+            "api_key": env("GOOGLE_API_KEY"),
+            **AIModelFamilyDefaults.GEMINI
         },
-        "gemini-1.5-flash": {
-            "family": "gemini",
-            "model": "gemini-1.5-flash",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": 0,
-            "frequency_penalty_max": 0,
-            "presence_penalty_min": 0,
-            "presence_penalty_max": 0,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": False,
-            "input_token_price": 0.15,
-            "output_token_price": 0.60,
-            "price_scale": 1_000_000,
-            "api_key": env("GOOGLE_API_KEY")
+        "gemini-2.0-flash": {
+            "model": "gemini/gemini-2.0-flash",
+            "input_token_price": 0.001,
+            "output_token_price": 0.001,
+            "supports_image": True,
+            "api_key": env("GOOGLE_API_KEY"),
+            **AIModelFamilyDefaults.GEMINI
         },
-        "gemini-2.0-flash-exp": {
-            "family": "gemini",
-            "model": "gemini-2.0-flash-exp",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": 0,
-            "frequency_penalty_max": 0,
-            "presence_penalty_min": 0,
-            "presence_penalty_max": 0,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": False,
-            "input_token_price": 0.15,
-            "output_token_price": 0.60,
-            "price_scale": 1_000_000,
-            "api_key": env("GOOGLE_API_KEY")
-        },
-        "gemini-1.5-pro": {
-            "family": "gemini",
-            "model": "gemini-1.5-pro",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": 0,
-            "frequency_penalty_max": 0,
-            "presence_penalty_min": 0,
-            "presence_penalty_max": 0,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,        
-            "supports_image": True,
-            "input_token_price": 2.5,
-            "output_token_price": 10.00,
-            "price_scale": 1_000_000,
-            "api_key": env("GOOGLE_API_KEY")
-        },   
-        "claude-3-5-haiku-20241022": {
-            "family": "anthropic",
-            "model": "anthropic/claude-3-5-haiku-20241022",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 1,        
-            "supports_image": True,
-            "input_token_price": .80,
-            "output_token_price": 4.00,
-            "price_scale": 1_000_000,
-            "api_key": env("ANTHROPIC_API_KEY")
-        }, 
-        "claude-3-5-sonnet-20241022": {
-            "family": "anthropic",
-            "model": "claude-3-5-sonnet-20241022",
-            "max_tokens": 1000,
-            "max_tokens_default": 1000,
-            "temperature": 1.0,
-            "top_p": 0.95,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 1,        
-            "supports_image": True,
-            "input_token_price": 3.75,
-            "output_token_price": 15.00,
-            "price_scale": 1_000_000,
-            "api_key": env("ANTHROPIC_API_KEY")
-        }, 
         "sonar-reasoning-pro": {
-            "family": "perplexity",
             "model": "sonar-reasoning-pro",
-            "max_tokens": 10000,
-            "max_tokens_default": 10000,
-            "frequency_penalty": 1,
-            "frequency_penalty_min": 0,
-            "frequency_penalty_max": 2,
-            "presence_penalty": 0,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "temperature": .2,
-            "top_p": 0.9,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,        
-            "supports_image": False,
             "input_token_price": 2.00,
             "output_token_price": 8.00,
-            "price_scale": 1_000_000,
-            "api_key": env("PERPLEXITY_API_KEY")
-        }, 
+            "api_key": env("PERPLEXITY_API_KEY"),
+            **AIModelFamilyDefaults.PERPLEXITY
+        },
         "deepseek-chat": {
-            "family": "deepseek",
             "model": "deepseek-chat",
-            "max_tokens": 8192,
-            "max_tokens_default": 8192,
-            "temperature": 1.0,
-            "top_p": 1.0,
-            "frequency_penalty": 0,
-            "presence_penalty": 0,
-            "frequency_penalty_min": -2,
-            "frequency_penalty_max": 2,
-            "presence_penalty_min": -2,
-            "presence_penalty_max": 2,
-            "top_p_min": 0,
-            "top_p_max": 1,
-            "temperature_min": 0,
-            "temperature_max": 2,
-            "supports_image": False,
             "input_token_price": 0.14,
             "output_token_price": 0.28,
-            "price_scale": 1_000_000,
-            "api_key": env("DEEPSEEK_API_KEY")
-        },
+            "api_key": env("DEEPSEEK_API_KEY"),
+            **AIModelFamilyDefaults.DEEPSEEK
+        }
     }
 
     @staticmethod
-    def get_configs(model_name):
-        return AIModelConstants.AI_MODELS.get(model_name, False)
+    def get_configs(model_name: str) -> dict:
+        """Get model configuration with all defaults"""
+        return AIModelConstants.AI_MODELS.get(model_name, {})
 
-    
+    @staticmethod
+    def get_model_family(model_name: str) -> str:
+        """Get the AI model family (openai, anthropic, etc)"""
+        config = AIModelConstants.get_configs(model_name)
+        return config.get("family", "")
+
 class UsageVariables:
     # Plan names
     FREE_PLAN = "free"
