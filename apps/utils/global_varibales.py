@@ -24,10 +24,10 @@ class AIModelVariables:
 class AIModelConstants:
     AI_MODELS = {
         "gpt-4o-mini": {
-            "family": "openai",
-            "model": "gpt-4o-mini",
+            "model": "openai/gpt-4o-mini",
             "max_tokens": 1000,
-            "max_tokens_default": 1000,
+            "max_tokens_default": 2000,
+            "max_completion_tokens": 2000,
             "temperature": 1.0,
             "top_p": 1.0,
             "frequency_penalty": 0,
@@ -45,6 +45,50 @@ class AIModelConstants:
             "output_token_price": 0.60,
             "price_scale": 1_000_000,
             "api_key": env("OPENAI_API_KEY")
+        },
+        "claude-3-opus": {
+            "model": "anthropic/claude-3-opus-20240229",
+            "max_tokens": 4000,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": -2,
+            "frequency_penalty_max": 2,
+            "presence_penalty_min": -2,
+            "presence_penalty_max": 2,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": True,
+            "input_token_price": 0.15,
+            "output_token_price": 0.75,
+            "price_scale": 1_000_000,
+            "api_key": env("ANTHROPIC_API_KEY")
+        },
+        "gemini-pro": {
+            "model": "google/gemini-pro",
+            "max_tokens": 2048,
+            "max_tokens_default": 1000,
+            "temperature": 1.0,
+            "top_p": 1.0,
+            "frequency_penalty": 0,
+            "presence_penalty": 0,
+            "frequency_penalty_min": -2,
+            "frequency_penalty_max": 2,
+            "presence_penalty_min": -2,
+            "presence_penalty_max": 2,
+            "top_p_min": 0,
+            "top_p_max": 1,
+            "temperature_min": 0,
+            "temperature_max": 2,
+            "supports_image": True,
+            "input_token_price": 0.001,
+            "output_token_price": 0.001,
+            "price_scale": 1_000_000,
+            "api_key": env("GOOGLE_API_KEY")
         },
         "gpt-4o": {
             "family": "openai",
@@ -90,7 +134,7 @@ class AIModelConstants:
             "input_token_price": 0.15,
             "output_token_price": 0.60,
             "price_scale": 1_000_000,
-            "api_key": env("GEMINI_API_KEY")
+            "api_key": env("GOOGLE_API_KEY")
         },
         "gemini-2.0-flash-exp": {
             "family": "gemini",
@@ -113,7 +157,7 @@ class AIModelConstants:
             "input_token_price": 0.15,
             "output_token_price": 0.60,
             "price_scale": 1_000_000,
-            "api_key": env("GEMINI_API_KEY")
+            "api_key": env("GOOGLE_API_KEY")
         },
         "gemini-1.5-pro": {
             "family": "gemini",
@@ -136,11 +180,11 @@ class AIModelConstants:
             "input_token_price": 2.5,
             "output_token_price": 10.00,
             "price_scale": 1_000_000,
-            "api_key": env("GEMINI_API_KEY")
+            "api_key": env("GOOGLE_API_KEY")
         },   
         "claude-3-5-haiku-20241022": {
             "family": "anthropic",
-            "model": "claude-3-5-haiku-20241022",
+            "model": "anthropic/claude-3-5-haiku-20241022",
             "max_tokens": 1000,
             "max_tokens_default": 1000,
             "temperature": 1.0,
@@ -153,7 +197,7 @@ class AIModelConstants:
             "input_token_price": .80,
             "output_token_price": 4.00,
             "price_scale": 1_000_000,
-            "api_key": env("CLAUDE_API_KEY")
+            "api_key": env("ANTHROPIC_API_KEY")
         }, 
         "claude-3-5-sonnet-20241022": {
             "family": "anthropic",
@@ -170,7 +214,7 @@ class AIModelConstants:
             "input_token_price": 3.75,
             "output_token_price": 15.00,
             "price_scale": 1_000_000,
-            "api_key": env("CLAUDE_API_KEY")
+            "api_key": env("ANTHROPIC_API_KEY")
         }, 
         "sonar-reasoning-pro": {
             "family": "perplexity",
