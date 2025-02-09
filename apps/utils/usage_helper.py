@@ -89,7 +89,12 @@ class RunUsage:
             return limit > total_credits
         
         # Default free plan implementation
-        day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%S.%fZ").date().strftime("%d")
+        try:
+            # First try parsing with microseconds
+            day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%S.%fZ").date().strftime("%d")
+        except ValueError:
+            # If that fails, try without microseconds
+            day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%d")
         current_month = datetime.now().strftime("%m")
         current_year = datetime.now().strftime("%Y")
         if datetime.now().strftime("%d") > day_joined:
