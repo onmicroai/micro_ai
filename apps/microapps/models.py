@@ -253,16 +253,6 @@ class Run(models.Model):
     # Output tokens are the tokens in the output response that the AI model generates. 
     output_tokens = models.IntegerField()
 
-    # The price per 1M input tokens for this request at the time of the run. 
-    # This value is determined by the backend based on libraries that we maintain. 
-    # TO-DO: Can we automate the updates of these libraries, rather than maintaining them manually?
-    price_input_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
-
-    # The price per 1M output tokens for this request at the time of the run. 
-    # This value is determined by the backend based on libraries that we maintain. 
-    # TO-DO: Can we automate the updates of these libraries, rather than maintaining them manually?
-    price_output_token_1M = models.DecimalField(max_digits=20, decimal_places=6)
-
     # If true, then the run is scored by the AI model. 
     # Scored runs send special requests for a score returned in JSON format from the model. There is special logic to handle the sending and receiving of these scoring requests. 
     # See the RunList view Post method for more details.    
@@ -304,8 +294,6 @@ class Run(models.Model):
     
     response_type = models.CharField(max_length = 20, default = MicroappVariables.DEFAULT_RESPONSE_TYPE, choices = RESPONSE_TYPE)
 
-    price_scale = models.FloatField(default=1_000_000.0)
-
     def __str__(self):
         return self.ai_model
 
@@ -340,12 +328,6 @@ class AIModelConfig(models.Model):
 
     # The default maximum number of tokens allowed in the output. 
     max_tokens = models.IntegerField(null=True, blank=True)
-
-    # The price per 1M input tokens for this model
-    input_token_price = models.FloatField()
-
-    # The price per 1M output tokens for this model
-    output_token_price = models.FloatField()
 
     def __str__(self):
         return self.model_name

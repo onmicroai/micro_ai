@@ -532,7 +532,6 @@ class RunList(APIView):
     score_result = True
     app_hash_id = ""
     response_type = ""
-    price_scale = ""
     credits = 0
 
     def check_payload(self, data, request):
@@ -563,16 +562,10 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
 
-            # Get credits directly from the response
-            credits = response["credits"]  # This should be the value calculated by model.calculate_credits
-            if self.response_type == "AI" and self.ai_score != "":
-                credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
-            elif self.response_type == "AI" and self.ai_score == "":
-                credits += SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
-            elif self.response_type != "AI":
-                credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
+            print("CREDITS", response["credits"])
 
-            self.credits = credits # Store for later use in update_user_credits
+            credits = response["credits"]
+            self.credits = credits  # Store for later use in update_user_credits
 
             # Round the cost to 6 decimal places
             cost = round(float(response["cost"]), 6)
@@ -603,8 +596,6 @@ class RunList(APIView):
                 "request_skip": data.get("request_skip", False),
                 "credits": credits,
                 "cost": cost,
-                "price_input_token_1M": response["price_input_token_1M"],
-                "price_output_token_1M": response["price_output_token_1M"],
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
@@ -615,7 +606,6 @@ class RunList(APIView):
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": self.app_hash_id,
                 "response_type": self.response_type,
-                "price_scale": self.price_scale
             }
             return run_data
         except Exception as e:
@@ -623,13 +613,13 @@ class RunList(APIView):
             log.error(f"Response data: {response}")
 
     def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
 
     def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0 }
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
 
     # hardcoded credits calculation
     def calculate_credits(self, usage):
@@ -757,8 +747,6 @@ class RunList(APIView):
            
             model = model_router["model"]
 
-            self.price_scale = model_router["config"]["price_scale"]
-
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
             
@@ -786,9 +774,6 @@ class RunList(APIView):
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
-                # check required prompt property for score phase
-                #if not data.get("prompt"):
-                #    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
@@ -800,19 +785,14 @@ class RunList(APIView):
                     "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
                 })
                 response.update({
-                    "cost": model.calculate_cost(response),
-                    "price_input_token_1M": model.calculate_input_token_price(response),
-                    "price_output_token_1M": model.calculate_output_token_price(response)
+                    "cost": response["cost"] + score_response["cost"],
                 })
                 response.update({
-                    "credits": model.calculate_credits(response["cost"]),
+                    "credits": response["credits"] + score_response["credits"],
                 })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
-                # check required prompt property for basic feedback phase
-                #if not data.get("prompt"):
-                #    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 if not response["status"]:
                     return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
