@@ -16,6 +16,7 @@ from apps.utils.custom_permissions import (
     IsOwner,
     AdminRole
 )
+from apps.users.models import CustomUser
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -26,7 +27,6 @@ from apps.microapps.serializer import (
     RunPatchSerializer
 )
 from apps.users.serializers import UserSerializer
-from apps.users.models import CustomUser
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel, DeepSeekModel
@@ -1005,24 +1005,33 @@ class UserMicroAppsRoleByHash(APIView):
         try:
             microapp = self.get_microapp(hash_id)
             if not microapp:
-                return None
-            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+                return {"error": "No Microapp Found", "status": status.HTTP_404_NOT_FOUND}
+            
+            # Check if user exists
+            if not CustomUser.objects.filter(id=uid).exists():
+                return {"error": "No user with that uid", "status": status.HTTP_404_NOT_FOUND}
+            
+            # Get user role (may be empty if user has no role)
+            user_role = MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+            return {"data": user_role, "status": status.HTTP_200_OK}
+            
         except Exception as e:
             return handle_exception(e)
 
     def get(self, request, hash_id, user_id):
         try:
-            user_role = self.get_objects(user_id, hash_id)
-            if user_role:
-                serializer = MicroappUserSerializer(user_role, many=True)
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
+            result = self.get_objects(user_id, hash_id)
+            
+            if "error" in result:
+                return Response(result, status=result["status"])
+                
+            user_role = result["data"]
+            serializer = MicroappUserSerializer(user_role, many=True)
             return Response(
-                error.USER_NOT_EXIST,
-                status=status.HTTP_400_BAD_REQUEST,
+                {"data": serializer.data, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
             )
+            
         except Exception as e:
             return handle_exception(e)
 
