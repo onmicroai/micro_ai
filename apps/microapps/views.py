@@ -577,6 +577,9 @@ class RunList(APIView):
             # Round the cost to 6 decimal places
             cost = round(float(response["cost"]), 6)
 
+            # Ensure max_tokens is set from api_params if not in data
+            max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
+
             run_data = {
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
@@ -588,7 +591,7 @@ class RunList(APIView):
                 "no_submission": data.get("no_submission", False),
                 "ai_model": api_params["model"],
                 "temperature": float(api_params["temperature"]),
-                "max_tokens": data.get("max_tokens", model.model_config['max_tokens_default']),
+                "max_tokens": max_tokens,
                 "top_p": api_params["top_p"],
                 "frequency_penalty": api_params["frequency_penalty"],
                 "presence_penalty": api_params["presence_penalty"],
