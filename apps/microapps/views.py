@@ -28,7 +28,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
-from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
+from apps.utils.global_variables import AIModelConstants, MicroappVariables, SubscriptionVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel, DeepSeekModel
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer

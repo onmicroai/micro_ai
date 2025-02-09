@@ -4,7 +4,7 @@ import logging as log
 from rest_framework.response import Response
 from apps.utils.custom_error_message import ErrorMessages as error
 from rest_framework import status
-from apps.utils.global_varibales import AIModelVariables, MicroappVariables
+from apps.utils.global_variables import AIModelVariables, MicroappVariables
 import openai
 from openai import OpenAI
 import google.generativeai as genai
