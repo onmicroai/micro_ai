@@ -37,7 +37,6 @@ class AIModelDefaults:
         "frequency_penalty_max": 2,
         "top_p_min": 0,
         "top_p_max": 1,
-        "price_scale": 1_000_000,
         "supports_image": False,
         "stream": False
     }

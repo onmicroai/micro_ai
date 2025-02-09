@@ -3,6 +3,7 @@ import litellm
 from django.conf import settings
 import logging
 from apps.utils.global_variables import AIModelConstants, AIModelDefaults
+import re
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +22,6 @@ class UnifiedLLMInterface:
                 - api_key: The API key for the model provider
                 - temperature: Default temperature
                 - max_tokens: Default max tokens
-                - price_scale: Price scaling factor (usually 1M for per-million pricing)
                 - stream: Whether to stream the response
         """
         self.model_config = model_config
@@ -35,11 +35,6 @@ class UnifiedLLMInterface:
             "model": self.model_name,
             **{k: model_config.get(k, v) for k, v in AIModelDefaults.BASE_DEFAULTS.items()}
         }
-        
-        # Price configuration
-        self.price_scale = model_config.get("price_scale", AIModelDefaults.BASE_DEFAULTS["price_scale"])
-        self.input_token_price = model_config.get("input_token_price", 0)
-        self.output_token_price = model_config.get("output_token_price", 0)
 
     def validate_params(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the parameters for the model"""
@@ -99,15 +94,13 @@ class UnifiedLLMInterface:
                 drop_params=True
             )
 
-            print("LiteLLM response", response)
-            print("response_cost", response._hidden_params)
+            print("LITELLM RESPONSE", response)
+
             # Extract usage information
             usage = response.usage
             
             # Calculate costs
-            input_cost = (usage.prompt_tokens * self.input_token_price) / self.price_scale
-            output_cost = (usage.completion_tokens * self.output_token_price) / self.price_scale
-            total_cost = input_cost + output_cost
+            total_cost = response._hidden_params["response_cost"]
             
             # Calculate credits (assuming 1 credit = $0.001)
             credits = int(total_cost * 1000)
@@ -121,8 +114,6 @@ class UnifiedLLMInterface:
                     "total_tokens": usage.total_tokens,
                     "cost": total_cost,
                     "credits": credits,
-                    "price_input_token_1M": self.input_token_price,
-                    "price_output_token_1M": self.output_token_price
                 }
             }
             
@@ -130,20 +121,103 @@ class UnifiedLLMInterface:
             log.error(f"Error getting response from {self.model_name}: {str(e)}")
             return {"status": False, "message": str(e)}
 
-    def calculate_cost(self, usage: Dict[str, int]) -> float:
-        """Calculate the cost for the given token usage"""
-        input_cost = (usage["prompt_tokens"] * self.input_token_price) / self.price_scale
-        output_cost = (usage["completion_tokens"] * self.output_token_price) / self.price_scale
-        return input_cost + output_cost
-
     def calculate_credits(self, cost: float) -> int:
         """Calculate credits from cost (1 credit = $0.001)"""
         return int(cost * 1000)
 
-    def calculate_input_token_price(self, usage: Dict[str, int]) -> float:
-        """Calculate the input token price"""
-        return self.input_token_price
+    def score_response(self, api_params: Dict[str, Any], minimum_score: float) -> Dict[str, Any]:
+        """
+        Get a scored response from the model.
+        
+        Args:
+            api_params: Dictionary containing API parameters
+            minimum_score: Minimum score required to pass
+            
+        Returns:
+            Dictionary containing:
+                - completion_tokens: Number of tokens in completion
+                - prompt_tokens: Number of tokens in prompt
+                - total_tokens: Total tokens used
+                - ai_score: The score response from the AI
+                - score_result: Boolean indicating if score meets minimum
+        """
+        try:
+            response = litellm.completion(
+                model=api_params["model"],
+                messages=api_params["messages"],
+                temperature=api_params["temperature"],
+                top_p=api_params["top_p"],
+                max_tokens=api_params["max_tokens"],
+                presence_penalty=api_params["presence_penalty"],
+                frequency_penalty=api_params["frequency_penalty"],
+                stream=api_params["stream"],
+                drop_params=True
+            )
+            
+            usage = response.usage
+            total_cost = response._hidden_params["response_cost"]
+            credits = int(total_cost * 1000)
+            ai_score = response.choices[0].message.content
+            score_result = False
+            
+            if self.extract_score(ai_score) >= minimum_score:
+                score_result = True
+                
+            return {
+                "prompt_tokens": usage.prompt_tokens,
+                "completion_tokens": usage.completion_tokens,
+                "total_tokens": usage.total_tokens,
+                "cost": total_cost,
+                "credits": credits,
+                "ai_score": ai_score,
+                "score_result": score_result
+            }
+            
+        except Exception as e:
+            log.error(f"Error getting scored response: {str(e)}")
+            return {"status": False, "message": str(e)}
 
-    def calculate_output_token_price(self, usage: Dict[str, int]) -> float:
-        """Calculate the output token price"""
-        return self.output_token_price 
+    def extract_score(self, response: str) -> int:
+        """
+        Extract the total score from a JSON-formatted response string.
+        
+        Args:
+            response: The response string containing a JSON object with a 'total' field
+            
+        Returns:
+            The total score as an integer, or 0 if no valid score found
+        """
+        try:
+            pattern = r'"total":\s*"?(\d+)"?'
+            match = re.search(pattern, response)
+            if match:
+                return int(match.group(1))
+            return 0
+        except Exception as e:
+            log.error(f"Error extracting score: {str(e)}")
+            return 0
+
+    def build_instruction(self, data: Dict[str, Any], messages: list) -> list:
+        """
+        Build scoring instruction message for the model.
+        
+        Args:
+            data: Dictionary containing request data including rubric
+            messages: List of existing conversation messages
+            
+        Returns:
+            Updated list of messages with scoring instruction appended
+        """
+        try:
+            instruction = (
+                "Please provide a score for the previous user message. Use the following rubric:" 
+                + str(data.get("rubric")) 
+                + " Output your response as JSON, using this format: "
+                + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
+                + " Make sure to include the 'total' key and its value in your response."
+            )
+            messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(f"Error building instruction: {str(e)}")
+            return messages
