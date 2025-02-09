@@ -46,6 +46,7 @@ from rest_framework import serializers
 from rest_framework.decorators import action
 from django.conf import settings
 import json
+from .llm_interface import UnifiedLLMInterface
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -571,7 +572,10 @@ class RunList(APIView):
             elif self.response_type != "AI":
                 credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
 
-            self.credits = credits  # Store for later use in update_user_credits
+            self.credits = credits # Store for later use in update_user_credits
+
+            # Round the cost to 6 decimal places
+            cost = round(float(response["cost"]), 6)
 
             run_data = {
                 "ma_id": int(data.get("ma_id")),
@@ -594,8 +598,8 @@ class RunList(APIView):
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
-                "credits": credits,  # Use the credits value directly
-                "cost": response["cost"],
+                "credits": credits,
+                "cost": cost,
                 "price_input_token_1M": response["price_input_token_1M"],
                 "price_output_token_1M": response["price_output_token_1M"],
                 "response": usage["ai_response"],
@@ -705,6 +709,7 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            #If field exists, convert to float:
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -740,23 +745,27 @@ class RunList(APIView):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
                 
             # Return model instance based on AI-model name
-            model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            print("data.get('model')", data.get("model"))
+            model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
            
             if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
            
             model = model_router["model"]
+
             self.price_scale = model_router["config"]["price_scale"]
-            
+
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
+            
             if not ai_validation["status"]:
                 return Response({"error": error.validation_error(ai_validation["message"]), "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # Retrieve default API parameters for the AI model
             api_params = model.get_default_params(data)
+            
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
             # Handle skip phase
@@ -775,8 +784,8 @@ class RunList(APIView):
             # Handle score phase
             elif data.get("scored_run"):
                 # check required prompt property for score phase
-                if not data.get("prompt"):
-                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
+                #if not data.get("prompt"):
+                #    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
@@ -799,17 +808,20 @@ class RunList(APIView):
             # Handle basic feedback phase
             else:
                 # check required prompt property for basic feedback phase
-                if not data.get("prompt"):
-                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
+                #if not data.get("prompt"):
+                #    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 if not response["status"]:
                     return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
                 response = response["data"]
+                
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
+            
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
+                
                 serialize = serializer.save()
                 self.update_user_credits(serialize.id, request.user.id)
                 run_data["id"] = serialize.id
@@ -893,23 +905,12 @@ class AIModelRoute:
             model_config = AIModelConstants.get_configs(model_name)
             if not model_config:
                 return False
-                
-            model_family = model_config["family"]
-            if model_family == "openai":
-                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "gemini":
-                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config}
-            elif model_family == "anthropic":
-                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "perplexity":
-                return {"model": PerplexityModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "deepseek":
-                return {"model": DeepSeekModel(model_config["api_key"], model_config), "config": model_config}
             
-            return False
+            # Use the unified interface for all models
+            return {"model": UnifiedLLMInterface(model_config), "config": model_config}
             
         except Exception as e:
-           return handle_exception(e) 
+           return handle_exception(e)
    
 class AIModelConfigurations(APIView):
     permission_classes = [AllowAny]

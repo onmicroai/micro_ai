@@ -97,7 +97,6 @@ class Microapp(models.Model):
     hash_id = models.CharField(max_length=50, unique=True, blank=True)
     
     def save(self, *args, **kwargs):
-        print("Hash ID",self.hash_id)
         if not self.hash_id:
             while True:
                 candidate = str(uuid.uuid4())[:16]
