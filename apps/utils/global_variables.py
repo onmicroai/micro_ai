@@ -26,7 +26,7 @@ class AIModelDefaults:
     BASE_DEFAULTS = {
         "temperature": 1.0,
         "top_p": 1.0,
-        "max_tokens": 8192,
+        "max_tokens": 10000,
         "presence_penalty": 0,
         "frequency_penalty": 0,
         "temperature_min": 0,
@@ -45,28 +45,33 @@ class AIModelFamilyDefaults:
     """Family-specific defaults that inherit and override base defaults"""
     OPENAI = {
         "family": "openai",
+        "api_key": env("OPENAI_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
     
     ANTHROPIC = {
         "family": "anthropic",
         "temperature_max": 1,  # Anthropic has different temperature range
+        "api_key": env("ANTHROPIC_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
     
     GEMINI = {
         "family": "gemini",
+        "api_key": env("GOOGLE_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
     
     PERPLEXITY = {
         "family": "perplexity",
         "frequency_penalty_min": 0,  # Perplexity has different penalty ranges
+        "api_key": env("PERPLEXITY_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
     
     DEEPSEEK = {
         "family": "deepseek",
+        "api_key": env("DEEPSEEK_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
 
@@ -75,55 +80,38 @@ class AIModelConstants:
     AI_MODELS = {
         "gpt-4o-mini": {
             "model": "openai/gpt-4o-mini",
-            "input_token_price": 0.15,
-            "output_token_price": 0.60,
-            "api_key": env("OPENAI_API_KEY"),
+            **AIModelFamilyDefaults.OPENAI
+        },
+        "openai-o3-mini": {
+            "model": "openai/o3-mini",
             **AIModelFamilyDefaults.OPENAI
         },
         "claude-3-opus": {
             "model": "anthropic/claude-3-opus-20240229",
-            "input_token_price": 0.15,
-            "output_token_price": 0.75,
             "supports_image": True,
-            "api_key": env("ANTHROPIC_API_KEY"),
             **AIModelFamilyDefaults.ANTHROPIC
         },
         "claude-3-5-haiku": {
             "model": "anthropic/claude-3-5-haiku-20241022",
-            "input_token_price": 0.15,
-            "output_token_price": 0.75,
             "max_tokens": 8192,
-            "api_key": env("ANTHROPIC_API_KEY"),
             **AIModelFamilyDefaults.ANTHROPIC
         },
         "gemini-pro": {
             "model": "gemini/gemini-pro",
-            "input_token_price": 0.001,
-            "output_token_price": 0.001,
             "supports_image": True,
-            "api_key": env("GOOGLE_API_KEY"),
             **AIModelFamilyDefaults.GEMINI
         },
         "gemini-2.0-flash": {
             "model": "gemini/gemini-2.0-flash",
-            "input_token_price": 0.001,
-            "output_token_price": 0.001,
             "supports_image": True,
-            "api_key": env("GOOGLE_API_KEY"),
             **AIModelFamilyDefaults.GEMINI
         },
         "sonar-reasoning-pro": {
             "model": "sonar-reasoning-pro",
-            "input_token_price": 2.00,
-            "output_token_price": 8.00,
-            "api_key": env("PERPLEXITY_API_KEY"),
             **AIModelFamilyDefaults.PERPLEXITY
         },
         "deepseek-chat": {
             "model": "deepseek-chat",
-            "input_token_price": 0.14,
-            "output_token_price": 0.28,
-            "api_key": env("DEEPSEEK_API_KEY"),
             **AIModelFamilyDefaults.DEEPSEEK
         }
     }
