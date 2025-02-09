@@ -621,21 +621,6 @@ class RunList(APIView):
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
 
-    # hardcoded credits calculation
-    def calculate_credits(self, usage):
-        try:
-            if self.response_type == "AI":  # handler for AI responses
-                # Use the credits already calculated by the model
-                self.credits = int(usage.get("credits", 0))  # Ensure integer and handle missing key
-                if self.ai_score != "":  # Add extra credits for scoring
-                    self.credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
-            else:   # handler for non-AI responses (skip, hardcoded, no-submission)
-                self.credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
-            return self.credits
-        except Exception as e:
-            log.error(e)
-            return 0  # Return a default value in case of error
-    
     def update_user_credits(self, run_id, user_id):
         try:
             billing_cycle = BillingCycle.objects.filter(
