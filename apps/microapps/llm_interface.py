@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import litellm
 from django.conf import settings
 import logging
-from apps.utils.global_variables import AIModelConstants, AIModelDefaults
+from apps.utils.global_variables import UsageVariables, AIModelDefaults
 import re
 
 log = logging.getLogger(__name__)
@@ -123,7 +123,7 @@ class UnifiedLLMInterface:
 
     def calculate_credits(self, cost: float) -> int:
         """Calculate credits from cost (1 credit = $0.001)"""
-        credits = max(int(cost * AIModelConstants.CREDITS_MULTIPLIER), AIModelConstants.MINIMUM_CREDITS)
+        credits = max(int(cost * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
         return credits
 
     def score_response(self, api_params: Dict[str, Any], minimum_score: float) -> Dict[str, Any]:
