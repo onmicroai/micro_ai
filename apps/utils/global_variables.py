@@ -17,16 +17,12 @@ class CollectionVariables:
     MY_COLLECTION = "My Collection"
     SHARED_WITH_ME_COLLECTION = "Shared With Me"
 
-class AIModelVariables:
-    CLAUDE_USER_DUMMY_MESSAGE_FIRST = {"role": "user", "content": "This is a conversation between user and assistant"}
-    CLAUDE_USER_DUMMY_MESSAGE_LAST = {"role": "user", "content": "your thoughts on this"}
-
 class AIModelDefaults:
     """Base default values for all AI models"""
     BASE_DEFAULTS = {
         "temperature": 1.0,
         "top_p": 1.0,
-        "max_tokens": 10000,
+        "max_tokens": 5000,
         "presence_penalty": 0,
         "frequency_penalty": 0,
         "temperature_min": 0,
@@ -149,9 +145,3 @@ class UsageVariables:
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
     # Guest Users
     GUEST_USER_SESSION_LIMIT = 3
-
-class SubscriptionVariables:
-    DEFAULT_BILLING_CYCLE_STATUS = "open"
-    HARDCODED_RESPONSE_CREDIT = 5
-    DEFAULT_RESPONSE_CREDIT = 10
-    SCORE_RESPONSE_CREDIT = 20
