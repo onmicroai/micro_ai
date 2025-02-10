@@ -98,7 +98,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",  # Required for admin
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -339,13 +339,13 @@ SITE_ID = 1
 # DRF config
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        'rest_framework.authentication.TokenAuthentication',
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ("apps.api.permissions.IsAuthenticatedOrHasUserAPIKey",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 100,
+    "UNAUTHENTICATED_USER": None,  # Disable session-based authentication for DRF
 }
 
 is_production = os.getenv('PRODUCTION', 'False') == 'True'
@@ -505,3 +505,10 @@ LOGGING = {
         },
     },
 }
+
+# Session settings - limit sessions to admin only
+SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_PATH = '/admin/'  # Only set session cookie for admin paths
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = is_production
+SESSION_COOKIE_SAMESITE = 'Lax'  # More restrictive for admin
