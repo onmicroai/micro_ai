@@ -103,7 +103,7 @@ class UnifiedLLMInterface:
             total_cost = response._hidden_params["response_cost"]
             
             # Calculate credits (assuming 1 credit = $0.001)
-            credits = int(total_cost * 1000)
+            credits = self.calculate_credits(total_cost)
             
             return {
                 "status": True,
@@ -123,7 +123,8 @@ class UnifiedLLMInterface:
 
     def calculate_credits(self, cost: float) -> int:
         """Calculate credits from cost (1 credit = $0.001)"""
-        return int(cost * 1000)
+        credits = max(int(cost * AIModelConstants.CREDITS_MULTIPLIER), AIModelConstants.MINIMUM_CREDITS)
+        return credits
 
     def score_response(self, api_params: Dict[str, Any], minimum_score: float) -> Dict[str, Any]:
         """
