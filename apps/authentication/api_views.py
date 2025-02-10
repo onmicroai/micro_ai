@@ -3,7 +3,6 @@
 from allauth.mfa.utils import is_mfa_enabled
 from allauth.mfa.models import Authenticator
 from allauth.mfa.totp import TOTP
-from django.forms import model_to_dict
 from dj_rest_auth.serializers import JWTSerializer
 from dj_rest_auth.views import LoginView
 from drf_spectacular.utils import extend_schema
@@ -12,11 +11,8 @@ from rest_framework.generics import GenericAPIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
-from dj_rest_auth.registration.views import RegisterView
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-
-from apps.microapps.models import Microapp
 from apps.users.models import CustomUser
 from .serializers import LoginResponseSerializer, OtpRequestSerializer
 import uuid
@@ -105,46 +101,21 @@ class VerifyOTPView(GenericAPIView):
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
 
 class APICustomLogoutView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = (IsAuthenticated,)
 
-    from django.conf import settings
-import os
-
-class APICustomLogoutView(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def post(self, request, *args, **kwargs):
+    def post(self, request):
         try:
             refresh_token = request.COOKIES.get('refresh_token')
             if refresh_token:
                 try:
                     token = RefreshToken(refresh_token)
                     token.blacklist()
-                    access_token = token.access_token
-                    access_token.blacklist()
                 except Exception:
                     pass
-
-            is_production = os.getenv('PRODUCTION', 'False') == 'True'
-            samesite = 'None' if is_production else 'Lax'
-            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
-
-            response = Response(
-                {"detail": "Successfully logged out."},
-                status=status.HTTP_200_OK
-            )
-            
-            response.delete_cookie(
-                'refresh_token',
-                path='/',
-                domain=cookies_domain,
-                secure=is_production,
-                samesite=samesite,
-            )
-            return response
-            
-        except Exception as e:
             return Response(
                 {"detail": "Successfully logged out."},
-                status=status.HTTP_200_OK
-            )
+                status=status.HTTP_205_RESET_CONTENT)
+        except Exception as e:
+            return Response(
+                {"detail": "Failed to log out."},
+                status=status.HTTP_400_BAD_REQUEST)
