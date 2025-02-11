@@ -55,7 +55,8 @@ urlpatterns = [
     path("accounts/logout_loading/", CustomLogoutLoadingView.as_view(), name='account_loading_logout'),
     path("accounts/", include("allauth.urls")),
     path("api/users/", include("apps.users.urls")),
-    path("subscriptions/", include("apps.subscriptions.urls")),
+    path("api/subscriptions/", include("apps.subscriptions.api_urls")),  # API endpoints
+    path("subscriptions/", include("apps.subscriptions.urls")),  # Web views
     path("teams/", include("apps.teams.urls")),
     path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
