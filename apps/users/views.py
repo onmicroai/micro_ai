@@ -25,6 +25,7 @@ from .models import CustomUser
 from PIL import Image
 import os
 import logging as log
+from django.views.decorators.csrf import csrf_exempt
 
 @login_required
 def profile(request):
@@ -65,6 +66,7 @@ def profile(request):
 
 
 @login_required
+@csrf_exempt
 @require_POST
 def upload_profile_image(request):
     user = request.user
