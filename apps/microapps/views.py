@@ -1,4 +1,3 @@
-# \micro_ai\apps\microapps\views.py
 import datetime
 import re
 import uuid
@@ -6,7 +5,6 @@ import os
 from pathlib import Path
 import environ
 import logging as log
-from django.forms import model_to_dict
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -18,6 +16,7 @@ from apps.utils.custom_permissions import (
     IsOwner,
     AdminRole
 )
+from apps.users.models import CustomUser
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -28,24 +27,37 @@ from apps.microapps.serializer import (
     RunPatchSerializer
 )
 from apps.users.serializers import UserSerializer
-from apps.users.models import CustomUser
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel, DeepSeekModel
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
 from django.db.models.functions import Round
-from apps.subscriptions.models import BillingCycle, UsageEvent
+from apps.subscriptions.models import BillingCycle
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
 import stripe
+import boto3
+from botocore.config import Config
+from rest_framework import serializers
+from rest_framework.decorators import action
+from django.conf import settings
+import json
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
+
+class ImageUploadSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    content_type = serializers.CharField()
+
+class PresignedUrlResponse(serializers.Serializer):
+    url = serializers.CharField()
+    fields = serializers.DictField()
 
 
 def handle_exception(e):
@@ -130,7 +142,6 @@ class MicroAppList(APIView):
         except Exception as e:
             return handle_exception(e)
 
-
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary = "Get microapp by id"),
     put=extend_schema(request=MicroAppSwaggerPutSerializer, responses={200: MicroAppSerializer}, summary = "Update by microapp"),
@@ -193,20 +204,20 @@ class MicroAppDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def delete(self, request, app_id, format=None):
-        try:
-            self.permission_classes = [IsOwner]
-            self.check_permissions(request)
-            micro_apps = self.get_object(app_id)
-            if micro_apps:
-                micro_apps.delete()
-                return Response(status=status.HTTP_200_OK)
-            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
+    # def delete(self, request, app_id, format=None):
+    #     try:
+    #         self.permission_classes = [IsOwner]
+    #         self.check_permissions(request)
+    #         micro_apps = self.get_object(app_id)
+    #         if micro_apps:
+    #             micro_apps.delete()
+    #             return Response(status=status.HTTP_200_OK)
+    #         return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
         
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
+    #     except PermissionDenied:
+    #         return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+    #     except Exception as e:
+    #         return handle_exception(e)
 
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
@@ -233,7 +244,6 @@ class MicroAppArchive(APIView):
                 status=status.HTTP_200_OK,
             )
 
-
 class CloneMicroApp(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -243,7 +253,33 @@ class CloneMicroApp(APIView):
         except Microapp.DoesNotExist:
             return None
 
-    def post(self, request, pk, collection_id):
+    def get_or_create_default_collection(self, user_id):
+        try:
+            # First try to get user's collections
+            user_collections = Collection.objects.filter(
+                collectionuserjoin__user_id=user_id
+            ).first()
+
+            if user_collections:
+                return user_collections
+
+            # If no collections exist, create a default one
+            default_collection = Collection.objects.create(
+                name="My Apps",
+                description="Your personal collection of apps"
+            )
+            # Add user as admin of the collection
+            CollectionUserJoin.objects.create(
+                collection_id=default_collection.id,
+                user_id=user_id,
+                role="admin"
+            )
+            return default_collection
+        except Exception as e:
+            log.error(f"Error getting/creating default collection: {e}")
+            return None
+
+    def post(self, request, pk, collection_id=None):
         try:
             microapp = self.get_microapp(pk)
             if not microapp:
@@ -259,43 +295,59 @@ class CloneMicroApp(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            if collection_id:
-                if MicroAppUsage.microapp_related_info(request.user.id):
-                    # Instead of using model_to_dict, use the serializer to get the data
-                    original_data = MicroAppSerializer(microapp).data
-                    # Remove the fields we don't want to copy
-                    original_data.pop('id', None)
-                    original_data.pop('hash_id', None)
-                    original_data['title'] = original_data['title'] + " copy"
-                    
-                    serializer = MicroAppSerializer(data=original_data)
-                    if serializer.is_valid():
-                        new_microapp = serializer.save()
-                        micro_app_list = MicroAppList
-                        micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
-                        micro_app_list.add_collection_microapp(self, collection_id, new_microapp)
-                        return Response(
-                            {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
-                            status=status.HTTP_200_OK,
-                        )
+            # If collection_id is 0 or None, get or create a default collection
+            target_collection_id = collection_id if collection_id and collection_id > 0 else None
+            if not target_collection_id:
+                default_collection = self.get_or_create_default_collection(request.user.id)
+                if not default_collection:
                     return Response(
-                        error.validation_error(serializer.errors),
-                        status=status.HTTP_400_BAD_REQUEST,
+                        {"error": "Could not find or create a default collection.", "status": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
+                target_collection_id = default_collection.id
+
+            if MicroAppUsage.microapp_related_info(request.user.id):
+                # Instead of using model_to_dict, use the serializer to get the data
+                original_data = MicroAppSerializer(microapp).data
+                # Remove the fields we don't want to copy
+                original_data.pop('id', None)
+                original_data.pop('hash_id', None)
+                original_data['title'] = original_data['title'] + " copy"
+
+                # Update the title in the app_json as well
+                try:
+                    app_json = original_data.get('app_json', '{}')
+                    if isinstance(app_json, str):
+                        app_json = json.loads(app_json)
+                    if isinstance(app_json, dict):
+                        app_json['title'] = original_data['title']
+                        original_data['app_json'] = json.dumps(app_json)
+                except Exception as e:
+                    log.error(f"Error updating app_json title: {e}")
+                
+                serializer = MicroAppSerializer(data=original_data)
+                if serializer.is_valid():
+                    new_microapp = serializer.save()
+                    micro_app_list = MicroAppList
+                    micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count = True)
+                    micro_app_list.add_collection_microapp(self, target_collection_id, new_microapp)
+                    return Response(
+                        {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
                     )
                 return Response(
-                        error.MICROAPP_USAGE_LIMIT_EXCEED,
-                        status=status.HTTP_400_BAD_REQUEST,
-                    )
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
-                    error.FIELD_MISSING,
+                    error.MICROAPP_USAGE_LIMIT_EXCEED,
                     status=status.HTTP_400_BAD_REQUEST,
                 ) 
         except Exception as e:
             return handle_exception(e)
 
-
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
+    # get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
     delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
 )
 class UserMicroApps(APIView):
@@ -307,28 +359,28 @@ class UserMicroApps(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    def get_objects(self, uid, aid):
-        try:
-            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
-        except Exception as e:
-            return handle_exception(e)
+    # def get_objects(self, uid, aid):
+    #     try:
+    #         return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
+    #     except Exception as e:
+    #         return handle_exception(e)
 
-    def get(self, request, app_id, user_id=None):
-        try:
-            if user_id:
-                user_role = self.get_objects(user_id, app_id)
-                if user_role:
-                    serializer = MicroappUserSerializer(user_role, many=True)
-                    return Response(
-                        {"data": serializer.data, "status": status.HTTP_200_OK},
-                        status=status.HTTP_200_OK,
-                    )
-                return Response(
-                    error.USER_NOT_EXIST,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-        except Exception as e:
-            return handle_exception(e)
+    # def get(self, request, app_id, user_id=None):
+    #     try:
+    #         if user_id:
+    #             user_role = self.get_objects(user_id, app_id)
+    #             if user_role:
+    #                 serializer = MicroappUserSerializer(user_role, many=True)
+    #                 return Response(
+    #                     {"data": serializer.data, "status": status.HTTP_200_OK},
+    #                     status=status.HTTP_200_OK,
+    #                 )
+    #             return Response(
+    #                 error.USER_NOT_EXIST,
+    #                 status=status.HTTP_400_BAD_REQUEST,
+    #             )
+    #     except Exception as e:
+    #         return handle_exception(e)
 
     def delete(self, request, app_id, user_id, format=None):
         try:
@@ -405,19 +457,19 @@ class UserMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-@extend_schema_view(
-    get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
-)
-class UserMicroAppList(generics.ListAPIView):
-    serializer_class = MicroappUserSerializer
-    permission_classes = [IsAuthenticated]
+# @extend_schema_view(
+#     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
+# )
+# class UserMicroAppList(generics.ListAPIView):
+#     serializer_class = MicroappUserSerializer
+#     permission_classes = [IsAuthenticated]
 
-    def get_queryset(self):
-        try:
-            app_id = self.kwargs['app_id']
-            return MicroAppUserJoin.objects.filter(ma_id=app_id)
-        except Exception as e:
-            return handle_exception(e)
+#     def get_queryset(self):
+#         try:
+#             app_id = self.kwargs['app_id']
+#             return MicroAppUserJoin.objects.filter(ma_id=app_id)
+#         except Exception as e:
+#             return handle_exception(e)
             
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
@@ -849,6 +901,10 @@ class AIModelRoute:
                 return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config}
             elif model_family == "anthropic":
                 return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
+            elif model_family == "perplexity":
+                return {"model": PerplexityModel(model_config["api_key"], model_config), "config": model_config}
+            elif model_family == "deepseek":
+                return {"model": DeepSeekModel(model_config["api_key"], model_config), "config": model_config}
             
             return False
             
@@ -949,24 +1005,33 @@ class UserMicroAppsRoleByHash(APIView):
         try:
             microapp = self.get_microapp(hash_id)
             if not microapp:
-                return None
-            return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+                return {"error": "No Microapp Found", "status": status.HTTP_404_NOT_FOUND}
+            
+            # Check if user exists
+            if not CustomUser.objects.filter(id=uid).exists():
+                return {"error": "No user with that uid", "status": status.HTTP_404_NOT_FOUND}
+            
+            # Get user role (may be empty if user has no role)
+            user_role = MicroAppUserJoin.objects.filter(user_id=uid, ma_id=microapp.id)
+            return {"data": user_role, "status": status.HTTP_200_OK}
+            
         except Exception as e:
             return handle_exception(e)
 
     def get(self, request, hash_id, user_id):
         try:
-            user_role = self.get_objects(user_id, hash_id)
-            if user_role:
-                serializer = MicroappUserSerializer(user_role, many=True)
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
+            result = self.get_objects(user_id, hash_id)
+            
+            if "error" in result:
+                return Response(result, status=result["status"])
+                
+            user_role = result["data"]
+            serializer = MicroappUserSerializer(user_role, many=True)
             return Response(
-                error.USER_NOT_EXIST,
-                status=status.HTTP_400_BAD_REQUEST,
+                {"data": serializer.data, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
             )
+            
         except Exception as e:
             return handle_exception(e)
 
@@ -1236,3 +1301,72 @@ class AppQuota(APIView):
             
         except Exception as e:
             return handle_exception(e)
+
+class MicroAppImageUpload(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        request=ImageUploadSerializer,
+        responses={200: PresignedUrlResponse},
+        summary="Upload image for microapp"
+    )
+    def post(self, request, pk=None):
+        """
+        Upload image for microapp
+        """
+        serializer = ImageUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = serializer.validated_data['filename']
+        content_type = serializer.validated_data['content_type']
+
+        # Sanitize filename to remove any potentially problematic characters
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', filename)
+        
+        try:
+            s3_client = boto3.client(
+                's3',
+                config=Config(signature_version='s3v4'),
+                region_name=settings.AWS_S3_REGION_NAME,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+            )
+
+            # The key includes the microapp ID and filename
+            file_key = f'microapp-images/{pk}/{filename}'
+
+            conditions = [
+                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
+                ['starts-with', '$key', f'microapp-images/{pk}/'],
+                {'Content-Type': content_type}
+            ]
+
+            expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
+            
+            response = s3_client.generate_presigned_post(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=file_key,
+                Fields={
+                    'Content-Type': content_type
+                },
+                Conditions=conditions,
+                ExpiresIn=300
+            )
+
+            # Return the complete presigned POST response
+            formatted_response = {
+                'data': {
+                    'url': response['url'],
+                    'fields': {
+                        **response['fields'],
+                        'key': file_key
+                    }
+                }
+            }
+
+            return Response(formatted_response)
+        except Exception as e:
+            log.error(f"S3 presigned URL generation error: {str(e)}")
+            return handle_exception(e)
+

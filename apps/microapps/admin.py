@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import AIModelConfig, MicroAppUserJoin, Microapp, Asset, AssetsMaJoin, KnowledgeBase, Run
+from .models import AIModelConfig, MicroAppUserJoin, Microapp, Run
 
 # Register your models here.
 

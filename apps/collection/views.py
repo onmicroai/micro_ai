@@ -254,6 +254,7 @@ class UserCollectionMicroAppsList(APIView):
 @extend_schema_view(
     post=extend_schema(request=CollectionMicroappSerializer, responses={200: CollectionMicroappSerializer}, summary="Add microapp in a collection"),
     delete=extend_schema(request=CollectionMicroappSerializer, responses={200: CollectionMicroappSerializer}, summary="Delete microapp from a collection"),
+    put=extend_schema(request=CollectionMicroappSerializer, responses={200: CollectionMicroappSerializer}, summary="Move microapp to a different collection"),
 )  
 class CollectionMicroAppsDetails(APIView):
     permission_classes = [IsAuthenticated]
@@ -290,6 +291,39 @@ class CollectionMicroAppsDetails(APIView):
             )
         except PermissionDenied:
             return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN) 
+        except Exception as e:
+            return handle_exception(e)
+
+    def put(self, request, collection_id, app_id, format=None):
+        try:
+            self.permission_classes = [IsCollectionAdmin]
+            self.check_permissions(request)
+            
+            # Get the old collection-app join
+            old_collection = CollectionMaJoin.objects.filter(ma_id=app_id).first()
+            
+            # Create new collection-app join
+            data = {"ma_id": app_id, "collection_id": collection_id}
+            serializer = CollectionMicroappSerializer(data=data)
+            
+            if serializer.is_valid():
+                # If there was an old collection, delete it
+                if old_collection:
+                    old_collection.delete()
+                
+                # Save the new collection
+                serializer.save()
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK
+                )
+            
+            return Response(
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
 

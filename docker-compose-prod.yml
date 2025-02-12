@@ -3,7 +3,7 @@
 services:
   db:
     container_name: db
-    image: postgres
+    image: postgres:16
     # persist data beyond lifetime of container
     volumes:
       - postgres_data:/var/lib/postgresql/data/
@@ -11,6 +11,8 @@ services:
       - POSTGRES_DB=micro_ai
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
     networks:
       - microaiNetwork
     healthcheck:
