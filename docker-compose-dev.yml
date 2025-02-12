@@ -3,7 +3,7 @@
 services:
   db:
     container_name: db
-    image: postgres:16
+    image: postgres:16.6
     # persist data beyond lifetime of container
     volumes:
       - postgres_data:/var/lib/postgresql/data/
