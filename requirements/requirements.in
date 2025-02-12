@@ -2,7 +2,7 @@
 
 docutils
 Django
-django-allauth[socialaccount,mfa]
+django-allauth[socialaccount,mfa]==0.63.3
 django-otp  # this is required for the allauth two-factor migration, but can be removed after that
 django-waffle
 psycopg2-binary
@@ -14,16 +14,17 @@ dj-rest-auth
 django-cors-headers
 drf-spectacular
 stripe
-dj-stripe
+dj-stripe==2.8.4
 django-anymail[mailgun]  # email services
 celery-progress
 celery
 celery[redis]
 django-celery-beat
 whitenoise[brotli]
-openai==1.2.0
+openai>=1.2.0
 google-generativeai
 anthropic
 pillow==10.4.0
-wagtail
-boto3 
+boto3
+litellm>=1.30.3  # Unified interface for multiple LLM providers
+click==8.1.8  # Pin specific version to resolve conflicts 

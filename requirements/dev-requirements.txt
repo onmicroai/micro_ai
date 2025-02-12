@@ -8,7 +8,7 @@ build==1.2.1
     # via pip-tools
 cfgv==3.4.0
     # via pre-commit
-click==8.1.7
+click==8.1.8
     # via
     #   -c /code/requirements/requirements.txt
     #   pip-tools
@@ -16,7 +16,7 @@ debugpy==1.8.5
     # via -r requirements/dev-requirements.in
 distlib==0.3.8
     # via virtualenv
-filelock==3.15.4
+filelock==3.17.0
     # via
     #   -c /code/requirements/requirements.txt
     #   virtualenv
@@ -24,7 +24,7 @@ identify==2.5.36
     # via pre-commit
 nodeenv==1.9.0
     # via pre-commit
-packaging==24.0
+packaging==24.2
     # via
     #   -c /code/requirements/requirements.txt
     #   build
@@ -38,7 +38,7 @@ pyproject-hooks==1.1.0
     # via
     #   build
     #   pip-tools
-pyyaml==6.0.1
+pyyaml==6.0.2
     # via
     #   -c /code/requirements/requirements.txt
     #   pre-commit

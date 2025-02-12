@@ -4,7 +4,7 @@ from apps.subscriptions.serializers import CustomSubscriptionSerilaizer, PlansSe
 from datetime import datetime
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
-from apps.utils.global_varibales import UsageVariables
+from apps.utils.global_variables import UsageVariables
 from apps.microapps.models import MicroAppUserJoin
 from apps.microapps.serializer import MicroappUserSerializer
 from django.db.models import Count

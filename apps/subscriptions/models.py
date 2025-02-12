@@ -11,7 +11,6 @@ from micro_ai import settings
 
 from apps.subscriptions.wrappers import SubscriptionWrapper
 from apps.microapps.models import Run
-from apps.utils.global_varibales import SubscriptionVariables
 
 class SubscriptionModelBase(models.Model):
     """

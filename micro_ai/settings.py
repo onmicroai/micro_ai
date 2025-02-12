@@ -76,8 +76,6 @@ THIRD_PARTY_APPS = [
     "whitenoise.runserver_nostatic",  # whitenoise runserver
     "waffle",
     "django_celery_beat",
-    'modelcluster',
-    'taggit',
 ]
 
 # Put your project-specific apps here
