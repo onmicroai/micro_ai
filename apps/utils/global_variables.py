@@ -23,18 +23,18 @@ class AIModelDefaults:
         "temperature": 1.0,
         "top_p": 1.0,
         "max_tokens": 5000,
-        "presence_penalty": 0,
-        "frequency_penalty": 0,
-        "temperature_min": 0,
-        "temperature_max": 2,
-        "presence_penalty_min": -2,
-        "presence_penalty_max": 2,
-        "frequency_penalty_min": -2,
-        "frequency_penalty_max": 2,
-        "top_p_min": 0,
-        "top_p_max": 1,
+        "presence_penalty": 0.0,
+        "frequency_penalty": 0.0,
+        "temperature_min": 0.0,
+        "temperature_max": 2.0,
+        "presence_penalty_min": -2.0,
+        "presence_penalty_max": 2.0,
+        "frequency_penalty_min": -2.0,
+        "frequency_penalty_max": 2.0,
+        "top_p_min": 0.0,
+        "top_p_max": 1.0,
         "supports_image": False,
-        "stream": False
+        "stream": False,# Default empty list for messages
     }
 
 class AIModelFamilyDefaults:
@@ -73,54 +73,99 @@ class AIModelFamilyDefaults:
 
 class AIModelConstants:
     """Model-specific configurations that inherit from family defaults"""
+    # Visit LiteLLM https://docs.litellm.ai/docs/providers for more information on the models
     AI_MODELS = {
         "gpt-4o-mini": {
+            **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-4o-mini",
-            **AIModelFamilyDefaults.OPENAI
+            "supports_image": True
+        },
+        "gpt-4o": {
+            **AIModelFamilyDefaults.OPENAI,
+            "model": "openai/gpt-4o",
+            "supports_image": True
         },
         "openai-o3-mini": {
+            **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o3-mini",
-            **AIModelFamilyDefaults.OPENAI
+            "supports_image": False
         },
-        "claude-3-opus": {
-            "model": "anthropic/claude-3-opus-20240229",
-            "supports_image": True,
-            **AIModelFamilyDefaults.ANTHROPIC
+        "openai-o1": {
+            **AIModelFamilyDefaults.OPENAI,
+            "model": "openai/o1",
+            "supports_image": True
         },
         "claude-3-5-haiku": {
-            "model": "anthropic/claude-3-5-haiku-20241022",
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-3-5-haiku-latest",
             "max_tokens": 8192,
-            **AIModelFamilyDefaults.ANTHROPIC
+            "supports_image": False
         },
-        "gemini-pro": {
-            "model": "gemini/gemini-pro",
-            "supports_image": True,
-            **AIModelFamilyDefaults.GEMINI
+        "claude-3-5-sonnet": {
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-3-5-sonnet-latest",
+            "max_tokens": 8192,
+            "supports_image": True
+        },
+        "claude-3-opus": {
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-3-opus-latest",
+            "max_tokens": 4096,
+            "supports_image": True
         },
         "gemini-2.0-flash": {
+            **AIModelFamilyDefaults.GEMINI,
             "model": "gemini/gemini-2.0-flash",
-            "supports_image": True,
-            **AIModelFamilyDefaults.GEMINI
+            "supports_image": True
         },
-        "sonar-reasoning-pro": {
-            "model": "sonar-reasoning-pro",
-            **AIModelFamilyDefaults.PERPLEXITY
+        "gemini-pro": {
+            **AIModelFamilyDefaults.GEMINI,
+            "model": "gemini/gemini-pro",
+            "supports_image": True
+        },
+        "sonar-pro": {
+            **AIModelFamilyDefaults.PERPLEXITY,
+            "model": "perplexity/sonar-pro"
         },
         "deepseek-chat": {
-            "model": "deepseek-chat",
-            **AIModelFamilyDefaults.DEEPSEEK
+            **AIModelFamilyDefaults.DEEPSEEK,
+            "model": "deepseek/deepseek-chat"
         }
     }
 
     @staticmethod
     def get_configs(model_name: str) -> dict:
-        """Get model configuration with all defaults"""
-        return AIModelConstants.AI_MODELS.get(model_name, {})
+        """Get model configuration with proper inheritance chain:
+        1. Start with BASE_DEFAULTS
+        2. Override with family defaults
+        3. Override with model-specific settings
+        """
+        # Start with base defaults
+        config = AIModelDefaults.BASE_DEFAULTS.copy()
+        
+        # Get the model's config
+        model_config = AIModelConstants.AI_MODELS.get(model_name, {})
+        if not model_config:
+            return config
+            
+
+        # Get the family defaults based on the model's family
+        family = model_config.get("family")
+        if family:
+            family_defaults = getattr(AIModelFamilyDefaults, family.upper(), {})
+            # Override base defaults with family defaults
+            config.update({k: v for k, v in family_defaults.items() 
+                         if k in AIModelDefaults.BASE_DEFAULTS})
+            
+        # Finally override with ALL model-specific settings
+        config.update(model_config)
+        
+        return config
 
     @staticmethod
     def get_model_family(model_name: str) -> str:
         """Get the AI model family (openai, anthropic, etc)"""
-        config = AIModelConstants.get_configs(model_name)
+        config = AIModelConstants.AI_MODELS.get(model_name, {})
         return config.get("family", "")
 
 class UsageVariables:
