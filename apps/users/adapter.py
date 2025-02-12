@@ -15,7 +15,7 @@ from apps.microapps.views import MicroAppList
 from apps.users.models import CustomUser
 from apps.teams.invitations import clear_invite_from_session
 from apps.utils.custom_error_message import ErrorMessages as error
-from apps.utils.global_varibales import CollectionVariables
+from apps.utils.global_variables import CollectionVariables
 
 json_file_path = os.path.join(settings.BASE_DIR, 'apps/utils', 'data', 'microapp_create.json')
 with open(json_file_path, 'r') as file:

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run, AIModelConfig
+from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run
 
 class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
@@ -48,9 +48,6 @@ class RunPatchSerializer(serializers.ModelSerializer):
     class Meta:
         model = Run
         exclude = ["user_id", "ma_id", "owner_id", "user_ip"]
-        # fields = ["id", "timestamp", "session_id", "satisfaction", "prompt", "response", "cost", "no_submission", "ai_model", "temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty", "input_tokens", "output_tokens", "price_input_token_1M", "price_output_token_1M", "scored_run", "run_score", "minimum_score", "rubric", "run_passed", "request_skip"]
-class AiModelConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AIModelConfig
-        fields = '__all__'
+        # fields = ["id", "timestamp", "session_id", "satisfaction", "prompt", "response", "cost", "no_submission", "ai_model", "temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty", "input_tokens", "output_tokens", "scored_run", "run_score", "minimum_score", "rubric", "run_passed", "request_skip"]
+
     

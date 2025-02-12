@@ -28,8 +28,8 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
-from apps.utils.global_varibales import AIModelConstants, MicroappVariables, SubscriptionVariables
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, GPTModel, GeminiModel, ClaudeModel, PerplexityModel, DeepSeekModel
+from apps.utils.global_variables import AIModelConstants, MicroappVariables
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
@@ -46,6 +46,7 @@ from rest_framework import serializers
 from rest_framework.decorators import action
 from django.conf import settings
 import json
+from .llm_interface import UnifiedLLMInterface
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -531,7 +532,6 @@ class RunList(APIView):
     score_result = True
     app_hash_id = ""
     response_type = ""
-    price_scale = ""
     credits = 0
 
     def check_payload(self, data, request):
@@ -562,16 +562,16 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
 
-            # Get credits directly from the response
-            credits = response["credits"]  # This should be the value calculated by model.calculate_credits
-            if self.response_type == "AI" and self.ai_score != "":
-                credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
-            elif self.response_type == "AI" and self.ai_score == "":
-                credits += SubscriptionVariables.DEFAULT_RESPONSE_CREDIT
-            elif self.response_type != "AI":
-                credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
+            print("CREDITS", response["credits"])
 
+            credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
+
+            # Round the cost to 6 decimal places
+            cost = round(float(response["cost"]), 6)
+
+            # Ensure max_tokens is set from api_params if not in data
+            max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
 
             run_data = {
                 "ma_id": int(data.get("ma_id")),
@@ -584,7 +584,7 @@ class RunList(APIView):
                 "no_submission": data.get("no_submission", False),
                 "ai_model": api_params["model"],
                 "temperature": float(api_params["temperature"]),
-                "max_tokens": data.get("max_tokens", model.model_config['max_tokens_default']),
+                "max_tokens": max_tokens,
                 "top_p": api_params["top_p"],
                 "frequency_penalty": api_params["frequency_penalty"],
                 "presence_penalty": api_params["presence_penalty"],
@@ -594,10 +594,8 @@ class RunList(APIView):
                 "rubric": str(data.get("rubric")),
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
-                "credits": credits,  # Use the credits value directly
-                "cost": response["cost"],
-                "price_input_token_1M": response["price_input_token_1M"],
-                "price_output_token_1M": response["price_output_token_1M"],
+                "credits": credits,
+                "cost": cost,
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
@@ -608,7 +606,6 @@ class RunList(APIView):
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": self.app_hash_id,
                 "response_type": self.response_type,
-                "price_scale": self.price_scale
             }
             return run_data
         except Exception as e:
@@ -616,29 +613,14 @@ class RunList(APIView):
             log.error(f"Response data: {response}")
 
     def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
 
     def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0 }
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0, "price_input_token_1M": 0, "price_output_token_1M":0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
 
-    # hardcoded credits calculation
-    def calculate_credits(self, usage):
-        try:
-            if self.response_type == "AI":  # handler for AI responses
-                # Use the credits already calculated by the model
-                self.credits = int(usage.get("credits", 0))  # Ensure integer and handle missing key
-                if self.ai_score != "":  # Add extra credits for scoring
-                    self.credits += SubscriptionVariables.SCORE_RESPONSE_CREDIT
-            else:   # handler for non-AI responses (skip, hardcoded, no-submission)
-                self.credits = SubscriptionVariables.HARDCODED_RESPONSE_CREDIT
-            return self.credits
-        except Exception as e:
-            log.error(e)
-            return 0  # Return a default value in case of error
-    
     def update_user_credits(self, run_id, user_id):
         try:
             billing_cycle = BillingCycle.objects.filter(
@@ -705,6 +687,7 @@ class RunList(APIView):
     def post(self, request, format=None):
         try:
             data = request.data
+            #If field exists, convert to float:
             if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
             if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
             if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
@@ -740,23 +723,25 @@ class RunList(APIView):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
                 
             # Return model instance based on AI-model name
-            model_router = AIModelRoute().get_ai_model(data.get("ai_model", env("DEFAULT_AI_MODEL")))
+            print("data.get('model')", data.get("model"))
+            model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
            
             if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST)
            
             model = model_router["model"]
-            self.price_scale = model_router["config"]["price_scale"]
-            
+
             # Validate model specific API request payload
             ai_validation = model.validate_params(data) 
+            
             if not ai_validation["status"]:
                 return Response({"error": error.validation_error(ai_validation["message"]), "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
             # Retrieve default API parameters for the AI model
             api_params = model.get_default_params(data)
+            
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
             # Handle skip phase
@@ -774,9 +759,6 @@ class RunList(APIView):
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
-                # check required prompt property for score phase
-                if not data.get("prompt"):
-                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
@@ -788,28 +770,26 @@ class RunList(APIView):
                     "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
                 })
                 response.update({
-                    "cost": model.calculate_cost(response),
-                    "price_input_token_1M": model.calculate_input_token_price(response),
-                    "price_output_token_1M": model.calculate_output_token_price(response)
+                    "cost": response["cost"] + score_response["cost"],
                 })
                 response.update({
-                    "credits": model.calculate_credits(response["cost"]),
+                    "credits": response["credits"] + score_response["credits"],
                 })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
-                # check required prompt property for basic feedback phase
-                if not data.get("prompt"):
-                    return Response(error.PROMPT_REQUIRED, status = status.HTTP_400_BAD_REQUEST)
                 response = model.get_response(api_params)
                 if not response["status"]:
                     return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
                 response = response["data"]
+                
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
+            
             serializer = RunGetSerializer(data=run_data)
             if serializer.is_valid():
+                
                 serialize = serializer.save()
                 self.update_user_credits(serialize.id, request.user.id)
                 run_data["id"] = serialize.id
@@ -893,23 +873,12 @@ class AIModelRoute:
             model_config = AIModelConstants.get_configs(model_name)
             if not model_config:
                 return False
-                
-            model_family = model_config["family"]
-            if model_family == "openai":
-                return {"model": GPTModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "gemini":
-                return {"model": GeminiModel(model_config["api_key"], model_name, model_config), "config": model_config}
-            elif model_family == "anthropic":
-                return {"model": ClaudeModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "perplexity":
-                return {"model": PerplexityModel(model_config["api_key"], model_config), "config": model_config}
-            elif model_family == "deepseek":
-                return {"model": DeepSeekModel(model_config["api_key"], model_config), "config": model_config}
             
-            return False
+            # Use the unified interface for all models
+            return {"model": UnifiedLLMInterface(model_config), "config": model_config}
             
         except Exception as e:
-           return handle_exception(e) 
+           return handle_exception(e)
    
 class AIModelConfigurations(APIView):
     permission_classes = [AllowAny]
