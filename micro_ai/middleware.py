@@ -27,20 +27,20 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
             return response
 
         # For other authenticated requests, set/update the refresh token
-        if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
-            refresh = RefreshToken.for_user(request.user)
-            is_production = os.getenv('PRODUCTION', 'False') == 'True'
-            samesite = 'None' if is_production else 'Lax'
-            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
-            
-            response.set_cookie(
-                'refresh_token',
-                str(refresh),
-                max_age=timedelta(days=7).total_seconds(),
-                httponly=True,
-                secure=is_production,
-                samesite=samesite,
-                domain=cookies_domain
-            )
-            
+        if request.path == '/api/auth/login/' and response.status_code == 200:
+            if hasattr(request, 'user') and getattr(request.user, 'is_authenticated', False):
+                refresh = RefreshToken.for_user(request.user)
+                is_production = os.getenv('PRODUCTION', 'False') == 'True'
+                samesite = 'None' if is_production else 'Lax'
+                cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+                
+                response.set_cookie(
+                    'refresh_token',
+                    str(refresh),
+                    max_age=timedelta(days=7).total_seconds(),
+                    httponly=True,
+                    secure=is_production,
+                    samesite=samesite,
+                    domain=cookies_domain
+                )
         return response
