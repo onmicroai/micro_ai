@@ -65,6 +65,7 @@ THIRD_PARTY_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",  # Add token blacklist support
     "corsheaders",
     "dj_rest_auth",
     "dj_rest_auth.registration",
@@ -75,17 +76,6 @@ THIRD_PARTY_APPS = [
     "whitenoise.runserver_nostatic",  # whitenoise runserver
     "waffle",
     "django_celery_beat",
-    'wagtail.contrib.forms',
-    'wagtail.contrib.redirects',
-    'wagtail.embeds',
-    'wagtail.sites',
-    'wagtail.users',
-    'wagtail.snippets',
-    'wagtail.documents',
-    'wagtail.images',
-    'wagtail.search',
-    'wagtail.admin',
-    'wagtail',
     'modelcluster',
     'taggit',
 ]
@@ -100,8 +90,7 @@ PROJECT_APPS = [
     "apps.web",
     "apps.teams.apps.TeamConfig",
     "apps.microapps",
-    "apps.collection",
-    "apps.pages"
+    "apps.collection"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -110,7 +99,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",  # Required for admin
     "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -121,7 +110,6 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
-    'wagtail.contrib.redirects.middleware.RedirectMiddleware',
 ]
 
 
@@ -155,6 +143,8 @@ TEMPLATES = [
                 "apps.teams.context_processors.user_teams",
                 # this line can be removed if not using google analytics
                 "apps.web.context_processors.google_analytics_id",
+                # Add our email context processor
+                "apps.web.context_processors.email_context",
             ],
             "loaders": _DEFAULT_LOADERS if DEBUG else _CACHED_LOADERS,
         },
@@ -210,7 +200,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 # Allauth setup
 
-ACCOUNT_ADAPTER = "apps.teams.adapter.AcceptInvitationAdapter"
+ACCOUNT_ADAPTER = "apps.users.adapter.AcceptInvitationAdapter"
 ACCOUNT_AUTHENTICATION_METHOD = "email"
 ACCOUNT_EMAIL_REQUIRED = True
 ACCOUNT_EMAIL_SUBJECT_PREFIX = ""
@@ -286,6 +276,17 @@ STATICFILES_DIRS = [
     
 ]
 
+# AWS Configuration
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
+AWS_ACCOUNT_ID = env("AWS_ACCOUNT_ID")
+AWS_S3_SIGNATURE_VERSION = "s3v4"
+AWS_S3_FILE_OVERWRITE = False
+AWS_DEFAULT_ACL = None
+AWS_S3_VERIFY = True
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -336,28 +337,16 @@ EMAIL_SUBJECT_PREFIX = "[OnMicro.AI] "
 
 SITE_ID = 1
 
-#Wagtail config]
-WAGTAILADMIN_RICH_TEXT_EDITORS = {
-    'default': {
-        'WIDGET': 'wagtail.admin.rich_text.DraftailRichTextArea',
-        'OPTIONS': {
-            'features': ['h2', 'h3', 'bold', 'italic', 'link', 'ol', 'ul']
-        }
-    },
-}
-WAGTAIL_SITE_NAME = "OnMicro.AI"
-WAGTAILADMIN_BASE_URL = "http://localhost:8000/wagtail/admin"
-
 # DRF config
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        'rest_framework.authentication.TokenAuthentication',
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ("apps.api.permissions.IsAuthenticatedOrHasUserAPIKey",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 100,
+    "UNAUTHENTICATED_USER": None,  # Disable session-based authentication for DRF
 }
 
 is_production = os.getenv('PRODUCTION', 'False') == 'True'
@@ -366,7 +355,7 @@ cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    "ROTATE_REFRESH_TOKENS": True,
+    "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
     "SIGNING_KEY": env("SIMPLE_JWT_SIGNING_KEY", default="django-insecure-HF3Rx2KW345SJ0XCxcuSJqKTz5347aFJCV5w34VEyhnKFyHBuXPjxotI5MM1R2345WmohV3"),
@@ -517,3 +506,10 @@ LOGGING = {
         },
     },
 }
+
+# Session settings - limit sessions to admin only
+SESSION_COOKIE_NAME = 'sessionid'
+SESSION_COOKIE_PATH = '/admin/'  # Only set session cookie for admin paths
+SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = is_production
+SESSION_COOKIE_SAMESITE = 'Lax'  # More restrictive for admin

@@ -9,17 +9,15 @@ from rest_framework import status
 
 class CustomLogoutView(AllAuthLogoutView):
     def get(self, request, *args, **kwargs):
-        response = super().get(request, *args, **kwargs)
+        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
         response.delete_cookie('refresh_token')
-
         return response
     
 class CustomLogoutLoadingView(AllAuthLogoutView):
     def get(self, request, *args, **kwargs):
-        response = super().get(request, *args, **kwargs)
+        response = render(request, 'account/logout_loading.html')
         response.delete_cookie('refresh_token')
-
-        return render(request, 'account/logout_loading.html')
+        return response
     
 class CustomLoginView(LoginView):
     def get_success_url(self):

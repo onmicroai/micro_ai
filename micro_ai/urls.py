@@ -27,11 +27,6 @@ from apps.web.urls import team_urlpatterns as web_team_urls
 from apps.web.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
-from wagtail.admin import urls as wagtailadmin_urls
-from wagtail.documents import urls as wagtaildocs_urls
-from wagtail import urls as wagtail_urls
-from wagtail.contrib.sitemaps.views import sitemap as wagtail_sitemap
-
 from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
 
 
@@ -51,7 +46,7 @@ urlpatterns = [
     path("admin/doc/", include("django.contrib.admindocs.urls")),
     # redirect Django admin login to main login page
     path("admin/login/", RedirectView.as_view(pattern_name="account_login")),
-    path("dashboard/", include("apps.dashboard.urls")),
+    path("api/dashboard/", include("apps.dashboard.urls")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("a/<slug:team_slug>/", include(team_urlpatterns)),
     path("accounts/login/", CustomLoginView.as_view(), name='account_login'),
@@ -59,14 +54,15 @@ urlpatterns = [
     path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
     path("accounts/logout_loading/", CustomLogoutLoadingView.as_view(), name='account_loading_logout'),
     path("accounts/", include("allauth.urls")),
-    path("users/", include("apps.users.urls")),
-    path("subscriptions/", include("apps.subscriptions.urls")),
+    path("api/users/", include("apps.users.urls")),
+    path("api/subscriptions/", include("apps.subscriptions.api_urls")),  # API endpoints
+    path("subscriptions/", include("apps.subscriptions.urls")),  # Web views
     path("teams/", include("apps.teams.urls")),
     path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
     # cutom API's
-    path("microapps/", include(microapp_urls)),
-    path("collection/", include(collection_urls)),
+    path("api/microapps/", include(microapp_urls)),
+    path("api/collection/", include(collection_urls)),
     # auth API
     path("api/auth/", include("apps.authentication.urls")),
     # API docs
@@ -75,9 +71,5 @@ urlpatterns = [
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # djstripe urls - for webhooks
-    path("stripe/", include("djstripe.urls", namespace="djstripe")),
-    # wagtail urls
-    path('wagtail/admin/', include(wagtailadmin_urls)),
-    path('wagtail/documents/', include(wagtaildocs_urls)),
-    path('page/', include(wagtail_urls)),
+    path("api/stripe/", include("djstripe.urls", namespace="djstripe")),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

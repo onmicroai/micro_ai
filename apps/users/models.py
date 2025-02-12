@@ -40,7 +40,7 @@ class CustomUser(AbstractUser):
     @property
     def avatar_url(self) -> str:
         if self.avatar and default_storage.exists(self.avatar.name):
-            return f"{settings.DOMAIN}/users{self.avatar.url}/"
+            return f"{settings.DOMAIN}{self.avatar.url}/"
         return f"{settings.STATIC_URL}images/web/default_avatar.jpg"
 
     @property

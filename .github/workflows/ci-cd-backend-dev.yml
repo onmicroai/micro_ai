@@ -150,18 +150,25 @@ jobs:
 
     - name: Deploy - Prune unused Docker containers, images, and volumes
       uses: appleboy/ssh-action@v1.0.3
+      if: success() # Only run if previous steps succeeded
       with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
-          echo "Pruning unused Docker images, containers, volumes..."
-          sudo docker container prune -f
-          sudo docker image prune -a -f
-          sudo docker volume prune -f
-          sudo docker builder prune -f
-          for volume in $(sudo docker volume ls -q); do
-            echo "Attempting to remove volume: $volume"
-            sudo docker volume rm $volume 2>/dev/null || echo "Volume $volume is in use, skipping."
-          done
+         host: ${{ secrets.SERVER_IP_DEV }}
+         username: 'ubuntu'
+         key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+         port: 22
+         script: |
+            echo "Pruning unused Docker resources..."
+            # Only remove stopped containers
+            sudo docker container prune -f
+            # Only remove dangling images
+            sudo docker image prune -f
+            # Never prune volumes automatically
+            sudo docker builder prune -f
+            
+            # Optional: List unused volumes (but don't remove them automatically)
+            echo "Listing unused volumes (for information only):"
+            for volume in $(sudo docker volume ls -q); do
+               if ! sudo docker ps -a --filter volume=$volume | grep -q .; then
+                  echo "Unused volume found: $volume"
+               fi
+            done
