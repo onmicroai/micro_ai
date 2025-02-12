@@ -2,7 +2,7 @@ from typing import Dict, Any, Optional
 import litellm
 from django.conf import settings
 import logging
-from apps.utils.global_variables import UsageVariables, AIModelDefaults
+from apps.utils.global_variables import UsageVariables, AIModelConstants
 import re
 
 log = logging.getLogger(__name__)
@@ -25,16 +25,17 @@ class UnifiedLLMInterface:
                 - stream: Whether to stream the response
         """
         self.model_config = model_config
-        self.model_name = model_config.get("model")
+        # Find the model key name from the full path
+        self.model_name = next((key for key, config in AIModelConstants.AI_MODELS.items() 
+                              if config.get("model") == model_config.get("model")), model_config.get("model"))
         
         # Set the API key for the model provider
         litellm.api_key = model_config.get("api_key")
         
-        # Use base defaults, overridden by model-specific config
-        self.default_params = {
-            "model": self.model_name,
-            **{k: model_config.get(k, v) for k, v in AIModelDefaults.BASE_DEFAULTS.items()}
-        }
+        # Use our new inheritance logic to get all defaults and overrides
+        self.default_params = AIModelConstants.get_configs(self.model_name)
+        # Ensure the model path is set correctly for API calls
+        self.default_params["model"] = model_config.get("model")
 
     def validate_params(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """Validate the parameters for the model"""
@@ -54,21 +55,40 @@ class UnifiedLLMInterface:
             return {"status": False, "message": "Invalid parameters"}
 
     def get_default_params(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """Get default parameters, overridden by any provided in data"""
+        """Get default parameters, with proper inheritance chain:
+        1. BASE_DEFAULTS (lowest priority)
+        2. Family defaults (from AIModelFamilyDefaults)
+        3. Model-specific defaults (from AIModelConstants)
+        4. User-provided data (highest priority)
+        """
+        # Start with base defaults
         params = self.default_params.copy()
         
-        # Add default empty messages list
+        # Add required parameters that may not be in defaults
         params["messages"] = data.get("messages", [])
         
-        # Override defaults with provided values, ensuring max_tokens has a valid default
-        for key in ["temperature", "max_tokens", "top_p", "frequency_penalty", "presence_penalty"]:
-            if key in data:
-                params[key] = float(data[key]) if key != "max_tokens" else int(data[key])
-            elif key == "max_tokens":
-                # Ensure max_tokens has the model's default value if not provided
-                params[key] = self.model_config.get("max_tokens", AIModelDefaults.BASE_DEFAULTS["max_tokens"])
+        # If a model is specified in data, get its full path from AIModelConstants
+        if "model" in data:
+            model_config = AIModelConstants.get_configs(data["model"])
+            params["model"] = model_config.get("model", self.default_params["model"])
+        
+        # Override with any user-provided values that exist in our params
+        for key, value in data.items():
+            if key in params and key != "model":  # Skip model as we handled it above
+                print("KEY", key, value)
+                # Convert to appropriate type based on existing value's type
+                if isinstance(params[key], bool):
+                    params[key] = bool(value)
+                elif isinstance(params[key], int):
+                    params[key] = int(value)
+                elif isinstance(params[key], float):
+                    params[key] = float(value)
+                else:
+                    params[key] = value
         
         return params
+    
+        
 
     def get_model_message(self, messages: Any, data: Dict[str, Any]) -> list:
         try:
