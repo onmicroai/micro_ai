@@ -65,9 +65,9 @@ def profile(request):
     )
 
 
-@login_required
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 @csrf_exempt
-@require_POST
 def upload_profile_image(request):
     user = request.user
     form = UploadAvatarForm(request.POST, request.FILES)
@@ -75,13 +75,20 @@ def upload_profile_image(request):
         try:
             user.avatar = request.FILES["avatar"]
             user.save()
-            return HttpResponse(_("Success!"))
+            serializer = CustomUserSerializer(user)
+            return Response(serializer.data)
         except Exception as e:
             log.error(f"Error uploading image: {e}")
-            return JsonResponse(status=500, data={"errors": "Error uploading image."})
+            return Response(
+                {"errors": "Error uploading image."}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
     else:
         readable_errors = ", ".join(str(error) for key, errors in form.errors.items() for error in errors)
-        return JsonResponse(status=403, data={"errors": readable_errors})
+        return Response(
+            {"errors": readable_errors}, 
+            status=status.HTTP_400_BAD_REQUEST
+        )
 
 
 @login_required
