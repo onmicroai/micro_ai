@@ -35,6 +35,11 @@ DEBUG = env.bool("DEBUG", default=True)
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
+#lti config
+X_FRAME_OPTIONS = 'ALLOW-FROM http://local.overhang.io'
+SESSION_COOKIE_SAMESITE = 'None' 
+SESSION_COOKIE_SECURE = True 
+
 DOMAIN = env("DOMAIN", default="https://onmicro.ai")
 
 # Application definition
@@ -101,7 +106,8 @@ PROJECT_APPS = [
     "apps.teams.apps.TeamConfig",
     "apps.microapps",
     "apps.collection",
-    "apps.pages"
+    "apps.pages",
+    "apps.lti"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -517,3 +523,16 @@ LOGGING = {
         },
     },
 }
+
+# LTI_CONFIG = {
+#     "http://local.overhang.io": {
+#         "client_id": "6c48e56e-75e3-4c86-b632-6ce039e01a39",
+#         "auth_login_url": "https://local.overhang.io/auth",
+#         "auth_token_url": "https://local.overhang.io/token",
+#         "auth_audience": None,
+#         "key_set_url": "https://local.overhang.io/keys",
+#         "deployment_ids": ["1"],
+#     }
+# }
+
+

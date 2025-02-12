@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LTI Launch Success</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 5px;
+        }
+        .user-info {
+            margin-top: 20px;
+        }
+        .user-info p {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>LTI Launch Successful</h1>
+        <div class="user-info">
+            <h2>User Information</h2>
+            <p><strong>Name:</strong> {{ user_data.name }}</p>
+            <p><strong>Email:</strong> {{ user_data.email }}</p>
+            <p><strong>Course:</strong> {{ user_data.context_title }}</p>
+            <p><strong>Roles:</strong> {{ user_data.role|join:", " }}</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -26,3 +26,5 @@ google-generativeai
 anthropic
 pillow==10.4.0
 wagtail 
+pylti1p3
+django-csp
