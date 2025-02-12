@@ -111,7 +111,9 @@ class APICustomLogoutView(APIView):
                     token = RefreshToken(refresh_token)
                     token.blacklist()
                 except Exception:
-                    pass
+                    return Response(
+                        {"detail": "Failed to log out, token not found."},
+                        status=status.HTTP_400_BAD_REQUEST)
             return Response(
                 {"detail": "Successfully logged out."},
                 status=status.HTTP_205_RESET_CONTENT)
