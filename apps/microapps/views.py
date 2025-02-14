@@ -964,7 +964,7 @@ class AnonymousRunList(RunList):
             else:
                 response = model.get_response(api_params)
                 response = response["data"]
-                self.response_type = MicroappVariables.NORMAL_RESPONSE_TYPE
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
 
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             
