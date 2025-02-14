@@ -865,6 +865,135 @@ class RunList(APIView):
         except Exception as e:
             return handle_exception(e)
 
+@extend_schema_view(
+    post=extend_schema(request=RunPostSerializer, responses={200: RunGetSerializer}, summary="Run a model anonymously without authentication")
+)
+class AnonymousRunList(RunList):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def check_payload(self, data, request):
+        try:
+            # For anonymous runs, we don't require user_id or ma_id
+            required_fields = []
+
+            for field in required_fields:
+                if data.get(field) is None:
+                    return False
+
+            if data.get("scored_run") and (data.get("minimum_score") is None or data.get("rubric") is None):
+                return False
+
+            return True
+        except Exception as e:
+            log.error(e)
+            return False
+
+    def post(self, request, format=None):
+        try:
+            data = request.data
+            # Convert numeric fields to appropriate types
+            if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
+            if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
+            if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
+            if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
+            if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
+            if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
+            
+            # Check for mandatory keys in the user request payload
+            if not self.check_payload(data, request):    
+                return Response(
+                    error.FIELD_MISSING,
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            ip = get_user_ip(request)
+            
+            # Handle guest users usage
+            if not GuestUsage.get_run_related_info(self, ip):
+                return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
+            app_owner_id = None
+            
+            # Return model instance based on AI-model name
+            model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
+           
+            if not model_router:
+                return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST)
+           
+            model = model_router["model"]
+
+            # Validate model specific API request payload
+            ai_validation = model.validate_params(data) 
+            
+            if not ai_validation["status"]:
+                return Response({"error": error.validation_error(ai_validation["message"]), "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Retrieve default API parameters for the AI model
+            api_params = model.get_default_params(data)
+            
+            # Format model specific message content  
+            api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # Handle skip phase
+            if data.get("request_skip"):
+                response = self.skip_phase()
+                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+            elif data.get("no_submission"):
+                # Handle hardcoded phase
+                if not data.get("prompt"):
+                    response = self.hard_coded_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+                # Handle no-submission phase
+                else:
+                    response = self.no_submission_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+            # Handle score phase
+            elif data.get("scored_run"):
+                response = model.get_response(api_params)
+                response = response["data"]
+                api_params["messages"] = model.build_instruction(data, api_params["messages"])
+                score_response = model.get_response(api_params)
+                score_response = score_response["data"]
+                self.ai_score = score_response["ai_response"]
+                self.score_result = float(self.ai_score) >= float(data.get("minimum_score"))
+                self.response_type = MicroappVariables.SCORED_RESPONSE_TYPE
+            # Handle normal phase
+            else:
+                response = model.get_response(api_params)
+                response = response["data"]
+                self.response_type = MicroappVariables.NORMAL_RESPONSE_TYPE
+
+            run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
+            
+            # For anonymous runs, ensure these fields are None/empty
+            run_data["user_id"] = None
+            run_data["ma_id"] = None
+            run_data["owner_id"] = None
+            run_data["app_hash_id"] = ""
+
+            serializer = RunGetSerializer(data=run_data)
+
+            if serializer.is_valid():
+                run = serializer.save()
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+            return Response(
+                error.validation_error(serializer.errors),
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        except Exception as e:
+            log.error(e)
+            return Response(
+                error.SERVER_ERROR,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
 class AIModelRoute:
    
    @staticmethod
