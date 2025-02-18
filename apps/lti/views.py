@@ -1,7 +1,7 @@
 # views.py
 from django.http import HttpResponse, HttpResponseRedirect
 from django.views.decorators.csrf import csrf_exempt
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch
 from pylti1p3.tool_config import ToolConfDict
 from pylti1p3.registration import Registration
@@ -9,6 +9,7 @@ from django.urls import reverse
 import logging
 
 logger = logging.getLogger(__name__)
+frontend_url = "https://onmicro.ai/"
 
 def get_tool_conf():
     config = {
@@ -62,23 +63,20 @@ def lti_launch(request):
         message_launch = DjangoMessageLaunch(request, tool_conf)
         
         message_launch_data = message_launch.validate()
-        logger.error("Launch data validated successfully")
+        logger.error("Launch data attributes: %s", vars(message_launch_data))
         
         # Get some basic user data from the LTI launch
         user_data = {
-            'name': message_launch_data.get('name', 'Unknown User'),
-            'email': message_launch_data.get('email', 'No email provided'),
-            'role': message_launch_data.get('https://purl.imsglobal.org/spec/lti/claim/roles', []),
-            'context_title': message_launch_data.get('https://purl.imsglobal.org/spec/lti/claim/context', {}).get('title', 'Unknown Course')
+            'role': getattr(message_launch_data, 'roles', []),
+            'context_title': getattr(message_launch_data, 'context', {}).get('title', 'Unknown Course')
         }
         
+        logger.error(f"user_data: {user_data}")
         # Store the launch data in session
         request.session['lti_launch_data'] = user_data
         logger.error("User data stored in session: %s", user_data)
         
-        return render(request, 'lti/launch.html', {
-            'user_data': user_data
-        })
+        return redirect(frontend_url)
     
     except Exception as e:
         logger.error("LTI launch error: %s", str(e), exc_info=True)

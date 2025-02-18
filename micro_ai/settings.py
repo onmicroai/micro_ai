@@ -33,7 +33,7 @@ SECRET_KEY = env("SECRET_KEY", default="django-insecure-bNAdOT0tBSQF2dofcJ1rJ5a4
 DEBUG = env.bool("DEBUG", default=True)
 
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
-ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*", "tutor_local-lms-1:8000"])
 
 #lti config
 X_FRAME_OPTIONS = 'ALLOW-FROM http://local.overhang.io'
