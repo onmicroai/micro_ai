@@ -447,6 +447,7 @@ STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="pk_live_***")
 STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="sk_live_***")
 STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="pk_test_***")
 STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="sk_test_***")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="whsec_***")
 # STRIPE_PRICING_TABLE_ID = env("STRIPE_PRICING_TABLE_ID", default="***")
 # Change to True in production
 STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
@@ -467,11 +468,10 @@ FREE_PLAN_NAME = env("FREE_PLAN_NAME")
 INDIVIDUAL_PLAN_NAME = env("INDIVIDUAL_PLAN_NAME")
 ENTERPRISE_PLAN_NAME = env("ENTERPRISE_PLAN_NAME")
 
+INDIVIDUAL_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID")
 # djstripe settings
 # Get it from the section in the Stripe dashboard where you added the webhook endpoint
 # or from the stripe CLI when testing
-DJSTRIPE_WEBHOOK_SECRET = env("DJSTRIPE_WEBHOOK_SECRET", default="whsec_***")
-
 DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"  # change to "djstripe_id" if not a new installation
 DJSTRIPE_SUBSCRIBER_MODEL = "teams.Team"
 DJSTRIPE_SUBSCRIBER_MODEL_REQUEST_CALLBACK = lambda request: request.team  # noqa E731
