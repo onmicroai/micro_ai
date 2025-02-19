@@ -20,6 +20,7 @@ from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
 from django.urls import path, include
 from django.views.generic import RedirectView
+from apps.subscriptions.webhooks import stripe_webhook
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from apps.teams.urls import team_urlpatterns as single_team_urls
 from apps.subscriptions.urls import team_urlpatterns as subscriptions_team_urls
@@ -70,6 +71,6 @@ urlpatterns = [
     # Optional UI - you may wish to remove one of these depending on your preference
     path("api/schema/swagger-ui/", SpectacularSwaggerView.as_view(url_name="schema"), name="swagger-ui"),
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
-    # djstripe urls - for webhooks
-    path("api/stripe/", include("djstripe.urls", namespace="djstripe")),
+    # url - for stripe webhook
+    path("stripe/webhook/", stripe_webhook, name="stripe-webhook"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

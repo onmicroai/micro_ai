@@ -6,7 +6,6 @@ from django.views.decorators.http import require_POST
 from apps.subscriptions.helpers import (
     create_stripe_checkout_session,
     get_subscription_urls,
-    provision_subscription,
 )
 from apps.subscriptions.wrappers import SubscriptionWrapper
 from apps.teams.decorators import login_and_team_required
@@ -30,7 +29,7 @@ def subscription_confirm(request):
     subscription_holder = request.user.teams.select_related("subscription", "customer").get(id=client_reference_id)
     if not subscription_holder.subscription or subscription_holder.subscription.id != session.subscription:
         # provision subscription
-        djstripe_subscription = provision_subscription(subscription_holder, session.subscription)
+        djstripe_subscription = ""
     else:
         # already provisioned (likely by webhook)
         djstripe_subscription = subscription_holder.subscription
