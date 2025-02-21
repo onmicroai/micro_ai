@@ -108,7 +108,8 @@ def handle_subscription_deleted(event):
     """
     Called when a subscription is deleted.
     Builds the subscription data from the Stripe event, closes open billing cycles,
-    sends notifications to admins, and calls upsert_subscription.
+    sends notifications to admins, and calls upsert_subscription(for updating information
+    about subscription).
     """
     stripe_subscription = event["data"]["object"]
     

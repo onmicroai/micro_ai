@@ -28,10 +28,8 @@ CURRENCY_SIGILS = {
 def subscription_is_active(subscription) -> bool:
     return subscription.status in ["active", "trialing"]
 
-
 def subscription_is_trialing(subscription) -> bool:
     return subscription.status == "trialing" and subscription.trial_end > timezone.now()
-
 
 def get_friendly_currency_amount(price: dict, currency: str = None):
     if not currency:
@@ -84,6 +82,7 @@ def get_subscription_urls(subscription_holder):
 
 def create_stripe_checkout_session(customer_id, stripe_price_id, slug):
     stripe_module = get_stripe_module()
+    # TODO: consider to change success/cancel urls
     success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
     cancel_url = absolute_url(reverse("subscriptions_team:checkout_canceled", args=[slug]))
 
@@ -111,6 +110,7 @@ def create_stripe_checkout_session(customer_id, stripe_price_id, slug):
 
 def create_stripe_portal_session(customer_id: str) -> BillingPortalSession:
     stripe_module = get_stripe_module()
+    # TODO: consider to change return url
     return_url = absolute_url("/settings/subscription")
     portal_session = stripe_module.billing_portal.Session.create(
         customer=customer_id,
@@ -118,6 +118,8 @@ def create_stripe_portal_session(customer_id: str) -> BillingPortalSession:
     )
     return portal_session
 
+# TODO: consider to cancel subscription only from customer portal
+# Then webhook handler will update subscription / billing cycle details
 def cancel_subscription(subscription_id: str):
     stripe_module = get_stripe_module()
     try:
