@@ -468,7 +468,9 @@ FREE_PLAN_NAME = env("FREE_PLAN_NAME")
 INDIVIDUAL_PLAN_NAME = env("INDIVIDUAL_PLAN_NAME")
 ENTERPRISE_PLAN_NAME = env("ENTERPRISE_PLAN_NAME")
 
+FREE_PLAN_PRICE_ID = env("FREE_PLAN_PRICE_ID")
 INDIVIDUAL_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID")
+ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID")
 # djstripe settings
 # Get it from the section in the Stripe dashboard where you added the webhook endpoint
 # or from the stripe CLI when testing

@@ -3,9 +3,10 @@ import logging
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+from django.core.mail import mail_admins
 
 from apps.subscriptions.helpers import upsert_subscription
-from apps.subscriptions.models import Subscription
+from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -106,13 +107,13 @@ def handle_customer_deleted(event):
 def handle_subscription_deleted(event):
     """
     Called when a subscription is deleted.
-    Builds the subscription data from the Stripe event and calls upsert_subscription.
+    Builds the subscription data from the Stripe event, closes open billing cycles,
+    sends notifications to admins, and calls upsert_subscription.
     """
     stripe_subscription = event["data"]["object"]
-
+    
     data = {
         "subscription_id": stripe_subscription.get("id"),
-        # For deletion we take the price from the first item
         "price_id": (
             stripe_subscription.get("items", {}).get("data", [])[0]
             .get("price", {})
@@ -128,6 +129,31 @@ def handle_subscription_deleted(event):
 
     upsert_subscription(stripe_subscription.get("customer"), data)
 
+    active_cycles = BillingCycle.objects.filter(
+        subscription__subscription_id=stripe_subscription.get("id"),
+        status='open'
+    )
+    log.info(f"Found {active_cycles.count()} active billing cycles to close")
+
+    for cycle in active_cycles:
+        cycle.close_cycle()
+        log.info(f"Closed billing cycle {cycle.id}")
+
+    try:
+        stripe_customer = StripeCustomer.objects.get(
+            customer_id=stripe_subscription.get("customer")
+        )
+        customer_email = stripe_customer.user.email
+        log.info(f"Notifying admins about cancellation for {customer_email}")
+    except StripeCustomer.DoesNotExist:
+        customer_email = "unavailable"
+        log.warning("Stripe customer not found for subscription cancellation notification")
+
+    mail_admins(
+        "Someone just canceled their subscription!",
+        f"Their email was {customer_email}",
+        fail_silently=True,
+    )
 
 def handle_subscription_created_or_updated(event):
     """

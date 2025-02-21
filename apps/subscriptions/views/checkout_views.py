@@ -7,7 +7,6 @@ from apps.subscriptions.helpers import (
     create_stripe_checkout_session,
     get_subscription_urls,
 )
-from apps.subscriptions.wrappers import SubscriptionWrapper
 from apps.teams.decorators import login_and_team_required
 from apps.utils.billing import get_stripe_module
 
@@ -27,15 +26,6 @@ def subscription_confirm(request):
     session = get_stripe_module().checkout.Session.retrieve(session_id)
     client_reference_id = int(session.client_reference_id)
     subscription_holder = request.user.teams.select_related("subscription", "customer").get(id=client_reference_id)
-    if not subscription_holder.subscription or subscription_holder.subscription.id != session.subscription:
-        # provision subscription
-        djstripe_subscription = ""
-    else:
-        # already provisioned (likely by webhook)
-        djstripe_subscription = subscription_holder.subscription
-
-    subscription_name = SubscriptionWrapper(djstripe_subscription).display_name
-    messages.success(request, f"You've successfully signed up for {subscription_name}. " "Thanks for the support!")
     return HttpResponseRedirect(get_subscription_urls(subscription_holder)["subscription_details"])
 
 
