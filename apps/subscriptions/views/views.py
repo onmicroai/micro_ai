@@ -6,7 +6,6 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from djstripe.enums import SubscriptionStatus
 from stripe.error import InvalidRequestError
 
 from ..decorators import redirect_subscription_errors, active_subscription_required
@@ -14,7 +13,7 @@ from ..forms import UsageRecordForm
 from ..helpers import get_subscription_urls, subscription_is_active, subscription_is_trialing
 from ..metadata import get_active_products_with_metadata, ACTIVE_PLAN_INTERVALS, get_active_plan_interval_metadata
 from apps.teams.decorators import team_admin_required, login_and_team_required
-from ..models import SubscriptionModelBase
+from ..models import SubscriptionModelBase, SubscriptionStatus
 from apps.utils.billing import get_stripe_module
 
 log = logging.getLogger("micro_ai.subscription")
