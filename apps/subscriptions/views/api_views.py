@@ -112,18 +112,23 @@ class CreateCheckoutSession(APIView):
 
 @extend_schema(tags=["subscriptions"], exclude=True)
 class CreatePortalSession(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+
     @extend_schema(
         operation_id="create_portal_session",
         request=None,
         responses={200: OpenApiTypes.URI},
     )
     @method_decorator(team_admin_required)
-    def post(self, request, team_slug):
-        subscription_holder = request.team
+    def post(self, request):
+        user = request.user
+        stripe_customer = StripeCustomer.objects.filter(user=user).first()
+        if not stripe_customer:
+            return Response("Stripe customer not found", status=404)
         try:
-            portal_session = create_stripe_portal_session(subscription_holder)
-            return Response(portal_session.url)
-        except SubscriptionConfigError as e:
+            portal_session = create_stripe_portal_session(stripe_customer.customer_id)
+            return Response({"url": portal_session.url})
+        except Exception as e:
             return Response(str(e), status=500)
 
 class ReportUsageSerializer(rest_framework.serializers.Serializer):

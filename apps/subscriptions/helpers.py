@@ -109,29 +109,22 @@ def create_stripe_checkout_session(customer_id, stripe_price_id, slug):
     except Exception as e:
         raise
 
-def create_stripe_portal_session(subscription_holder: Team) -> BillingPortalSession:
+def create_stripe_portal_session(customer_id: str) -> BillingPortalSession:
     stripe_module = get_stripe_module()
-    if not getattr(subscription_holder, "subscription", None) or not getattr(subscription_holder, "customer", None):
-        raise SubscriptionConfigError(
-            _("Whoops, we couldn't find a subscription associated with your account!")
-        )
-    subscription_urls = get_subscription_urls(subscription_holder)
+    return_url = absolute_url("/settings/subscription")
     portal_session = stripe_module.billing_portal.Session.create(
-        customer=subscription_holder.subscription.customer.customer_id,
-        return_url=absolute_url(subscription_urls["subscription_details"]),
+        customer=customer_id,
+        return_url=return_url,
     )
     return portal_session
-
 
 def cancel_subscription(subscription_id: str):
     stripe_module = get_stripe_module()
     try:
-        deleted_subscription = stripe_module.Subscription.delete(subscription_id)
+        stripe_module.Subscription.delete(subscription_id)
     except InvalidRequestError as e:
         if e.code != "resource_missing":
             log.error("Error deleting Stripe subscription: %s", e.user_message)
-    else:
-        update_local_subscription_from_stripe_data(deleted_subscription) # type: ignore
 
 
 def set_subscription_max_apps(subscription, max_apps: int) -> None:
@@ -150,9 +143,11 @@ def get_subscription_max_apps(subscription) -> int:
 
 def upsert_subscription(customer_id, data):
     from apps.utils.usage_helper import convert_timestamp_to_datetime
+
     subscription = Subscription.objects.filter(customer__customer_id=customer_id).first()
 
     if subscription:
+        # Update existing subscription details
         subscription.subscription_id = data.get("subscription_id")
         subscription.price_id = data.get("price_id")
         if data.get("status") is not None:
@@ -173,6 +168,7 @@ def upsert_subscription(customer_id, data):
         )
         if stripe_customer is None:
             return
+
         if data.get("subscription_id") is None:
             return
 
@@ -198,9 +194,10 @@ def upsert_subscription(customer_id, data):
         subscription_item_id = data.get("subscription_item_id")
 
         if user and period_start and period_end and subscription_item_id:
-            default_credits = 10000
+            default_credits = get_default_credits_from_price_id(data.get("price_id"))
             period_start = convert_timestamp_to_datetime(data.get("period_start"))
             period_end = convert_timestamp_to_datetime(data.get("period_end"))
+
             new_cycle = BillingCycle.get_or_create_active_cycle(
                 user=user,
                 subscription=new_subscription,
@@ -209,6 +206,7 @@ def upsert_subscription(customer_id, data):
                 credits_allocated=default_credits,
                 subscription_item_id=subscription_item_id,
             )
+
             log.info(f"Created initial billing cycle {new_cycle.id} for user {user.email}")
 
 def get_price_id_from_tier(tier_name: str) -> str | None:
@@ -219,3 +217,13 @@ def get_price_id_from_tier(tier_name: str) -> str | None:
     }
 
     return plan_mapping.get(tier_name)
+
+def get_default_credits_from_price_id(price_id: str) -> int:
+    price_credits_mapping = {
+        getattr(settings, "FREE_PLAN_PRICE_ID", None): 10000,
+        getattr(settings, "INDIVIDUAL_PLAN_PRICE_ID", None): 100000,
+        getattr(settings, "ENTERPRISE_PLAN_PRICE_ID", None): 400000,
+    }
+    
+    # Default value if price was not found
+    return price_credits_mapping.get(price_id, 0)
