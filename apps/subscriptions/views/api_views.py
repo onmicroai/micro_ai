@@ -85,27 +85,26 @@ class CreateCheckoutSession(APIView):
     @extend_schema(
         operation_id="create_checkout_session",
         request=inline_serializer("CreateCheckout", {"tierName": rest_framework.serializers.CharField()}),
-        responses={
-            200: OpenApiTypes.URI,
-        },
+        responses={200: OpenApiTypes.URI},
     )
     def post(self, request):
         user = request.user
         tier_name = request.data.get("tierName")
 
         price_id = get_price_id_from_tier(tier_name)
-
         if price_id is None:
             return Response({"detail": "Invalid or missing price ID for this plan"}, status=400)
 
         stripe_customer = StripeCustomer.objects.filter(user=user).first()
-        if not stripe_customer:
-            return Response({"detail": "Stripe customer not found"}, status=404)
-
-        customer_id = stripe_customer.customer_id
+        customer_id = stripe_customer.customer_id if stripe_customer else None
+        customer_email = user.email if not customer_id else None
 
         try:
-            checkout_session = create_stripe_checkout_session(customer_id, price_id, "test-team")
+            checkout_session = create_stripe_checkout_session(
+                price_id, 
+                customer_id=customer_id, 
+                customer_email=customer_email
+            )
             return Response({"url": checkout_session.url})
         except Exception as e:
             return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
