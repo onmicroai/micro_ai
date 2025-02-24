@@ -79,29 +79,34 @@ def get_subscription_urls(subscription_holder):
 
     return {url_base: _construct_url(url_base) for url_base in url_bases}
 
-
-def create_stripe_checkout_session(customer_id, stripe_price_id, slug):
+def create_stripe_checkout_session(stripe_price_id, customer_id=None, customer_email=None):
     stripe_module = get_stripe_module()
-    # TODO: consider to change success/cancel urls
+    # TODO: consider to change success/cancel url
     success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
-    cancel_url = absolute_url(reverse("subscriptions_team:checkout_canceled", args=[slug]))
+    cancel_url = absolute_url(reverse("subscriptions:subscription_confirm"))
 
     try:
-        checkout_session = stripe_module.checkout.Session.create(
-            success_url=success_url + "?session_id={CHECKOUT_SESSION_ID}",
-            cancel_url=cancel_url,
-            payment_method_types=["card"],
-            mode="subscription",
-            line_items=[
+        checkout_session_data = {
+            "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            "cancel_url": cancel_url,
+            "payment_method_types": ["card"],
+            "mode": "subscription",
+            "line_items": [
                 {
                     "price": stripe_price_id,
                     "quantity": 1,
                 }
             ],
-            allow_promotion_codes=True,
-            metadata={"source": "subscriptions"},
-            customer=customer_id,
-        )
+            "allow_promotion_codes": True,
+            "metadata": {"source": "subscriptions"},
+        }
+
+        if customer_id:
+            checkout_session_data["customer"] = customer_id
+        elif customer_email:
+            checkout_session_data["customer_email"] = customer_email
+
+        checkout_session = stripe_module.checkout.Session.create(**checkout_session_data)
 
         return checkout_session
 

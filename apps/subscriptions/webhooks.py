@@ -7,6 +7,7 @@ from django.core.mail import mail_admins
 
 from apps.subscriptions.helpers import upsert_subscription
 from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
+from apps.users.models import CustomUser
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -28,7 +29,9 @@ def stripe_webhook(request):
     log.info(f"Received event: {event['type']} (id: {event['id']})")
 
     try:
-        if event["type"] == "customer.subscription.created":
+        if event["type"] == "customer.created":
+            handle_customer_created(event)
+        elif event["type"] == "customer.subscription.created":
             handle_subscription_created_or_updated(event)
         elif event["type"] == "customer.subscription.updated":
             handle_subscription_created_or_updated(event)
@@ -45,6 +48,32 @@ def stripe_webhook(request):
         return HttpResponse(status=500)
 
     return HttpResponse(status=200)
+
+def handle_customer_created(event):
+    """
+    Handles customer.created event by saving the new customer in the database.
+    """
+    customer_data = event["data"]["object"]
+    customer_id = customer_data["id"]
+    email = customer_data.get("email")
+
+    try:
+        user = None
+        if email:
+            user = CustomUser.objects.filter(email=email).first()
+
+        stripe_customer, created = StripeCustomer.objects.get_or_create(
+            customer_id=customer_id,
+            user=user
+        )
+
+        if created:
+            log.info(f"Created new Stripe customer: {customer_id} (user: {user}, email: {email})")
+        else:
+            log.info(f"Stripe customer already exists: {customer_id}")
+
+    except Exception as e:
+        log.error(f"Error creating customer record for {customer_id}: {e}")
 
 def handle_payment_method_attachment(event):
     payment_method = event["data"]["object"]
