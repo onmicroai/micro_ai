@@ -153,23 +153,3 @@ class APICustomLogoutView(APIView):
             return Response(
                 {"detail": "Failed to log out."},
                 status=status.HTTP_400_BAD_REQUEST)
-
-class CustomTokenRefreshView(TokenRefreshView):
-    """
-    Custom token refresh view that includes access token expiration information.
-    """
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        # Get the validated data
-        data = serializer.validated_data
-        
-        # Calculate token expiration time
-        access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
-        expiration_time = datetime.now() + access_token_lifetime
-        
-        # Add expiration information to the response
-        data['access_expiration'] = expiration_time.timestamp()
-        
-        return Response(data, status=status.HTTP_200_OK)
