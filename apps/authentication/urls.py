@@ -24,5 +24,5 @@ urlpatterns = [
         name="password_reset_confirm",
     ),
     path("token/verify/", TokenVerifyView.as_view(), name="token_verify"),
-    path("token/refresh/", get_refresh_view().as_view(), name="token_refresh"),
+    path("token/refresh/", api_views.CustomTokenRefreshView.as_view(), name="token_refresh"),
 ]

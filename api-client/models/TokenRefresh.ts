@@ -31,6 +31,12 @@ export interface TokenRefresh {
      * @memberof TokenRefresh
      */
     refresh: string;
+    /**
+     * Unix timestamp for when the access token expires
+     * @type {number}
+     * @memberof TokenRefresh
+     */
+    access_expiration?: number;
 }
 
 /**
@@ -54,6 +60,7 @@ export function TokenRefreshFromJSONTyped(json: any, ignoreDiscriminator: boolea
         
         'access': json['access'],
         'refresh': json['refresh'],
+        'access_expiration': json['access_expiration'],
     };
 }
 
