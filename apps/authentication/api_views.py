@@ -14,13 +14,17 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from apps.users.models import CustomUser
-from .serializers import LoginResponseSerializer, OtpRequestSerializer
+from .serializers import LoginResponseSerializer, OtpRequestSerializer, EmailVerificationSerializer
 import uuid
 from django.core.cache import cache
 from django.conf import settings
 from datetime import datetime, timedelta
 from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
+from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class LoginViewWith2fa(LoginView):
@@ -122,6 +126,63 @@ class VerifyOTPView(GenericAPIView):
         else:
             # OTP is invalid
             return Response({"status": "invalid_otp", "detail": "Invalid OTP code"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(tags=["api"])
+class EmailVerificationView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = EmailVerificationSerializer
+
+    @extend_schema(
+        responses={
+            200: {"type": "object", "properties": {"detail": {"type": "string"}}},
+            400: {"type": "object", "properties": {"detail": {"type": "string"}}},
+        },
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        key = serializer.validated_data["key"]
+        
+        # First try to verify using HMAC verification
+        confirmation = EmailConfirmationHMAC.from_key(key)
+        
+        if not confirmation:
+            # If HMAC verification fails, try normal verification
+            try:
+                confirmation = EmailConfirmation.objects.get(key=key)
+            except EmailConfirmation.DoesNotExist:
+                logger.warning(f"Invalid email confirmation key attempted: {key}")
+                return Response(
+                    {"detail": "Invalid key or key has expired"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if confirmation.key != key:
+                logger.warning(f"Email confirmation key mismatch: {key}")
+                return Response(
+                    {"detail": "Invalid key or key has expired"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            if confirmation.has_expired():
+                logger.warning(f"Expired email confirmation key attempted: {key}")
+                return Response(
+                    {"detail": "Invalid key or key has expired"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        try:
+            confirmation.confirm(request)
+            logger.info(f"Email confirmation successful for key: {key}")
+            return Response({"detail": "ok"})
+        except Exception as e:
+            logger.error(f"Error confirming email with key {key}: {str(e)}")
+            return Response(
+                {"detail": "Error confirming email"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
 class APICustomLogoutView(APIView):
     permission_classes = (IsAuthenticated,)

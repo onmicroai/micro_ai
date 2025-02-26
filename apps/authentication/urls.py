@@ -14,6 +14,7 @@ urlpatterns = [
     path("register/", RegisterView.as_view(), name="rest_register"),
     path("login/", api_views.LoginViewWith2fa.as_view(), name="rest_login"),
     path("verify-otp/", api_views.VerifyOTPView.as_view(), name="verify_otp"),
+    path("verify-email/", api_views.EmailVerificationView.as_view(), name="verify_email"),
     path("logout/", api_views.APICustomLogoutView.as_view(), name="rest_logout"),
     path("user/", views.CustomUserDetailsView.as_view(), name="rest_user_details"),
     path("password/change/", PasswordChangeView.as_view(), name="change_password"),

@@ -12,3 +12,7 @@ class LoginResponseSerializer(serializers.Serializer):
 class OtpRequestSerializer(serializers.Serializer):
     temp_otp_token = serializers.CharField()
     otp = serializers.CharField()
+
+
+class EmailVerificationSerializer(serializers.Serializer):
+    key = serializers.CharField()
