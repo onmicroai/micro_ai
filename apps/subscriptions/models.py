@@ -5,6 +5,52 @@ from micro_ai import settings
 
 from apps.microapps.models import Run
 
+class TopUpToSubscription(models.Model):
+    """
+    Model for additional credits purchased by the user within a subscription.
+    """
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="top_ups"
+    )
+    allocated_credits = models.IntegerField(
+        default=0,
+        help_text="Total additional credits allocated to this subscription"
+    )
+    used_credits = models.IntegerField(
+        default=0,
+        help_text="Number of top-up credits used"
+    )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Top Up to Subscription"
+        verbose_name_plural = "Top Ups to Subscriptions"
+
+    def __str__(self):
+        return f"Top-Up {self.id} - {self.user.email}: {self.allocated_credits} credits"
+
+    @property
+    def remaining_credits(self):
+        """
+        Returns the number of remaining top-up credits.
+        """
+        return max(0, self.allocated_credits - self.used_credits)
+
+    def record_usage(self, credits: int):
+        """
+        Deducts the specified amount of credits from the top-up.
+        Raises an error if there are not enough credits available.
+        """
+        if credits > self.remaining_credits:
+            raise ValueError("Insufficient top-up credits remaining")
+
+        self.used_credits += credits
+        self.save()
+
+
 class StripeCustomer(models.Model):
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -16,6 +62,8 @@ class StripeCustomer(models.Model):
         unique=True,
         help_text="ID of the Stripe customer"
     )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"StripeCustomer {self.customer_id} for {self.user.email}"
@@ -73,6 +121,8 @@ class Subscription(models.Model):
         blank=True,
         help_text="Unix timestamp when the subscription was canceled"
     )
+    created_at = models.DateTimeField(default=timezone.now)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"Subscription {self.subscription_id} ({self.status})"

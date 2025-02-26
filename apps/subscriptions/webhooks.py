@@ -193,18 +193,11 @@ def handle_subscription_created_or_updated(event):
     stripe_subscription = event["data"]["object"]
 
     subscription_items = stripe_subscription.get("items", {}).get("data", [])
-    subscription_item_id = subscription_items[0]["id"] if subscription_items else None 
+    subscription_item = subscription_items[-1] if subscription_items else {}
 
     data = {
         "subscription_id": stripe_subscription.get("id"),
-        # For creation/update, take the price from the last item
-        "price_id": (
-            stripe_subscription.get("items", {}).get("data", [])[-1]
-            .get("price", {})
-            .get("id")
-            if stripe_subscription.get("items", {}).get("data")
-            else None
-        ),
+        "price_id": subscription_item.get("price", {}).get("id"),
         "status": stripe_subscription.get("status"),
         "cancel_at_period_end": stripe_subscription.get("cancel_at_period_end"),
         "period_start": int(stripe_subscription.get("current_period_start"))
@@ -216,7 +209,7 @@ def handle_subscription_created_or_updated(event):
         "canceled_at": int(stripe_subscription.get("canceled_at"))
         if stripe_subscription.get("canceled_at")
         else None,
-        "subscription_item_id": subscription_item_id,
+        "subscription_item_id": subscription_item.get("id"),
     }
 
     upsert_subscription(stripe_subscription.get("customer"), data)

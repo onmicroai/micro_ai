@@ -1,6 +1,7 @@
 # apps/users/views.py
 from allauth.account.views import LoginView, SignupView
 from allauth.account.views import LogoutView as AllAuthLogoutView
+from apps.subscriptions.models import Subscription
 from dj_rest_auth.views import UserDetailsView
 from django.urls import reverse
 from django.shortcuts import render
@@ -31,12 +32,25 @@ class CustomSignupView(SignupView):
     
 class CustomUserDetailsView(UserDetailsView):
     def get(self, request, *args, **kwargs):
-        # Get the default user data from the parent view
         user_data = super().get(request, *args, **kwargs).data
 
-        # Get the subscription slug for the user
-        
-        # Add the subscription slug to the response data
-        user_data['slug'] = request.team.slug
+        subscription = Subscription.objects.filter(user=request.user).first()
+
+        if subscription:
+            subscription_data = {
+                "subscription_id": subscription.subscription_id,
+                "price_id": subscription.price_id,
+                "status": subscription.status,
+                "period_start": subscription.period_start,
+                "period_end": subscription.period_end,
+                "cancel_at_period_end": subscription.cancel_at_period_end,
+                "canceled_at": subscription.canceled_at,
+                "customer_id": subscription.customer.id,
+            }
+        else:
+            subscription_data = None
+
+        user_data["subscription"] = subscription_data
+        user_data["slug"] = request.team.slug
 
         return Response(user_data, status=status.HTTP_200_OK)
