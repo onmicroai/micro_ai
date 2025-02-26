@@ -17,6 +17,10 @@ from apps.users.models import CustomUser
 from .serializers import LoginResponseSerializer, OtpRequestSerializer
 import uuid
 from django.core.cache import cache
+from django.conf import settings
+from datetime import datetime, timedelta
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 
 
 class LoginViewWith2fa(LoginView):
@@ -51,6 +55,14 @@ class LoginViewWith2fa(LoginView):
             super_response = super().post(request, *args, **kwargs)
             if super_response.status_code == status.HTTP_200_OK:
                 jwt_data = super_response.data
+                
+                # Calculate token expiration time
+                access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
+                expiration_time = datetime.now() + access_token_lifetime
+                
+                # Add expiration information to the response
+                jwt_data['access_expiration'] = expiration_time.timestamp()
+                
                 # rewrap login responses to match our serializer schema
                 wrapped_jwt_data = {
                     "status": "success",
@@ -86,14 +98,25 @@ class VerifyOTPView(GenericAPIView):
         if user and TOTP(Authenticator.objects.get(user=user, type=Authenticator.Type.TOTP)).validate_code(otp):
             # OTP is valid, generate JWT tokens
             refresh = RefreshToken.for_user(user)
+            
+            # Calculate token expiration time
+            access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
+            expiration_time = datetime.now() + access_token_lifetime
+            
+            # Create response data
+            response_data = JWTSerializer(
+                {
+                    "user": user,
+                    "refresh": str(refresh),
+                    "access": str(refresh.access_token),
+                }
+            ).data
+            
+            # Add expiration information to the response
+            response_data['access_expiration'] = expiration_time.timestamp()
+            
             return Response(
-                JWTSerializer(
-                    {
-                        "user": user,
-                        "refresh": str(refresh),
-                        "access": str(refresh.access_token),
-                    }
-                ).data,
+                response_data,
                 status=status.HTTP_200_OK,
             )
         else:
