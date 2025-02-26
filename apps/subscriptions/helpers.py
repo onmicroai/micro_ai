@@ -1,4 +1,5 @@
 import logging
+import os
 from django.db import transaction
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
@@ -10,6 +11,7 @@ from stripe.error import InvalidRequestError
 from stripe.api_resources.billing_portal.session import Session as BillingPortalSession
 from stripe.api_resources.checkout import Session as CheckoutSession
 
+from apps.subscriptions.constants import PLANS, PRICE_IDS
 from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 
 from .exceptions import SubscriptionConfigError
@@ -66,7 +68,6 @@ def get_price_display_with_currency(amount: float, currency: str) -> str:
 def get_subscription_urls(subscription_holder):
     url_bases = [
         "subscription_details",
-        "create_stripe_portal_session",
         "subscription_demo",
         "subscription_gated_page",
         "metered_billing_demo",
@@ -79,8 +80,11 @@ def get_subscription_urls(subscription_holder):
 
     return {url_base: _construct_url(url_base) for url_base in url_bases}
 
-def create_stripe_checkout_session(stripe_price_id, customer_id=None, customer_email=None):
+def create_stripe_checkout_session(plan, customer_id=None, customer_email=None):
     stripe_module = get_stripe_module()
+
+    price_id = get_price_id_from_plan(plan)
+
     # TODO: consider to change success/cancel url
     success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
     cancel_url = absolute_url(reverse("subscriptions:subscription_confirm"))
@@ -93,7 +97,7 @@ def create_stripe_checkout_session(stripe_price_id, customer_id=None, customer_e
             "mode": "subscription",
             "line_items": [
                 {
-                    "price": stripe_price_id,
+                    "price": price_id,
                     "quantity": 1,
                 }
             ],
@@ -113,26 +117,103 @@ def create_stripe_checkout_session(stripe_price_id, customer_id=None, customer_e
     except Exception as e:
         raise
 
-def create_stripe_portal_session(customer_id: str) -> BillingPortalSession:
-    stripe_module = get_stripe_module()
-    # TODO: consider to change return url
-    return_url = absolute_url("/settings/subscription")
-    portal_session = stripe_module.billing_portal.Session.create(
-        customer=customer_id,
-        return_url=return_url,
-    )
-    return portal_session
-
-# TODO: consider to cancel subscription only from customer portal
-# Then webhook handler will update subscription / billing cycle details
-def cancel_subscription(subscription_id: str):
+def get_subscription_details(subscription_id: str) -> dict:
+    """
+    Retrieves subscription details from Stripe API.
+    """
     stripe_module = get_stripe_module()
     try:
-        stripe_module.Subscription.delete(subscription_id)
+        # Fetch subscription details from Stripe
+        subscription = stripe_module.Subscription.retrieve(subscription_id)
+
+        # Ensure there are subscription items
+        if not subscription.get("items") or not subscription["items"]["data"]:
+            raise ValueError(f"Subscription {subscription_id} has no associated items.")
+
+        # Extract the first item in the subscription
+        first_item = subscription["items"]["data"][0]
+
+        return {
+            "latest_invoice_id": subscription.get("latest_invoice"),
+            "price_id": first_item["price"]["id"],
+            "data_id": first_item["id"],
+            "quantity": first_item.get("quantity", 1),
+            "customer_id": subscription["customer"],
+            "status": subscription["status"],
+            "cancel_at_period_end": subscription["cancel_at_period_end"],
+            "current_period_start": int(subscription["current_period_start"]),
+            "current_period_end": int(subscription["current_period_end"]),
+        }
+    
+    except stripe.error.StripeError as e:
+        raise Exception(f"Failed to retrieve subscription {subscription_id}: {str(e)}")
+
+def create_customer_portal_session(
+    user,
+    customer_portal_flow_type: str = None,
+    plan: str = None,
+    success_url: str = None
+) -> str:
+    """
+    Creates a Stripe customer portal session for the current user.
+
+    Args:
+        user: The current user.
+        customer_portal_flow_type (str, optional): The flow type for the customer portal.
+        plan (str, optional): The subscription plan.
+        success_url (str, optional): The URL to redirect to after completion.
+    """
+    stripe_module = get_stripe_module()
+
+    subscription = Subscription.objects.filter(user_id=user.id).first()
+    if not subscription:
+        raise Exception(f"Subscription for user {user.id} not found.")
+
+    price_id = get_price_id_from_plan(plan)
+
+    # URL to which the customer will be redirected after completing the portal flow
+    options = {
+        "customer": subscription.customer.customer_id,
+        "return_url": success_url,
+    }
+
+    if customer_portal_flow_type == "subscription_update_confirm":
+        if not subscription.subscription_id or not price_id:
+            raise Exception("For subscription update, subscription_id and price_id must be provided.")
+        stripe_subscription = get_subscription_details(subscription.subscription_id)
+        configuration = getattr(settings, "DEFAULT_PORTAL_CONFIGURATION_ID", None)
+        options["configuration"] = configuration
+        options["flow_data"] = {
+            "after_completion": {
+                "redirect": {
+                    "return_url": success_url,
+                },
+                "type": "redirect",
+            },
+            "type": customer_portal_flow_type,
+            "subscription_update_confirm": {
+                "subscription": subscription.subscription_id,
+                "items": [{
+                    "id": stripe_subscription["data_id"],
+                    "price": price_id,
+                    "quantity": 1,
+                }]
+            }
+        }
+
+    portal_session = stripe_module.billing_portal.Session.create(**options)
+    return portal_session.url
+
+def cancel_subscription(subscription_id: str, at_period_end: bool = False):
+    stripe_module = get_stripe_module()
+    try:
+        if at_period_end:
+            stripe_module.Subscription.modify(subscription_id, cancel_at_period_end=True)
+        else:
+            stripe_module.Subscription.delete(subscription_id)
     except InvalidRequestError as e:
         if e.code != "resource_missing":
             log.error("Error deleting Stripe subscription: %s", e.user_message)
-
 
 def set_subscription_max_apps(subscription, max_apps: int) -> None:
     from .models import SubscriptionConfiguration
@@ -151,86 +232,153 @@ def get_subscription_max_apps(subscription) -> int:
 def upsert_subscription(customer_id, data):
     from apps.utils.usage_helper import convert_timestamp_to_datetime
 
-    subscription = Subscription.objects.filter(customer__customer_id=customer_id).first()
+    new_subscription_id = data.get("subscription_id")
+    subscription = Subscription.objects.filter(subscription_id=new_subscription_id).first()
+
+    period_start = data.get("period_start")
+    period_end = data.get("period_end")
+    subscription_item_id = data.get("subscription_item_id")
 
     if subscription:
-        # Update existing subscription details
-        subscription.subscription_id = data.get("subscription_id")
         subscription.price_id = data.get("price_id")
         if data.get("status") is not None:
             subscription.status = data.get("status")
         subscription.cancel_at_period_end = data.get("cancel_at_period_end", False)
-        if data.get("period_start") is not None:
-            subscription.period_start = data.get("period_start")
-        if data.get("period_end") is not None:
-            subscription.period_end = data.get("period_end")
+        if period_start is not None:
+            subscription.period_start = period_start
+        if period_end is not None:
+            subscription.period_end = period_end
         subscription.canceled_at = data.get("canceled_at")
         subscription.last_modified = timezone.now()
         subscription.save()
+
+        log.info(f"Updated subscription {subscription.subscription_id} for customer {customer_id}")
     else:
         stripe_customer = (
             StripeCustomer.objects.select_related("user")
             .filter(customer_id=customer_id)
             .first()
         )
-        if stripe_customer is None:
-            return
-
-        if data.get("subscription_id") is None:
+        if stripe_customer is None or new_subscription_id is None:
             return
 
         existing_subscription = stripe_customer.user.subscriptions.first()
         if existing_subscription:
             existing_subscription.delete()
 
-        new_subscription = Subscription(
+        subscription = Subscription(
             user=stripe_customer.user,
             customer=stripe_customer,
-            subscription_id=data.get("subscription_id"),
+            subscription_id=new_subscription_id,
             price_id=data.get("price_id"),
             status=data.get("status"),
             cancel_at_period_end=data.get("cancel_at_period_end"),
-            period_start=int(data.get("period_start")),
-            period_end=int(data.get("period_end")),
+            period_start=int(period_start) if period_start else None,
+            period_end=int(period_end) if period_end else None,
         )
-        new_subscription.save()
+        subscription.save()
 
-        user = stripe_customer.user
-        period_start = data.get("period_start")
-        period_end = data.get("period_end")
-        subscription_item_id = data.get("subscription_item_id")
+        log.info(f"Created new subscription {subscription.subscription_id} for user {stripe_customer.user.email}")
 
-        if user and period_start and period_end and subscription_item_id:
-            default_credits = get_default_credits_from_price_id(data.get("price_id"))
-            period_start = convert_timestamp_to_datetime(data.get("period_start"))
-            period_end = convert_timestamp_to_datetime(data.get("period_end"))
+    user = subscription.user
+    if user and period_start and period_end:
+        plan = get_plan_name(data.get("price_id"))
+        default_credits = get_default_credits_from_plan(plan)
+        period_start = convert_timestamp_to_datetime(period_start)
+        period_end = convert_timestamp_to_datetime(period_end)
 
-            new_cycle = BillingCycle.get_or_create_active_cycle(
+        billing_cycle = BillingCycle.objects.filter(
+            user=user, subscription=subscription, stripe_subscription_item_id=subscription_item_id
+        ).first()
+
+        if billing_cycle:
+            billing_cycle.start_date = period_start
+            billing_cycle.end_date = period_end
+            billing_cycle.credits_allocated = default_credits
+            billing_cycle.credits_remaining = default_credits
+            billing_cycle.save()
+
+            log.info(f"Updated billing cycle {billing_cycle.id} for user {user.email}")
+        else:
+            billing_cycle = BillingCycle.objects.create(
                 user=user,
-                subscription=new_subscription,
-                period_start=period_start,
-                period_end=period_end,
+                subscription=subscription,
+                status="open",
+                start_date=period_start,
+                end_date=period_end,
                 credits_allocated=default_credits,
-                subscription_item_id=subscription_item_id,
+                credits_remaining=default_credits,
+                stripe_subscription_item_id=subscription_item_id,
             )
+            log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
 
-            log.info(f"Created initial billing cycle {new_cycle.id} for user {user.email}")
 
-def get_price_id_from_tier(tier_name: str) -> str | None:
-    plan_mapping = {
-        "Free": None,
-        "Pro": getattr(settings, "INDIVIDUAL_PLAN_PRICE_ID", None),
-        "Enterprise": None, 
+def get_plan_name(price_id: str) -> str:
+    """
+    Returns the plan name based on the provided price_id.
+
+    If the price_id matches the individual or enterprise plan, 
+    it returns the corresponding plan name. Otherwise, it defaults to the Free plan.
+    """
+    if price_id == PRICE_IDS["individual"]:
+        return PLANS["individual"]
+    elif price_id == PRICE_IDS["enterprise"]:
+        return PLANS["enterprise"]
+    return PLANS["free"]
+
+def get_price_id_from_plan(plan_name: str) -> str | None:
+    """
+    Returns the corresponding price ID for the given plan name.
+
+    Each plan ("Free", "Pro", "Enterprise") is mapped to its respective price ID.
+    """
+    plan_price_mapping = {
+        "Free": None,  # Free plan does not require a price ID
+        "Pro": PRICE_IDS["individual"],
+        "Enterprise": PRICE_IDS["enterprise"],
     }
 
-    return plan_mapping.get(tier_name)
+    return plan_price_mapping.get(plan_name)
 
-def get_default_credits_from_price_id(price_id: str) -> int:
-    price_credits_mapping = {
-        getattr(settings, "FREE_PLAN_PRICE_ID", None): 10000,
-        getattr(settings, "INDIVIDUAL_PLAN_PRICE_ID", None): 100000,
-        getattr(settings, "ENTERPRISE_PLAN_PRICE_ID", None): 400000,
+def get_default_credits_from_plan(plan_name: str) -> int:
+    """
+    Returns the default number of credits allocated for a given plan.
+
+    The function maps a plan name ("Free", "Pro", "Enterprise") 
+    to its respective credit allocation.
+    """
+    plan_credits_mapping = {
+        PLANS["free"]: 10_000,
+        PLANS["individual"]: 100_000,
+        PLANS["enterprise"]: 400_000,
     }
-    
-    # Default value if price was not found
-    return price_credits_mapping.get(price_id, 0)
+
+    return plan_credits_mapping.get(plan_name, 0)  # Defaults to 0 if plan is not recognized
+
+def is_downgrade(current_plan: str, new_plan: str) -> bool:
+    """
+    Determines if switching from the current plan to the new plan is a downgrade.
+
+    A downgrade occurs when the new plan has a lower priority in the defined order.
+    The order of plans is determined by the `PLAN_ORDER` list, ensuring scalability 
+    for future plan additions.
+
+    Args:
+        current_plan (str): The name of the user's current plan.
+        new_plan (str): The name of the new plan the user wants to switch to.
+
+    Returns:
+        bool: True if the new plan is a downgrade, False otherwise.
+    """
+    PLAN_ORDER = [
+        PLANS["free"],
+        PLANS["individual"],
+        PLANS["enterprise"],
+    ]
+
+    try:
+        current_index = PLAN_ORDER.index(current_plan)
+        new_index = PLAN_ORDER.index(new_plan)
+        return new_index < current_index
+    except ValueError:
+        return False

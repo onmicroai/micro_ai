@@ -1,4 +1,5 @@
 import logging
+from apps.subscriptions.constants import PLANS
 import rest_framework.serializers
 from django.utils.decorators import method_decorator
 from drf_spectacular.types import OpenApiTypes
@@ -14,9 +15,12 @@ from apps.teams.decorators import team_admin_required
 
 from ..exceptions import SubscriptionConfigError
 from ..helpers import (
+    cancel_subscription,
+    create_customer_portal_session,
     create_stripe_checkout_session,
-    create_stripe_portal_session,
-    get_price_id_from_tier,
+    get_plan_name,
+    get_price_id_from_plan,
+    is_downgrade,
 )
 from apps.utils.billing import get_stripe_module
 
@@ -89,11 +93,7 @@ class CreateCheckoutSession(APIView):
     )
     def post(self, request):
         user = request.user
-        tier_name = request.data.get("tierName")
-
-        price_id = get_price_id_from_tier(tier_name)
-        if price_id is None:
-            return Response({"detail": "Invalid or missing price ID for this plan"}, status=400)
+        plan = request.data.get("tierName")
 
         stripe_customer = StripeCustomer.objects.filter(user=user).first()
         customer_id = stripe_customer.customer_id if stripe_customer else None
@@ -101,7 +101,7 @@ class CreateCheckoutSession(APIView):
 
         try:
             checkout_session = create_stripe_checkout_session(
-                price_id, 
+                plan=plan,
                 customer_id=customer_id, 
                 customer_email=customer_email
             )
@@ -125,8 +125,16 @@ class CreatePortalSession(APIView):
         if not stripe_customer:
             return Response("Stripe customer not found", status=404)
         try:
-            portal_session = create_stripe_portal_session(stripe_customer.customer_id)
-            return Response({"url": portal_session.url})
+            customer_portal_flow_type = request.data.get("customerPortalFlowType")
+            plan = request.data.get("plan")
+            success_url = request.data.get("successUrl")
+            session_url = create_customer_portal_session(
+                user,
+                customer_portal_flow_type=customer_portal_flow_type,
+                plan=plan,
+                success_url=success_url,
+            )
+            return Response({"url": session_url})
         except Exception as e:
             return Response(str(e), status=500)
 
@@ -219,4 +227,74 @@ class ListUsageRecordsAPI(APIView):
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
 
-__all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI']
+@extend_schema(tags=["subscriptions"])
+class UpdateSubscription(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+
+    @extend_schema(
+        operation_id="update_subscription",
+        request=inline_serializer(
+            "UpdateSubscription", {"plan": rest_framework.serializers.CharField()}
+        ),
+        responses={200: OpenApiTypes.OBJECT},
+    )
+    def post(self, request):
+        stripe_module = get_stripe_module()
+        plan = request.data.get("plan")
+        if not plan:
+            return Response({"detail": "Plan parameter is required"}, status=400)
+
+        user = request.user
+        stripe_customer = StripeCustomer.objects.filter(user=user).first()
+        if not stripe_customer:
+            return Response({"detail": "Stripe customer not found"}, status=404)
+
+        try:
+            subscription = user.subscriptions.first()
+            if not subscription:
+                return Response({"detail": "No active subscription found"}, status=404)
+
+            current_plan = get_plan_name(subscription.price_id) if subscription.price_id else PLANS["free"]
+            new_price_id = get_price_id_from_plan(plan)
+
+            if plan == "Free":
+                cancel_subscription(subscription.subscription_id, at_period_end=True)
+                return Response({"detail": "Subscription canceled. Switched to Free plan."})
+
+            if is_downgrade(current_plan, plan):
+                stripe_module.Subscription.modify(
+                    subscription.subscription_id,
+                    cancel_at_period_end=True
+                )
+
+                stripe_module.SubscriptionSchedule.create(
+                    customer=stripe_customer.customer_id,
+                    start_date=subscription.period_end,
+                    phases=[
+                        {
+                            "items": [{"price": new_price_id, "quantity": 1}],
+                            "billing_cycle_anchor": "automatic",
+                            "proration_behavior": "none"
+                        }
+                    ],
+                    end_behavior="release"
+                )
+
+                return Response({
+                    "detail": "Downgrade scheduled at period end.",
+                    "subscription_id": subscription.subscription_id,
+                })
+            else:
+                portal_url = create_customer_portal_session(
+                    user,
+                    customer_portal_flow_type="subscription_update_confirm",
+                    plan=plan,
+                    success_url="http://localhost/settings/subscription"
+                )
+                return Response({"url": portal_url})
+        except Exception as e:
+            log.error("Error updating subscription: %s", str(e))
+            return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
+
+
+__all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI', 'UpdateSubscription']
