@@ -23,6 +23,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import logging
+from urllib.parse import unquote
 
 logger = logging.getLogger(__name__)
 
@@ -144,20 +145,29 @@ class EmailVerificationView(GenericAPIView):
         serializer.is_valid(raise_exception=True)
 
         key = serializer.validated_data["key"]
+        decoded_key = unquote(key)
         
         # First try to verify using HMAC verification
-        confirmation = EmailConfirmationHMAC.from_key(key)
+        try:
+            confirmation = EmailConfirmationHMAC.from_key(key)
+            
+            if not confirmation:
+                confirmation = EmailConfirmationHMAC.from_key(decoded_key)
+        except Exception as e:
+            confirmation = None
         
         if not confirmation:
-            # If HMAC verification fails, try normal verification
             try:
                 confirmation = EmailConfirmation.objects.get(key=key)
             except EmailConfirmation.DoesNotExist:
-                logger.warning(f"Invalid email confirmation key attempted: {key}")
-                return Response(
-                    {"detail": "Invalid key or key has expired"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+                try:
+                    confirmation = EmailConfirmation.objects.get(key=decoded_key)
+                except EmailConfirmation.DoesNotExist:
+                    logger.warning(f"Invalid email confirmation key attempted: {key}")
+                    return Response(
+                        {"detail": "Invalid key or key has expired"},
+                        status=status.HTTP_400_BAD_REQUEST
+                    )
 
             if confirmation.key != key:
                 logger.warning(f"Email confirmation key mismatch: {key}")
