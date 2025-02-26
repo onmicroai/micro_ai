@@ -281,37 +281,48 @@ def upsert_subscription(customer_id, data):
         log.info(f"Created new subscription {subscription.subscription_id} for user {stripe_customer.user.email}")
 
     user = subscription.user
-    if user and period_start and period_end:
-        plan = get_plan_name(data.get("price_id"))
-        default_credits = get_default_credits_from_plan(plan)
-        period_start = convert_timestamp_to_datetime(period_start)
-        period_end = convert_timestamp_to_datetime(period_end)
+    plan = get_plan_name(data.get("price_id"))
+    default_credits = get_default_credits_from_plan(plan)
+    period_start = convert_timestamp_to_datetime(period_start) if period_start else None
+    period_end = convert_timestamp_to_datetime(period_end) if period_end else None
 
-        billing_cycle = BillingCycle.objects.filter(
-            user=user, subscription=subscription, stripe_subscription_item_id=subscription_item_id
-        ).first()
+    billing_cycle = BillingCycle.objects.filter(
+        user=user
+    ).first()
 
-        if billing_cycle:
-            billing_cycle.start_date = period_start
-            billing_cycle.end_date = period_end
-            billing_cycle.credits_allocated = default_credits
-            billing_cycle.credits_remaining = default_credits
-            billing_cycle.save()
-
-            log.info(f"Updated billing cycle {billing_cycle.id} for user {user.email}")
+    if billing_cycle:
+        # Set the billing cycle status based on the subscription status.
+        # For example, if the subscription is 'active' or 'trialing', mark as 'open';
+        # if the subscription is 'canceled' or 'incompleted_expired', mark as 'closed'; 
+        # otherwise('past_due', 'incompleted'), mark as 'error'.
+        if subscription.status in ['active', 'trialing']:
+            billing_cycle.status = 'open'
+        elif subscription.status in ['canceled', 'incompleted_expired']:
+            billing_cycle.status = 'closed'
         else:
-            billing_cycle = BillingCycle.objects.create(
-                user=user,
-                subscription=subscription,
-                status="open",
-                start_date=period_start,
-                end_date=period_end,
-                credits_allocated=default_credits,
-                credits_remaining=default_credits,
-                stripe_subscription_item_id=subscription_item_id,
-            )
-            log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
+            billing_cycle.status = 'error'
+        billing_cycle.subscription = subscription
+        if period_start is not None:
+            billing_cycle.start_date = period_start
+        if period_end is not None:
+            billing_cycle.end_date = period_end
+        billing_cycle.credits_allocated = default_credits
+        billing_cycle.credits_remaining = default_credits
+        billing_cycle.save()
 
+        log.info(f"Updated billing cycle {billing_cycle.id} for user {user.email}")
+    else:
+        billing_cycle = BillingCycle.objects.create(
+            user=user,
+            subscription=subscription,
+            status="open",
+            start_date=period_start,
+            end_date=period_end,
+            credits_allocated=default_credits,
+            credits_remaining=default_credits,
+            stripe_subscription_item_id=subscription_item_id,
+        )
+        log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
 
 def get_plan_name(price_id: str) -> str:
     """

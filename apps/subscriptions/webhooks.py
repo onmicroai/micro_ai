@@ -159,16 +159,6 @@ def handle_subscription_deleted(event):
 
     upsert_subscription(stripe_subscription.get("customer"), data)
 
-    active_cycles = BillingCycle.objects.filter(
-        subscription__subscription_id=stripe_subscription.get("id"),
-        status='open'
-    )
-    log.info(f"Found {active_cycles.count()} active billing cycles to close")
-
-    for cycle in active_cycles:
-        cycle.close_cycle()
-        log.info(f"Closed billing cycle {cycle.id}")
-
     try:
         stripe_customer = StripeCustomer.objects.get(
             customer_id=stripe_subscription.get("customer")
