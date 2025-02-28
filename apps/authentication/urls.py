@@ -1,7 +1,6 @@
 # micro_ai\apps\authentication\urls.py
 
 from dj_rest_auth.jwt_auth import get_refresh_view
-from dj_rest_auth.registration.views import RegisterView
 from dj_rest_auth.views import UserDetailsView, PasswordChangeView
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenVerifyView
@@ -11,7 +10,7 @@ from . import views
 app_name = "authentication"
 
 urlpatterns = [
-    path("register/", RegisterView.as_view(), name="rest_register"),
+    path("register/", api_views.CustomRegisterView.as_view(), name="rest_register"),
     path("login/", api_views.LoginViewWith2fa.as_view(), name="rest_login"),
     path("verify-otp/", api_views.VerifyOTPView.as_view(), name="verify_otp"),
     path("verify-email/", api_views.EmailVerificationView.as_view(), name="verify_email"),

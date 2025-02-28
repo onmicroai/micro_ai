@@ -24,6 +24,7 @@ from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
 import logging
 from urllib.parse import unquote
+from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
 
 logger = logging.getLogger(__name__)
 
@@ -147,48 +148,81 @@ class EmailVerificationView(GenericAPIView):
         key = serializer.validated_data["key"]
         decoded_key = unquote(key)
         
+        print("=== Email Verification Debug ===")
+        print(f"Original key: {key}")
+        print(f"Decoded key: {decoded_key}")
+        
+        # Check all confirmations in the database
+        print("\nAll confirmations in database:")
+        all_confirmations = EmailConfirmation.objects.all()
+        for conf in all_confirmations:
+            print(f"Confirmation: {conf}, Key: {conf.key}, Email: {conf.email_address.email}")
+        
         # First try to verify using HMAC verification
         try:
+            print("\nTrying HMAC verification...")
             confirmation = EmailConfirmationHMAC.from_key(key)
+            print(f"HMAC result (original key): {confirmation}")
             
             if not confirmation:
                 confirmation = EmailConfirmationHMAC.from_key(decoded_key)
+                print(f"HMAC result (decoded key): {confirmation}")
         except Exception as e:
+            print(f"HMAC verification failed with error: {str(e)}")
             confirmation = None
         
         if not confirmation:
+            print("\nHMAC failed, checking database...")
             try:
                 confirmation = EmailConfirmation.objects.get(key=key)
+                print(f"Found in DB (original key): {confirmation}")
             except EmailConfirmation.DoesNotExist:
                 try:
                     confirmation = EmailConfirmation.objects.get(key=decoded_key)
+                    print(f"Found in DB (decoded key): {confirmation}")
                 except EmailConfirmation.DoesNotExist:
-                    logger.warning(f"Invalid email confirmation key attempted: {key}")
+                    print(f"No confirmation found in database!")
+                    print(f"Tried keys:\n1. {key}\n2. {decoded_key}")
                     return Response(
                         {"detail": "Invalid key or key has expired"},
                         status=status.HTTP_400_BAD_REQUEST
                     )
 
-            if confirmation.key != key:
-                logger.warning(f"Email confirmation key mismatch: {key}")
+            if confirmation.key != key and confirmation.key != decoded_key:
+                print(f"Key mismatch!")
+                print(f"Expected: {confirmation.key}")
+                print(f"Got: {key}")
                 return Response(
                     {"detail": "Invalid key or key has expired"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            if confirmation.has_expired():
-                logger.warning(f"Expired email confirmation key attempted: {key}")
+            # Check if the confirmation has expired
+            from datetime import timedelta
+            from django.utils import timezone
+            from django.conf import settings
+            
+            # Get the expiration period from settings or use default (3 days)
+            expiration_period = getattr(settings, 'ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS', 3)
+            expiration_time = confirmation.created + timedelta(days=expiration_period)
+            
+            if expiration_time < timezone.now():
+                print(f"Confirmation expired!")
+                print(f"Created at: {confirmation.created}")
+                print(f"Expired at: {expiration_time}")
+                print(f"Current time: {timezone.now()}")
                 return Response(
                     {"detail": "Invalid key or key has expired"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
         try:
+            print("\nAttempting to confirm email...")
             confirmation.confirm(request)
-            logger.info(f"Email confirmation successful for key: {key}")
+            print("Email confirmation successful!")
             return Response({"detail": "ok"})
         except Exception as e:
-            logger.error(f"Error confirming email with key {key}: {str(e)}")
+            print(f"Error during confirmation: {str(e)}")
             return Response(
                 {"detail": "Error confirming email"},
                 status=status.HTTP_400_BAD_REQUEST
@@ -224,3 +258,46 @@ class APICustomLogoutView(APIView):
             return Response(
                 {"detail": "Failed to log out."},
                 status=status.HTTP_400_BAD_REQUEST)
+
+class CustomRegisterView(BaseRegisterView):
+    def perform_create(self, serializer):
+        print("\n=== Registration Debug ===")
+        user = serializer.save(self.request)
+        print(f"User created: {user.email}")
+        
+        # Let the parent class handle email setup
+        # We'll just add debug prints to track what's happening
+        
+        # Check if email verification is already set up
+        from allauth.account.models import EmailAddress
+        email_addresses = EmailAddress.objects.filter(user=user)
+        print(f"Email addresses for user: {list(email_addresses)}")
+        
+        # Check if there are any existing confirmations
+        from allauth.account.models import EmailConfirmation
+        confirmations = EmailConfirmation.objects.filter(email_address__user=user)
+        print(f"Existing confirmations: {list(confirmations)}")
+        
+        if confirmations:
+            for confirmation in confirmations:
+                print(f"Confirmation key: {confirmation.key}")
+                # Delete existing confirmation to create a new one with the correct template
+                confirmation.delete()
+                print(f"Deleted existing confirmation to create a new one with the correct template")
+        
+        # Create a new confirmation with the correct template
+        if email_addresses:
+            email_address = email_addresses[0]
+            from allauth.account.adapter import get_adapter
+            
+            # Create confirmation
+            confirmation = EmailConfirmation.create(email_address)
+            print(f"Created confirmation: {confirmation}")
+            print(f"Confirmation key: {confirmation.key}")
+            
+            # Send with the correct template
+            confirmation.send(signup=True)  # This will use the signup template
+            print("Confirmation email sent with signup template")
+        
+        print("=== End Registration Debug ===\n")
+        return user
