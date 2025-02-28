@@ -30,6 +30,24 @@ class EmailAsUsernameAdapter(DefaultAccountAdapter):
         # override the username population to always use the email
         user_field(user, app_settings.USER_MODEL_USERNAME_FIELD, user_email(user))
 
+    def get_email_confirmation_url(self, request, emailconfirmation):
+        """
+        Override to use the DOMAIN setting from .env instead of the request's domain.
+        """
+        from django.conf import settings
+        from django.urls import reverse
+        
+        # Get the path part of the URL
+        path = reverse("account_confirm_email", args=[emailconfirmation.key])
+        
+        # Construct the full URL with the domain from settings
+        domain = settings.DOMAIN.rstrip('/')  # Remove trailing slash if present
+        url = f"{domain}{path}"
+        
+        print(f"Generated confirmation URL: {url}")
+        
+        return url
+
     def get_email_confirmation_context(self, request, emailconfirmation):
         ctx = super().get_email_confirmation_context(request, emailconfirmation)
         ctx['domain'] = settings.DOMAIN
