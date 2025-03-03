@@ -80,21 +80,26 @@ def get_subscription_urls(subscription_holder):
 
     return {url_base: _construct_url(url_base) for url_base in url_bases}
 
-def create_stripe_checkout_session(plan, customer_id=None, customer_email=None):
+def create_stripe_checkout_session(plan, customer_id=None, customer_email=None, 
+    success_url=None, cancel_url=None, metadata=None):
     stripe_module = get_stripe_module()
 
     price_id = get_price_id_from_plan(plan)
 
-    # TODO: consider to change success/cancel url
-    success_url = absolute_url(reverse("subscriptions:subscription_confirm"))
-    cancel_url = absolute_url(reverse("subscriptions:subscription_confirm"))
+    default_success = absolute_url(reverse("subscriptions:subscription_confirm"))
+    default_cancel = absolute_url(reverse("subscriptions:subscription_confirm"))
+
+    success_url = success_url or default_success
+    cancel_url = cancel_url or default_cancel
+
+    mode = "payment" if plan == settings.TOP_UP_CREDITS_PLAN else "subscription"
 
     try:
         checkout_session_data = {
-            "success_url": success_url + "?session_id={CHECKOUT_SESSION_ID}",
+            "success_url": success_url,
             "cancel_url": cancel_url,
             "payment_method_types": ["card"],
-            "mode": "subscription",
+            "mode": mode,
             "line_items": [
                 {
                     "price": price_id,
@@ -102,13 +107,15 @@ def create_stripe_checkout_session(plan, customer_id=None, customer_email=None):
                 }
             ],
             "allow_promotion_codes": True,
-            "metadata": {"source": "subscriptions"},
         }
 
         if customer_id:
             checkout_session_data["customer"] = customer_id
         elif customer_email:
             checkout_session_data["customer_email"] = customer_email
+
+        if metadata:
+            checkout_session_data["metadata"] = metadata
 
         checkout_session = stripe_module.checkout.Session.create(**checkout_session_data)
 
@@ -205,15 +212,27 @@ def create_customer_portal_session(
     return portal_session.url
 
 def cancel_subscription(subscription_id: str, at_period_end: bool = False):
+    """
+    Cancels a Stripe subscription.
+    Before cancellation, checks for any active subscription schedules attached to the subscription
+    and cancels them. Then, if `at_period_end` is True, modifies the subscription to cancel at period end;
+    otherwise, deletes the subscription immediately.
+    """
     stripe_module = get_stripe_module()
     try:
+        # Retrieve the subscription object from the database (assuming Subscription is imported)
+        subscription = Subscription.objects.get(subscription_id=subscription_id)
+        
+        # Cancel any active schedule associated with the subscription
+        cancel_active_schedule(subscription)
+        
         if at_period_end:
-            stripe_module.Subscription.modify(subscription_id, cancel_at_period_end=True)
+            stripe_module.Subscription.modify(subscription.subscription_id, cancel_at_period_end=True)
         else:
-            stripe_module.Subscription.delete(subscription_id)
+            stripe_module.Subscription.delete(subscription.subscription_id)
     except InvalidRequestError as e:
         if e.code != "resource_missing":
-            log.error("Error deleting Stripe subscription: %s", e.user_message)
+            log.error("Error deleting Stripe subscription: ", e.user_message)
 
 def set_subscription_max_apps(subscription, max_apps: int) -> None:
     from .models import SubscriptionConfiguration
@@ -224,7 +243,6 @@ def set_subscription_max_apps(subscription, max_apps: int) -> None:
         config.max_apps = max_apps
         config.save()
 
-
 def get_subscription_max_apps(subscription) -> int:
     from .models import SubscriptionConfiguration
     return SubscriptionConfiguration.get_max_apps(subscription)
@@ -233,13 +251,21 @@ def upsert_subscription(customer_id, data):
     from apps.utils.usage_helper import convert_timestamp_to_datetime
 
     new_subscription_id = data.get("subscription_id")
-    subscription = Subscription.objects.filter(subscription_id=new_subscription_id).first()
+    stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id).first()
+
+    if stripe_customer is None or new_subscription_id is None:
+            return
+
+    subscription = Subscription.objects.filter(
+        customer=stripe_customer
+    ).first()
 
     period_start = data.get("period_start")
     period_end = data.get("period_end")
     subscription_item_id = data.get("subscription_item_id")
 
     if subscription:
+        subscription.subscription_id = data.get("subscription_id")
         subscription.price_id = data.get("price_id")
         if data.get("status") is not None:
             subscription.status = data.get("status")
@@ -254,14 +280,6 @@ def upsert_subscription(customer_id, data):
 
         log.info(f"Updated subscription {subscription.subscription_id} for customer {customer_id}")
     else:
-        stripe_customer = (
-            StripeCustomer.objects.select_related("user")
-            .filter(customer_id=customer_id)
-            .first()
-        )
-        if stripe_customer is None or new_subscription_id is None:
-            return
-
         existing_subscription = stripe_customer.user.subscriptions.first()
         if existing_subscription:
             existing_subscription.delete()
@@ -323,19 +341,19 @@ def upsert_subscription(customer_id, data):
             stripe_subscription_item_id=subscription_item_id,
         )
         log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
-
-def get_plan_name(price_id: str) -> str:
+    
+def get_plan_name(price_id: str | None) -> str:
     """
     Returns the plan name based on the provided price_id.
 
     If the price_id matches the individual or enterprise plan, 
     it returns the corresponding plan name. Otherwise, it defaults to the Free plan.
     """
-    if price_id == PRICE_IDS["individual"]:
+    if price_id == PRICE_IDS.get("individual"):
         return PLANS["individual"]
-    elif price_id == PRICE_IDS["enterprise"]:
+    elif price_id == PRICE_IDS.get("enterprise"):
         return PLANS["enterprise"]
-    return PLANS["free"]
+    return PLANS["free"] 
 
 def get_price_id_from_plan(plan_name: str) -> str | None:
     """
@@ -347,6 +365,7 @@ def get_price_id_from_plan(plan_name: str) -> str | None:
         "Free": None,  # Free plan does not require a price ID
         "Pro": PRICE_IDS["individual"],
         "Enterprise": PRICE_IDS["enterprise"],
+        "TopUp": PRICE_IDS["top_up"]
     }
 
     return plan_price_mapping.get(plan_name)
@@ -393,3 +412,72 @@ def is_downgrade(current_plan: str, new_plan: str) -> bool:
         return new_index < current_index
     except ValueError:
         return False
+
+def cancel_active_schedule(subscription):
+    """
+    Checks for any active subscription schedules attached to the given subscription.
+    If a schedule contains downgrade phases, it modifies the schedule to remove them,
+    adding a neutral phase if necessary, and then attempts to release the schedule
+    (detach it from the subscription) if its status allows.
+    """
+    stripe_module = get_stripe_module()
+    stripe_customer = subscription.customer
+    customer_id = stripe_customer.customer_id
+
+    scheduled_updates = stripe_module.SubscriptionSchedule.list(customer=customer_id)
+    schedules_for_subscription = [
+        schedule for schedule in scheduled_updates.data
+        if schedule.subscription == subscription.subscription_id
+    ]
+
+    for schedule in schedules_for_subscription:
+        current_phases = schedule.phases or []
+        filtered_phases = []
+        downgrade_phase_removed = False
+
+        for phase in current_phases:
+            items = phase.get("items", [])
+            if any(item.get("price") != subscription.price_id for item in items):
+                downgrade_phase_removed = True
+                continue
+            filtered_phases.append(phase)
+
+        if downgrade_phase_removed:
+            if not filtered_phases:
+                neutral_phase = {
+                    "items": [{"price": subscription.price_id, "quantity": 1}],
+                    "start_date": subscription.period_end,
+                    "iterations": 1,
+                }
+                filtered_phases = [neutral_phase]
+                log.info(
+                    "No phases left after removal. Added neutral phase for subscription",
+                    subscription.subscription_id
+                )
+            stripe_module.SubscriptionSchedule.modify(
+                schedule.id,
+                phases=filtered_phases
+            )
+            log.info(
+                "Modified schedule: removed downgrade phase(s), kept %d phase(s)",
+                schedule.id, len(filtered_phases)
+            )
+            if schedule.status in ["not_started", "active"]:
+                try:
+                    stripe_module.SubscriptionSchedule.release(schedule.id)
+                    log.info(
+                        "Released schedule %s after modification", schedule.id
+                    )
+                except Exception as release_error:
+                    log.info(
+                        "Could not release schedule %s: %s", schedule.id, str(release_error)
+                    )
+            else:
+                log.info(
+                    "Schedule %s is in status %s; not releasing.", schedule.id, schedule.status
+                )
+        else:
+            log.info(
+                "No downgrade phase found in schedule %s; no modification needed.",
+                schedule.id
+            )

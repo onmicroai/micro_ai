@@ -1,5 +1,7 @@
 import logging
+from rest_framework import serializers
 from apps.subscriptions.constants import PLANS
+from apps.subscriptions.serializers import SpendCreditsSerializer
 import rest_framework.serializers
 from django.utils.decorators import method_decorator
 from drf_spectacular.types import OpenApiTypes
@@ -7,7 +9,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
-from apps.subscriptions.models import StripeCustomer
+from apps.subscriptions.models import BillingCycle, StripeCustomer
 from rest_framework.permissions import AllowAny
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
@@ -15,6 +17,7 @@ from apps.teams.decorators import team_admin_required
 
 from ..exceptions import SubscriptionConfigError
 from ..helpers import (
+    cancel_active_schedule,
     cancel_subscription,
     create_customer_portal_session,
     create_stripe_checkout_session,
@@ -88,22 +91,34 @@ class CreateCheckoutSession(APIView):
 
     @extend_schema(
         operation_id="create_checkout_session",
-        request=inline_serializer("CreateCheckout", {"tierName": rest_framework.serializers.CharField()}),
+        request=inline_serializer(
+            name="CreateCheckout",
+            fields={
+                "plan": serializers.CharField(),
+                "successUrl": serializers.CharField(required=False),
+                "cancelUrl": serializers.CharField(required=False),
+            }
+        ),
         responses={200: OpenApiTypes.URI},
     )
     def post(self, request):
         user = request.user
-        plan = request.data.get("tierName")
+        plan = request.data.get("plan")
 
         stripe_customer = StripeCustomer.objects.filter(user=user).first()
         customer_id = stripe_customer.customer_id if stripe_customer else None
         customer_email = user.email if not customer_id else None
 
+        success_url = request.data.get("successUrl")
+        cancel_url = request.data.get("cancelUrl")
+
         try:
             checkout_session = create_stripe_checkout_session(
                 plan=plan,
-                customer_id=customer_id, 
-                customer_email=customer_email
+                customer_id=customer_id,
+                customer_email=customer_email,
+                success_url=success_url,
+                cancel_url=cancel_url,
             )
             return Response({"url": checkout_session.url})
         except Exception as e:
@@ -254,7 +269,7 @@ class UpdateSubscription(APIView):
             if not subscription:
                 return Response({"detail": "No active subscription found"}, status=404)
 
-            current_plan = get_plan_name(subscription.price_id) if subscription.price_id else PLANS["free"]
+            current_plan = get_plan_name(subscription.price_id)
             new_price_id = get_price_id_from_plan(plan)
 
             if plan == "Free":
@@ -262,23 +277,25 @@ class UpdateSubscription(APIView):
                 return Response({"detail": "Subscription canceled. Switched to Free plan."})
 
             if is_downgrade(current_plan, plan):
-                stripe_module.Subscription.modify(
-                    subscription.subscription_id,
-                    cancel_at_period_end=True
+                scheduled_subscription = stripe_module.SubscriptionSchedule.create(
+                    from_subscription=subscription.subscription_id,
                 )
 
-                stripe_module.SubscriptionSchedule.create(
-                    customer=stripe_customer.customer_id,
-                    start_date=subscription.period_end,
-                    phases=[
-                        {
-                            "items": [{"price": new_price_id, "quantity": 1}],
-                            "billing_cycle_anchor": "automatic",
-                            "proration_behavior": "none"
-                        }
-                    ],
-                    end_behavior="release"
+                current_phases = scheduled_subscription.phases
+
+                new_phase = {
+                    "items": [{"price": new_price_id, "quantity": 1}],
+                    "start_date": subscription.period_end,
+                    "iterations": None
+                }
+
+                stripe_module.SubscriptionSchedule.modify(
+                    scheduled_subscription.id,
+                    phases=current_phases + [new_phase]
                 )
+
+                subscription.cancel_at_period_end = True
+                subscription.save()
 
                 return Response({
                     "detail": "Downgrade scheduled at period end.",
@@ -289,12 +306,96 @@ class UpdateSubscription(APIView):
                     user,
                     customer_portal_flow_type="subscription_update_confirm",
                     plan=plan,
-                    success_url="http://localhost/settings/subscription"
+                    success_url="http://localhost/settings/subscription?updated=success"
                 )
                 return Response({"url": portal_url})
         except Exception as e:
             log.error("Error updating subscription: %s", str(e))
             return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
 
+@extend_schema(tags=["subscriptions"])
+class SpendCredits(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    serializer_class = SpendCreditsSerializer
 
-__all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI', 'UpdateSubscription']
+    @extend_schema(
+        operation_id="spend_credits",
+        request=SpendCreditsSerializer,
+        responses={200: inline_serializer("SpendCreditsResponse", {
+            "detail": serializers.CharField(),
+            "remaining_credits": serializers.IntegerField(),
+        })},
+    )
+    def post(self, request):
+        serializer = self.serializer_class(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+        
+        amount = serializer.validated_data["amount"]
+        user = request.user
+        subscription = user.subscriptions.first()
+        stripe_customer = StripeCustomer.objects.filter(user=user).first()
+
+        if not subscription:
+            return Response({"detail": "No active subscription found"}, status=404)
+        
+        try:
+            billing_cycle = BillingCycle.objects.filter(subscription=subscription, status='open').first()
+            if not billing_cycle:
+                return Response({"detail": "No active billing cycle found"}, status=404)
+            
+            if billing_cycle.credits_remaining < amount:
+                checkout_session = create_stripe_checkout_session(
+                    plan=settings.TOP_UP_CREDITS_PLAN,
+                    customer_id=stripe_customer.customer_id,
+                    customer_email=user.email,
+                    success_url="http://localhost/settings/subscription?updated=success",
+                    cancel_url="http://localhost/settings/subscription?updated=failure",
+                    metadata={'price_id': settings.TOP_UP_CREDITS_PLAN_ID},
+                )
+
+                return Response({
+                    "detail": "Insufficient credits. Redirect to checkout.",
+                    "checkout_url": checkout_session.url
+                }, status=402)
+
+            billing_cycle.credits_used += amount
+            billing_cycle.credits_remaining -= amount
+            billing_cycle.save()
+            
+            return Response({
+                "detail": "Credits spent successfully",
+                "remaining_credits": billing_cycle.credits_remaining
+            })
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+
+@extend_schema(tags=["subscriptions"], exclude=True)
+class CancelDowngrade(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+
+    def post(self, request):
+        user = request.user
+        subscription = user.subscriptions.first()
+        if not subscription:
+            return Response({"detail": "No active subscription found"}, status=404)
+
+        try:
+            stripe_module = get_stripe_module()
+            cancel_active_schedule(subscription)
+
+            stripe_module.Subscription.modify(
+                subscription.subscription_id,
+                cancel_at_period_end=False
+            )
+            subscription.cancel_at_period_end = False
+            subscription.save()
+
+            return Response({
+                "detail": "Downgrade canceled successfully."
+            })
+        except Exception as e:
+            log.error("Error canceling downgrade: %s", str(e))
+            return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
+
+__all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI', 'UpdateSubscription', 'SpendCredits', 'CancelDowngrade']

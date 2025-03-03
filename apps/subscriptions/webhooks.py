@@ -1,3 +1,4 @@
+import time
 import stripe
 import logging
 from django.http import HttpResponse
@@ -6,7 +7,7 @@ from django.conf import settings
 from django.core.mail import mail_admins
 
 from apps.subscriptions.helpers import upsert_subscription
-from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
+from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription
 from apps.users.models import CustomUser
 
 log = logging.getLogger("micro_ai.subscription")
@@ -41,6 +42,8 @@ def stripe_webhook(request):
             handle_payment_method_attachment(event)
         elif event["type"] == "customer.deleted":
             handle_customer_deleted(event)
+        elif event["type"] == "checkout.session.completed":
+            handle_checkout_session_completed(event) 
         else:
             log.warning(f"Unhandled event type: {event['type']}")
     except Exception as e:
@@ -48,6 +51,45 @@ def stripe_webhook(request):
         return HttpResponse(status=500)
 
     return HttpResponse(status=200)
+
+def handle_checkout_session_completed(event):
+    """
+    Handles the checkout.session.completed event.
+    Verifies that the session metadata contains the correct price_id.
+    """
+    session = event["data"]["object"]
+    customer_id = session.get("customer")
+    
+    if not customer_id:
+        log.warning("checkout.session.completed: customer_id not found")
+        return
+
+    # Retrieve the price_id from metadata.
+    # Ensure that when creating the checkout session you include:
+    # metadata={'price_id': settings.TOP_UP_CREDITS_PLAN_ID}
+    received_price_id = session.get("metadata", {}).get("price_id")
+    if not received_price_id:
+        log.warning("checkout.session.completed: price_id not found in metadata")
+        return
+
+    # Verify that the received price_id matches the expected price_id.
+    if received_price_id != settings.TOP_UP_CREDITS_PLAN_ID:
+        log.warning(f"checkout.session.completed: price_id does not match. Received {received_price_id}")
+        return
+
+    try:
+        stripe_customer = StripeCustomer.objects.get(customer_id=customer_id)
+        user = stripe_customer.user
+    except StripeCustomer.DoesNotExist:
+        log.error(f"checkout.session.completed: customer {customer_id} not found in the database")
+        return
+
+    TopUpToSubscription.objects.create(
+        user=user,
+        allocated_credits=20000
+    )
+
+    log.info(f"Added 20000 credits to user {user.email} (price_id: {received_price_id})")
 
 def handle_customer_created(event):
     """
@@ -118,20 +160,27 @@ def handle_payment_method_attachment(event):
 
 def handle_customer_deleted(event):
     """
-    Handles customer.deleted event by removing associated subscriptions from the database.
+    Handles customer.deleted event by removing associated billing cycles, 
+    subscriptions, and then the Stripe customer record.
     """
     customer = event["data"]["object"]
     customer_id = customer["id"]
 
     try:
+        billing_cycles = BillingCycle.objects.filter(subscription__customer_id=customer_id)
+        deleted_billing_cycles, _ = billing_cycles.delete()
+        log.info(f"Deleted {deleted_billing_cycles} billing cycles for customer {customer_id}")
+
         subscriptions = Subscription.objects.filter(customer_id=customer_id)
-        deleted_count, _ = subscriptions.delete()
-        
-        log.info(f"Deleted {deleted_count} subscriptions for customer {customer_id}")
+        deleted_subscriptions, _ = subscriptions.delete()
+        log.info(f"Deleted {deleted_subscriptions} subscriptions for customer {customer_id}")
+
+        stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id)
+        deleted_customers, _ = stripe_customer.delete()
+        log.info(f"Deleted Stripe customer {customer_id}")
 
     except Exception as e:
-        log.error(f"Error deleting subscriptions for customer {customer_id}: {e}")
-
+        log.error(f"Error deleting data for customer {customer_id}: {e}")
 
 def handle_subscription_deleted(event):
     """
