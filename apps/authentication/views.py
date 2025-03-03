@@ -123,9 +123,11 @@ class CustomUserDetailsView(UserDetailsView):
         # Get the default user data from the parent view
         user_data = super().get(request, *args, **kwargs).data
 
-        # Get the subscription slug for the user
-        
-        # Add the subscription slug to the response data
-        user_data['slug'] = request.team.slug
+        # Safely get the team slug if available
+        team = getattr(request, 'team', None)
+        if team:
+            user_data['slug'] = team.slug
+        else:
+            user_data['slug'] = None
 
         return Response(user_data, status=status.HTTP_200_OK)
