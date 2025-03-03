@@ -1,6 +1,7 @@
 # apps/users/views.py
 from allauth.account.views import LoginView, SignupView
 from allauth.account.views import LogoutView as AllAuthLogoutView
+from apps.subscriptions.helpers import get_plan_name
 from apps.subscriptions.models import Subscription
 from dj_rest_auth.views import UserDetailsView
 from django.urls import reverse
@@ -38,7 +39,7 @@ class CustomUserDetailsView(UserDetailsView):
 
         if subscription:
             subscription_data = {
-                "subscription_id": subscription.subscription_id,
+                "id": subscription.subscription_id,
                 "price_id": subscription.price_id,
                 "status": subscription.status,
                 "period_start": subscription.period_start,
@@ -52,5 +53,6 @@ class CustomUserDetailsView(UserDetailsView):
 
         user_data["subscription"] = subscription_data
         user_data["slug"] = request.team.slug
+        user_data["plan"] = get_plan_name(subscription.price_id if subscription else None)
 
         return Response(user_data, status=status.HTTP_200_OK)

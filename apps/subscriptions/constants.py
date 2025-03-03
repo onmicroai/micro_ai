@@ -9,4 +9,5 @@ PLANS = {
 PRICE_IDS = {
     "individual": settings.INDIVIDUAL_PLAN_PRICE_ID,
     "enterprise": settings.ENTERPRISE_PLAN_PRICE_ID,
+    "top_up": settings.TOP_UP_CREDITS_PLAN_ID
 }

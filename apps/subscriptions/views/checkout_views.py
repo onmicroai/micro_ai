@@ -16,7 +16,7 @@ from apps.utils.billing import get_stripe_module
 def create_checkout_session(request, team_slug):
     subscription_holder = request.team
     price_id = request.POST["priceId"]
-    checkout_session = create_stripe_checkout_session(subscription_holder, price_id, request.user)
+    checkout_session = create_stripe_checkout_session(subscription_holder, price_id, request.user, "", "")
     return HttpResponseRedirect(checkout_session.url)
 
 
