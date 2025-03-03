@@ -9,8 +9,9 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
-from apps.subscriptions.models import BillingCycle, StripeCustomer
+from apps.subscriptions.models import BillingCycle, StripeCustomer, TopUpToSubscription
 from rest_framework.permissions import AllowAny
+from django.db.models import F
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
 from apps.teams.decorators import team_admin_required
@@ -313,6 +314,34 @@ class UpdateSubscription(APIView):
             log.error("Error updating subscription: %s", str(e))
             return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
 
+@extend_schema(tags=["subscriptions"], exclude=True)
+class CancelDowngrade(APIView):
+    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+
+    def post(self, request):
+        user = request.user
+        subscription = user.subscriptions.first()
+        if not subscription:
+            return Response({"detail": "No active subscription found"}, status=404)
+
+        try:
+            stripe_module = get_stripe_module()
+            cancel_active_schedule(subscription)
+
+            stripe_module.Subscription.modify(
+                subscription.subscription_id,
+                cancel_at_period_end=False
+            )
+            subscription.cancel_at_period_end = False
+            subscription.save()
+
+            return Response({
+                "detail": "Downgrade canceled successfully."
+            })
+        except Exception as e:
+            log.error("Error canceling downgrade: %s", str(e))
+            return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
+        
 @extend_schema(tags=["subscriptions"])
 class SpendCredits(APIView):
     permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
@@ -344,7 +373,14 @@ class SpendCredits(APIView):
             if not billing_cycle:
                 return Response({"detail": "No active billing cycle found"}, status=404)
             
-            if billing_cycle.credits_remaining < amount:
+            main_available = billing_cycle.credits_remaining
+            
+            top_ups = TopUpToSubscription.objects.filter(user=user)
+            total_topup_available = sum([top_up.remaining_credits for top_up in top_ups])
+            
+            combined_available = main_available + total_topup_available
+            
+            if combined_available < amount:
                 checkout_session = create_stripe_checkout_session(
                     plan=settings.TOP_UP_CREDITS_PLAN,
                     customer_id=stripe_customer.customer_id,
@@ -353,49 +389,46 @@ class SpendCredits(APIView):
                     cancel_url="http://localhost/settings/subscription?updated=failure",
                     metadata={'price_id': settings.TOP_UP_CREDITS_PLAN_ID},
                 )
-
                 return Response({
                     "detail": "Insufficient credits. Redirect to checkout.",
                     "checkout_url": checkout_session.url
                 }, status=402)
-
-            billing_cycle.credits_used += amount
-            billing_cycle.credits_remaining -= amount
-            billing_cycle.save()
+            
+            remaining_to_deduct = amount
+            
+            if main_available >= remaining_to_deduct:
+                billing_cycle.credits_used += remaining_to_deduct
+                billing_cycle.credits_remaining -= remaining_to_deduct
+                billing_cycle.save()
+                remaining_to_deduct = 0
+            else:
+                billing_cycle.credits_used += main_available
+                billing_cycle.credits_remaining = 0
+                billing_cycle.save()
+                remaining_to_deduct -= main_available
+            
+            if remaining_to_deduct > 0:
+                top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
+                for top_up in top_ups_to_update:
+                    if remaining_to_deduct <= 0:
+                        break
+                    available_in_topup = top_up.remaining_credits
+                    if available_in_topup >= remaining_to_deduct:
+                        top_up.record_usage(remaining_to_deduct)
+                        remaining_to_deduct = 0
+                    else:
+                        top_up.record_usage(available_in_topup)
+                        remaining_to_deduct -= available_in_topup
+            
+            top_ups = TopUpToSubscription.objects.filter(user=user)
+            new_total_topup = sum([top_up.remaining_credits for top_up in top_ups])
+            new_combined_remaining = billing_cycle.credits_remaining + new_total_topup
             
             return Response({
                 "detail": "Credits spent successfully",
-                "remaining_credits": billing_cycle.credits_remaining
+                "remaining_credits": new_combined_remaining
             })
         except Exception as e:
             return Response({"detail": str(e)}, status=400)
-
-@extend_schema(tags=["subscriptions"], exclude=True)
-class CancelDowngrade(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
-
-    def post(self, request):
-        user = request.user
-        subscription = user.subscriptions.first()
-        if not subscription:
-            return Response({"detail": "No active subscription found"}, status=404)
-
-        try:
-            stripe_module = get_stripe_module()
-            cancel_active_schedule(subscription)
-
-            stripe_module.Subscription.modify(
-                subscription.subscription_id,
-                cancel_at_period_end=False
-            )
-            subscription.cancel_at_period_end = False
-            subscription.save()
-
-            return Response({
-                "detail": "Downgrade canceled successfully."
-            })
-        except Exception as e:
-            log.error("Error canceling downgrade: %s", str(e))
-            return Response({"detail": f"Internal server error: {str(e)}"}, status=500)
 
 __all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI', 'UpdateSubscription', 'SpendCredits', 'CancelDowngrade']
