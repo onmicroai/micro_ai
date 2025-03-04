@@ -260,13 +260,17 @@ class APICustomLogoutView(APIView):
                 status=status.HTTP_400_BAD_REQUEST)
 
 class CustomRegisterView(BaseRegisterView):
+    def get_response_data(self, user):
+        return {
+            "detail": "Verification e-mail sent.",
+            "user_id": user.id,
+            "email": user.email
+        }
+
     def perform_create(self, serializer):
         print("\n=== Registration Debug ===")
         user = serializer.save(self.request)
         print(f"User created: {user.email}")
-        
-        # Let the parent class handle email setup
-        # We'll just add debug prints to track what's happening
         
         # Check if email verification is already set up
         from allauth.account.models import EmailAddress
