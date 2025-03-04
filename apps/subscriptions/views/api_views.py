@@ -24,6 +24,7 @@ from ..helpers import (
     create_stripe_checkout_session,
     get_plan_name,
     get_price_id_from_plan,
+    get_subscription_details,
     is_downgrade,
 )
 from apps.utils.billing import get_stripe_module
@@ -278,9 +279,20 @@ class UpdateSubscription(APIView):
                 return Response({"detail": "Subscription canceled. Switched to Free plan."})
 
             if is_downgrade(current_plan, plan):
-                scheduled_subscription = stripe_module.SubscriptionSchedule.create(
-                    from_subscription=subscription.subscription_id,
-                )
+                stripe_subscription = get_subscription_details(subscription.subscription_id)
+                if stripe_subscription["cancel_at_period_end"] == True:
+                    stripe_module.Subscription.modify(
+                        subscription.subscription_id,
+                        cancel_at_period_end=False
+                    )
+
+                try:
+                    scheduled_subscription = stripe_module.SubscriptionSchedule.create(
+                        from_subscription=subscription.subscription_id,
+                    )
+                except Exception as e:
+                    log.error("Error creating SubscriptionSchedule in Stripe: %s", str(e))
+                    return Response({"detail": f"Subscription schedule already exists"}, status=500)
 
                 current_phases = scheduled_subscription.phases
 
