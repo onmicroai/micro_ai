@@ -190,16 +190,12 @@ def handle_subscription_deleted(event):
     about subscription).
     """
     stripe_subscription = event["data"]["object"]
+    subscription_items = stripe_subscription.get("items", {}).get("data", [])
+    subscription_item = subscription_items[-1] if subscription_items else {}
     
     data = {
         "subscription_id": stripe_subscription.get("id"),
-        "price_id": (
-            stripe_subscription.get("items", {}).get("data", [])[0]
-            .get("price", {})
-            .get("id")
-            if stripe_subscription.get("items", {}).get("data")
-            else None
-        ),
+        "price_id": subscription_item.get("price", {}).get("id"),
         "status": stripe_subscription.get("status"),
         "canceled_at": int(stripe_subscription.get("canceled_at"))
         if stripe_subscription.get("canceled_at")

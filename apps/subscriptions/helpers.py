@@ -299,7 +299,10 @@ def upsert_subscription(customer_id, data):
         log.info(f"Created new subscription {subscription.subscription_id} for user {stripe_customer.user.email}")
 
     user = subscription.user
-    plan = get_plan_name(data.get("price_id"))
+    if subscription.status in ['canceled', 'incompleted_expired']:
+        plan = PLANS["free"]
+    else:
+        plan = get_plan_name(data.get("price_id"))
     default_credits = get_default_credits_from_plan(plan)
     period_start = convert_timestamp_to_datetime(period_start) if period_start else None
     period_end = convert_timestamp_to_datetime(period_end) if period_end else None
@@ -325,6 +328,7 @@ def upsert_subscription(customer_id, data):
         if period_end is not None:
             billing_cycle.end_date = period_end
         billing_cycle.credits_allocated = default_credits
+        billing_cycle.credits_used = 0
         billing_cycle.credits_remaining = default_credits
         billing_cycle.save()
 
