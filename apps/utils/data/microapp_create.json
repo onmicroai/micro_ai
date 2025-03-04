@@ -356,7 +356,7 @@
                 "clonable": true,
                 "temperature": 0.7,
                 "aiModel": "gpt-4o-mini",
-                "completedHtml": "You've reached the end2",
+                "completedHtml": "You've reached the end",
                 "phases": [
                     {
                         "id": "1",
