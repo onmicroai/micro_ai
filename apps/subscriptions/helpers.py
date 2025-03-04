@@ -299,7 +299,7 @@ def upsert_subscription(customer_id, data):
         log.info(f"Created new subscription {subscription.subscription_id} for user {stripe_customer.user.email}")
 
     user = subscription.user
-    if subscription.status in ['canceled', 'incompleted_expired']:
+    if subscription.status in ['canceled', 'incomplete_expired']:
         plan = PLANS["free"]
     else:
         plan = get_plan_name(data.get("price_id"))
@@ -311,17 +311,18 @@ def upsert_subscription(customer_id, data):
         user=user
     ).first()
 
+    if subscription.status in ['active', 'trialing']:
+        status_value = 'open'
+    elif subscription.status in ['canceled', 'incomplete_expired']:
+        status_value = 'closed'
+    else:
+        status_value = 'error'
+
     if billing_cycle:
         # Set the billing cycle status based on the subscription status.
         # For example, if the subscription is 'active' or 'trialing', mark as 'open';
-        # if the subscription is 'canceled' or 'incompleted_expired', mark as 'closed'; 
+        # if the subscription is 'canceled' or 'incomplete_expired', mark as 'closed'; 
         # otherwise('past_due', 'incompleted'), mark as 'error'.
-        if subscription.status in ['active', 'trialing']:
-            billing_cycle.status = 'open'
-        elif subscription.status in ['canceled', 'incompleted_expired']:
-            billing_cycle.status = 'closed'
-        else:
-            billing_cycle.status = 'error'
         billing_cycle.subscription = subscription
         if period_start is not None:
             billing_cycle.start_date = period_start
@@ -329,15 +330,17 @@ def upsert_subscription(customer_id, data):
             billing_cycle.end_date = period_end
         billing_cycle.credits_allocated = default_credits
         billing_cycle.credits_used = 0
+        billing_cycle.status = status_value
         billing_cycle.credits_remaining = default_credits
         billing_cycle.save()
 
         log.info(f"Updated billing cycle {billing_cycle.id} for user {user.email}")
     else:
+        status_value = "error" if subscription.status == "incomplete" else "open"
         billing_cycle = BillingCycle.objects.create(
             user=user,
             subscription=subscription,
-            status="open",
+            status=status_value,
             start_date=period_start,
             end_date=period_end,
             credits_allocated=default_credits,
