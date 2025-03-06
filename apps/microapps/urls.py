@@ -26,4 +26,5 @@ urlpatterns = [
     path('user/billing', views.BillingDetails.as_view(), name = "usage_details"),
     path('quota/', views.AppQuota.as_view(), name='app-quota'),
     path('<int:pk>/upload-image/', views.MicroAppImageUpload.as_view(), name='microapp-upload-image'),
+    path('<int:pk>/upload-file/', views.MicroAppFileUpload.as_view(), name='microapp-upload-file'),
 ]
