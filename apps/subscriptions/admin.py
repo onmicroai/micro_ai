@@ -1,74 +1,73 @@
+from datetime import datetime, timezone
 from django.contrib import admin
 from django.conf import settings
-from .models import BillingCycle, Subscription, UsageEvent, SubscriptionConfiguration
+from .models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription, UsageEvent, SubscriptionConfiguration
 from django.contrib.admin.sites import site
+
+@admin.register(TopUpToSubscription)
+class TopUpToSubscriptionAdmin(admin.ModelAdmin):
+    list_display = ('id', 'get_email', 'allocated_credits', 'used_credits', 'remaining_credits', 'created_at', 'updated_at')
+    list_filter = ('created_at', 'updated_at')
+    search_fields = ('user__email',)
+    ordering = ('-created_at',)
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else '-'
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
+
+    def remaining_credits(self, obj):
+        return obj.remaining_credits
+    remaining_credits.short_description = 'Remaining Credits'
+
+
+@admin.register(StripeCustomer)
+class StripeCustomerAdmin(admin.ModelAdmin):
+    list_display = ('id', 'get_email', 'customer_id', 'created_at', 'updated_at')
+    search_fields = ('user__email', 'customer_id')
+    ordering = ('-created_at',)
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else '-'
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
 
 @admin.register(Subscription)
 class CustomSubscriptionAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'get_username', 'get_plan', 'status', 'get_start_date', 'get_ended_at', 'get_current_period_end'
+        'id', 'get_email', 'subscription_id', 'price_id', 'get_status_display', 'get_period_start',
+        'get_current_period_end', 'canceled_at', 'cancel_at_period_end', 'created_at', 'updated_at'
     )
-    list_filter = ('status',)
-    search_fields = ('customer__email', 'subscription_id', 'price_id')
+    list_filter = ('status', 'created_at', 'updated_at')
+    search_fields = ('user__email', 'subscription_id', 'price_id')
     ordering = ('-period_start',)
 
-    def get_username(self, obj):
-        if obj.customer:
-            return obj.customer.email
+    def get_email(self, obj):
+        return obj.user.email if obj.user else '-'
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
+
+    def get_status_display(self, obj):
+        return obj.get_status_display() if obj.status else '-'
+    get_status_display.short_description = 'Status'
+    get_status_display.admin_order_field = 'status'
+
+    def format_unix_timestamp(self, timestamp):
+        """ Converts Unix timestamp to human-readable date-time (UTC) """
+        if timestamp:
+            return datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
         return '-'
-    get_username.short_description = 'Email'
-    get_username.admin_order_field = 'customer__email'
 
-    def get_plan(self, obj):
-        return obj.price_id if obj.price_id else '-'
-    get_plan.short_description = 'Plan'
-    get_plan.admin_order_field = 'price_id'
-
-    def get_start_date(self, obj):
-        return obj.period_start if obj.period_start else '-'
-    get_start_date.short_description = 'Start Date'
-    get_start_date.admin_order_field = 'period_start'
-
-    def get_ended_at(self, obj):
-        return obj.canceled_at if obj.canceled_at else '-'
-    get_ended_at.short_description = 'Ended At'
-    get_ended_at.admin_order_field = 'canceled_at'
+    def get_period_start(self, obj):
+        return self.format_unix_timestamp(obj.period_start)
+    get_period_start.short_description = 'Period start'
+    get_period_start.admin_order_field = 'period_start'
 
     def get_current_period_end(self, obj):
-        return obj.period_end if obj.period_end else '-'
+        return self.format_unix_timestamp(obj.period_end)
     get_current_period_end.short_description = 'Period End'
     get_current_period_end.admin_order_field = 'period_end'
 
-@admin.register(SubscriptionConfiguration)
-class SubscriptionConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('get_email', 'get_plan', 'max_apps', 'get_status', 'get_period_end')
-    list_filter = ('subscription__status', 'max_apps')
-    search_fields = ('subscription__customer__email', 'subscription__subscription_id', 'subscription__price_id')
-    ordering = ('-subscription__period_start',)
-
-    def get_email(self, obj):
-        if obj.subscription and obj.subscription.customer:
-            return obj.subscription.customer.email
-        return '-'
-    get_email.short_description = 'Email'
-    get_email.admin_order_field = 'subscription__customer__email'
-
-    def get_plan(self, obj):
-        if obj.subscription and obj.subscription.price_id:
-            return obj.subscription.price_id
-        return '-'
-    get_plan.short_description = 'Plan'
-    get_plan.admin_order_field = 'subscription__price_id'
-
-    def get_status(self, obj):
-        return obj.subscription.status if obj.subscription else '-'
-    get_status.short_description = 'Status'
-    get_status.admin_order_field = 'subscription__status'
-
-    def get_period_end(self, obj):
-        return obj.subscription.period_end if obj.subscription and obj.subscription.period_end else '-'
-    get_period_end.short_description = 'Period End'
-    get_period_end.admin_order_field = 'subscription__period_end'
 
 @admin.register(BillingCycle)
 class BillingCycleAdmin(admin.ModelAdmin):
