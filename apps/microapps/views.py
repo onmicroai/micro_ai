@@ -1490,7 +1490,8 @@ class MicroAppImageUpload(APIView):
                     'url': response['url'],
                     'fields': {
                         **response['fields'],
-                        'key': file_key
+                        'key': file_key,
+                        'filename': filename
                     }
                 }
             }
@@ -1554,7 +1555,7 @@ class MicroAppFileUpload(APIView):
             )
 
             # Use the validated microapp ID in the file path
-            file_key = f'microapps/{microapp.id}/files/{file_type}/{filename}'
+            file_key = f'microapps/{microapp.id}/files/{filename}'
 
             conditions = [
                 {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
@@ -1578,7 +1579,8 @@ class MicroAppFileUpload(APIView):
                     'url': response['url'],
                     'fields': {
                         **response['fields'],
-                        'key': file_key
+                        'key': file_key,
+                        'filename': filename
                     }
                 }
             }
