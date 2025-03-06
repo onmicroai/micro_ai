@@ -537,10 +537,19 @@ class RunList(APIView):
 
     def check_payload(self, data, request):
             try:
-                if request.user.id:
+                # Safely get user ID, treating None user as unauthenticated
+                user_id = getattr(getattr(request, 'user', None), 'id', None)
+                
+                # Log authentication classes and authenticators
+                if hasattr(request, '_authenticator'):
+                    log.info(f"Current authenticator: {request._authenticator}")
+                
+                # Check if user is authenticated by checking user_id instead of request.user
+                if user_id is not None:
+                    log.info("User is authenticated, checking required fields...")
                     required_fields = [
-                    "user_id",
-                    "ma_id"
+                        "user_id",
+                        "ma_id"
                     ]
                 else:
                     required_fields = []

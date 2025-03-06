@@ -16,7 +16,6 @@ import { mapValues } from '../runtime';
 import type { CustomUser } from './CustomUser';
 import {
     CustomUserFromJSON,
-    CustomUserFromJSONTyped,
     CustomUserToJSON,
 } from './CustomUser';
 
@@ -44,6 +43,12 @@ export interface JWT {
      * @memberof JWT
      */
     user: CustomUser;
+    /**
+     * Unix timestamp for when the access token expires
+     * @type {number}
+     * @memberof JWT
+     */
+    access_expiration?: number;
 }
 
 /**
@@ -69,6 +74,7 @@ export function JWTFromJSONTyped(json: any, ignoreDiscriminator: boolean): JWT {
         'access': json['access'],
         'refresh': json['refresh'],
         'user': CustomUserFromJSON(json['user']),
+        'access_expiration': json['access_expiration'],
     };
 }
 
@@ -81,6 +87,7 @@ export function JWTToJSON(value?: JWT | null): any {
         'access': value['access'],
         'refresh': value['refresh'],
         'user': CustomUserToJSON(value['user']),
+        'access_expiration': value['access_expiration'],
     };
 }
 
