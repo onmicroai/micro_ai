@@ -28,3 +28,4 @@ pillow==10.4.0
 boto3
 litellm>=1.30.3  # Unified interface for multiple LLM providers
 click==8.1.8  # Pin specific version to resolve conflicts 
+textract
