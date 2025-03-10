@@ -979,7 +979,6 @@ class AnonymousRunList(RunList):
             
             # For anonymous runs, ensure these fields are None/empty
             run_data["user_id"] = None
-            run_data["ma_id"] = None
             run_data["owner_id"] = None
             run_data["app_hash_id"] = ""
 
