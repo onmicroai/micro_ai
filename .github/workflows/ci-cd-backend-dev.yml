@@ -36,7 +36,7 @@ jobs:
         script: |
           if [ -d "/docker/volumes/backend" ]; then
             cd /docker/volumes/backend
-            docker-compose -p backend -f docker-compose.dev.yml down
+            docker-compose -p backend -f docker-compose-dev.yml down
           else
             echo "Directory /docker/volumes/backend does not exist. Skipping."
           fi
@@ -45,7 +45,7 @@ jobs:
           rsync -r --delete ./ /docker/volumes/backend
           
           cd /docker/volumes/backend
-          docker-compose -p backend -f docker-compose.dev.yml up -d
+          docker-compose -p backend -f docker-compose-dev.yml up -d
 
 #          cd /home/ubuntu/micro_ai
 #          docker-compose -f docker-compose-dev.yml build web
