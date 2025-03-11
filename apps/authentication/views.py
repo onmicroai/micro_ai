@@ -245,7 +245,11 @@ class CustomPasswordChangeView(PasswordChangeView):
         return super().dispatch(*args, **kwargs)
 
     def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        serializer.save()
-        return Response({'detail': _('New password has been saved.')})
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'detail': _('New password has been saved.')})
+        except serializers.ValidationError as e:
+            logger.info(f"Password change validation error: {e.detail}")
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
