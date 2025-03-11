@@ -47,6 +47,15 @@ jobs:
           cd /docker/volumes/backend
           docker-compose -p backend -f docker-compose-dev.yml up -d
 
+    - name: Restart NGINX
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+          docker restart nginx
 #          cd /home/ubuntu/micro_ai
 #          docker-compose -f docker-compose-dev.yml build web
 #          cd /docker/volumes/micro_ai
