@@ -14,7 +14,7 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - microaiNetwork
+      - micronet
     healthcheck:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
@@ -27,7 +27,7 @@ services:
     volumes:
       - redis_data:/data
     networks:
-      - microaiNetwork
+      - micronet
     healthcheck:
       test: bash -c 'exec 6<>/dev/tcp/redis/6379'
       interval: 2s
@@ -48,7 +48,7 @@ services:
       - ./.env
     restart: unless-stopped
     networks:
-      - microaiNetwork
+      - micronet
     depends_on:
       db:
         condition: service_healthy
@@ -66,7 +66,7 @@ services:
     env_file:
       - .env
     networks:
-      - microaiNetwork
+      - micronet
     depends_on:
       db:
         condition: service_healthy
@@ -79,5 +79,5 @@ volumes:
   media_data:
 
 networks:
-  microaiNetwork:
+  micronet:
     external: true
