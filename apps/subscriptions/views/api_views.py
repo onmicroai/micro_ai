@@ -391,10 +391,12 @@ class SpendCredits(APIView):
             total_topup_available = sum([top_up.remaining_credits for top_up in top_ups])
             
             combined_available = main_available + total_topup_available
+
+            plan = get_plan_name(settings.TOP_UP_CREDITS_PLAN_ID)
             
             if combined_available < amount:
                 checkout_session = create_stripe_checkout_session(
-                    plan=settings.TOP_UP_CREDITS_PLAN,
+                    plan=plan,
                     customer_id=stripe_customer.customer_id,
                     customer_email=user.email,
                     success_url="http://localhost/settings/subscription?updated=success",

@@ -4,6 +4,7 @@ PLANS = {
     "free": "Free",
     "individual": "Pro", # The frontend always refers to the "Individual" plan as "Pro"
     "enterprise": "Enterprise",
+    "top_up": "TopUp",
 }
 
 PRICE_IDS = {
