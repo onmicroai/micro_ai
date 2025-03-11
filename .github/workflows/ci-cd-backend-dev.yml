@@ -25,7 +25,7 @@ jobs:
         script: |
           cd /home/ubuntu/micro_ai
           git pull origin dev
-          docker-compose -f docker-compose-dev.yml build
+          docker-compose -p backend -f docker-compose-dev.yml build
 
     - name: Deploy
       uses: appleboy/ssh-action@v1.0.3
