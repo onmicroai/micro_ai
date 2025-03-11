@@ -24,7 +24,7 @@ jobs:
         port: 22
         script: |
           cd /home/ubuntu/micro_ai
-          docker-compose -f docker-compose-dev.yml build web
+          docker-compose -f docker-compose-dev.yml build
 
     - name: Deploy
       uses: appleboy/ssh-action@v1.0.3
@@ -34,7 +34,18 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
-          echo "build done"
+          if [ -d "/docker/volumes/backend" ]; then
+            cd /docker/volumes/backend
+            docker-compose -p backend -f docker-compose.dev.yml down
+          else
+            echo "Directory /docker/volumes/backend does not exist. Skipping."
+          fi
+          
+          cd /home/ubuntu/micro_ai
+          rsync -r --delete ./ /docker/volumes/backend
+          
+          cd /docker/volumes/backend
+          docker-compose -p backend -f docker-compose.dev.yml up -d
 
 #          cd /home/ubuntu/micro_ai
 #          docker-compose -f docker-compose-dev.yml build web
