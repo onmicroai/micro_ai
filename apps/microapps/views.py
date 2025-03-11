@@ -34,9 +34,10 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
-from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
+from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField
+
 from django.db.models.functions import Round
-from apps.subscriptions.models import BillingCycle
+from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
 import stripe
@@ -1170,17 +1171,34 @@ class MicroAppVisibility(APIView):
             return handle_exception(e)
 
 @extend_schema_view(
-    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
+    get=extend_schema(
+        responses={200: BillingDetailsSerializer},
+        summary="user-billing-details"
+    )
 )
 class BillingDetails(APIView):
     permission_classes = [IsAuthenticated]
+    
     def get(self, request, format=None):
-        billing_details = BillingCycle.objects.filter(user = request.user.id)
-        serializer = BillingDetailsSerializer(billing_details, many = True)
-        if billing_details:
-            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        billing_details = BillingCycle.objects.filter(user=request.user.id)
+        serializer = BillingDetailsSerializer(billing_details, many=True)
+        
+        # Calculate total remaining top-up credits for the user
+        # remaining_credits = allocated_credits - used_credits for each top-up
+        top_up_total = TopUpToSubscription.objects.filter(user=request.user).aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F('allocated_credits') - F('used_credits'),
+                    output_field=IntegerField()
+                )
+            )
+        )['total'] or 0
 
-        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        return Response({
+            "billing_details": serializer.data,
+            "top_up_credits": top_up_total,
+            "status": status.HTTP_200_OK,
+        }, status=status.HTTP_200_OK)
 
 @extend_schema_view(
     get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
