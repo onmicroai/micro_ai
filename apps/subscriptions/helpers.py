@@ -92,7 +92,7 @@ def create_stripe_checkout_session(plan, customer_id=None, customer_email=None,
     success_url = success_url or default_success
     cancel_url = cancel_url or default_cancel
 
-    mode = "payment" if plan == settings.TOP_UP_CREDITS_PLAN else "subscription"
+    mode = "payment" if plan == PLANS["top_up"] else "subscription"
 
     try:
         checkout_session_data = {
@@ -360,6 +360,8 @@ def get_plan_name(price_id: str | None) -> str:
         return PLANS["individual"]
     elif price_id == PRICE_IDS.get("enterprise"):
         return PLANS["enterprise"]
+    elif price_id == PRICE_IDS.get("top_up"):
+        return PLANS["top_up"]
     return PLANS["free"] 
 
 def get_price_id_from_plan(plan_name: str) -> str | None:
