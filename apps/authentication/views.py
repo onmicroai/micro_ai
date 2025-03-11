@@ -1,6 +1,8 @@
 # apps/users/views.py
 from allauth.account.views import LoginView, SignupView
 from allauth.account.views import LogoutView as AllAuthLogoutView
+from apps.subscriptions.helpers import get_plan_name
+from apps.subscriptions.models import Subscription
 from dj_rest_auth.views import UserDetailsView, PasswordResetView, PasswordResetConfirmView
 from django.urls import reverse, resolve, get_resolver
 from django.shortcuts import render
@@ -214,8 +216,26 @@ class CustomPasswordResetConfirmView(PasswordResetConfirmView):
     
 class CustomUserDetailsView(UserDetailsView):
     def get(self, request, *args, **kwargs):
-        # Get the default user data from the parent view
         user_data = super().get(request, *args, **kwargs).data
+
+        subscription = Subscription.objects.filter(user=request.user).first()
+
+        if subscription:
+            subscription_data = {
+                "id": subscription.subscription_id,
+                "price_id": subscription.price_id,
+                "status": subscription.status,
+                "period_start": subscription.period_start,
+                "period_end": subscription.period_end,
+                "cancel_at_period_end": subscription.cancel_at_period_end,
+                "canceled_at": subscription.canceled_at,
+                "customer_id": subscription.customer.id,
+            }
+        else:
+            subscription_data = None
+
+        user_data["subscription"] = subscription_data
+        user_data["plan"] = get_plan_name(subscription.price_id if subscription else None)
 
         # Safely get the team slug if available
         team = getattr(request, 'team', None)
