@@ -53,6 +53,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
 
+# Добавляем константу для домена CloudFront
+CLOUDFRONT_DOMAIN = env("CLOUDFRONT_DOMAIN", default="")  # Например, "d1234abcd.cloudfront.net"
+
 class ImageUploadSerializer(serializers.Serializer):
     filename = serializers.CharField()
     content_type = serializers.CharField()
@@ -1472,8 +1475,6 @@ class MicroAppImageUpload(APIView):
                 {'Content-Type': content_type}
             ]
 
-            expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
-            
             response = s3_client.generate_presigned_post(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
                 Key=file_key,
@@ -1491,7 +1492,9 @@ class MicroAppImageUpload(APIView):
                     'fields': {
                         **response['fields'],
                         'key': file_key
-                    }
+                    },
+                    # Добавляем CloudFront URL для удобства клиента
+                    'cloudfront_url': f"https://{CLOUDFRONT_DOMAIN}/{file_key}" if CLOUDFRONT_DOMAIN else None
                 }
             }
 
