@@ -10,22 +10,65 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
     steps:
-    - name: Build
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
-          cd /home/ubuntu/micro_ai
-          docker-compose -f docker-compose-dev.yml build
+      - name: Build Web
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
+            git pull origin dev
+            
+            # ensure db and redis are up
+            docker-compose -p backend -f docker-compose-dev.yml up -d redis
+            docker-compose -p backend -f docker-compose-dev.yml up -d db            
 
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prepare
+
+    steps:
+      - name: Build Web
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
+            git pull origin dev
+            docker-compose -p backend -f docker-compose-dev.yml build web
+
+      - name: Build Celery
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
+            git pull origin dev
+            docker-compose -p backend -f docker-compose-dev.yml build celery 
+
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: build
+
+    steps:
     - name: Deploy
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -36,7 +79,8 @@ jobs:
         script: |
           if [ -d "/docker/volumes/backend" ]; then
             cd /docker/volumes/backend
-            docker-compose -p backend -f docker-compose-dev.yml down
+            docker-compose -p backend -f docker-compose-dev.yml down web
+            docker-compose -p backend -f docker-compose-dev.yml down celery
           else
             echo "Directory /docker/volumes/backend does not exist. Skipping."
           fi
@@ -45,17 +89,18 @@ jobs:
           rsync -r --delete ./ /docker/volumes/backend
           
           cd /docker/volumes/backend
-          docker-compose -p backend -f docker-compose-dev.yml up -d
+          docker-compose -p backend -f docker-compose-dev.yml up -d web
+          docker-compose -p backend -f docker-compose-dev.yml up -d celery
 
-    - name: Restart NGINX
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
-          docker restart nginx
+#    - name: Restart NGINX
+#      uses: appleboy/ssh-action@v1.0.3
+#      with:
+#        host: ${{ secrets.SERVER_IP_DEV }}
+#        username: 'ubuntu'
+#        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+#        port: 22
+#        script: |
+#          docker restart nginx
 #          cd /home/ubuntu/micro_ai
 #          docker-compose -f docker-compose-dev.yml build web
 #          cd /docker/volumes/micro_ai
