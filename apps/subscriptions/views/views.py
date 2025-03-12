@@ -6,16 +6,14 @@ from django.http import HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
-from djstripe.enums import SubscriptionStatus
 from stripe.error import InvalidRequestError
 
 from ..decorators import redirect_subscription_errors, active_subscription_required
-from ..wrappers import SubscriptionWrapper, InvoiceFacade
 from ..forms import UsageRecordForm
 from ..helpers import get_subscription_urls, subscription_is_active, subscription_is_trialing
 from ..metadata import get_active_products_with_metadata, ACTIVE_PLAN_INTERVALS, get_active_plan_interval_metadata
 from apps.teams.decorators import team_admin_required, login_and_team_required
-from ..models import SubscriptionModelBase
+from ..models import SubscriptionModelBase, SubscriptionStatus
 from apps.utils.billing import get_stripe_module
 
 log = logging.getLogger("micro_ai.subscription")
@@ -84,15 +82,12 @@ def _view_subscription(request, subscription_holder: SubscriptionModelBase):
                 if not subscription_is_active(subscription):
                     return _upgrade_subscription(request, subscription_holder)
 
-    wrapped_subscription = SubscriptionWrapper(subscription_holder.active_stripe_subscription)
     return render(
         request,
         "subscriptions/view_subscription.html",
         {
             "active_tab": "subscription",
             "page_title": _("Subscription | {team}").format(team=request.team),
-            "subscription": wrapped_subscription,
-            "next_invoice": InvoiceFacade(next_invoice) if next_invoice else None,
             "subscription_urls": get_subscription_urls(subscription_holder),
         },
     )
@@ -126,13 +121,11 @@ def _upgrade_subscription(request, subscription_holder):
 def subscription_demo(request, team_slug):
     subscription_holder = request.team
     subscription = subscription_holder.active_stripe_subscription
-    wrapped_subscription = SubscriptionWrapper(subscription) if subscription else None
     return render(
         request,
         "subscriptions/demo.html",
         {
             "active_tab": "subscription_demo",
-            "subscription": wrapped_subscription,
             "subscription_urls": get_subscription_urls(subscription_holder),
             "page_title": _("Subscription Demo | {team}").format(team=request.team),
         },

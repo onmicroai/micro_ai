@@ -56,6 +56,13 @@ export interface CustomUser {
      * @memberof CustomUser
      */
     readonly getDisplayName: string;
+
+    /**
+     * Subscription Plan Name
+     * @type {string}
+     * @memberof CustomUser
+     */
+    plan?: string;
 }
 
 /**
@@ -84,6 +91,7 @@ export function CustomUserFromJSONTyped(json: any, ignoreDiscriminator: boolean)
         'email': json['email'] == null ? undefined : json['email'],
         'avatarUrl': json['avatar_url'],
         'getDisplayName': json['get_display_name'],
+        'plan': json['plan'] == null ? "Free" : json['plan'], 
     };
 }
 
@@ -96,6 +104,7 @@ export function CustomUserToJSON(value?: Omit<CustomUser, 'id'|'avatar_url'|'get
         'first_name': value['firstName'],
         'last_name': value['lastName'],
         'email': value['email'],
+        'plan': value['plan'],
     };
 }
 
