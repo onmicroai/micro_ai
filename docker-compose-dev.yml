@@ -6,7 +6,7 @@ services:
     image: postgres:17
     # persist data beyond lifetime of container
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - /docker/volumes/postgres/:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=micro_ai
       - POSTGRES_USER=postgres
@@ -27,7 +27,7 @@ services:
     # persistent storage
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - /docker/volumes/redis/:/var/lib/postgresql/data/
     networks:
       micronet:
         ipv4_address: 172.25.0.3
