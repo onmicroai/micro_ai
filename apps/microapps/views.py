@@ -973,11 +973,20 @@ class AnonymousRunList(RunList):
                 response = model.get_response(api_params)
                 response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
-                score_response = model.get_response(api_params)
-                score_response = score_response["data"]
-                self.ai_score = score_response["ai_response"]
-                self.score_result = float(self.ai_score) >= float(data.get("minimum_score"))
-                self.response_type = MicroappVariables.SCORED_RESPONSE_TYPE
+                score_response = model.score_response(api_params, data.get("minimum_score"))
+                self.ai_score = score_response["ai_score"]
+                self.score_result = score_response["score_result"]
+                response.update({
+                    "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
+                    "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
+                })
+                response.update({
+                    "cost": response["cost"] + score_response["cost"],
+                })
+                response.update({
+                    "credits": response["credits"] + score_response["credits"],
+                })
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle normal phase
             else:
                 response = model.get_response(api_params)
