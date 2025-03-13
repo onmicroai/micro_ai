@@ -582,6 +582,7 @@ class RunList(APIView):
 
             # Ensure max_tokens is set from api_params if not in data
             max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
+            app_hash_id = self.app_hash_id or data.get("app_hash_id", '')
 
             run_data = {
                 "ma_id": int(data.get("ma_id")),
@@ -614,7 +615,7 @@ class RunList(APIView):
                 "system_prompt": data.get("system_prompt", {}),
                 "phase_instructions": data.get("phase_instructions", {}),
                 "user_prompt": data.get("user_prompt", {}),
-                "app_hash_id": self.app_hash_id,
+                "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
             }
             return run_data
@@ -910,6 +911,14 @@ class AnonymousRunList(RunList):
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
             
+            app_owner_id = None
+            if data.get("ma_id"):
+                try:
+                    app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+                    app_owner_id = app_owner.user_id.id 
+                except MicroAppUserJoin.DoesNotExist:
+                    pass
+            
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
@@ -922,7 +931,6 @@ class AnonymousRunList(RunList):
             # Handle guest users usage
             if not GuestUsage.get_run_related_info(self, ip):
                 return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
-            app_owner_id = None
             
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
@@ -980,14 +988,11 @@ class AnonymousRunList(RunList):
             
             # For anonymous runs, ensure these fields are None/empty
             run_data["user_id"] = None
-            run_data["ma_id"] = None
-            run_data["owner_id"] = None
-            run_data["app_hash_id"] = ""
 
             serializer = RunGetSerializer(data=run_data)
 
             if serializer.is_valid():
-                run = serializer.save()
+                serializer.save()
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,

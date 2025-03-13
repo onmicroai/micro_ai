@@ -1,7 +1,7 @@
 # micro_ai\apps\authentication\urls.py
 
 from dj_rest_auth.jwt_auth import get_refresh_view
-from dj_rest_auth.views import UserDetailsView, PasswordChangeView
+from dj_rest_auth.views import UserDetailsView
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenVerifyView
 from . import api_views
@@ -16,7 +16,7 @@ urlpatterns = [
     path("verify-email/", api_views.EmailVerificationView.as_view(), name="verify_email"),
     path("logout/", api_views.APICustomLogoutView.as_view(), name="rest_logout"),
     path("user/", views.CustomUserDetailsView.as_view(), name="rest_user_details"),
-    path("password/change/", PasswordChangeView.as_view(), name="change_password"),
+    path("password/change/", views.CustomPasswordChangeView.as_view(), name="change_password"),
     path("password/reset/", views.CustomPasswordResetView.as_view(), name="password_reset"),
     re_path(
         r"^password/reset/confirm/(?P<uidb64>[0-9A-Za-z_\-]+)/(?P<token>[0-9A-Za-z]{1,13}-[0-9A-Za-z]{1,32})/$",

@@ -15,9 +15,6 @@ python manage.py migrate django_celery_beat
 echo "Collecting static files..."
 python manage.py collectstatic --noinput --settings=micro_ai.settings_production
 
-# Activating Stripe subscription
-python manage.py bootstrap_subscriptions
-
 # Start Gunicorn server
 echo "Starting Gunicorn..."
 exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 micro_ai.wsgi:application

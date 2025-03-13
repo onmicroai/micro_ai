@@ -3,19 +3,23 @@ from allauth.account.views import LoginView, SignupView
 from allauth.account.views import LogoutView as AllAuthLogoutView
 from apps.subscriptions.helpers import get_plan_name
 from apps.subscriptions.models import Subscription
-from dj_rest_auth.views import UserDetailsView, PasswordResetView, PasswordResetConfirmView
+from dj_rest_auth.views import UserDetailsView, PasswordResetView, PasswordResetConfirmView, PasswordChangeView
 from django.urls import reverse, resolve, get_resolver
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status, serializers
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.conf import settings
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth import get_user_model
 from django.contrib.auth.forms import SetPasswordForm
+from django.utils.decorators import method_decorator
+from django.views.decorators.debug import sensitive_post_parameters
+from django.utils.translation import gettext_lazy as _
 import logging
+from .serializers import CustomPasswordChangeSerializer
 
 logger = logging.getLogger(__name__)
 
@@ -235,7 +239,37 @@ class CustomUserDetailsView(UserDetailsView):
             subscription_data = None
 
         user_data["subscription"] = subscription_data
-        user_data["slug"] = request.team.slug
         user_data["plan"] = get_plan_name(subscription.price_id if subscription else None)
 
+        # Safely get the team slug if available
+        team = getattr(request, 'team', None)
+        if team:
+            user_data['slug'] = team.slug
+        else:
+            user_data['slug'] = None
+
         return Response(user_data, status=status.HTTP_200_OK)
+
+class CustomPasswordChangeView(PasswordChangeView):
+    """
+    Calls Django Auth SetPasswordForm save method.
+
+    Accepts the following POST parameters: old_password, new_password1, new_password2
+    Returns the success/fail message.
+    """
+    serializer_class = CustomPasswordChangeSerializer
+    permission_classes = (IsAuthenticated,)
+
+    @method_decorator(sensitive_post_parameters('old_password', 'new_password1', 'new_password2'))
+    def dispatch(self, *args, **kwargs):
+        return super().dispatch(*args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        try:
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+            return Response({'detail': _('New password has been saved.')})
+        except serializers.ValidationError as e:
+            logger.info(f"Password change validation error: {e.detail}")
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
