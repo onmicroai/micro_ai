@@ -92,36 +92,36 @@ jobs:
           docker-compose -p backend -f docker-compose-dev.yml up -d web
           docker-compose -p backend -f docker-compose-dev.yml up -d celery
 
-#  clean:
-#    runs-on: ubuntu-latest
-#    timeout-minutes: 60
-#    needs: deploy
-#
-#    steps:
-#    - name: Deploy
-#      uses: appleboy/ssh-action@v1.0.3
-#      with:
-#        host: ${{ secrets.SERVER_IP_DEV }}
-#        username: 'ubuntu'
-#        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-#        port: 22
-#        script: |
-#
-#          echo "Pruning unused Docker resources..."
-#          # Only remove stopped containers
-#          sudo docker container prune -f
-#          # Only remove dangling images
-#          sudo docker image prune -f
-#          # Never prune volumes automatically
-#          sudo docker builder prune -f
-#
-#          # Optional: List unused volumes (but don't remove them automatically)
-#          echo "Listing unused volumes (for information only):"
-#          for volume in $(sudo docker volume ls -q); do
-#             if ! sudo docker ps -a --filter volume=$volume | grep -q .; then
-#                echo "Unused volume found: $volume"
-#             fi
-#          done
+  clean:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: deploy
+
+    steps:
+    - name: Deploy
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+
+          echo "Pruning unused Docker resources..."
+          # Only remove stopped containers
+          sudo docker container prune -f
+          # Only remove dangling images
+          sudo docker image prune -f
+          # Never prune volumes automatically
+          sudo docker builder prune -f
+
+          # Optional: List unused volumes (but don't remove them automatically)
+          echo "Listing unused volumes (for information only):"
+          for volume in $(sudo docker volume ls -q); do
+             if ! sudo docker ps -a --filter volume=$volume | grep -q .; then
+                echo "Unused volume found: $volume"
+             fi
+          done
           
 
 #    - name: Restart NGINX
