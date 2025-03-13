@@ -157,29 +157,6 @@ class MicroAppDetails(APIView):
         except Microapp.DoesNotExist:
             return None
 
-    def get(self, request, app_id, format=None):
-        try:
-            snippet = self.get_object(app_id)
-            if snippet and not snippet.is_archived:
-                # Check permissions if app is private
-                if snippet.privacy == "private":
-                    self.permission_classes = [IsAdminOrOwner]
-                    self.check_permissions(request)
-                
-                serializer = MicroAppSerializer(snippet)
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                error.MICROAPP_NOT_EXIST,
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
-
     def put(self, request, app_id, format=None):
         try:
             self.permission_classes = [IsAdminOrOwner]
@@ -206,20 +183,20 @@ class MicroAppDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    # def delete(self, request, app_id, format=None):
-    #     try:
-    #         self.permission_classes = [IsOwner]
-    #         self.check_permissions(request)
-    #         micro_apps = self.get_object(app_id)
-    #         if micro_apps:
-    #             micro_apps.delete()
-    #             return Response(status=status.HTTP_200_OK)
-    #         return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
+    def delete(self, request, app_id, format=None):
+        try:
+            self.permission_classes = [IsOwner]
+            self.check_permissions(request)
+            micro_apps = self.get_object(app_id)
+            if micro_apps:
+                micro_apps.delete()
+                return Response(status=status.HTTP_200_OK)
+            return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
         
-    #     except PermissionDenied:
-    #         return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-    #     except Exception as e:
-    #         return handle_exception(e)
+        except PermissionDenied:
+            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return handle_exception(e)
 
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
@@ -348,18 +325,18 @@ class CloneMicroApp(APIView):
         except Exception as e:
             return handle_exception(e)
 
-@extend_schema_view(
+# @extend_schema_view(
     # get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get user role for a microapp"),
-    delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
-)
-class UserMicroApps(APIView):
-    permission_classes = [IsAuthenticated]
+    # delete=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary= "Delete user from a microapp"),
+# )
+# class UserMicroApps(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def get_object(self, uid, aid):
-        try:
-            return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
-        except Exception as e:
-            return handle_exception(e)
+#     def get_object(self, uid, aid):
+#         try:
+#             return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
+#         except Exception as e:
+#             return handle_exception(e)
 
     # def get_objects(self, uid, aid):
     #     try:
@@ -384,80 +361,80 @@ class UserMicroApps(APIView):
     #     except Exception as e:
     #         return handle_exception(e)
 
-    def delete(self, request, app_id, user_id, format=None):
-        try:
-            self.permission_classes = [IsOwner]
-            self.check_permissions(request)
-            if user_id and user_id != request.user.id:
-                userapp = self.get_object(user_id, app_id)
-                if userapp:
-                    userapp.delete()
-                    return Response(status=status.HTTP_200_OK)
-                return Response(
-                    error.MICROAPP_NOT_EXIST,
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            return Response(
-                error.INVALID_PAYLOAD,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
+    # def delete(self, request, app_id, user_id, format=None):
+    #     try:
+    #         self.permission_classes = [IsOwner]
+    #         self.check_permissions(request)
+    #         if user_id and user_id != request.user.id:
+    #             userapp = self.get_object(user_id, app_id)
+    #             if userapp:
+    #                 userapp.delete()
+    #                 return Response(status=status.HTTP_200_OK)
+    #             return Response(
+    #                 error.MICROAPP_NOT_EXIST,
+    #                 status=status.HTTP_400_BAD_REQUEST,
+    #             )
+    #         return Response(
+    #             error.INVALID_PAYLOAD,
+    #             status=status.HTTP_400_BAD_REQUEST,
+    #         )
+    #     except PermissionDenied:
+    #         return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+    #     except Exception as e:
+    #         return handle_exception(e)
         
-@extend_schema_view(
-    post=extend_schema(request=MicroappUserSerializer, responses={200: MicroappUserSerializer}, summary="Add user in a microapp"),
-    put=extend_schema(request=MicroappUserSerializer, responses={201: MicroappUserSerializer}, summary= "Update user role of a microapp"),
-)
-class UserMicroAppsDetails(APIView):
-    permission_classes = [IsAuthenticated]
+# @extend_schema_view(
+#     post=extend_schema(request=MicroappUserSerializer, responses={200: MicroappUserSerializer}, summary="Add user in a microapp"),
+#     put=extend_schema(request=MicroappUserSerializer, responses={201: MicroappUserSerializer}, summary= "Update user role of a microapp"),
+# )
+# class UserMicroAppsDetails(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def get_object(self, uid, aid):
-        try:
-            return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
-        except Exception as e:
-            return handle_exception(e)
+#     def get_object(self, uid, aid):
+#         try:
+#             return MicroAppUserJoin.objects.get(user_id=uid, ma_id=aid)
+#         except Exception as e:
+#             return handle_exception(e)
         
-    def get_user_shared_collection(self, uid, ma_id):
-        try:
-            shared_collections = Collection.objects.filter(name="Shared With Me")
+#     def get_user_shared_collection(self, uid, ma_id):
+#         try:
+#             shared_collections = Collection.objects.filter(name="Shared With Me")
 
-            collection_user_joins = CollectionUserJoin.objects.filter(collection_id__in=shared_collections,user_id=uid)
-            collection_ids = collection_user_joins.values_list('collection_id', flat=True).first()
-            data = {"collection_id": collection_ids, "ma_id": ma_id}
-            serializer = CollectionMicroappSerializer(data=data)
-            if serializer.is_valid():   
-                serializer.save()
-                return True
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as e:
-            return handle_exception(e)
+#             collection_user_joins = CollectionUserJoin.objects.filter(collection_id__in=shared_collections,user_id=uid)
+#             collection_ids = collection_user_joins.values_list('collection_id', flat=True).first()
+#             data = {"collection_id": collection_ids, "ma_id": ma_id}
+#             serializer = CollectionMicroappSerializer(data=data)
+#             if serializer.is_valid():   
+#                 serializer.save()
+#                 return True
+#             return Response(
+#                 error.validation_error(serializer.errors),
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         except Exception as e:
+#             return handle_exception(e)
         
-    def post(self, request, format=None):
-        try:
-            self.permission_classes = [IsOwner, AdminRole]
-            self.check_permissions(request)
-            data = request.data
-            self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
-            serializer = MicroappUserSerializer(data=data)
-            if serializer.is_valid():
-                serializer.save()
-                return Response(
-                    {"data": serializer.data, "status": status.HTTP_200_OK},
-                    status=status.HTTP_200_OK,
-                )
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)
+#     def post(self, request, format=None):
+#         try:
+#             self.permission_classes = [IsOwner, AdminRole]
+#             self.check_permissions(request)
+#             data = request.data
+#             self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
+#             serializer = MicroappUserSerializer(data=data)
+#             if serializer.is_valid():
+#                 serializer.save()
+#                 return Response(
+#                     {"data": serializer.data, "status": status.HTTP_200_OK},
+#                     status=status.HTTP_200_OK,
+#                 )
+#             return Response(
+#                 error.validation_error(serializer.errors),
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         except PermissionDenied:
+#             return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+#         except Exception as e:
+#             return handle_exception(e)
 
 # @extend_schema_view(
 #     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
