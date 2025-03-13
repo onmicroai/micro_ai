@@ -60,6 +60,37 @@ jobs:
             git pull origin master
             docker-compose -p backend -f docker-compose-prod.yml build celery 
 
+  staging:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: build
+
+    steps:
+      - name: Deploy Staging
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            if [ -d "/docker/volumes/backend-staging" ]; then
+              cd /docker/volumes/backend-staging
+              docker-compose -p backend -f docker-compose-dev.yml down web-staging
+              docker-compose -p backend -f docker-compose-dev.yml down celery
+            else
+              echo "Directory /docker/volumes/backend-staging does not exist. Skipping."
+            fi
+            
+            cd /home/ubuntu/micro_ai
+            rsync -r --delete ./ /docker/volumes/backend-staging
+            
+            cd /docker/volumes/backend-staging
+            docker-compose -p backend -f docker-compose-dev.yml up -d web-staging
+            docker-compose -p backend -f docker-compose-dev.yml up -d celery
+            
+
+
 #jobs:
 #  build:
 #    runs-on: ubuntu-latest
