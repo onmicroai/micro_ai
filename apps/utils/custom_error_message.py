@@ -7,7 +7,7 @@ class ErrorMessages:
     OPERATION_NOT_ALLOWED = {"error": "operation not allowed", "status": status.HTTP_403_FORBIDDEN}
     FIELD_MISSING = {"error": "invalid payload fields missing", "status": status.HTTP_400_BAD_REQUEST}
     SERVER_ERROR =  {"error": "an unexpected error occurred", "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
-    RUN_USAGE_LIMIT_EXCEED = {"error": "usage limit exceed", "status": status.HTTP_400_BAD_REQUEST}
+    RUN_USAGE_LIMIT_EXCEED = {"error": "Daily usage limit exceeded. Please try again tomorrow", "status": status.HTTP_400_BAD_REQUEST}
     INVALID_PAYLOAD = {"error": "invalid payload", "status": status.HTTP_400_BAD_REQUEST}
     UNSUPPORTED_AI_MODEL = "unsupported AI model"
     EMAIL_ALREADY_EXIST = 'email already exist'
