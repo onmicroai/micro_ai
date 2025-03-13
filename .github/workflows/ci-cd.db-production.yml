@@ -19,7 +19,7 @@ on:
           - both
 
 jobs:
-  recreate_nginx:
+  recreate_db_redis:
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -33,7 +33,7 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            git pull origin main
+            git pull origin master
             
             # ensure db and redis are up
             FORCE_RECREATE=""
