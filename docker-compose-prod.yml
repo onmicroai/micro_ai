@@ -3,10 +3,10 @@
 services:
   db:
     container_name: db
-    image: postgres:16
+    image: postgres:17
     # persist data beyond lifetime of container
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - /docker/volumes/postgres/:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=micro_ai
       - POSTGRES_USER=postgres
@@ -14,7 +14,9 @@ services:
     ports:
       - "5432:5432"
     networks:
-      - microaiNetwork
+      micronet:
+        ipv4_address: 172.25.0.2
+
     healthcheck:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
@@ -25,57 +27,60 @@ services:
     # persistent storage
     command: redis-server --appendonly yes
     volumes:
-      - redis_data:/data
+      - /docker/volumes/redis/:/var/lib/postgresql/data/
     networks:
-      - microaiNetwork
+      micronet:
+        ipv4_address: 172.25.0.3
     healthcheck:
       test: bash -c 'exec 6<>/dev/tcp/redis/6379'
       interval: 2s
       retries: 10
-  web:
-    container_name: web
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    volumes:
-      - .:/code
-      - media_data:/code/media
-    expose:
-      - "8000"
-    env_file:
-      - ./.env
-    restart: unless-stopped
-    networks:
-      - microaiNetwork
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-  celery:
-    container_name: celery
-    build:
-      context: .
-      dockerfile: Dockerfile.web
-    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
-    volumes:
-      - .:/code
-      - media_data:/code/media
-    env_file:
-      - .env
-    networks:
-      - microaiNetwork
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+#  web:
+#    container_name: web
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.web
+#    volumes:
+#      - .:/code
+#      - media_data:/code/media
+#    expose:
+#      - "8000"
+#    environment:
+#      - DEBUG=1
+#    env_file:
+#      - ./.env
+#    restart: unless-stopped
+#    networks:
+#      micronet:
+#        ipv4_address: 172.25.0.11
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
+#  celery:
+#    container_name: celery
+#    build:
+#      context: .
+#      dockerfile: Dockerfile.web
+#    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
+#    volumes:
+#      - .:/code
+#      - media_data:/code/media
+#    env_file:
+#      - .env
+#    networks:
+#      micronet:
+#        ipv4_address: 172.25.0.12
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#      redis:
+#        condition: service_healthy
 
 volumes:
-  postgres_data:
-  redis_data:
   media_data:
 
 networks:
-  microaiNetwork:
-    driver: bridge
+  micronet:
+    external: true
