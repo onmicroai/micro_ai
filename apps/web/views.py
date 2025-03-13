@@ -31,12 +31,3 @@ def team_home(request, team_slug):
 
 def simulate_error(request):
     raise Exception("This is a simulated error.")
-
-# custom views
-
-def library_view(request):
-    return render(request, "web/web-micro-ai-library.html")
-
-
-def mcqs_view(request):
-    return render(request, "web/mcqs-generator.html")

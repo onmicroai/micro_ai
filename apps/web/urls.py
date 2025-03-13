@@ -7,10 +7,6 @@ app_name = "web"
 urlpatterns = [
     path("", views.home, name="home"),
     path("dashboard/", views.home, name="dashboard"),
-    
-    #cutom url
-    path("library/", views.library_view, name="library"),
-    path("mcqs-generator/", views.mcqs_view, name="mcqs"),
 
     path("terms/", TemplateView.as_view(template_name="web/terms.html"), name="terms"),
     path("robots.txt", TemplateView.as_view(template_name="robots.txt", content_type="text/plain"), name="robots.txt"),
