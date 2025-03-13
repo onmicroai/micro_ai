@@ -178,48 +178,48 @@ class UserCollections(APIView):
         except Exception as e:
             return handle_exception(e)
 
-@extend_schema_view(
-    delete=extend_schema(request=CollectionUserSerializer, responses={200: CollectionUserSerializer}, summary= "Delete user from a collection by collection-id and user-id"),
-)
-class UserCollectionsDetail(APIView):
-    permission_classes = [IsAuthenticated]
+# @extend_schema_view(
+#     delete=extend_schema(request=CollectionUserSerializer, responses={200: CollectionUserSerializer}, summary= "Delete user from a collection by collection-id and user-id"),
+# )
+# class UserCollectionsDetail(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def delete(self, request, collection_id, user_id, format=None):
-        try:
-            self.permission_classes = [IsCollectionAdmin]
-            self.check_permissions(request)
-            collection_user = CollectionUserJoin.objects.get(collection_id=collection_id, user_id=user_id)
-            if collection_user:
-                collection_user.delete()
-                return Response(status=status.HTTP_200_OK)
-            return Response(
-                error.USER_NOT_EXIST,
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except PermissionDenied:
-            return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-        except Exception as e:
-            return handle_exception(e)  
+#     def delete(self, request, collection_id, user_id, format=None):
+#         try:
+#             self.permission_classes = [IsCollectionAdmin]
+#             self.check_permissions(request)
+#             collection_user = CollectionUserJoin.objects.get(collection_id=collection_id, user_id=user_id)
+#             if collection_user:
+#                 collection_user.delete()
+#                 return Response(status=status.HTTP_200_OK)
+#             return Response(
+#                 error.USER_NOT_EXIST,
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         except PermissionDenied:
+#             return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
+#         except Exception as e:
+#             return handle_exception(e)  
 
 @extend_schema_view(
     get=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}, summary= "Get all microapps of a collection"),
 )  
-class CollectionMicroAppsList(APIView):
-    permission_classes = [IsAuthenticated]
+# class CollectionMicroAppsList(APIView):
+#     permission_classes = [IsAuthenticated]
 
-    def get(self, request, collection_id, format=None):
-        try:
-            current_user = request.user.id
-            if not CollectionUserJoin.objects.filter(collection_id = collection_id, user_id = current_user).exists():
-                return Response(error.COLLECTION_VIEW_FORBIDDEN, status = status.HTTP_403_FORBIDDEN)
-            microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection_id, is_archived=False)
-            serializer = MicroAppSerializer(microapps, many=True)
-            return Response(
-                {"data": serializer.data, "status": status.HTTP_200_OK},
-                status=status.HTTP_200_OK,
-            )  
-        except Exception as e:
-            return handle_exception(e)
+#     def get(self, request, collection_id, format=None):
+#         try:
+#             current_user = request.user.id
+#             if not CollectionUserJoin.objects.filter(collection_id = collection_id, user_id = current_user).exists():
+#                 return Response(error.COLLECTION_VIEW_FORBIDDEN, status = status.HTTP_403_FORBIDDEN)
+#             microapps = Microapp.objects.filter(collectionmajoin__collection_id=collection_id, is_archived=False)
+#             serializer = MicroAppSerializer(microapps, many=True)
+#             return Response(
+#                 {"data": serializer.data, "status": status.HTTP_200_OK},
+#                 status=status.HTTP_200_OK,
+#             )  
+#         except Exception as e:
+#             return handle_exception(e)
 
 @extend_schema_view(
     get=extend_schema(request=MicroAppSerializer, responses={200: MicroAppSerializer}, summary="Get microapps created by user of a collection"),
