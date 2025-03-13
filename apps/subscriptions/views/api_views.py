@@ -114,6 +114,10 @@ class CreateCheckoutSession(APIView):
         success_url = request.data.get("successUrl")
         cancel_url = request.data.get("cancelUrl")
 
+        metadata = {}
+        if plan == PLANS["top_up"]:
+            metadata = {'price_id': settings.TOP_UP_CREDITS_PLAN_ID}
+
         try:
             checkout_session = create_stripe_checkout_session(
                 plan=plan,
@@ -121,6 +125,7 @@ class CreateCheckoutSession(APIView):
                 customer_email=customer_email,
                 success_url=success_url,
                 cancel_url=cancel_url,
+                metadata=metadata
             )
             return Response({"url": checkout_session.url})
         except Exception as e:
@@ -135,7 +140,6 @@ class CreatePortalSession(APIView):
         request=None,
         responses={200: OpenApiTypes.URI},
     )
-    @method_decorator(team_admin_required)
     def post(self, request):
         user = request.user
         stripe_customer = StripeCustomer.objects.filter(user=user).first()

@@ -58,30 +58,25 @@ def handle_checkout_session_completed(event):
     Verifies that the session metadata contains the correct price_id.
     """
     session = event["data"]["object"]
-    customer_id = session.get("customer")
-    
-    if not customer_id:
-        log.warning("checkout.session.completed: customer_id not found")
+
+    customer_email = session.get("customer_details", {}).get("email")
+    if not customer_email:
+        log.warning("checkout.session.completed: email not found in customer_details")
         return
 
-    # Retrieve the price_id from metadata.
-    # Ensure that when creating the checkout session you include:
-    # metadata={'price_id': settings.TOP_UP_CREDITS_PLAN_ID}
     received_price_id = session.get("metadata", {}).get("price_id")
     if not received_price_id:
         log.warning("checkout.session.completed: price_id not found in metadata")
         return
 
-    # Verify that the received price_id matches the expected price_id.
     if received_price_id != settings.TOP_UP_CREDITS_PLAN_ID:
         log.warning(f"checkout.session.completed: price_id does not match. Received {received_price_id}")
         return
 
     try:
-        stripe_customer = StripeCustomer.objects.get(customer_id=customer_id)
-        user = stripe_customer.user
-    except StripeCustomer.DoesNotExist:
-        log.error(f"checkout.session.completed: customer {customer_id} not found in the database")
+        user = CustomUser.objects.get(email=customer_email)
+    except CustomUser.DoesNotExist:
+        log.error(f"checkout.session.completed: user with email {customer_email} not found in the database")
         return
 
     TopUpToSubscription.objects.create(
