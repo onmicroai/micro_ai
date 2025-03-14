@@ -24,7 +24,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
             git pull origin dev
             
             # ensure db and redis are up
@@ -46,7 +45,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
             git pull origin dev
             docker-compose -p backend -f docker-compose.dev.yml build web
 
@@ -59,7 +57,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            /bin/cp -rf /home/ubuntu/micro_ai_dev.env .env
             git pull origin dev
             docker-compose -p backend -f docker-compose.dev.yml build celery 
 
