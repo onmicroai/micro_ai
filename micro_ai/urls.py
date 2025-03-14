@@ -47,7 +47,6 @@ urlpatterns = [
     path("admin/doc/", include("django.contrib.admindocs.urls")),
     # redirect Django admin login to main login page
     path("admin/login/", RedirectView.as_view(pattern_name="account_login")),
-    path("api/dashboard/", include("apps.dashboard.urls")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("a/<slug:team_slug>/", include(team_urlpatterns)),
     path("accounts/login/", CustomLoginView.as_view(), name='account_login'),

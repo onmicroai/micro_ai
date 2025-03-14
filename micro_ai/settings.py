@@ -83,7 +83,6 @@ PROJECT_APPS = [
     "apps.authentication.apps.AuthenticationConfig",
     "apps.subscriptions.apps.SubscriptionConfig",
     "apps.users.apps.UserConfig",
-    "apps.dashboard.apps.DashboardConfig",
     "apps.api.apps.APIConfig",
     "apps.web",
     "apps.teams.apps.TeamConfig",
