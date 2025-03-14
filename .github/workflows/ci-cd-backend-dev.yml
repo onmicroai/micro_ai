@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Build Web
+      - name: Pull dev branch and ensure db and redis are up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP_DEV }}
@@ -66,7 +66,7 @@ jobs:
     needs: build
 
     steps:
-    - name: Deploy
+    - name: Take down old containers, sync code, and start new containers
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
@@ -95,7 +95,7 @@ jobs:
     needs: deploy
 
     steps:
-    - name: Deploy
+    - name: Prune unused Docker resources
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
