@@ -32,7 +32,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           port: 22
           script: |
-            cd /docker/ubuntu/micro_ai
+            cd /home/ubuntu/micro_ai
             git pull origin dev
             
             # ensure db and redis are up
@@ -48,4 +48,4 @@ jobs:
               CONTAINERS="${{ inputs.containers }}"
             fi
   
-            docker-compose -p backend -f docker-compose-dev.yml up -d $FORCE_RECREATE $CONTAINERS
+            docker-compose -p backend -f docker-compose.dev.yml up -d $FORCE_RECREATE $CONTAINERS
