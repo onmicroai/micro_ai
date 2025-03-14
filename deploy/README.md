@@ -1,4 +1,5 @@
 # Deployment with Kamal
+#TO-DO: Remove this file
 
 This folder contains the configuration and scripts for deploying using [Kamal](https://kamal-deploy.org/),
 a Ruby-based deployment tool.
