@@ -3,7 +3,7 @@ name: CI/CD Backend (Production)
 on:
   push:
     branches:
-      - master_change_me
+      - master
 
 concurrency:
   group: ${{ github.ref }}
