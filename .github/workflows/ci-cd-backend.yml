@@ -1,4 +1,4 @@
-name: CI/CD Backend
+name: CI/CD Backend (Production)
 
 on:
   push:
@@ -15,7 +15,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Build Web
+      - name: Pull master branch and ensure db and redis are up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
