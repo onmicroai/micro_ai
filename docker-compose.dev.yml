@@ -35,9 +35,8 @@ services:
       test: bash -c 'exec 6<>/dev/tcp/redis/6379'
       interval: 2s
       retries: 10
-  web-staging:
-    container_name: web-staging
-    image: web:latest
+  web:
+    container_name: web
     build:
       context: .
       dockerfile: Dockerfile.web
@@ -54,27 +53,6 @@ services:
     networks:
       micronet:
         ipv4_address: 172.25.0.11
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-  web:
-    container_name: web
-    image: web:latest
-    volumes:
-      - .:/code
-      - media_data:/code/media
-    expose:
-      - "8000"
-    environment:
-      - DEBUG=1
-    env_file:
-      - ./.env
-    restart: unless-stopped
-    networks:
-      micronet:
-        ipv4_address: 172.25.0.15
     depends_on:
       db:
         condition: service_healthy
@@ -102,6 +80,8 @@ services:
         condition: service_healthy
 
 volumes:
+  postgres_data:
+  redis_data:
   media_data:
 
 networks:
