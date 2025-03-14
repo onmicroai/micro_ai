@@ -1,0 +1,80 @@
+#\micro_ai\docker-compose-debug.yml
+
+services:
+  db:
+    container_name: db
+    image: postgres
+    # persist data beyond lifetime of container
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=micro_ai
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    networks:
+      - microaiNetwork
+    healthcheck:
+      test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      interval: 2s
+      retries: 10
+  redis:
+    container_name: redis
+    image: redis
+    # persistent storage
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    networks:
+      - microaiNetwork
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
+      interval: 2s
+      retries: 10
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
+    volumes:
+      - .:/code
+    ports:
+      - "8000:8000"
+      - "5678:5678"
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      - microaiNetwork
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+  celery:
+    container_name: celery
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
+    volumes:
+      - .:/code
+    env_file:
+      - ./.env
+    networks:
+      - microaiNetwork
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  microaiNetwork:
+    driver: bridge
