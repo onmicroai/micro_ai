@@ -25,3 +25,6 @@ deploy/.env
 static/css/
 static/js/
 venv/
+
+docker-compose.yml
+docker-compose-debug.yml
