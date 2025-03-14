@@ -1,4 +1,4 @@
-# Micro AI
+# OnMicro.AI
 
 Build Micro Apps with No Code
 
