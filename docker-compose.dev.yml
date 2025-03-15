@@ -1,4 +1,4 @@
-# \micro_ai\docker-compose-prod.yml
+# \micro_ai\docker-compose.dev.yml
 
 services:
   db:

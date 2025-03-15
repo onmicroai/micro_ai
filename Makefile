@@ -12,7 +12,7 @@ start: ## Start the docker containers
 
 start-prod: ## Start the docker containers
 	@echo "Starting the docker containers"
-	@docker compose -f docker-compose-prod.yml up -d
+	@docker compose -f docker-compose.prod.yml up -d
 	@echo "Containers started - http://localhost:8000"
 
 debug: ## Start the docker containers in debug mode
@@ -32,7 +32,7 @@ start-bg:  ## Run containers in the background
 	@docker compose up -d
 
 start-bg-prod:  ## Run containers in the background
-	@docker compose -f docker-compose-prod.yml up -d
+	@docker compose -f docker-compose.prod.yml up -d
 
 build: ## Build Containers
 	@docker compose build
