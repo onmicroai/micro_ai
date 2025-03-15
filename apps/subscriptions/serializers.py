@@ -3,6 +3,7 @@ from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import UsageEvent, BillingCycle
+from apps.subscriptions.models import Subscription as CustomSubscription
 
 class SpendCreditsSerializer(serializers.Serializer):
     amount = serializers.IntegerField(min_value=1)
@@ -69,11 +70,14 @@ class ProductSerializer(serializers.ModelSerializer):
         fields = ("id", "name")
 
 
-class CustomSubscriptionSerilaizer(serializers.ModelSerializer):
-
+class CustomSubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Subscription
-        fields = '__all__'
+        model = CustomSubscription
+        fields = [
+            'id', 'user', 'customer', 'subscription_id', 'price_id',
+            'status', 'period_start', 'period_end', 'cancel_at_period_end',
+            'canceled_at', 'created_at', 'updated_at'
+        ]
 
 class PlansSerializer(serializers.ModelSerializer):
 
