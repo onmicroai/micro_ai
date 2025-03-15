@@ -27,8 +27,8 @@ jobs:
             git pull origin master
             
             # ensure db and redis are up
-            docker-compose -p backend -f docker-compose-prod.yml up -d redis
-            docker-compose -p backend -f docker-compose-prod.yml up -d db            
+            docker-compose -p backend -f docker-compose.prod.yml up -d redis
+            docker-compose -p backend -f docker-compose.prod.yml up -d db            
 
   build:
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
           script: |
             cd /home/ubuntu/micro_ai
             git pull origin master
-            docker-compose -p backend -f docker-compose-prod.yml build web-staging
+            docker-compose -p backend -f docker-compose.prod.yml build web-staging
 
       - name: Build Celery
         uses: appleboy/ssh-action@v1.0.3
@@ -58,7 +58,7 @@ jobs:
           script: |
             cd /home/ubuntu/micro_ai
             git pull origin master
-            docker-compose -p backend -f docker-compose-prod.yml build celery 
+            docker-compose -p backend -f docker-compose.prod.yml build celery 
 
   staging:
     runs-on: ubuntu-latest
@@ -76,8 +76,8 @@ jobs:
           script: |
             if [ -d "/docker/volumes/backend-staging" ]; then
               cd /docker/volumes/backend-staging
-              docker-compose -p backend -f docker-compose-prod.yml down web-staging
-              docker-compose -p backend -f docker-compose-prod.yml down celery
+              docker-compose -p backend -f docker-compose.prod.yml down web-staging
+              docker-compose -p backend -f docker-compose.prod.yml down celery
             else
               echo "Directory /docker/volumes/backend-staging does not exist. Skipping."
             fi
@@ -86,8 +86,8 @@ jobs:
             rsync -r --delete ./ /docker/volumes/backend-staging
             
             cd /docker/volumes/backend-staging
-            docker-compose -p backend -f docker-compose-prod.yml up -d web-staging
-            docker-compose -p backend -f docker-compose-prod.yml up -d celery
+            docker-compose -p backend -f docker-compose.prod.yml up -d web-staging
+            docker-compose -p backend -f docker-compose.prod.yml up -d celery
             
 
 
@@ -127,8 +127,8 @@ jobs:
 #            sudo docker-compose -f docker-compose.prod.yml stop -t 30
 #            sudo docker-compose -f docker-compose.prod.yml down
 #            cd /home/ubuntu/micro_ai
-#            sudo docker-compose -f docker-compose-prod.yml stop -t 30
-#            sudo docker-compose -f docker-compose-prod.yml down
+#            sudo docker-compose -f docker-compose.prod.yml stop -t 30
+#            sudo docker-compose -f docker-compose.prod.yml down
 #
 #      - name: Deploy - Pull Latest Code
 #        uses: appleboy/ssh-action@v1.0.3
@@ -150,8 +150,8 @@ jobs:
 #          port: 22
 #          script: |
 #            cd /home/ubuntu/micro_ai
-#            sudo docker-compose -f docker-compose-prod.yml build --no-cache
-#            sudo docker-compose -f docker-compose-prod.yml up -d
+#            sudo docker-compose -f docker-compose.prod.yml build --no-cache
+#            sudo docker-compose -f docker-compose.prod.yml up -d
 #
 #      - name: Wait for Backend Containers
 #        uses: appleboy/ssh-action@v1.0.3

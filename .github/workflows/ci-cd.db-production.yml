@@ -48,4 +48,4 @@ jobs:
               CONTAINERS="${{ inputs.containers }}"
             fi
             
-            docker-compose -p backend -f docker-compose-prod.yml up -d $FORCE_RECREATE $CONTAINERS
+            docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE $CONTAINERS
