@@ -140,9 +140,20 @@ class MicroAppUsage:
             subscription_obj = Subscription.objects.get(id=subscription["id"])
             # Get max_apps from subscription configuration
             max_apps = get_subscription_max_apps(subscription_obj)
-            # Return status and limit
+            
+            # Get price_id from subscription
+            from apps.subscriptions.constants import PRICE_IDS
+            
+            price_id = subscription["price_id"]
+            
+            # Check if plan is enterprise or individual by comparing price_id
+            is_paid_plan = (price_id == PRICE_IDS["individual"] or 
+                           price_id == PRICE_IDS["enterprise"])
+            
+            # For enterprise or individual plans, can_create is always true
+            # For free plan, can_create depends on the current app count vs limit
             return {
-                "can_create": current_app_count < max_apps,
+                "can_create": is_paid_plan or current_app_count < max_apps,
                 "limit": max_apps,
                 "current_count": current_app_count
             }
