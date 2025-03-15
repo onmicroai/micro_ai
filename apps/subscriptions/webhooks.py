@@ -81,10 +81,10 @@ def handle_checkout_session_completed(event):
 
     TopUpToSubscription.objects.create(
         user=user,
-        allocated_credits=20000
+        allocated_credits=settings.TOP_UP_CREDITS
     )
 
-    log.info(f"Added 20000 credits to user {user.email} (price_id: {received_price_id})")
+    log.info(f"Added {settings.TOP_UP_CREDITS} credits to user {user.email} (price_id: {received_price_id})")
 
 def handle_customer_created(event):
     """
