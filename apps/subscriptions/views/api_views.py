@@ -323,7 +323,7 @@ class UpdateSubscription(APIView):
                     user,
                     customer_portal_flow_type="subscription_update_confirm",
                     plan=plan,
-                    success_url="http://localhost/settings/subscription?updated=success"
+                    success_url=f"{settings.DOMAIN}/settings/subscription?updated=success"
                 )
                 return Response({"url": portal_url})
         except Exception as e:
@@ -403,8 +403,8 @@ class SpendCredits(APIView):
                     plan=plan,
                     customer_id=stripe_customer.customer_id,
                     customer_email=user.email,
-                    success_url="http://localhost/settings/subscription?updated=success",
-                    cancel_url="http://localhost/settings/subscription?updated=failure",
+                    success_url=f"{settings.DOMAIN}/settings/subscription?updated=success",
+                    cancel_url=f"{settings.DOMAIN}/settings/subscription?updated=failure",
                     metadata={'price_id': settings.TOP_UP_CREDITS_PLAN_ID},
                 )
                 return Response({
