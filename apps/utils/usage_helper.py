@@ -1,12 +1,12 @@
 from apps.microapps.models import Run
-from djstripe.models import Subscription, Plan
-from apps.subscriptions.serializers import CustomSubscriptionSerilaizer, PlansSerializer
+from djstripe.models import Plan
+from apps.subscriptions.models import Subscription
+from apps.subscriptions.serializers import CustomSubscriptionSerializer, PlansSerializer
 from datetime import datetime
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from apps.utils.global_variables import UsageVariables
 from apps.microapps.models import MicroAppUserJoin
-from apps.microapps.serializer import MicroappUserSerializer
 from django.db.models import Count
 from apps.subscriptions.helpers import get_subscription_max_apps
 from django.utils import timezone
@@ -16,10 +16,11 @@ def convert_timestamp_to_datetime(timestamp):
     return timezone.make_aware(dt)
 
 def subscription_details(user_id):
-    subscription = Subscription.objects.filter(metadata__contains={'user_id': str(user_id)})
+    subscription = Subscription.objects.filter(user_id=user_id).order_by('-created_at').first()
     if subscription:
-        serializer = CustomSubscriptionSerilaizer(subscription, many=True)
-        return serializer.data[0]
+        serializer = CustomSubscriptionSerializer(subscription)
+        serializerData = serializer.data
+        return serializerData
     return None
 
 def check_plan(amount):
