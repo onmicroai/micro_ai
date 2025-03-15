@@ -852,17 +852,44 @@ class RunList(APIView):
         try:
             data = request.data
             if self.checkPatchPayload(data):
-                id = data.get("id")
+                id_value = data.get("id")
                 del data["id"]
-                run_object = Run.objects.get(id = id)
+                
+                # Check if the ID is a UUID (contains hyphens)
+                if isinstance(id_value, str) and '-' in id_value:
+                    # Try to find the Run by session_id
+                    run_object = Run.objects.filter(session_id=id_value).first()
+                    if not run_object:
+                        return Response(
+                            {"error": "Run not found with the provided session ID", "status": status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
+                else:
+                    # Use the ID directly
+                    run_object = Run.objects.get(id=id_value)
+                
                 serializer = RunGetSerializer(run_object, data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
-                    return Response(serializer.data)
-                return Response(serializer.errors)
+                    return Response(
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(error.INVALID_PAYLOAD, status = status.HTTP_400_BAD_REQUEST)
+        except Run.DoesNotExist:
+            return Response(
+                {"error": "Run not found", "status": status.HTTP_404_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except Exception as e:
-            return handle_exception(e)
+            return Response(
+                error.SERVER_ERROR,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
     
     def checkPatchPayload(self, data):
         try:
