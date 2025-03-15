@@ -4,6 +4,8 @@ from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import UsageEvent, BillingCycle
 
+class SpendCreditsSerializer(serializers.Serializer):
+    amount = serializers.IntegerField(min_value=1)
 
 class PriceSerializer(serializers.ModelSerializer):
     product_name = serializers.CharField(source="product.name")

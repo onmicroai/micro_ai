@@ -34,9 +34,10 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
 from rest_framework import generics
-from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q
+from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField
+
 from django.db.models.functions import Round
-from apps.subscriptions.models import BillingCycle
+from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
 import stripe
@@ -585,6 +586,7 @@ class RunList(APIView):
 
             # Ensure max_tokens is set from api_params if not in data
             max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
+            app_hash_id = self.app_hash_id or data.get("app_hash_id", '')
 
             run_data = {
                 "ma_id": int(data.get("ma_id")),
@@ -617,7 +619,7 @@ class RunList(APIView):
                 "system_prompt": data.get("system_prompt", {}),
                 "phase_instructions": data.get("phase_instructions", {}),
                 "user_prompt": data.get("user_prompt", {}),
-                "app_hash_id": self.app_hash_id,
+                "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
             }
             return run_data
@@ -854,17 +856,44 @@ class RunList(APIView):
         try:
             data = request.data
             if self.checkPatchPayload(data):
-                id = data.get("id")
+                id_value = data.get("id")
                 del data["id"]
-                run_object = Run.objects.get(id = id)
+                
+                # Check if the ID is a UUID (contains hyphens)
+                if isinstance(id_value, str) and '-' in id_value:
+                    # Try to find the Run by session_id
+                    run_object = Run.objects.filter(session_id=id_value).first()
+                    if not run_object:
+                        return Response(
+                            {"error": "Run not found with the provided session ID", "status": status.HTTP_404_NOT_FOUND},
+                            status=status.HTTP_404_NOT_FOUND,
+                        )
+                else:
+                    # Use the ID directly
+                    run_object = Run.objects.get(id=id_value)
+                
                 serializer = RunGetSerializer(run_object, data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
-                    return Response(serializer.data)
-                return Response(serializer.errors)
+                    return Response(
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(error.INVALID_PAYLOAD, status = status.HTTP_400_BAD_REQUEST)
+        except Run.DoesNotExist:
+            return Response(
+                {"error": "Run not found", "status": status.HTTP_404_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND,
+            )
         except Exception as e:
-            return handle_exception(e)
+            return Response(
+                error.SERVER_ERROR,
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
     
     def checkPatchPayload(self, data):
         try:
@@ -913,6 +942,14 @@ class AnonymousRunList(RunList):
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
             
+            app_owner_id = None
+            if data.get("ma_id"):
+                try:
+                    app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+                    app_owner_id = app_owner.user_id.id 
+                except MicroAppUserJoin.DoesNotExist:
+                    pass
+            
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
@@ -925,7 +962,6 @@ class AnonymousRunList(RunList):
             # Handle guest users usage
             if not GuestUsage.get_run_related_info(self, ip):
                 return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
-            app_owner_id = None
             
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
@@ -968,11 +1004,20 @@ class AnonymousRunList(RunList):
                 response = model.get_response(api_params)
                 response = response["data"]
                 api_params["messages"] = model.build_instruction(data, api_params["messages"])
-                score_response = model.get_response(api_params)
-                score_response = score_response["data"]
-                self.ai_score = score_response["ai_response"]
-                self.score_result = float(self.ai_score) >= float(data.get("minimum_score"))
-                self.response_type = MicroappVariables.SCORED_RESPONSE_TYPE
+                score_response = model.score_response(api_params, data.get("minimum_score"))
+                self.ai_score = score_response["ai_score"]
+                self.score_result = score_response["score_result"]
+                response.update({
+                    "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
+                    "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
+                })
+                response.update({
+                    "cost": response["cost"] + score_response["cost"],
+                })
+                response.update({
+                    "credits": response["credits"] + score_response["credits"],
+                })
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle normal phase
             else:
                 response = model.get_response(api_params)
@@ -983,14 +1028,11 @@ class AnonymousRunList(RunList):
             
             # For anonymous runs, ensure these fields are None/empty
             run_data["user_id"] = None
-            run_data["ma_id"] = None
-            run_data["owner_id"] = None
-            run_data["app_hash_id"] = ""
 
             serializer = RunGetSerializer(data=run_data)
 
             if serializer.is_valid():
-                run = serializer.save()
+                serializer.save()
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
@@ -1175,17 +1217,34 @@ class MicroAppVisibility(APIView):
             return handle_exception(e)
 
 @extend_schema_view(
-    get=extend_schema(responses={200: BillingDetailsSerializer}, summary="user-billing-details")
+    get=extend_schema(
+        responses={200: BillingDetailsSerializer},
+        summary="user-billing-details"
+    )
 )
 class BillingDetails(APIView):
     permission_classes = [IsAuthenticated]
+    
     def get(self, request, format=None):
-        billing_details = BillingCycle.objects.filter(user = request.user.id)
-        serializer = BillingDetailsSerializer(billing_details, many = True)
-        if billing_details:
-            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        billing_details = BillingCycle.objects.filter(user=request.user.id)
+        serializer = BillingDetailsSerializer(billing_details, many=True)
+        
+        # Calculate total remaining top-up credits for the user
+        # remaining_credits = allocated_credits - used_credits for each top-up
+        top_up_total = TopUpToSubscription.objects.filter(user=request.user).aggregate(
+            total=Sum(
+                ExpressionWrapper(
+                    F('allocated_credits') - F('used_credits'),
+                    output_field=IntegerField()
+                )
+            )
+        )['total'] or 0
 
-        return Response({"data": list(billing_details), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        return Response({
+            "billing_details": serializer.data,
+            "top_up_credits": top_up_total,
+            "status": status.HTTP_200_OK,
+        }, status=status.HTTP_200_OK)
 
 @extend_schema_view(
     get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")

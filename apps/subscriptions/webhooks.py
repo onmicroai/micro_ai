@@ -1,232 +1,245 @@
-import logging
-from django.core.mail import mail_admins
-from djstripe import webhooks
-from djstripe.models import Customer, Subscription, Price
-from django.utils import timezone
-from django.db import transaction
-from .models import BillingCycle
-
-from apps.teams.models import Team
-from .helpers import provision_subscription
 import time
-from django.db.models import Q
+import stripe
+import logging
+from django.http import HttpResponse
+from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.core.mail import mail_admins
+
+from apps.subscriptions.helpers import upsert_subscription
+from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription
+from apps.users.models import CustomUser
 
 log = logging.getLogger("micro_ai.subscription")
 
-@webhooks.handler("checkout.session.completed")
-@transaction.atomic
-def checkout_session_completed(event, **kwargs):
-    """
-    This webhook is called when a customer signs up for a subscription via Stripe Checkout.
-    We must then provision the subscription and assign it to the appropriate user/team.
-    """
-    log.info(f"Received checkout.session.completed webhook: {event.id}")
-    session = event.data["object"]
-    # only process subscriptions created by this module
-    if session["metadata"].get("source") == "subscriptions":
-        client_reference_id = session.get("client_reference_id")
-        subscription_id = session.get("subscription")
-        log.info(f"Processing subscription {subscription_id} for client {client_reference_id}")
-        with transaction.atomic():
-            subscription_holder = Team.objects.select_for_update().get(id=client_reference_id)
-            provision_subscription(subscription_holder, subscription_id)
+@csrf_exempt
+def stripe_webhook(request):
+    payload = request.body
+    sig_header = request.META.get("HTTP_STRIPE_SIGNATURE")
+    endpoint_secret = getattr(settings, "STRIPE_WEBHOOK_SECRET", None)
 
-@webhooks.handler("customer.subscription.updated")
-def handle_subscription_updated(event, **kwargs):
-    """Handle subscription updates and manage billing cycles"""
-    log.info(f"Received customer.subscription.updated webhook: {event.id}")
-    subscription = event.data.object
-    djstripe_subscription = Subscription.objects.filter(id=subscription.id).first()
-    
-    if not djstripe_subscription:
-        log.error(f"Subscription not found: {subscription.id}")
+    try:
+        event = stripe.Webhook.construct_event(payload, sig_header, endpoint_secret)
+    except ValueError as e:
+        log.error(f"Invalid payload: {e}")
+        return HttpResponse(status=400)
+    except stripe.error.SignatureVerificationError as e:
+        log.error(f"Signature verification failed: {e}")
+        return HttpResponse(status=400)
+
+    log.info(f"Received event: {event['type']} (id: {event['id']})")
+
+    try:
+        if event["type"] == "customer.created":
+            handle_customer_created(event)
+        elif event["type"] == "customer.subscription.created":
+            handle_subscription_created_or_updated(event)
+        elif event["type"] == "customer.subscription.updated":
+            handle_subscription_created_or_updated(event)
+        elif event["type"] == "customer.subscription.deleted":
+            handle_subscription_deleted(event)
+        elif event["type"] == "payment_method.attached":
+            handle_payment_method_attachment(event)
+        elif event["type"] == "customer.deleted":
+            handle_customer_deleted(event)
+        elif event["type"] == "checkout.session.completed":
+            handle_checkout_session_completed(event) 
+        else:
+            log.warning(f"Unhandled event type: {event['type']}")
+    except Exception as e:
+        log.error(f"Error handling event {event['id']}: {e}")
+        return HttpResponse(status=500)
+
+    return HttpResponse(status=200)
+
+def handle_checkout_session_completed(event):
+    """
+    Handles the checkout.session.completed event.
+    Verifies that the session metadata contains the correct price_id.
+    """
+    session = event["data"]["object"]
+
+    customer_email = session.get("customer_details", {}).get("email")
+    if not customer_email:
+        log.warning("checkout.session.completed: email not found in customer_details")
+        return
+
+    received_price_id = session.get("metadata", {}).get("price_id")
+    if not received_price_id:
+        log.warning("checkout.session.completed: price_id not found in metadata")
+        return
+
+    if received_price_id != settings.TOP_UP_CREDITS_PLAN_ID:
+        log.warning(f"checkout.session.completed: price_id does not match. Received {received_price_id}")
         return
 
     try:
-        # Get subscription details
-        period_start = timezone.datetime.fromtimestamp(subscription.current_period_start)
-        period_end = timezone.datetime.fromtimestamp(subscription.current_period_end)
-        subscription_item = subscription.items.data[0]  # Assuming one item per subscription
-        
-        log.info(f"Processing subscription update for {subscription.id} from {period_start} to {period_end}")
-        
-        # Get the team and its primary user
-        team = djstripe_subscription.customer.subscriber
-        if not team:
-            log.error(f"No team found for subscription: {subscription.id}")
-            return
-            
-        user = team.members.first()  # Get the team owner/first member
-        if not user:
-            log.error(f"No user found for team: {team.id}")
-            return
-        
-        log.info(f"Found team {team.id} and user {user.email}")
-        
-        # Get or create active billing cycle
-        active_cycle = BillingCycle.objects.filter(
-            subscription=djstripe_subscription,
-            status='open'
-        ).first()
+        user = CustomUser.objects.get(email=customer_email)
+    except CustomUser.DoesNotExist:
+        log.error(f"checkout.session.completed: user with email {customer_email} not found in the database")
+        return
 
-        if active_cycle:
-            log.info(f"Found active billing cycle {active_cycle.id}")
-            # If dates have changed, update the cycle
-            if active_cycle.end_date != period_end:
-                log.info("Dates have changed, creating new cycle")
-                # Close current cycle
-                active_cycle.close_cycle()
-                
-                # Create new cycle
-                credits_allocated = active_cycle.credits_allocated  # Maintain same allocation
-                new_cycle = BillingCycle.get_or_create_active_cycle(
-                    user=user,  # Using the team's primary user
-                    subscription=djstripe_subscription,
-                    period_start=period_start,
-                    period_end=period_end,
-                    credits_allocated=credits_allocated,
-                    subscription_item_id=subscription_item.id
-                )
-                log.info(f"Created new billing cycle {new_cycle.id}")
-        else:
-            log.info("No active billing cycle found, creating new one")
-            # Create new cycle with default allocation
-            # You might want to get this from your subscription plan
-            default_credits = 10000  # Example value
-            new_cycle = BillingCycle.get_or_create_active_cycle(
-                user=user,  # Using the team's primary user
-                subscription=djstripe_subscription,
-                period_start=period_start,
-                period_end=period_end,
-                credits_allocated=default_credits,
-                subscription_item_id=subscription_item.id
-            )
-            log.info(f"Created new billing cycle {new_cycle.id}")
+    TopUpToSubscription.objects.create(
+        user=user,
+        allocated_credits=settings.TOP_UP_CREDITS
+    )
 
-    except Exception as e:
-        log.error(f"Error handling subscription update: {str(e)}")
-        if active_cycle:
-            active_cycle.status = 'error'
-            active_cycle.save()
+    log.info(f"Added {settings.TOP_UP_CREDITS} credits to user {user.email} (price_id: {received_price_id})")
 
-@webhooks.handler("customer.subscription.deleted")
-def handle_subscription_deleted(event, **kwargs):
-    """Handle subscription deletions"""
-    log.info(f"Received customer.subscription.deleted webhook: {event.id}")
-    subscription = event.data.object
-    
+def handle_customer_created(event):
+    """
+    Handles customer.created event by saving the new customer in the database.
+    """
+    customer_data = event["data"]["object"]
+    customer_id = customer_data["id"]
+    email = customer_data.get("email")
+
     try:
-        # Close any open billing cycles for this subscription
-        active_cycles = BillingCycle.objects.filter(
-            subscription__id=subscription.id,
-            status='open'
-        )
-        log.info(f"Found {active_cycles.count()} active cycles to close")
-        for cycle in active_cycles:
-            cycle.close_cycle()
-            log.info(f"Closed billing cycle {cycle.id}")
-        
-        # Notify admins
-        try:
-            customer_email = Customer.objects.get(id=subscription.customer).email
-            log.info(f"Notifying admins about cancellation for {customer_email}")
-        except Customer.DoesNotExist:
-            customer_email = "unavailable"
-            log.warning("Customer not found for subscription cancellation notification")
+        user = None
+        if email:
+            user = CustomUser.objects.filter(email=email).first()
 
-        mail_admins(
-            "Someone just canceled their subscription!",
-            f"Their email was {customer_email}",
-            fail_silently=True,
+        stripe_customer, created = StripeCustomer.objects.get_or_create(
+            customer_id=customer_id,
+            user=user
         )
-    
+
+        if created:
+            log.info(f"Created new Stripe customer: {customer_id} (user: {user}, email: {email})")
+        else:
+            log.info(f"Stripe customer already exists: {customer_id}")
+
     except Exception as e:
-        log.error(f"Error handling subscription deletion: {str(e)}")
+        log.error(f"Error creating customer record for {customer_id}: {e}")
 
-@webhooks.handler("customer.subscription.created")
-@transaction.atomic
-def handle_subscription_created(event, **kwargs):
-    """Handle new subscription creation and set up initial billing cycle"""
-    log.info(f"Received customer.subscription.created webhook: {event.id}")
-    subscription = event.data["object"]
+def handle_payment_method_attachment(event):
+    payment_method = event["data"]["object"]
+
+    if not payment_method.get("customer"):
+        log.info("Payment method has no associated customer, skipping.")
+        return
+
+    customer_id = payment_method["customer"]
+
+    try:
+        # Update customer's default payment method
+        stripe.Customer.modify(
+            customer_id,
+            invoice_settings={"default_payment_method": payment_method["id"]}
+        )
+        log.info(f"Updated default payment method for customer {customer_id}")
+    except stripe.error.StripeError as e:
+        log.error(f"Error updating customer {customer_id}: {e}")
+        return
+
+    try:
+        # Retrieve active subscriptions for the customer
+        subscriptions = stripe.Subscription.list(customer=customer_id, limit=10)
+        active_subscription = next(
+            (sub for sub in subscriptions.auto_paging_iter() if sub["status"] != "canceled"),
+            None
+        )
+
+        if not active_subscription:
+            log.info(f"No active subscription found for customer {customer_id}.")
+            return
+
+        # Update subscription's default payment method
+        stripe.Subscription.modify(
+            active_subscription["id"],
+            default_payment_method=payment_method["id"]
+        )
+        log.info(f"Updated default payment method for subscription {active_subscription['id']}")
+    except stripe.error.StripeError as e:
+        log.error(f"Error updating subscription for customer {customer_id}: {e}")
+
+def handle_customer_deleted(event):
+    """
+    Handles customer.deleted event by removing associated billing cycles, 
+    subscriptions, and then the Stripe customer record.
+    """
+    customer = event["data"]["object"]
+    customer_id = customer["id"]
+
+    try:
+        billing_cycles = BillingCycle.objects.filter(subscription__customer_id=customer_id)
+        deleted_billing_cycles, _ = billing_cycles.delete()
+        log.info(f"Deleted {deleted_billing_cycles} billing cycles for customer {customer_id}")
+
+        subscriptions = Subscription.objects.filter(customer_id=customer_id)
+        deleted_subscriptions, _ = subscriptions.delete()
+        log.info(f"Deleted {deleted_subscriptions} subscriptions for customer {customer_id}")
+
+        stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id)
+        deleted_customers, _ = stripe_customer.delete()
+        log.info(f"Deleted Stripe customer {customer_id}")
+
+    except Exception as e:
+        log.error(f"Error deleting data for customer {customer_id}: {e}")
+
+def handle_subscription_deleted(event):
+    """
+    Called when a subscription is deleted.
+    Builds the subscription data from the Stripe event, closes open billing cycles,
+    sends notifications to admins, and calls upsert_subscription(for updating information
+    about subscription).
+    """
+    stripe_subscription = event["data"]["object"]
+    subscription_items = stripe_subscription.get("items", {}).get("data", [])
+    subscription_item = subscription_items[-1] if subscription_items else {}
     
-    # Try up to 3 times to find the subscription and team
-    max_retries = 3
-    retry_delay = 2  # seconds
-    
-    for attempt in range(max_retries):
-        try:
-            with transaction.atomic():
-                djstripe_subscription = Subscription.objects.select_for_update().filter(id=subscription["id"]).first()
-                if not djstripe_subscription:
-                    if attempt < max_retries - 1:
-                        log.info(f"Subscription not found on attempt {attempt + 1}, waiting {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                        continue
-                    log.error(f"Subscription not found after {max_retries} attempts: {subscription['id']}")
-                    return
+    data = {
+        "subscription_id": stripe_subscription.get("id"),
+        "price_id": subscription_item.get("price", {}).get("id"),
+        "status": stripe_subscription.get("status"),
+        "canceled_at": int(stripe_subscription.get("canceled_at"))
+        if stripe_subscription.get("canceled_at")
+        else None,
+    }
 
-                # Get subscription details
-                period_start = timezone.datetime.fromtimestamp(subscription["current_period_start"])
-                period_end = timezone.datetime.fromtimestamp(subscription["current_period_end"])
-                subscription_item = subscription["items"]["data"][0]  # Assuming one item per subscription
-                
-                log.info(f"Processing new subscription {subscription['id']} from {period_start} to {period_end}")
-                
-                # Try to find team either through subscriber or customer
-                team = None
-                if djstripe_subscription.customer and djstripe_subscription.customer.subscriber:
-                    team = Team.objects.select_for_update().get(id=djstripe_subscription.customer.subscriber.id)
-                
-                if not team and djstripe_subscription.customer:
-                    # Try to find team through customer relationship
-                    team = Team.objects.select_for_update().filter(customer=djstripe_subscription.customer).first()
-                
-                if not team and djstripe_subscription:
-                    # Try to find team through subscription relationship
-                    team = Team.objects.select_for_update().filter(subscription=djstripe_subscription).first()
-                
-                if not team:
-                    if attempt < max_retries - 1:
-                        log.info(f"Team not found on attempt {attempt + 1}, waiting {retry_delay} seconds...")
-                        time.sleep(retry_delay)
-                        continue
-                    log.error(f"No team found for subscription: {subscription['id']}")
-                    return
-                    
-                user = team.members.first()  # Get the team owner/first member
-                if not user:
-                    log.error(f"No user found for team: {team.id}")
-                    return
-                
-                log.info(f"Creating initial billing cycle for team {team.id} and user {user.email}")
-                
-                # Create initial billing cycle with default allocation
-                default_credits = 10000  # Example value
-                new_cycle = BillingCycle.get_or_create_active_cycle(
-                    user=user,
-                    subscription=djstripe_subscription,
-                    period_start=period_start,
-                    period_end=period_end,
-                    credits_allocated=default_credits,
-                    subscription_item_id=subscription_item["id"]
-                )
-                log.info(f"Created initial billing cycle {new_cycle.id}")
-                return  # Success! Exit the retry loop
+    upsert_subscription(stripe_subscription.get("customer"), data)
 
-        except Exception as e:
-            log.error(f"Error handling new subscription: {str(e)}")
-            if attempt >= max_retries - 1:
-                raise  # Re-raise the exception on the last attempt
+    try:
+        stripe_customer = StripeCustomer.objects.get(
+            customer_id=stripe_subscription.get("customer")
+        )
+        customer_email = stripe_customer.user.email
+        log.info(f"Notifying admins about cancellation for {customer_email}")
+    except StripeCustomer.DoesNotExist:
+        customer_email = "unavailable"
+        log.warning("Stripe customer not found for subscription cancellation notification")
 
-def has_multiple_items(stripe_event_data):
-    return len(stripe_event_data["object"]["items"]["data"]) > 1
+    mail_admins(
+        "Someone just canceled their subscription!",
+        f"Their email was {customer_email}",
+        fail_silently=True,
+    )
 
-def get_price_data(stripe_event_data):
-    return stripe_event_data["object"]["items"]["data"][0]["price"]
+def handle_subscription_created_or_updated(event):
+    """
+    Called when a subscription is created or updated.
+    Builds the subscription data from the Stripe event and calls upsert_subscription.
+    """
+    stripe_subscription = event["data"]["object"]
 
-def get_subscription_id(stripe_event_data):
-    return stripe_event_data["object"]["items"]["data"][0]["subscription"]
+    subscription_items = stripe_subscription.get("items", {}).get("data", [])
+    subscription_item = subscription_items[-1] if subscription_items else {}
 
-def get_cancel_at_period_end(stripe_event_data):
-    return stripe_event_data["object"]["cancel_at_period_end"]
+    data = {
+        "subscription_id": stripe_subscription.get("id"),
+        "price_id": subscription_item.get("price", {}).get("id"),
+        "status": stripe_subscription.get("status"),
+        "cancel_at_period_end": stripe_subscription.get("cancel_at_period_end"),
+        "period_start": int(stripe_subscription.get("current_period_start"))
+        if stripe_subscription.get("current_period_start")
+        else None,
+        "period_end": int(stripe_subscription.get("current_period_end"))
+        if stripe_subscription.get("current_period_end")
+        else None,
+        "canceled_at": int(stripe_subscription.get("canceled_at"))
+        if stripe_subscription.get("canceled_at")
+        else None,
+        "subscription_item_id": subscription_item.get("id"),
+    }
+
+    upsert_subscription(stripe_subscription.get("customer"), data)

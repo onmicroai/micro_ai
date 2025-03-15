@@ -9,6 +9,11 @@ from apps.microapps.models import MicroAppUserJoin
 from apps.microapps.serializer import MicroappUserSerializer
 from django.db.models import Count
 from apps.subscriptions.helpers import get_subscription_max_apps
+from django.utils import timezone
+
+def convert_timestamp_to_datetime(timestamp):
+    dt = datetime.fromtimestamp(int(timestamp))
+    return timezone.make_aware(dt)
 
 def subscription_details(user_id):
     subscription = Subscription.objects.filter(metadata__contains={'user_id': str(user_id)})
