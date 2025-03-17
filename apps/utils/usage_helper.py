@@ -1,12 +1,12 @@
 from apps.microapps.models import Run
-from djstripe.models import Subscription, Plan
-from apps.subscriptions.serializers import CustomSubscriptionSerilaizer, PlansSerializer
+from djstripe.models import Plan
+from apps.subscriptions.models import Subscription
+from apps.subscriptions.serializers import CustomSubscriptionSerializer, PlansSerializer
 from datetime import datetime
 from django.db.models import Sum
 from dateutil.relativedelta import relativedelta
 from apps.utils.global_variables import UsageVariables
 from apps.microapps.models import MicroAppUserJoin
-from apps.microapps.serializer import MicroappUserSerializer
 from django.db.models import Count
 from apps.subscriptions.helpers import get_subscription_max_apps
 from django.utils import timezone
@@ -16,10 +16,11 @@ def convert_timestamp_to_datetime(timestamp):
     return timezone.make_aware(dt)
 
 def subscription_details(user_id):
-    subscription = Subscription.objects.filter(metadata__contains={'user_id': str(user_id)})
+    subscription = Subscription.objects.filter(user_id=user_id).order_by('-created_at').first()
     if subscription:
-        serializer = CustomSubscriptionSerilaizer(subscription, many=True)
-        return serializer.data[0]
+        serializer = CustomSubscriptionSerializer(subscription)
+        serializerData = serializer.data
+        return serializerData
     return None
 
 def check_plan(amount):
@@ -139,9 +140,20 @@ class MicroAppUsage:
             subscription_obj = Subscription.objects.get(id=subscription["id"])
             # Get max_apps from subscription configuration
             max_apps = get_subscription_max_apps(subscription_obj)
-            # Return status and limit
+            
+            # Get price_id from subscription
+            from apps.subscriptions.constants import PRICE_IDS
+            
+            price_id = subscription["price_id"]
+            
+            # Check if plan is enterprise or individual by comparing price_id
+            is_paid_plan = (price_id == PRICE_IDS["individual"] or 
+                           price_id == PRICE_IDS["enterprise"])
+            
+            # For enterprise or individual plans, can_create is always true
+            # For free plan, can_create depends on the current app count vs limit
             return {
-                "can_create": current_app_count < max_apps,
+                "can_create": is_paid_plan or current_app_count < max_apps,
                 "limit": max_apps,
                 "current_count": current_app_count
             }
