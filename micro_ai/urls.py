@@ -24,8 +24,7 @@ from apps.subscriptions.webhooks import stripe_webhook
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
 from apps.teams.urls import team_urlpatterns as single_team_urls
 from apps.subscriptions.urls import team_urlpatterns as subscriptions_team_urls
-from apps.web.urls import team_urlpatterns as web_team_urls
-from apps.web.sitemaps import StaticViewSitemap
+from apps.utils.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
 from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
@@ -37,7 +36,6 @@ sitemaps = {
 
 # urls that are unique to using a team should go here
 team_urlpatterns = [
-    path("", include(web_team_urls)),
     path("subscription/", include(subscriptions_team_urls)),
     path("team/", include(single_team_urls)),
 ]
@@ -58,7 +56,6 @@ urlpatterns = [
     path("api/subscriptions/", include("apps.subscriptions.api_urls")),  # API endpoints
     path("subscriptions/", include("apps.subscriptions.urls")),  # Web views
     path("teams/", include("apps.teams.urls")),
-    path("", include("apps.web.urls")),
     path("celery-progress/", include("celery_progress.urls")),
     # cutom API's
     path("api/microapps/", include(microapp_urls)),
