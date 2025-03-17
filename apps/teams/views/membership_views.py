@@ -9,7 +9,7 @@ from apps.teams.decorators import login_and_team_required
 from apps.teams.forms import MembershipForm
 from apps.teams.models import Membership
 from apps.teams.roles import ROLE_ADMIN
-from apps.web.forms import set_form_fields_disabled
+from apps.utils.forms import set_form_fields_disabled
 
 
 @login_and_team_required

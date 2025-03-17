@@ -17,7 +17,7 @@ from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 from .exceptions import SubscriptionConfigError
 from apps.teams.models import Team
 from apps.users.models import CustomUser
-from apps.web.meta import absolute_url
+from apps.utils.meta import absolute_url
 from apps.utils.billing import get_stripe_module
 
 log = logging.getLogger("micro_ai.subscription")

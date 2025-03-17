@@ -10,7 +10,7 @@ from waffle.utils import keyfmt, get_cache
 
 from apps.subscriptions.models import SubscriptionModelBase
 from apps.utils.models import BaseModel
-from apps.web.meta import absolute_url
+from apps.utils.meta import absolute_url
 
 from . import roles
 

@@ -12,7 +12,7 @@ from apps.teams.forms import TeamChangeForm, InvitationForm
 from apps.teams.invitations import send_invitation
 from apps.teams.models import Invitation
 from apps.teams.roles import is_admin
-from apps.web.forms import set_form_fields_disabled
+from apps.utils.forms import set_form_fields_disabled
 
 
 @login_required
