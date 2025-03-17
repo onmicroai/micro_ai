@@ -84,10 +84,10 @@ PROJECT_APPS = [
     "apps.subscriptions.apps.SubscriptionConfig",
     "apps.users.apps.UserConfig",
     "apps.api.apps.APIConfig",
-    "apps.web",
     "apps.teams.apps.TeamConfig",
     "apps.microapps",
-    "apps.collection"
+    "apps.collection",
+    "apps.utils.apps.UtilsConfig",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -135,13 +135,13 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "apps.web.context_processors.project_meta",
+                "apps.utils.context_processors.project_meta",
                 "apps.teams.context_processors.team",
                 "apps.teams.context_processors.user_teams",
                 # this line can be removed if not using google analytics
-                "apps.web.context_processors.google_analytics_id",
+                "apps.utils.context_processors.google_analytics_id",
                 # Add our email context processor
-                "apps.web.context_processors.email_context",
+                "apps.utils.context_processors.email_context",
             ],
             "loaders": _DEFAULT_LOADERS if DEBUG else _CACHED_LOADERS,
         },
