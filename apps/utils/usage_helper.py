@@ -1,6 +1,5 @@
 from apps.microapps.models import Run
-from djstripe.models import Plan
-from apps.subscriptions.models import Subscription
+from apps.subscriptions.models import Subscription, BillingCycle
 from apps.subscriptions.serializers import CustomSubscriptionSerializer, PlansSerializer
 from datetime import datetime
 from django.db.models import Sum
@@ -59,40 +58,18 @@ class RunUsage:
     @staticmethod
     def get_run_related_info(self, user_id, date_joined):
         subscription = subscription_details(user_id)
+        print("SUBSCRIPTION", subscription)
         # Enterprise and individual plan implementation
         if subscription and subscription["status"] == "active":
-            plans = Plan.objects.get(djstripe_id=subscription["plan"])
-            plan_data = PlansSerializer(plans)
-            limit_plan = check_plan(plan_data.data["amount"])
-            limit = limit_plan["limit"]
-            plan = limit_plan["plan"]
-            date = RunUsage.format_date(self, subscription["current_period_start"], subscription["current_period_end"])
-            # Coverting string formatted date into datetime
-            start_date = datetime.strptime(subscription["current_period_start"], '%Y-%m-%dT%H:%M:%SZ')
-            end_date = datetime.strptime(subscription["current_period_end"], '%Y-%m-%dT%H:%M:%SZ')
-            # Check for annual and monthly subscription plan
-            plan_type = end_date.month - start_date.month + 12 * (end_date.year - start_date.year)
-            # Monthly subscription conditional check
-            if plan_type == 1 or plan_type == 0:
-                start_date = date["start"]      
-                end_date = date["end"]
-            # Annual subscription conditional check
-            else:
-                current_date = datetime.now()
-                difference = relativedelta(current_date, start_date)
-                months_passed = (difference.years * 12) + difference.months
-                # Current month is the start of subscription
-                if months_passed == 0:
-                    start_date = date["start"]
-                    end_date = date["end"]
-                # Current month is the following of subscription months 
-                else:
-                    adjusted_start_date = start_date + relativedelta(months = months_passed)
-                    date = RunUsage.format_date(self, adjusted_start_date.strftime('%Y-%m-%dT%H:%M:%SZ'), end_date.strftime('%Y-%m-%dT%H:%M:%SZ'))
-                    start_date = date["start"]
-                    end_date = date["end"]
-            total_credits = RunUsage.credits_calculation(self, user_id, start_date, end_date)
-            return limit > total_credits
+            # Get active billing cycle for this subscription
+            active_cycle = BillingCycle.objects.filter(
+                subscription_id=subscription["id"],
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+            # Check if billing cycle exists and has credits remaining
+            return active_cycle and active_cycle.credits_remaining > 0
         
         # Default free plan implementation
         try:
