@@ -118,9 +118,9 @@ class AIModelConstants:
             "model": "gemini/gemini-2.0-flash",
             "supports_image": True
         },
-        "gemini-pro": {
+        "gemini-1.5-pro": {
             **AIModelFamilyDefaults.GEMINI,
-            "model": "gemini/gemini-pro",
+            "model": "gemini/gemini-1.5-pro-latest",
             "supports_image": True
         },
         "sonar-pro": {
