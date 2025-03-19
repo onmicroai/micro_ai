@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from allauth.account.models import EmailConfirmation
 import logging
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -208,25 +209,20 @@ class EmailVerificationView(GenericAPIView):
             # Create response with refresh token cookie
             response = Response(wrapped_jwt_data, status=status.HTTP_200_OK)
             
-            # Set refresh token cookie if configured
-            cookie_name = settings.SIMPLE_JWT.get('AUTH_COOKIE', 'refresh_token')
-            if cookie_name:
-                cookie_secure = settings.SIMPLE_JWT.get('AUTH_COOKIE_SECURE', False)
-                cookie_httponly = settings.SIMPLE_JWT.get('AUTH_COOKIE_HTTP_ONLY', True)
-                cookie_samesite = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'None')
-                cookie_domain = settings.SIMPLE_JWT.get('AUTH_COOKIE_DOMAIN', None)
-                cookie_path = settings.SIMPLE_JWT.get('AUTH_COOKIE_PATH', '/')
-                
-                response.set_cookie(
-                    cookie_name,
-                    str(refresh),
-                    max_age=settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME', timedelta(days=7)).total_seconds(),
-                    httponly=cookie_httponly,
-                    domain=cookie_domain,
-                    path=cookie_path,
-                    secure=cookie_secure,
-                    samesite=cookie_samesite
-                )
+            # Set refresh token cookie using the same approach as in JWTRefreshTokenMiddleware
+            is_production = os.getenv('PRODUCTION', 'False') == 'True'
+            samesite = 'None' if is_production else 'Lax'
+            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+            
+            response.set_cookie(
+                'refresh_token',
+                str(refresh),
+                max_age=timedelta(days=7).total_seconds(),
+                httponly=True,
+                secure=is_production,
+                samesite=samesite,
+                domain=cookies_domain
+            )
             
             return response
             
