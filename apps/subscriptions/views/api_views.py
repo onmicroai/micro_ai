@@ -12,8 +12,7 @@ from django.conf import settings
 from apps.subscriptions.models import BillingCycle, StripeCustomer, TopUpToSubscription
 from rest_framework.permissions import AllowAny
 from django.db.models import F
-
-from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
+from rest_framework.permissions import IsAuthenticated
 from apps.teams.decorators import team_admin_required
 
 from ..exceptions import SubscriptionConfigError
@@ -66,7 +65,7 @@ class ProductWithPriceSerializer(rest_framework.serializers.Serializer):
 
 @extend_schema(tags=["subscriptions"])
 class ProductsListAPI(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
     serializer_class = ProductWithPriceSerializer
 
     @extend_schema(responses={200: ProductWithPriceSerializer(many=True)})
@@ -89,7 +88,7 @@ class ProductsListAPI(APIView):
 
 @extend_schema(tags=["subscriptions"], exclude=True)
 class CreateCheckoutSession(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         operation_id="create_checkout_session",
@@ -128,7 +127,7 @@ class CreateCheckoutSession(APIView):
 
 @extend_schema(tags=["subscriptions"], exclude=True)
 class CreatePortalSession(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         operation_id="create_portal_session",
@@ -162,7 +161,7 @@ class ReportUsageSerializer(rest_framework.serializers.Serializer):
 
 @extend_schema(tags=["subscriptions"])
 class ReportUsageAPI(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
     serializer_class = ReportUsageSerializer
 
     @extend_schema(
@@ -212,7 +211,7 @@ class ReportUsageAPI(APIView):
 
 @extend_schema(tags=["subscriptions"])
 class ListUsageRecordsAPI(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request):
         if not request.user.is_authenticated:
@@ -246,7 +245,7 @@ class ListUsageRecordsAPI(APIView):
 
 @extend_schema(tags=["subscriptions"])
 class UpdateSubscription(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
 
     @extend_schema(
         operation_id="update_subscription",
@@ -328,7 +327,7 @@ class UpdateSubscription(APIView):
 
 @extend_schema(tags=["subscriptions"], exclude=True)
 class CancelDowngrade(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
 
     def post(self, request):
         user = request.user
@@ -356,7 +355,7 @@ class CancelDowngrade(APIView):
         
 @extend_schema(tags=["subscriptions"])
 class SpendCredits(APIView):
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
+    permission_classes = (IsAuthenticated,)
     serializer_class = SpendCreditsSerializer
 
     @extend_schema(

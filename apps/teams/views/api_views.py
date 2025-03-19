@@ -4,7 +4,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from rest_framework import viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
 
-from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
+from rest_framework.permissions import IsAuthenticated
 
 from ..invitations import send_invitation
 from ..models import Team, Invitation
@@ -24,7 +24,7 @@ from ..serializers import TeamSerializer, InvitationSerializer
 class TeamViewSet(viewsets.ModelViewSet):
     queryset = Team.objects.all()
     serializer_class = TeamSerializer
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey, TeamAccessPermissions)
+    permission_classes = (IsAuthenticated, TeamAccessPermissions)
 
     def get_queryset(self):
         # filter queryset based on logged in user
@@ -48,7 +48,7 @@ class TeamViewSet(viewsets.ModelViewSet):
 class InvitationViewSet(viewsets.ModelViewSet):
     queryset = Invitation.objects.all()
     serializer_class = InvitationSerializer
-    permission_classes = (IsAuthenticatedOrHasUserAPIKey, TeamModelAccessPermissions)
+    permission_classes = (IsAuthenticated, TeamModelAccessPermissions)
 
     @property
     def team(self):

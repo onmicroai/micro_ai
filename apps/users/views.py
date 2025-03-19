@@ -12,7 +12,6 @@ from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.views.decorators.http import require_POST
 from django.conf import settings
-from apps.api.models import UserAPIKey
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
@@ -89,36 +88,6 @@ def upload_profile_image(request):
             {"errors": readable_errors}, 
             status=status.HTTP_400_BAD_REQUEST
         )
-
-
-@login_required
-def create_api_key(request):
-    api_key, key = UserAPIKey.objects.create_key(
-        name=f"{request.user.get_display_name()[:40]} API Key", user=request.user
-    )
-    messages.success(
-        request,
-        _("API Key created. Your key is: {key}. Save this somewhere safe - you will only see it once!").format(
-            key=key,
-        ),
-    )
-    return HttpResponseRedirect(reverse("users:user_profile"))
-
-
-@login_required
-@require_POST
-def revoke_api_key(request):
-    key_id = request.POST.get("key_id")
-    api_key = request.user.api_keys.get(id=key_id)
-    api_key.revoked = True
-    api_key.save()
-    messages.success(
-        request,
-        _("API Key {key} has been revoked. It can no longer be used to access the site.").format(
-            key=api_key.prefix,
-        ),
-    )
-    return HttpResponseRedirect(reverse("users:user_profile"))
 
 @login_required
 def get_resized_avatar(request, image_name):
