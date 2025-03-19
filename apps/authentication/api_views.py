@@ -134,7 +134,11 @@ class EmailVerificationView(GenericAPIView):
 
     @extend_schema(
         responses={
-            200: {"type": "object", "properties": {"detail": {"type": "string"}}},
+            200: {"type": "object", "properties": {
+                "status": {"type": "string"},
+                "detail": {"type": "string"},
+                "jwt": {"type": "object"}
+            }},
             400: {"type": "object", "properties": {"detail": {"type": "string"}}},
         },
     )
@@ -175,10 +179,63 @@ class EmailVerificationView(GenericAPIView):
 
         try:
             confirmation.confirm(request)
-            return Response({"detail": "ok"})
+            
+            # Get the user from the confirmed email address
+            user = confirmation.email_address.user
+            
+            # Generate JWT tokens
+            from rest_framework_simplejwt.tokens import RefreshToken
+            refresh = RefreshToken.for_user(user)
+            
+            # Calculate token expiration time
+            access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
+            expiration_time = datetime.now() + access_token_lifetime
+            
+            # Create the response data
+            jwt_data = {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "email": user.email,
+                },
+                "access_expiration": expiration_time.timestamp()
+            }
+            
+            wrapped_jwt_data = {
+                "status": "success",
+                "detail": "Email verified successfully",
+                "jwt": jwt_data,
+            }
+            
+            # Create response with refresh token cookie
+            response = Response(wrapped_jwt_data, status=status.HTTP_200_OK)
+            
+            # Set refresh token cookie if configured
+            cookie_name = settings.SIMPLE_JWT.get('AUTH_COOKIE', 'refresh_token')
+            if cookie_name:
+                cookie_secure = settings.SIMPLE_JWT.get('AUTH_COOKIE_SECURE', False)
+                cookie_httponly = settings.SIMPLE_JWT.get('AUTH_COOKIE_HTTP_ONLY', True)
+                cookie_samesite = settings.SIMPLE_JWT.get('AUTH_COOKIE_SAMESITE', 'None')
+                cookie_domain = settings.SIMPLE_JWT.get('AUTH_COOKIE_DOMAIN', None)
+                cookie_path = settings.SIMPLE_JWT.get('AUTH_COOKIE_PATH', '/')
+                
+                response.set_cookie(
+                    cookie_name,
+                    str(refresh),
+                    max_age=settings.SIMPLE_JWT.get('REFRESH_TOKEN_LIFETIME', timedelta(days=7)).total_seconds(),
+                    httponly=cookie_httponly,
+                    domain=cookie_domain,
+                    path=cookie_path,
+                    secure=cookie_secure,
+                    samesite=cookie_samesite
+                )
+            
+            return response
+            
         except Exception as e:
             return Response(
-                {"detail": "Error confirming email"},
+                {"detail": f"Error confirming email: {str(e)}"},
                 status=status.HTTP_400_BAD_REQUEST
             )
 
