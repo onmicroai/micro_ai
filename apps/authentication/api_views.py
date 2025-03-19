@@ -182,9 +182,6 @@ class EmailVerificationView(GenericAPIView):
             
             # Get the user from the confirmed email address
             user = confirmation.email_address.user
-            
-            # Generate JWT tokens
-            from rest_framework_simplejwt.tokens import RefreshToken
             refresh = RefreshToken.for_user(user)
             
             # Calculate token expiration time
