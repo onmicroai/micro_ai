@@ -47,22 +47,6 @@ class CustomPasswordChangeSerializer(serializers.Serializer):
         if not re.search(r'[A-Z]', value):
             raise serializers.ValidationError(_("Password must contain at least one uppercase letter"))
         
-        # Lowercase letter validation
-        if not re.search(r'[a-z]', value):
-            raise serializers.ValidationError(_("Password must contain at least one lowercase letter"))
-        
-        # Number validation
-        if not re.search(r'[0-9]', value):
-            raise serializers.ValidationError(_("Password must contain at least one number"))
-        
-        # Special character validation
-        if not re.search(r'[^A-Za-z0-9]', value):
-            raise serializers.ValidationError(_("Password must contain at least one special character"))
-        
-        # Not entirely numeric validation
-        if re.match(r'^\d+$', value):
-            raise serializers.ValidationError(_("Password cannot be entirely numeric"))
-        
         return value
 
     def validate(self, attrs):
