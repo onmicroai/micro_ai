@@ -19,9 +19,8 @@ import uuid
 from django.core.cache import cache
 from django.conf import settings
 from datetime import datetime, timedelta
-from allauth.account.models import EmailConfirmation, EmailConfirmationHMAC
+from allauth.account.models import EmailConfirmation
 import logging
-from urllib.parse import unquote
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
 
 logger = logging.getLogger(__name__)
@@ -142,51 +141,37 @@ class EmailVerificationView(GenericAPIView):
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-
         key = serializer.validated_data["key"]
-        decoded_key = unquote(key)
         
         # First try to verify using HMAC verification
         try:
-            confirmation = EmailConfirmationHMAC.from_key(key)
-            
-            if not confirmation:
-                confirmation = EmailConfirmationHMAC.from_key(decoded_key)
-        except Exception as e:
-            confirmation = None
-        
-        if not confirmation:
-            try:
-                confirmation = EmailConfirmation.objects.get(key=key)
-            except EmailConfirmation.DoesNotExist:
-                try:
-                    confirmation = EmailConfirmation.objects.get(key=decoded_key)
-                except EmailConfirmation.DoesNotExist:
-                    return Response(
-                        {"detail": "Invalid key or key has expired"},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-
-            if confirmation.key != key and confirmation.key != decoded_key:
+            confirmation = EmailConfirmation.objects.get(key=key)
+        except EmailConfirmation.DoesNotExist:
                 return Response(
                     {"detail": "Invalid key or key has expired"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
+
+        if confirmation.key != key:
+            return Response(
+                {"detail": "Invalid key or key has expired"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
             # Check if the confirmation has expired
-            from datetime import timedelta
-            from django.utils import timezone
-            from django.conf import settings
+        from datetime import timedelta
+        from django.utils import timezone
+        from django.conf import settings
             
-            # Get the expiration period from settings or use default (3 days)
-            expiration_period = getattr(settings, 'ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS', 3)
-            expiration_time = confirmation.created + timedelta(days=expiration_period)
+        # Get the expiration period from settings or use default (3 days)
+        expiration_period = getattr(settings, 'ACCOUNT_EMAIL_CONFIRMATION_EXPIRE_DAYS', 3)
+        expiration_time = confirmation.created + timedelta(days=expiration_period)
             
-            if expiration_time < timezone.now():
-                return Response(
-                    {"detail": "Invalid key or key has expired"},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+        if expiration_time < timezone.now():
+            return Response(
+                {"detail": "Invalid key or key has expired"},
+                   status=status.HTTP_400_BAD_REQUEST
+            )
 
         try:
             confirmation.confirm(request)
