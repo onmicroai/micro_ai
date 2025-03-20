@@ -103,3 +103,13 @@ class UsageEventAdmin(admin.ModelAdmin):
     def get_run_id(self, obj):
         return obj.run_id if obj.run_id else '-'
     get_run_id.short_description = 'Run ID'
+
+@admin.register(SubscriptionConfiguration)
+class SubscriptionConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'max_apps', 'get_subscription_id')
+    search_fields = ('subscription__subscription_id',)
+    
+    def get_subscription_id(self, obj):
+        return obj.subscription.subscription_id if obj.subscription else '-'
+    get_subscription_id.short_description = 'Subscription ID'
+    get_subscription_id.admin_order_field = 'subscription__subscription_id'
