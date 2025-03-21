@@ -630,7 +630,7 @@ class RunList(APIView):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0 }
 
     def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission. No prompt provided", "cost": 0, "credits": 0}
     
     def fixed_response_phase(self, phase_type):
         """
