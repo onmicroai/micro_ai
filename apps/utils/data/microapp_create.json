@@ -468,6 +468,8 @@
               "privacySettings": "private",
               "clonable": true,
               "completedHtml": "Great debating!",
+              "temperature": 0.7,
+              "aiModel": "gpt-4o-mini",
               "phases": [
                   {
                       "id": "1",
@@ -594,23 +596,32 @@
                       ]
                   },
                   {
-                      "id": "4",
-                      "title": "Phase 4",
-                      "description": "",
-                      "skipPhase": false,
-                      "scoredPhase": false,
-                      "rubric": "",
-                      "minScore": 0,
-                      "elements": [
-                          {
-                              "id": "text-1734203985163",
-                              "type": "text",
-                              "name": "text4",
-                              "label": "",
-                              "isRequired": false
-                          }
-                      ],
-                      "prompts": []
+                    "id": "4",
+                    "title": "Respond and Defend your position",
+                    "rubric": "",
+                    "prompts": [
+                      {
+                        "id": "prompt-1742504044061",
+                        "name": "prompt4",
+                        "text": "<div>Here is my counterpoint:&nbsp;<br> {defence} <br></div><div><br></div><div>Please conclude this debate by summarizing&nbsp;the key points of the debate, highlighting the strongest arguments I've made and commending me for my insights. Conclude the debate by reiterating the importance of discussing such topics.</div>",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                      }
+                    ],
+                    "elements": [
+                      {
+                        "id": "textarea-1742504147304",
+                        "name": "defence",
+                        "type": "textarea",
+                        "label": "Respond to the AI's claims and defend your position",
+                        "isRequired": false
+                      }
+                    ],
+                    "minScore": 0,
+                    "skipPhase": false,
+                    "description": "",
+                    "scoredPhase": false
                   }
               ]
           }
