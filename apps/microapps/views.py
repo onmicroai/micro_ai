@@ -631,6 +631,28 @@ class RunList(APIView):
 
     def hard_coded_phase(self):
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
+    
+    def fixed_response_phase(self, phase_type):
+        """
+        Router for fixed response phases based on type.
+        
+        Args:
+            phase_type (str): Type of phase - 'skip', 'no_submission', or 'hard_coded'
+            
+        Returns:
+            dict: Response data for the specified phase type
+        """
+        phase_types = {
+            'skip': self.skip_phase,
+            'no_submission': self.no_submission_phase,
+            'hard_coded': self.hard_coded_phase
+        }
+        
+        if phase_type in phase_types:
+            return phase_types[phase_type]()
+        
+        # Default to no_submission if invalid type provided
+        return self.no_submission_phase()
 
     def update_user_credits(self, run_id, user_id):
         try:
@@ -757,16 +779,16 @@ class RunList(APIView):
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
             # Handle skip phase
             if data.get("request_skip"):
-                response = self.skip_phase()
+                response = self.fixed_response_phase('skip')
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
-                    response = self.hard_coded_phase()
+                    response = self.fixed_response_phase('hard_coded')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
-                    response = self.no_submission_phase()
+                    response = self.fixed_response_phase('no_submission')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
@@ -984,16 +1006,16 @@ class AnonymousRunList(RunList):
 
             # Handle skip phase
             if data.get("request_skip"):
-                response = self.skip_phase()
+                response = self.fixed_response_phase('skip')
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
-                    response = self.hard_coded_phase()
+                    response = self.fixed_response_phase('hard_coded')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
-                    response = self.no_submission_phase()
+                    response = self.fixed_response_phase('no_submission')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
