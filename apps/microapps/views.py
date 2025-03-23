@@ -1009,14 +1009,19 @@ class AnonymousRunList(RunList):
                 response = self.fixed_response_phase('skip')
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
+                fixed_response = data.get("fixed_response")
+                has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
+                if has_fixed_response:
+                    response = fixed_response
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle hardcoded phase
-                if not data.get("prompt"):
+                elif not data.get("prompt"):
                     response = self.fixed_response_phase('hard_coded')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
                     response = self.fixed_response_phase('no_submission')
-                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE            
             # Handle score phase
             elif data.get("scored_run"):
                 response = model.get_response(api_params)
