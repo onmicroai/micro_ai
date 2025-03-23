@@ -622,17 +622,8 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
             log.error(f"Response data: {response}")
-
-    def skip_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
-
-    def no_submission_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0 }
-
-    def hard_coded_phase(self):
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission. No prompt provided", "cost": 0, "credits": 0}
     
-    def fixed_response_phase(self, phase_type):
+    def fixed_response_phase(self, phase_type, fixed_response):
         """
         Router for fixed response phases based on type.
         
@@ -642,17 +633,14 @@ class RunList(APIView):
         Returns:
             dict: Response data for the specified phase type
         """
-        phase_types = {
-            'skip': self.skip_phase,
-            'no_submission': self.no_submission_phase,
-            'hard_coded': self.hard_coded_phase
-        }
+        if fixed_response:
+            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": fixed_response, "cost": 0, "credits": 0}
+        if phase_type == "skip":
+            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
+        elif phase_type == "hard_coded":
+            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission. No prompt provided", "cost": 0, "credits": 0}
         
-        if phase_type in phase_types:
-            return phase_types[phase_type]()
-        
-        # Default to no_submission if invalid type provided
-        return self.no_submission_phase()
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0}
 
     def update_user_credits(self, run_id, user_id):
         try:
@@ -777,8 +765,12 @@ class RunList(APIView):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
-            # Handle skip phase
-            if data.get("request_skip"):
+            fixed_response = data.get("fixed_response")
+            has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
+            if has_fixed_response:
+                response = self.fixed_response_phase('no_submission', fixed_response)
+                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+            elif data.get("request_skip"):
                 response = self.fixed_response_phase('skip')
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
@@ -1005,17 +997,17 @@ class AnonymousRunList(RunList):
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
 
             # Handle skip phase
-            if data.get("request_skip"):
+            fixed_response = data.get("fixed_response")
+            has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
+            if has_fixed_response:
+                response = self.fixed_response_phase('no_submission', fixed_response)
+                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
+            elif data.get("request_skip"):
                 response = self.fixed_response_phase('skip')
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
-                fixed_response = data.get("fixed_response")
-                has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
-                if has_fixed_response:
-                    response = fixed_response
-                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle hardcoded phase
-                elif not data.get("prompt"):
+                if not data.get("prompt"):
                     response = self.fixed_response_phase('hard_coded')
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
