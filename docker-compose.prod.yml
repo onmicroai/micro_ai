@@ -39,10 +39,10 @@ services:
     container_name: web-staging
     image: web:latest
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.web
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     expose:
       - "8000"
@@ -63,7 +63,7 @@ services:
     container_name: web
     image: web:latest
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     expose:
       - "8000"
@@ -84,14 +84,14 @@ services:
   celery:
     container_name: celery
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.web
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     env_file:
-      - .env
+      - ./.env
     networks:
       micronet:
         ipv4_address: 172.25.0.12

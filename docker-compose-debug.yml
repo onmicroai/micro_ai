@@ -35,11 +35,11 @@ services:
   web:
     container_name: web
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     command: python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
     volumes:
-      - .:/code
+      - ./backend:/code
     ports:
       - "8000:8000"
       - "5678:5678"
@@ -56,11 +56,11 @@ services:
   celery:
     container_name: celery
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
-      - .:/code
+      - ./backend:/code
     env_file:
       - ./.env
     networks:
