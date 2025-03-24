@@ -9,8 +9,7 @@
     "start-production": "next start",
     "lint": "next lint",
     "eslint": "eslint",
-    "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "typecheck": "tsc --noEmit"
   },
   "lint-staged": {
     "**/*.{js,jsx,ts,tsx}": [
@@ -110,7 +109,6 @@
     "@typescript-eslint/parser": "^8.26.1",
     "eslint": "^8",
     "eslint-config-next": "14.2.3",
-    "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
     "nodemon": "^3.1.4",
     "sass": "^1.77.1",
