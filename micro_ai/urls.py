@@ -27,8 +27,6 @@ from apps.subscriptions.urls import team_urlpatterns as subscriptions_team_urls
 from apps.utils.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
-from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
-
 
 sitemaps = {
     "static": StaticViewSitemap(),
