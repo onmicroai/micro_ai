@@ -47,11 +47,6 @@ urlpatterns = [
     path("admin/login/", RedirectView.as_view(pattern_name="account_login")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("a/<slug:team_slug>/", include(team_urlpatterns)),
-    path("accounts/login/", CustomLoginView.as_view(), name='account_login'),
-    path("accounts/signup/", CustomSignupView.as_view(), name='account_signup'),
-    path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
-    path("accounts/logout_loading/", CustomLogoutLoadingView.as_view(), name='account_loading_logout'),
-    path("accounts/", include("allauth.urls")),
     path("api/users/", include("apps.users.urls")),
     path("api/subscriptions/", include("apps.subscriptions.api_urls")),  # API endpoints
     path("subscriptions/", include("apps.subscriptions.urls")),  # Web views

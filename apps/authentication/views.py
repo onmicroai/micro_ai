@@ -78,29 +78,6 @@ def custom_url_generator(request, user, temp_key):
     uid = urlsafe_base64_encode(force_bytes(user.pk))
     logger.info(f"Generated UID: {uid}")
     return f"{settings.DOMAIN}/accounts/password/reset/confirm/{uid}/{temp_key}/"
-
-class CustomLogoutView(AllAuthLogoutView):
-    def get(self, request, *args, **kwargs):
-        response = Response({"detail": "Successfully logged out."}, status=status.HTTP_200_OK)
-        response.delete_cookie('refresh_token')
-        return response
-    
-class CustomLogoutLoadingView(AllAuthLogoutView):
-    def get(self, request, *args, **kwargs):
-        response = render(request, 'account/logout_loading.html')
-        response.delete_cookie('refresh_token')
-        return response
-    
-class CustomLoginView(LoginView):
-    def get_success_url(self):
-        # Redirect to the dashboard page after successful login
-        return reverse('dashboard:dashboard')
-    
-class CustomSignupView(SignupView):
-    def get_success_url(self):
-        # Redirect to the dashboard page after successful registration
-        return reverse('dashboard:dashboard')
-
 class CustomPasswordResetSerializer(PasswordResetSerializer):
     def get_email_options(self):
         logger.info("Getting email options with domain: %s", settings.DOMAIN)
