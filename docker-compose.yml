@@ -35,11 +35,11 @@ services:
   web:
     container_name: web
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     ports:
       - "8000:8000"
@@ -56,11 +56,11 @@ services:
   celery:
     container_name: celery
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.dev
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     env_file:
       - ./.env
