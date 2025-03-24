@@ -10,3 +10,12 @@ repos:
     hooks:
       - id: ruff
       - id: ruff-format
+
+  - repo: local
+    hooks:
+      - id: frontend-checks
+        name: Frontend Checks
+        entry: bash -c 'cd frontend && yarn lint'
+        language: system
+        types: [javascript, typescript, jsx, tsx]
+        files: ^frontend/
