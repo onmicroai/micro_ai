@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   prepare:
+    name: Prepare
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -31,6 +32,7 @@ jobs:
             docker-compose -p backend -f docker-compose.dev.yml up -d db            
 
   build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: prepare
@@ -62,6 +64,7 @@ jobs:
             docker-compose -p backend -f docker-compose.dev.yml build celery 
 
   deploy:
+    name: Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: build
@@ -92,6 +95,7 @@ jobs:
           docker-compose -p backend -f docker-compose.dev.yml up -d celery
 
   clean:
+    name: Clean
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: deploy
