@@ -46,6 +46,7 @@ jobs:
           script: |
             cd /home/ubuntu/micro_ai
             git pull origin dev
+            cp -f /opt/secrets/backend.env .env
             docker-compose -p backend -f docker-compose.dev.yml build web
 
       - name: Build Celery
@@ -86,6 +87,7 @@ jobs:
           rsync -r --delete ./ /docker/volumes/backend
           
           cd /docker/volumes/backend
+          cp -f /opt/secrets/backend.env .env
           docker-compose -p backend -f docker-compose.dev.yml up -d web
           docker-compose -p backend -f docker-compose.dev.yml up -d celery
 
