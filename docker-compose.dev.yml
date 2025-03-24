@@ -79,6 +79,30 @@ services:
       redis:
         condition: service_healthy
 
+  frontend:
+    container_name: frontend
+    image: frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    expose:
+      - "3000"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+      - /frontend/.next            
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.20
+    env_file:
+      - ./.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: "1000:1000" # ubuntu:ubuntu user:group
+
 volumes:
   postgres_data:
   redis_data:

@@ -1,0 +1,45 @@
+# \microai-frontend\Dockerfile.prod
+
+FROM node:20-alpine AS builder
+
+# Set working directory
+WORKDIR /frontend
+
+# TODO: for some reason breaks building process on production. Shows errors with dependecies.
+# ENV NODE_ENV=production
+
+# Copy package files and install dependencies
+COPY package.json ./
+
+RUN yarn install
+
+# Copy the rest of the application code
+COPY . .
+
+# Build the Next.js application
+RUN yarn build
+
+# Create a new stage for the production image
+FROM node:20-alpine AS production
+
+WORKDIR /frontend
+
+# Copy only the built application and necessary files
+COPY --from=builder /frontend ./
+
+# Create a group and user
+RUN addgroup -S microai && adduser -S -G microai microai
+
+# Set the user back to the microai user for security
+USER microai
+
+# Next.js collects completely anonymous telemetry data about general usage.
+# Learn more here: https://nextjs.org/telemetry
+# Uncomment the following line in case you want to disable telemetry during the build.
+ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+
+# Expose port 3000 for the application
+EXPOSE 3000
+
+# Start the Next.js application in production mode
+CMD ["yarn", "start-production"]
