@@ -1,0 +1,7 @@
+# Run lint-staged to check and fix staged files
+echo "Running ESLint on staged files..."
+npx lint-staged 
+
+# Run the Next.js built-in ESLint checker which will catch issues including unused imports
+echo "Running Next.js ESLint check on entire src directory..."
+yarn lint

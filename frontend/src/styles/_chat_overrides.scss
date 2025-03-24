@@ -1,0 +1,58 @@
+@use "@chatscope/chat-ui-kit-styles/themes/default/variables" as *;
+
+// Override chatscope variables
+$cs-message-background-color: red !important;
+$cs-message-outgoing-background-color: #5C5EF1 !important;
+$cs-message-outgoing-color: #efefef !important;
+$cs-message-incoming-background-color: #f0f2f5 !important;
+$cs-message-incoming-color: #1a1a1a !important; 
+$cs-message-border-radius: 0.5rem;
+$cs-message-padding: 1rem;
+$cs-message-font-size: 0.875rem;
+$cs-message-header-font-size: 0.75rem;
+$cs-message-header-font-weight: 500;
+$cs-main-container-border-radius: 0.5rem;
+$cs-typing-indicator-bg: #f3f4f6;
+
+// Add direct CSS overrides
+.cs-message--outgoing .cs-message__content {
+  background-color: #5C5EF1 !important;
+  color: #fff !important;
+}
+
+.cs-message--incoming .cs-message__content {
+  background-color: #f0f2f5 !important;
+}
+
+.cs-message-input__content-editor-wrapper {
+    background-color: #5c5ff170 !important;
+}
+
+.cs-message-input__content-editor, 
+.cs-message-input__content-editor-container {
+    background-color: transparent !important;
+}
+
+.cs-button--send {
+    color: #5c5ff1 !important;
+    background-color: transparent !important;
+}
+
+.cs-typing-indicator__dot {
+
+    background-color: #5c5ff1 !important;
+  }
+
+  .cs-typing-indicator__text {
+
+    color: #5c5ff1 !important;
+
+  }
+
+.ps .ps__rail-y.ps--clicking  {
+    background-color: #5c5ff124 !important;
+}
+
+.ps__thumb-y {
+    background-color: #5c5ff170 !important;
+}
