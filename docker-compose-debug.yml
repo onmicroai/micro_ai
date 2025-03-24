@@ -37,7 +37,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    command: python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading
+    command: sh -c "python manage.py migrate && python -Xfrozen_modules=off -m debugpy --wait-for-client --listen 0.0.0.0:5678 manage.py runserver 0.0.0.0:8000 --nothreading"
     volumes:
       - ./backend:/code
     ports:
@@ -53,6 +53,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8000/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
   celery:
     container_name: celery
     build:
@@ -69,6 +75,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      web:
         condition: service_healthy
 
   frontend:
@@ -104,6 +112,8 @@ services:
       - microaiNetwork
     depends_on:
       - frontend
+      - web
+      - celery
 
 volumes:
   postgres_data:
