@@ -47,7 +47,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            git pull origin dev
             docker-compose -p frontend -f docker-compose.dev.yml build frontend
 
       - name: Build Web
@@ -59,8 +58,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            git pull origin dev
-            cp -f /opt/secrets/backend.env .env
             docker-compose -p backend -f docker-compose.dev.yml build web
 
       - name: Build Celery
@@ -72,7 +69,6 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            git pull origin dev
             docker-compose -p backend -f docker-compose.dev.yml build celery 
 
   deploy:
@@ -82,7 +78,7 @@ jobs:
     needs: build
 
     steps:
-    - name: Take down old containers, sync code, and start new containers
+    - name: Deploy Backend
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
@@ -98,8 +94,9 @@ jobs:
             echo "Directory /docker/volumes/backend does not exist. Skipping."
           fi
           
-          cd /home/ubuntu/micro_ai
+          cd /home/ubuntu/micro_ai/backend
           rsync -r --delete ./ /docker/volumes/backend
+          cp -f ../docker-compose.dev.yml /docker/volumes/backend
           
           cd /docker/volumes/backend
           cp -f /opt/secrets/backend.env .env
@@ -121,10 +118,12 @@ jobs:
             echo "Directory /docker/volumes/frontend does not exist. Skipping."
           fi
           
-          cd /home/ubuntu/micro_ai
+          cd /home/ubuntu/micro_ai/frontend
           rsync -r --delete ./ /docker/volumes/frontend
+          cp -f ../docker-compose.dev.yml /docker/volumes/frontend
           
           cd /docker/volumes/frontend
+          cp -f /opt/secrets/frontend.env .env
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:
