@@ -1,6 +1,6 @@
 # OnMicro.AI
 
-[![OnMicro.AI Logo](https://onmicro.ai/_next/static/media/onMicroAI_logo_horiz_color-cropped.d48f058a.svg)](https://onmicro.ai){: width="350"}
+<a href="https://onmicro.ai"><img src="https://onmicro.ai/_next/static/media/onMicroAI_logo_horiz_color-cropped.d48f058a.svg" alt="OnMicro.AI Logo" width="350"></a>
 
 Build Micro Apps with No Code
 
