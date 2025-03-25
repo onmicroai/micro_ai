@@ -11,6 +11,7 @@ concurrency:
 
 jobs:
   prepare:
+    name: Prepare
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -31,6 +32,7 @@ jobs:
             docker-compose -p backend -f docker-compose.prod.yml up -d db            
 
   build:
+    name: Build
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: prepare
@@ -58,6 +60,7 @@ jobs:
           script: |
             cd /home/ubuntu/micro_ai
             git pull origin master
+            cp -f /opt/secrets/backend-staging.env .env
             docker-compose -p backend -f docker-compose.prod.yml build web-staging
 
       - name: Build Celery
@@ -73,6 +76,7 @@ jobs:
             docker-compose -p backend -f docker-compose.prod.yml build celery 
 
   staging:
+    name: Deploy Staging
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: build
@@ -98,6 +102,7 @@ jobs:
             rsync -r --delete ./ /docker/volumes/backend-staging
             
             cd /docker/volumes/backend-staging
+            cp -f /opt/secrets/backend-staging.env .env
             docker-compose -p backend -f docker-compose.prod.yml up -d web-staging
             docker-compose -p backend -f docker-compose.prod.yml up -d celery
 
