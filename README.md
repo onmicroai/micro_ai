@@ -1,5 +1,3 @@
-# OnMicro.AI
-
 <a href="https://onmicro.ai"><img src="https://onmicro.ai/_next/static/media/onMicroAI_logo_horiz_color-cropped.d48f058a.svg" alt="OnMicro.AI Logo" width="350"></a>
 
 Build Micro Apps with No Code
@@ -11,12 +9,12 @@ OnMicro.AI is a user-friendly platform that allows educators to build and deploy
 
 ### Core Features
 - **No-Code App Builder**: Create AI-powered educational applications using a drag-and-drop editor without writing any code
-  ![No-Code App Builder Demo](https://onmicro.ai/img/homepage/build.gif)
+  <img src="https://onmicro.ai/img/homepage/build.gif" alt="No-Code App Builder Demo">
 - **Educational Focus**: Build applications that leverage AI to accelerate course development, scale feedback, or automate assessment while protecting your pedagogical approach
 - **Instant Sharing**: Share applications seamlessly with colleagues, students, or the public
-  ![Instant Sharing Demo](https://onmicro.ai/img/homepage/share.gif)
+  <img src="https://onmicro.ai/img/homepage/share.gif" alt="Instant Sharing Demo">
 - **Data Analysis**: Gather valuable metrics about usage, cost, satisfaction, and accuracy to make informed decisions about AI implementation
-  ![App Statistics](https://onmicro.ai/img/homepage/app_stats.png)
+  <img src="https://onmicro.ai/img/homepage/app_stats.png" alt="App Statistics">
 - **Diverse AI Models**: Access to various AI models including GPT 4o-mini, Claude Haiku, Google Gemini Flash, and more advanced options in higher tiers
 
 ## Prerequisites
