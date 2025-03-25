@@ -1,6 +1,4 @@
 import logging
-import os
-from django.db import transaction
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
@@ -14,9 +12,6 @@ from stripe.api_resources.checkout import Session as CheckoutSession
 from apps.subscriptions.constants import PLANS, PRICE_IDS
 from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 
-from .exceptions import SubscriptionConfigError
-from apps.teams.models import Team
-from apps.users.models import CustomUser
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
 

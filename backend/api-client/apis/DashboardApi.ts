@@ -19,7 +19,6 @@ import type {
 } from '../models/index';
 import {
     UserSignupStatsFromJSON,
-    UserSignupStatsToJSON,
 } from '../models/index';
 
 /**

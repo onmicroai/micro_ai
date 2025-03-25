@@ -240,13 +240,7 @@ class CustomUserDetailsView(UserDetailsView):
 
         user_data["subscription"] = subscription_data
         user_data["plan"] = get_plan_name(subscription.price_id if subscription else None)
-
-        # Safely get the team slug if available
-        team = getattr(request, 'team', None)
-        if team:
-            user_data['slug'] = team.slug
-        else:
-            user_data['slug'] = None
+        user_data['slug'] = None
 
         return Response(user_data, status=status.HTTP_200_OK)
 

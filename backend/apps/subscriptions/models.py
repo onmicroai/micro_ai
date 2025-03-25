@@ -185,7 +185,6 @@ class BillingCycle(models.Model):
     )
 
     user = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE)
-    team = models.ForeignKey('teams.Team', on_delete=models.CASCADE, null=True, blank=True)
     subscription = models.ForeignKey(
         Subscription,
         on_delete=models.SET_NULL,
@@ -249,7 +248,6 @@ class BillingCycle(models.Model):
     def create_next_cycle(cls, previous_cycle, new_period_end):
         return cls.objects.create(
             user=previous_cycle.user,
-            team=previous_cycle.team,
             subscription=previous_cycle.subscription,
             credits_allocated=previous_cycle.credits_allocated,
             credits_remaining=previous_cycle.credits_allocated,
@@ -261,10 +259,9 @@ class BillingCycle(models.Model):
         )
 
     @classmethod
-    def get_or_create_active_cycle(cls, user, subscription, period_start, period_end, credits_allocated, subscription_item_id, team=None):
+    def get_or_create_active_cycle(cls, user, subscription, period_start, period_end, credits_allocated, subscription_item_id):
         active_cycle = cls.objects.filter(
             user=user,
-            team=team,
             status='open',
             start_date__lte=timezone.now(),
             end_date__gte=timezone.now()
@@ -275,7 +272,6 @@ class BillingCycle(models.Model):
 
         return cls.objects.create(
             user=user,
-            team=team,
             subscription=subscription,
             credits_allocated=credits_allocated,
             credits_remaining=credits_allocated,
