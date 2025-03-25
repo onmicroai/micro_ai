@@ -19,7 +19,8 @@ on:
           - both
 
 jobs:
-  recreate_nginx:
+  recreate_dbs:
+    name: Recreate Databases
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
