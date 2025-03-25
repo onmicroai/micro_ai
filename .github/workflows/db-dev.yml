@@ -1,4 +1,4 @@
-name: Postgresql+Redis Deployment
+name: Postgresql+Redis Development
 
 on:
   workflow_dispatch:
