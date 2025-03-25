@@ -84,8 +84,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      web:
-        condition: service_healthy
 
   frontend:
     container_name: frontend
