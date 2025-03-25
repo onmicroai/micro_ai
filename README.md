@@ -81,5 +81,5 @@ For support, please:
 
 ## License
 
-[Add your license information here]
+[GNU LESSER GENERAL PUBLIC LICENSE Version 2.1](https://github.com/onmicroai/micro_ai/blob/master/LICENSE.md)
 
