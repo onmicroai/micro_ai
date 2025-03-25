@@ -427,7 +427,7 @@ PROJECT_METADATA = {
     "NAME": gettext_lazy("OnMicro.AI"),
     "URL": "http://localhost:8000",
     "DESCRIPTION": gettext_lazy("Build Micro Apps with No Code"),
-    "IMAGE": "https://upload.wikimedia.org/wikipedia/commons/2/20/PEO-pegasus_black.svg",
+    "IMAGE": "/static/images/web/favicon.png",
     "KEYWORDS": "SaaS, django",
     "CONTACT_EMAIL": ["yibrahim@knysys.com", "john@curricu.me"],
 }

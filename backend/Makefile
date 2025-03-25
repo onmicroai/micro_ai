@@ -1,7 +1,5 @@
 # micro_ai\Makefile
 
-include custom.mk
-
 setup-env:
 	@[ ! -f ./.env ] && cp ./.env.example ./.env || echo ".env file already exists."
 
