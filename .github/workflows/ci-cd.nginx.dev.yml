@@ -12,6 +12,7 @@ on:
 jobs:
   # Verify if containers are running, otherwise starting nginx would lead into an error like "host not found".
   verify_containers:
+    name: Verify Containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -33,6 +34,7 @@ jobs:
             done  
 
   recreate_nginx:
+    name: Recreate NGINX
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: verify_containers
