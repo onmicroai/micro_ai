@@ -79,6 +79,72 @@ For support, please:
 1. Open an issue in the [GitHub repository](https://github.com/onmicroai/micro_ai/issues)
 2. Contact the development team at john@onmicro.ai
 
+## Contributing
+
+We welcome contributions to OnMicro.AI! Here's how you can help:
+
+1. **Fork the Repository**
+   - Go to [https://github.com/onmicroai/micro_ai](https://github.com/onmicroai/micro_ai)
+   - Click the "Fork" button in the top-right corner
+   - Clone your forked repository locally
+
+2. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-fix-name
+   ```
+
+3. **Make Your Changes**
+   - Write clear, descriptive commit messages
+   - Follow the existing code style
+   - Add tests for new features
+   - Update documentation as needed
+
+4. **Submit a Pull Request**
+   - Push your changes to your fork
+   - Go to the original repository
+   - Click "New Pull Request"
+   - Select your feature branch
+   - Fill out the pull request template
+   - Submit and wait for review
+
+5. **Code Review Process**
+   - Address any feedback from reviewers
+   - Make requested changes
+   - Ensure all tests pass
+   - Keep the PR up to date with the main branch
+
+### Development Guidelines
+
+- Follow PEP 8 style guide for Python code
+- Use ESLint and Prettier for JavaScript/TypeScript code
+- Write meaningful commit messages following [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+  ```
+  <type>: #<issue-number> <description> 
+
+  [optional body]
+  ```
+  - Types:
+    - `feat`: New feature (correlates with MINOR in SemVer)
+    - `fix`: Bug fix (correlates with PATCH in SemVer)
+    - `docs`: Documentation changes
+    - `style`: Code style changes (formatting, etc.)
+    - `refactor`: Code changes that neither fix a bug nor add a feature
+    - `perf`: Performance improvements
+    - `test`: Adding or modifying tests
+    - `build`: Changes that affect the build system
+    - `ci`: Changes to CI configuration files
+    - `chore`: Other changes that don't modify source or test files
+  - Breaking changes must be indicated with `!` after type/scope or with `BREAKING CHANGE:` footer
+  - Always include the issue number in the commit message using `#<issue-number>`
+  - Examples:
+    - `feat(auth)!: change authentication method to OAuth2 #123`
+    - `fix(api): handle null response from external service #456`
+    - `docs(readme): update installation instructions #789`
+- Include tests for new features and bug fixes
+- Update documentation for any changes
+
 ## License
 
 [GNU LESSER GENERAL PUBLIC LICENSE Version 2.1](https://github.com/onmicroai/micro_ai/blob/master/LICENSE.md)
