@@ -48,7 +48,7 @@ const getAccessTokenSingleton = (): Function => {
     isRefreshing = true; // Set loading state
     try {
       const { data } = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/token/refresh/`,
+        `/api/auth/token/refresh/`,
         {},
         {
           headers: {
