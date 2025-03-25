@@ -78,30 +78,34 @@ services:
         condition: service_healthy
       web:
         condition: service_healthy
-
   frontend:
     container_name: frontend
-    image: frontend:latest
     build:
       context: ./frontend
-      dockerfile: Dockerfile.prod
+      dockerfile: Dockerfile
     expose:
       - "3000"
     volumes:
       - ./frontend:/frontend
       - /frontend/node_modules
-      - /frontend/.next            
     networks:
-      micronet:
-        ipv4_address: 172.25.0.20
+      - microaiNetwork
     env_file:
-      - ./frontend/.env
+      - ./.env
+    environment:
+      - NODE_ENV=development
+      - WATCHPACK_POLLING=true
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-    user: "1000:1000" # ubuntu:ubuntu user:group
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"const http = require('http'); const options = { host: 'localhost', port: 3000, path: '/', timeout: 2000 }; const request = http.request(options, (res) => { process.exit(res.statusCode === 200 ? 0 : 1); }); request.on('error', () => process.exit(1)); request.end();\""]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
   nginx:
     image: nginx:alpine
     ports:
@@ -111,9 +115,12 @@ services:
     networks:
       - microaiNetwork
     depends_on:
-      - frontend
-      - web
-      - celery
+      frontend:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      celery:
+        condition: service_healthy
 
 volumes:
   postgres_data:
