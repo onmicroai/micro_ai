@@ -1,5 +1,7 @@
 # OnMicro.AI
 
+[![OnMicro.AI Logo](https://onmicro.ai/_next/static/media/onMicroAI_logo_horiz_color-cropped.d48f058a.svg)](https://onmicro.ai)
+
 Build Micro Apps with No Code
 
 ## Overview
