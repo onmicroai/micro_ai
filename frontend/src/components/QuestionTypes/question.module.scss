@@ -1,0 +1,510 @@
+/*
+$header-text-color: #ffffff;
+$label-text-color: #BCBCBC;
+$white: #ffffff;
+$text-gray: #bcbcbc;
+$bg-dark: #282828;
+$border-color: #8A8A8A;
+$bg-transparent: #d4d4d41a;
+$card-border: 0.0625rem solid $border-color;
+$error-light: #EA3232;
+
+.questionContainer {
+   margin-bottom: 14px;
+   font-size: 16px;
+   line-height: 24px;
+
+   @media screen and (min-width: 1200px) {
+      margin-bottom: 28px;
+   }
+
+   .questionDescription {
+      color: $text-gray;
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+      margin-top: 0.5rem;
+   }
+
+   .readOnly {
+      color: $text-gray;
+      font-style: italic;
+      font-size: 0.675rem;
+      position: absolute;
+      bottom: 0.5rem;
+      padding-left: 0.5rem;
+   }
+}
+
+.questionContainer:last-child {
+   margin-bottom: 0;
+}
+
+.label {
+   display: block;
+   color: $label-text-color;
+   font-size: 16px;
+   padding-bottom: 8px;
+   position: relative;
+
+   @media screen and (min-width: 1200px) {
+      font-size: 25px;
+      padding-bottom: 14px;
+   }
+}
+
+.input {
+   width: 100%;
+   padding: 7px 15px;
+   height: 40px;
+   border-radius: 10px;
+   border: 1px solid $border-color;
+   background-color: $bg-dark;
+   color: $white;
+   font-size: 16px;
+   line-height: 31px;
+
+   @media screen and (min-width: 1200px) {
+      padding: 10px 20px;
+      height: 50px;
+   }
+}
+
+.textarea {
+   width: 100%;
+   padding: 10px;
+   min-height: 100px;
+   border-radius: 10px;
+   border: 1px solid $border-color;
+   background-color: $bg-dark;
+   color: $white;
+   font-size: 16px;
+   line-height: 31px;
+   display: block;
+
+   @media screen and (min-width: 1200px) {
+      padding: 20px;
+      min-height: 100px;
+   }
+}
+
+
+.prompt {
+   display: none;
+}
+
+.radioGroup {
+   align-items: center;
+   background-color: $bg-dark;
+   border-radius: 10px;
+   border: 1px solid $border-color;
+   padding: 10px;
+   font-size: 16px;
+   line-height: 24px;
+
+   @media screen and (min-width: 1200px) {
+      padding: 30px 19px 30px 19px;
+      line-height: 31px;
+   }
+
+   .radioItem {
+      padding: 3px 5px;
+
+      @media screen and (min-width: 1200px) {
+         padding: 6px 10px;
+      }
+
+      .radioInput {
+         appearance: none;
+         width: 10px;
+         height: 10px;
+         border: 1px solid #505050;
+         border-radius: 50%;
+         transition: border-color 0.2s ease;
+         cursor: pointer;
+
+         &:checked {
+            background-color: #5C5EF1;
+         }
+
+         &:focus {
+            outline: none;
+            box-shadow: 0 0 0 0.125rem #393b9b;
+         }
+      }
+
+      .radioLabel {
+         height: 100%;
+         cursor: pointer;
+         vertical-align: middle;
+         padding: 0 10px;
+      }
+   }
+}
+
+.checkboxContainer {
+   display: flex;
+   flex-direction: column;
+   gap: 0.75rem;
+   background-color: $bg-dark;
+   border-radius: 10px;
+   border: 1px solid $border-color;
+   padding: 15px 10px 15px 10px;
+   font-size: 16px;
+   line-height: 24px;
+
+   @media screen and (min-width: 1200px) {
+      padding: 30px 19px 30px 19px;
+      line-height: 31px;
+   }
+
+   .checkboxItem {
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      padding: 0 5px;
+
+      @media screen and (min-width: 1200px) {
+         padding: 0 10px;
+      }
+
+      input[type="checkbox"] {
+         appearance: none;
+         width: 15px;
+         height: 15px;
+         border: 1px solid #505050;
+         border-radius: 2px;
+         cursor: pointer;
+         transition: all 0.2s;
+
+         &:checked {
+            background-color: #5C5EF1;
+            border-color: #5C5EF1;
+            position: relative;
+
+            &::after {
+               content: "";
+               display: block;
+               width: 7px;
+               height: 9px;
+               border: solid white;
+               border-width: 0 0.125rem 0.125rem 0;
+               transform: rotate(45deg);
+               position: absolute;
+               top: -1px;
+               left: 2px;
+            }
+         }
+
+         &:focus {
+            outline: none;
+            box-shadow: 0 0 0 0.1875rem rgba(49, 130, 206, 0.5);
+         }
+      }
+
+      label {
+         cursor: pointer;
+         user-select: none;
+         padding: 0 10px;
+      }
+   }
+}
+
+.otherInput {
+   margin-top: 1rem;
+}
+
+.promptContainer {
+   margin-bottom: 14px;
+
+   @media screen and (min-width: 1200px) {
+      margin-bottom: 28px;
+   }
+}
+
+.promptToggle {
+   background: none;
+   border: none;
+   color: #6A6A6A;
+   cursor: pointer;
+   font-size: 1rem;
+   padding: 0;
+   text-decoration: none;
+   position: relative;
+
+   &:hover {
+      color: #6d6c6c;
+   }
+
+   .eyeIconOpen {
+      position: absolute;
+      margin-left: 7px;
+      top: 1px;
+   }
+
+   .eyeIconClosed {
+      position: absolute;
+      margin-left: 7px;
+   }
+}
+
+.promptTextarea {
+   width: 100%;
+   min-height: 100px;
+   margin-top: 0.5rem;
+   padding: 10px 15px;
+   border: 1px solid $border-color;
+   border-radius: 15px;
+   resize: vertical;
+   background-color: $bg-dark;
+   color: #6A6A6A;
+   font-size: 16px;
+   line-height: 31px;
+
+   @media screen and (min-width: 1200px) {
+      padding: 20px 32px;
+   }
+}
+
+.error {
+   color: $error-light;
+}
+
+.errorLabel {
+   color: $error-light;
+}
+
+.errorInput {
+   border-color: $error-light;
+}
+
+.errorMessage {
+   font-size: 12px;
+   color: $error-light;
+   line-height: 16px;
+   text-align: right;
+   padding-top: 3px;
+}
+
+.switchLabelContainer {
+   position: relative;
+}
+
+.switchLabel {
+   width: 600px;
+   padding-left: 106px;
+   position: absolute;
+   font-size: 16px;
+   line-height: 31px;
+   top: 4px;
+
+   @media screen and (max-width: 768px) {
+      width: 250px;
+   }
+
+   @media screen and (min-width: 1200px) {
+      top: 10px;
+   }
+}
+
+.switchContainer {
+   display: flex;
+   align-items: center;
+   margin-top: 8px;
+}
+
+.switchLabelContainer {
+   position: relative;
+
+   .switchIcon {
+      position: absolute;
+   }
+
+   .switchLeftYes {
+      left: 11px;
+      top: 8px;
+
+      @media screen and (min-width: 1200px) {
+         top: 9px;
+      }
+   }
+
+   .switchLeftNo {
+      right: 12px;
+      top: 10px;
+
+      @media screen and (min-width: 1200px) {
+         right: 16px;
+         top: 13px;
+      }
+   }
+
+   .switchRightYes {
+      right: 10px;
+      top: 8px;
+
+      @media screen and (min-width: 1200px) {
+         right: 11px;
+         top: 9px;
+      }
+   }
+
+   .switchRightNo {
+      left: 14px;
+      top: 11px;
+
+      @media screen and (min-width: 1200px) {
+         left: 17px;
+         top: 13px;
+      }
+   }
+
+   .switchLabel {
+      &.switchLabelRightFalse {
+         padding-left: 81px;
+
+         @media screen and (min-width: 1200px) {
+            padding-left: 106px;
+         }
+      }
+
+      &.switchLabelLeftTrue {
+         padding-left: 81px;
+
+         @media screen and (min-width: 1200px) {
+            padding-left: 106px;
+         }
+      }
+
+      &.switchLabelRightTrue {
+         padding-left: 51px;
+
+         @media screen and (min-width: 1200px) {
+            padding-left: 61px;
+         }
+      }
+
+      &.switchLabelLeftFalse {
+         padding-left: 51px;
+
+         @media screen and (min-width: 1200px) {
+            padding-left: 61px;
+         }
+      }
+   }
+}
+
+.dropdownSelect {
+   line-height: 24px;
+
+   @media screen and (min-width: 1200px) {
+      line-height: 31px;
+   }
+
+   :global(.react-select__control) {
+      border-radius: 10px;
+      border: 1px solid $border-color;
+      background-color: $bg-dark;
+      height: 40px;
+
+      @media screen and (min-width: 1200px) {
+         height: 50px;
+      }
+
+      :global(.css-hlgwow) {
+         padding: 0 15px;
+         font-size: 16px;
+         line-height: 24px;
+
+         @media screen and (min-width: 1200px) {
+            padding: 4px 26px 0 26px;
+            line-height: 31px;
+         }
+      }
+   }
+}
+
+.multipleSelect {
+   line-height: 24px;
+
+   @media screen and (min-width: 1200px) {
+      line-height: 31px;
+   }
+
+
+   :global(.react-select__control) {
+      border-radius: 10px;
+      border: 1px solid $border-color;
+      background-color: $bg-dark;
+      height: 40px;
+
+      @media screen and (min-width: 1200px) {
+         height: 50px;
+      }
+
+      :global(.css-hlgwow) {
+         padding: 0 15px;
+         font-size: 16px;
+         line-height: 24px;
+
+         @media screen and (min-width: 1200px) {
+            padding: 4px 26px 0 26px;
+            line-height: 31px;
+         }
+      }
+   }
+}
+
+.sliderContainer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.5rem;
+}
+
+.slider {
+  flex: 1;
+  height: 8px;
+  -webkit-appearance: none;
+  background: #ddd;
+  border-radius: 4px;
+  outline: none;
+  
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 20px;
+    height: 20px;
+    background: #007bff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+  
+  &::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+    background: #007bff;
+    border-radius: 50%;
+    cursor: pointer;
+  }
+
+  &.errorInput {
+    background: rgba(255, 0, 0, 0.1);
+    
+    &::-webkit-slider-thumb {
+      background: #dc3545;
+    }
+    
+    &::-moz-range-thumb {
+      background: #dc3545;
+    }
+  }
+}
+
+.sliderValue {
+  min-width: 3rem;
+  text-align: center;
+  padding: 0.25rem 0.5rem;
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+  */

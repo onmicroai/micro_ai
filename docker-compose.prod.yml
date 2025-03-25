@@ -39,10 +39,10 @@ services:
     container_name: web-staging
     image: web:latest
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.web
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     expose:
       - "8000"
@@ -63,7 +63,7 @@ services:
     container_name: web
     image: web:latest
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     expose:
       - "8000"
@@ -80,18 +80,24 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8000/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   celery:
     container_name: celery
     build:
-      context: .
+      context: ./backend
       dockerfile: Dockerfile.web
     command: celery -A micro_ai worker -l INFO --beat --concurrency 2
     volumes:
-      - .:/code
+      - ./backend:/code
       - media_data:/code/media
     env_file:
-      - .env
+      - ./.env
     networks:
       micronet:
         ipv4_address: 172.25.0.12
@@ -100,6 +106,53 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+      web:
+        condition: service_healthy
+
+  frontend-staging:
+    container_name: frontend-staging
+    image: frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    expose:
+      - "3000"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+      - /frontend/.next
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.20
+    env_file:
+      - ./frontend/.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: "1000:1000" # ubuntu:ubuntu user:group
+
+  frontend:
+    container_name: frontend
+    image: frontend:latest
+    expose:
+      - "3000"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+      - /frontend/.next
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.21
+    env_file:
+      - ./.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: "1000:1000" # ubuntu:ubuntu user:group
 
 volumes:
   media_data:

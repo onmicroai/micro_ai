@@ -1,0 +1,76 @@
+name: NGINX Production
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_recreate:
+        description: 'Force Recreate?'
+        required: true
+        default: 'true'
+        type: boolean
+
+
+
+jobs:
+  # Verify if containers are running, otherwise starting nginx would lead into an error like "host not found".
+  verify_containers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: verify containers are running
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            containers=("frontend" "frontend-staging" "web" "web-staging")
+            for container in "${containers[@]}"; do
+              if ! docker ps --filter "name=^/${container}$" --filter "status=running" -q | grep -q . ; then
+                echo "ERROR: Container '$container' is NOT running!"
+                exit 1
+              fi
+            done
+
+  recreate_nginx:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: verify_containers
+
+    steps:
+    - name: prepare
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          mkdir -p /docker/volumes/nginx
+          
+          cd /home/ubuntu/microai-frontend
+          git pull origin main
+          
+          cd nginx
+          /bin/cp -rf nginx.prod.conf /docker/volumes/nginx/nginx.conf
+          /bin/cp -rf docker-compose-nginx.yaml /docker/volumes/nginx/docker-compose.yaml
+          /bin/cp -rf fallback /docker/volumes/nginx/
+
+    - name: rebuild nginx
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          
+          FORCE_RECREATE=""
+          if [ "${{ inputs.force_recreate }}" = "true" ]; then
+           FORCE_RECREATE="--force-recreate"
+          fi
+          
+          cd /docker/volumes/nginx
+          docker-compose -p nginx up -d $FORCE_RECREATE

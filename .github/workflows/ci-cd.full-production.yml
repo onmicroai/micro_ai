@@ -1,0 +1,76 @@
+# \microai-frontend\.github\workflows\ci-cd.frontend.dev.yml
+
+name: Backend And Frontend Prod Deploy
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+
+
+  deploy_web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    #    needs: lint
+
+    steps:
+      - name: prepare
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            
+            ## NO PULL !!!!!!!!!!
+            
+            if [ -d "/docker/volumes/backend" ]; then
+               cd /docker/volumes/backend
+               docker-compose -p backend -f docker-compose.prod.yml down web
+            else
+              echo "Directory /docker/volumes/backend does not exist. Skipping."
+            fi
+            
+            
+            cd /home/ubuntu/micro_ai
+            rsync -r --delete ./ /docker/volumes/backend
+            
+            cd /docker/volumes/backend
+            docker-compose -p backend -f docker-compose.prod.yml up --force-recreate -d web
+
+
+  deploy_frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: deploy_web
+
+    steps:
+      - name: prepare
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            
+            ## NO PULL !!!!!!!!!!
+            
+            if [ -d "/docker/volumes/frontend" ]; then
+               cd /docker/volumes/frontend
+               docker-compose -p frontend -f docker-compose.prod.yml down frontend
+            else
+              echo "Directory /docker/volumes/frontend does not exist. Skipping."
+            fi
+            
+            
+            cd /home/ubuntu/microai-frontend
+            rsync -r --delete ./ /docker/volumes/frontend
+            
+            cd /docker/volumes/frontend
+            docker-compose -p frontend -f docker-compose.prod.yml up --force-recreate -d frontend
