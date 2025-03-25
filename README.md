@@ -139,9 +139,9 @@ We welcome contributions to OnMicro.AI! Here's how you can help:
   - Breaking changes must be indicated with `!` after type/scope or with `BREAKING CHANGE:` footer
   - Always include the issue number in the commit message using `#<issue-number>`
   - Examples:
-    - `feat(auth)!: change authentication method to OAuth2 #123`
-    - `fix(api): handle null response from external service #456`
-    - `docs(readme): update installation instructions #789`
+    - `feat: #123 change authentication method to OAuth2 #123`
+    - `fix: #111 handle null response from external service #456`
+    - `docs: #115 update installation instructions #789`
 - Include tests for new features and bug fixes
 - Update documentation for any changes
 
