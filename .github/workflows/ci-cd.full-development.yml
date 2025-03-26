@@ -148,11 +148,10 @@ jobs:
           sudo docker image prune -f
           # Never prune volumes automatically
           sudo docker builder prune -f
-
-          # Optional: List unused volumes (but don't remove them automatically)
-          echo "Listing unused volumes (for information only):"
-          for volume in $(sudo docker volume ls -q); do
-             if ! sudo docker ps -a --filter volume=$volume | grep -q .; then
-                echo "Unused volume found: $volume"
-             fi
-          done
+          # Remove unused volumes while preserving media_data
+          echo "Removing unused volumes except media_data:"
+          sudo docker volume ls -q | grep -v "micro_ai_media_data" | xargs -r sudo docker volume rm
+          
+          # Check disk space after cleanup
+          echo "Disk space after cleanup:"
+          df -h /

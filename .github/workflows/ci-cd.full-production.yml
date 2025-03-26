@@ -58,3 +58,21 @@ jobs:
           cd /docker/volumes/micro_ai
           docker compose -p backend -f docker-compose.prod.yml up -d web
           docker-compose -p frontend -f docker-compose.prod.yml up -d frontend
+    
+    - name: Clean up disk space
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          echo "Cleaning up Docker resources..."
+          # Remove stopped containers
+          sudo docker container prune -f
+          # Remove unused images
+          sudo docker image prune -a -f
+          # Remove build cache
+          sudo docker builder prune -f
+          # Remove unused volumes (preserving media_data)
+          sudo docker volume ls -q | grep -v "micro_ai_media_data" | xargs -r sudo docker volume rm
