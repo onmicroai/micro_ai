@@ -59,6 +59,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8000/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
   web:
     container_name: web
     image: web:latest
@@ -84,7 +91,7 @@ services:
       test: curl --fail http://localhost:8000/ || exit 1
       interval: 10s
       timeout: 5s
-      retries: 5
+      retries: 20
       start_period: 15s
 
   celery:
@@ -106,7 +113,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      web:
+      web-staging:
         condition: service_healthy
 
   frontend-staging:
@@ -115,6 +122,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     expose:
       - "3000"
     volumes:

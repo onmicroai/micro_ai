@@ -5,6 +5,12 @@ FROM node:20-alpine AS builder
 # Set working directory
 WORKDIR /frontend
 
+# Accept build args for Next.js public environment variables
+ARG NEXT_PUBLIC_CLOUDFRONT_DOMAIN
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+
 # TODO: for some reason breaks building process on production. Shows errors with dependecies.
 # ENV NODE_ENV=production
 
@@ -37,6 +43,12 @@ USER microai
 # Learn more here: https://nextjs.org/telemetry
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED=1 NODE_ENV=production
+
+# Preserve the runtime environment variables from build args
+ARG NEXT_PUBLIC_CLOUDFRONT_DOMAIN
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 
 # Expose port 3000 for the application
 EXPOSE 3000

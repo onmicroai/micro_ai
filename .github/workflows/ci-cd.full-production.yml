@@ -11,66 +11,68 @@ concurrency:
 
 jobs:
 
-
-  deploy_web:
+  deploy_cotnainers:
+    name: Deploy Containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    #    needs: lint
-
     steps:
-      - name: prepare
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            
-            ## NO PULL !!!!!!!!!!
-            
-            if [ -d "/docker/volumes/backend" ]; then
-               cd /docker/volumes/backend
-               docker-compose -p backend -f docker-compose.prod.yml down web
-            else
-              echo "Directory /docker/volumes/backend does not exist. Skipping."
-            fi
-            
-            
-            cd /home/ubuntu/micro_ai
-            rsync -r --delete ./ /docker/volumes/backend
-            
-            cd /docker/volumes/backend
-            docker-compose -p backend -f docker-compose.prod.yml up --force-recreate -d web
+    - name: Stop Containers
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          if [ -d "/docker/volumes/micro_ai" ]; then
+            cd /docker/volumes/micro_ai
+            docker-compose -p backend -f docker-compose.prod.yml down web
+            docker-compose -p frontend -f docker-compose.prod.yml down frontend
+          else
+            echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
+          fi
 
+    - name: Rsync Data and Env
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          
+          cd /home/ubuntu/micro_ai
+          rsync -r --delete ./ /docker/volumes/micro_ai
+          
+          cd /docker/volumes/micro_ai
+          cp -f /opt/secrets/.env .env
 
-  deploy_frontend:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: deploy_web
-
-    steps:
-      - name: prepare
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            
-            ## NO PULL !!!!!!!!!!
-            
-            if [ -d "/docker/volumes/frontend" ]; then
-               cd /docker/volumes/frontend
-               docker-compose -p frontend -f docker-compose.prod.yml down frontend
-            else
-              echo "Directory /docker/volumes/frontend does not exist. Skipping."
-            fi
-            
-            
-            cd /home/ubuntu/microai-frontend
-            rsync -r --delete ./ /docker/volumes/frontend
-            
-            cd /docker/volumes/frontend
-            docker-compose -p frontend -f docker-compose.prod.yml up --force-recreate -d frontend
+    - name: Deploy Backend & Frontend
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          cd /docker/volumes/micro_ai
+          docker compose -p backend -f docker-compose.prod.yml up -d web
+          docker-compose -p frontend -f docker-compose.prod.yml up -d frontend
+    
+    - name: Clean up disk space
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          echo "Cleaning up Docker resources..."
+          # Remove stopped containers
+          sudo docker container prune -f
+          # Remove unused images
+          sudo docker image prune -a -f
+          # Remove build cache
+          sudo docker builder prune -f
+          # Remove unused volumes (preserving media_data)
+          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm

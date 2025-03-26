@@ -20,6 +20,7 @@ on:
 
 jobs:
   recreate_db_redis:
+    name: Recreate Databases
     runs-on: ubuntu-latest
     timeout-minutes: 60
 

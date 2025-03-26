@@ -225,15 +225,14 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
    const logout = useCallback(async (): Promise<void> => {
       try {
          await api.post('/api/auth/logout/');
-        
-         localStorage.removeItem('accessToken');
-         localStorage.removeItem('accessTokenExpiration');
-
-         router.push('/login');
-         useDashboardStore.getState().reset();
-         resetUserStore();
       } catch (error: any) {
          handleApiError(error);
+      } finally {
+         localStorage.removeItem('accessToken');
+         localStorage.removeItem('accessTokenExpiration');
+         router.push('/accounts/login');
+         useDashboardStore.getState().reset();
+         resetUserStore();
       }
    }, [resetUserStore, router, api]);
 

@@ -5,16 +5,15 @@
  */
 "use client";
 
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 /**
  * Singleton, that manages a queue of requests for access token update.
  * Prevents multiple API requests for access token update at the same time
  *
- * @returns {Function}
+ * @returns {() => Promise<string | null>}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const getAccessTokenSingleton = (): Function => {
+const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
   let isRefreshing = false;
   let pendingRequests: Array<(error: any, token: string | null) => void> = [];
 
@@ -48,7 +47,7 @@ const getAccessTokenSingleton = (): Function => {
     isRefreshing = true; // Set loading state
     try {
       const { data } = await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/auth/token/refresh/`,
+        `/api/auth/token/refresh/`,
         {},
         {
           headers: {
@@ -102,11 +101,10 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
  * Singleton returns axios configured instance.
  * Prevents creation of the axios configuration for the multiple times
  *
- * @returns {Function}
+ * @returns {() => AxiosInstance}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const axiosInstanceSingleton = (): Function => {
-  let api: any = null;
+const axiosInstanceSingleton = (): (() => AxiosInstance) => {
+  let api: AxiosInstance | null = null;
   const getAccessToken = getAccessTokenSingleton();
   // Cache variables for path visibility
   let lastCheckedPath: string | null = null;
@@ -177,7 +175,7 @@ const axiosInstanceSingleton = (): Function => {
 
         let accessToken = localStorage.getItem("accessToken");
 
-        if (!accessToken && isPublic) {
+        if (!accessToken || isPublic) {
           return config;
         }
 
@@ -230,14 +228,26 @@ const axiosInstanceSingleton = (): Function => {
           originalRequest._retry = true;
 
           try {
-            // Get a new access token
-            const accessToken = await getAccessToken();
+            let accessToken = localStorage.getItem("accessToken");
+
+            if (!accessToken) {
+               return Promise.reject(error);
+            }
+
+            // Normal token handling for non-public or unknown pages
+            const expirationTime = localStorage.getItem(
+              "accessTokenExpiration"
+            );
+
+            if (isTokenExpired(expirationTime)) {
+              accessToken = await getAccessToken();
+            }
 
             // Update the authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-            // Retry the original request
-            return api(originalRequest);
+            // Retry the original request with null check
+            return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
           } catch (refreshError) {
             // If refresh token is also expired, redirect to login
             return Promise.reject(refreshError);
