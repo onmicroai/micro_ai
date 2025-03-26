@@ -1,4 +1,4 @@
-name: CI/CD Backend
+name: CI/CD Full (Development)
 
 on:
   push:
@@ -29,7 +29,10 @@ jobs:
             
             # ensure db and redis are up
             docker-compose -p backend -f docker-compose.dev.yml up -d redis
-            docker-compose -p backend -f docker-compose.dev.yml up -d db            
+            docker-compose -p backend -f docker-compose.dev.yml up -d db
+            
+            # copy .env file to the project root to make env vars available at build time
+            cp -f /opt/secrets/.env .env
 
   build:
     name: Build
@@ -108,7 +111,7 @@ jobs:
           rsync -r --delete ./ /docker/volumes/micro_ai
 
           cd /docker/volumes/micro_ai
-          cp -f /opt/secrets/backend.env .env
+          cp -f /opt/secrets/.env .env
 
     - name: Deploy Backend & Frontend
       uses: appleboy/ssh-action@v1.0.3

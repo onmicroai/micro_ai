@@ -45,7 +45,7 @@ jobs:
           rsync -r --delete ./ /docker/volumes/micro_ai
           
           cd /docker/volumes/micro_ai
-          cp -f /opt/secrets/backend.env .env
+          cp -f /opt/secrets/.env .env
 
     - name: Deploy Backend & Frontend
       uses: appleboy/ssh-action@v1.0.3
