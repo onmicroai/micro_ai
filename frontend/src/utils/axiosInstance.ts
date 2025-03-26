@@ -230,8 +230,20 @@ const axiosInstanceSingleton = (): Function => {
           originalRequest._retry = true;
 
           try {
-            // Get a new access token
-            const accessToken = await getAccessToken();
+            let accessToken = localStorage.getItem("accessToken");
+
+            if (!accessToken) {
+               return Promise.reject(error);
+            }
+
+            // Normal token handling for non-public or unknown pages
+            const expirationTime = localStorage.getItem(
+              "accessTokenExpiration"
+            );
+
+            if (isTokenExpired(expirationTime)) {
+              accessToken = await getAccessToken();
+            }
 
             // Update the authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
