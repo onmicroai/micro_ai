@@ -31,8 +31,8 @@ jobs:
             docker-compose -p backend -f docker-compose.dev.yml up -d redis
             docker-compose -p backend -f docker-compose.dev.yml up -d db
             
-            # copy .env file to the project root to make env vars available at build time
-            cp -f /opt/secrets/.env .env
+            # Copy .env file before building to ensure Next.js has access to public env vars at build time
+            cp -f /opt/secrets/.env /home/ubuntu/micro_ai/.env
 
   build:
     name: Build
@@ -50,6 +50,12 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
+            # Ensure environment variables are properly expanded before build
+            # This makes NEXT_PUBLIC_* variables available during build time
+            export $(grep -v '^#' .env | xargs)
+            # Verify that critical environment variables are available
+            echo "NEXT_PUBLIC_CLOUDFRONT_DOMAIN: ${NEXT_PUBLIC_CLOUDFRONT_DOMAIN:-not set}"
+            echo "NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-not set}"
             docker-compose -p frontend -f docker-compose.dev.yml build frontend
 
       - name: Build Web
