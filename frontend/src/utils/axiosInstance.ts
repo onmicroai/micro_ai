@@ -175,7 +175,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         let accessToken = localStorage.getItem("accessToken");
 
-        if (!accessToken && isPublic) {
+        if (!accessToken || isPublic) {
           return config;
         }
 
