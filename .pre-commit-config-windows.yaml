@@ -15,7 +15,7 @@ repos:
     hooks:
       - id: frontend-checks
         name: Frontend Checks
-        entry: bash -c 'cd frontend && yarn lint'
+        entry: cmd.exe /c "cd frontend && npm run lint"
         language: system
         files: ^frontend/.*\.(js|jsx|ts|tsx)$
         pass_filenames: false

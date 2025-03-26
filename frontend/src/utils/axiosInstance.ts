@@ -5,16 +5,15 @@
  */
 "use client";
 
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 /**
  * Singleton, that manages a queue of requests for access token update.
  * Prevents multiple API requests for access token update at the same time
  *
- * @returns {Function}
+ * @returns {() => Promise<string | null>}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const getAccessTokenSingleton = (): Function => {
+const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
   let isRefreshing = false;
   let pendingRequests: Array<(error: any, token: string | null) => void> = [];
 
@@ -102,11 +101,10 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
  * Singleton returns axios configured instance.
  * Prevents creation of the axios configuration for the multiple times
  *
- * @returns {Function}
+ * @returns {() => AxiosInstance}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const axiosInstanceSingleton = (): Function => {
-  let api: any = null;
+const axiosInstanceSingleton = (): (() => AxiosInstance) => {
+  let api: AxiosInstance | null = null;
   const getAccessToken = getAccessTokenSingleton();
   // Cache variables for path visibility
   let lastCheckedPath: string | null = null;
@@ -248,8 +246,8 @@ const axiosInstanceSingleton = (): Function => {
             // Update the authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-            // Retry the original request
-            return api(originalRequest);
+            // Retry the original request with null check
+            return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
           } catch (refreshError) {
             // If refresh token is also expired, redirect to login
             return Promise.reject(refreshError);
