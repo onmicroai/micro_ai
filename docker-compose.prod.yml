@@ -136,9 +136,6 @@ services:
         ipv4_address: 172.25.0.20
     env_file:
       - ./frontend/.env
-    environment:
-      - NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     logging:
       driver: json-file
       options:
@@ -160,9 +157,6 @@ services:
         ipv4_address: 172.25.0.21
     env_file:
       - ./.env
-    environment:
-      - NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     logging:
       driver: json-file
       options:

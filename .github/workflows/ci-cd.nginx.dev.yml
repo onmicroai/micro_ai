@@ -6,7 +6,7 @@ on:
       force_recreate:
         description: 'Force Recreate?'
         required: true
-        default: 'true'
+        default: true
         type: boolean
 
 jobs:
