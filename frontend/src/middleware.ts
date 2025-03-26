@@ -4,11 +4,25 @@ import { NextRequest, NextResponse } from "next/server";
 export function middleware(request: NextRequest) {
   const refreshToken = request.cookies.get("refresh_token")?.value;
   const pathname = request.nextUrl.pathname.toLowerCase();
+  
+  // Check for logout flag in URL (this will be added by our logout function)
+  const isPostLogout = request.nextUrl.searchParams.has('logout');
 
   // Define protected and public paths
   const protectedPaths = ["dashboard", "app/edit", "settings"];
   const authPaths = ["/accounts/login", "/accounts/registration", "/accounts/password/reset"];
   const publicPaths = ["public"];
+
+  // If this is a post-logout redirect, don't try to authenticate
+  if (isPostLogout) {
+    // If trying to access a protected path after logout, redirect to login
+    if (protectedPaths.some(path => pathname.includes(path)) &&
+        !publicPaths.some(path => pathname.includes(path))) {
+      const loginUrl = new NextURL("/accounts/login", request.url);
+      return NextResponse.redirect(loginUrl);
+    }
+    return NextResponse.next();
+  }
 
   // Check if the current path is protected
   const isProtectedPath = protectedPaths.some(path => pathname.includes(path)) &&
