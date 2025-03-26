@@ -78,7 +78,7 @@ jobs:
     needs: build
 
     steps:
-    - name: Deploy Backend
+    - name: Stop Containers
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
@@ -86,44 +86,40 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
-          if [ -d "/docker/volumes/backend" ]; then
-            cd /docker/volumes/backend
-            docker-compose -p backend -f docker-compose.dev.yml down web
+          if [ -d "/docker/volumes/micro_ai" ]; then
+            cd /docker/volumes/micro_ai
             docker-compose -p backend -f docker-compose.dev.yml down celery
-          else
-            echo "Directory /docker/volumes/backend does not exist. Skipping."
-          fi
-          
-          cd /home/ubuntu/micro_ai/backend
-          rsync -r --delete ./ /docker/volumes/backend
-          cp -f ../docker-compose.dev.yml /docker/volumes/backend
-          
-          cd /docker/volumes/backend
-          cp -f /opt/secrets/backend.env .env
-          docker-compose -p backend -f docker-compose.dev.yml up -d web
-          docker-compose -p backend -f docker-compose.dev.yml up -d celery
-
-    - name: Deploy Frontend
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
-          if [ -d "/docker/volumes/frontend" ]; then
-            cd /docker/volumes/frontend
+            docker-compose -p backend -f docker-compose.dev.yml down web
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
           else
-            echo "Directory /docker/volumes/frontend does not exist. Skipping."
+            echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
           fi
-          
-          cd /home/ubuntu/micro_ai/frontend
-          rsync -r --delete ./ /docker/volumes/frontend
-          cp -f ../docker-compose.dev.yml /docker/volumes/frontend
-          
-          cd /docker/volumes/frontend
-          cp -f /opt/secrets/frontend.env .env
+
+    - name: Rsync Data and Env
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+
+          cd /home/ubuntu/micro_ai
+          rsync -r --delete ./ /docker/volumes/micro_ai
+
+          cd /docker/volumes/micro_ai
+          cp -f /opt/secrets/backend.env .env
+
+    - name: Deploy Backend & Frontend
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |          
+          cd /docker/volumes/micro_ai
+          docker compose -p backend -f docker-compose.dev.yml up -d web celery
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:

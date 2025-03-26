@@ -1,4 +1,4 @@
-name: Postgresql+Redis Deployment
+name: Postgresql+Redis Development
 
 on:
   workflow_dispatch:
@@ -19,7 +19,8 @@ on:
           - both
 
 jobs:
-  recreate_nginx:
+  recreate_db_redis:
+    name: Recreate Databases
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
