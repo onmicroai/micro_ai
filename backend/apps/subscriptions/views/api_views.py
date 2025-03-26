@@ -14,7 +14,6 @@ from rest_framework.permissions import AllowAny
 from django.db.models import F
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
-from apps.teams.decorators import team_admin_required
 
 from ..exceptions import SubscriptionConfigError
 from ..helpers import (

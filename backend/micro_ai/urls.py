@@ -22,7 +22,6 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 from apps.subscriptions.webhooks import stripe_webhook
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from apps.teams.urls import team_urlpatterns as single_team_urls
 from apps.subscriptions.urls import team_urlpatterns as subscriptions_team_urls
 from apps.web.urls import team_urlpatterns as web_team_urls
 from apps.web.sitemaps import StaticViewSitemap
