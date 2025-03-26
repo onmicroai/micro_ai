@@ -230,7 +230,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       } finally {
          localStorage.removeItem('accessToken');
          localStorage.removeItem('accessTokenExpiration');
-         router.push('/accounts/login?logout=true');
+         router.push('/accounts/login');
          useDashboardStore.getState().reset();
          resetUserStore();
       }
