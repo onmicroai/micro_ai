@@ -150,7 +150,7 @@ jobs:
           sudo docker builder prune -f
           # Remove unused volumes while preserving media_data
           echo "Removing unused volumes except media_data:"
-          sudo docker volume ls -q | grep -v "micro_ai_media_data" | xargs -r sudo docker volume rm
+          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm
           
           # Check disk space after cleanup
           echo "Disk space after cleanup:"

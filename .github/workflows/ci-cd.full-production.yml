@@ -75,4 +75,4 @@ jobs:
           # Remove build cache
           sudo docker builder prune -f
           # Remove unused volumes (preserving media_data)
-          sudo docker volume ls -q | grep -v "micro_ai_media_data" | xargs -r sudo docker volume rm
+          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm
