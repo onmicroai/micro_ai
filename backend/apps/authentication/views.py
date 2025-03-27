@@ -233,7 +233,7 @@ class CustomUserDetailsView(UserDetailsView):
                 "period_end": subscription.period_end,
                 "cancel_at_period_end": subscription.cancel_at_period_end,
                 "canceled_at": subscription.canceled_at,
-                "customer_id": subscription.customer.id,
+                "customer_id": subscription.customer.id if subscription.source == "stripe" else None,
             }
         else:
             subscription_data = None

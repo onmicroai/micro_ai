@@ -35,10 +35,10 @@ class StripeCustomerAdmin(admin.ModelAdmin):
 @admin.register(Subscription)
 class CustomSubscriptionAdmin(admin.ModelAdmin):
     list_display = (
-        'id', 'get_email', 'subscription_id', 'price_id', 'get_status_display', 'get_period_start',
+        'id', 'get_email', 'subscription_id', 'price_id', 'source', 'get_status_display', 'get_period_start',
         'get_current_period_end', 'canceled_at', 'cancel_at_period_end', 'created_at', 'updated_at'
     )
-    list_filter = ('status', 'created_at', 'updated_at')
+    list_filter = ('source', 'status', 'created_at', 'updated_at')
     search_fields = ('user__email', 'subscription_id', 'price_id')
     ordering = ('-period_start',)
 
@@ -85,8 +85,8 @@ class BillingCycleAdmin(admin.ModelAdmin):
 
 @admin.register(UsageEvent)
 class UsageEventAdmin(admin.ModelAdmin):
-    list_display = ('get_email', 'credits_charged', 'timestamp', 'get_billing_cycle_status', 'get_run_id')
-    list_filter = ('billing_cycle__status', 'timestamp')
+    list_display = ('get_email', 'credits_charged', 'consumer', 'timestamp', 'get_run_id')
+    list_filter = ('timestamp',)
     search_fields = ('user__email', 'run_id')
     ordering = ('-timestamp',)
 
@@ -94,11 +94,6 @@ class UsageEventAdmin(admin.ModelAdmin):
         return obj.user.email if obj.user else '-'
     get_email.short_description = 'Email'
     get_email.admin_order_field = 'user__email'
-
-    def get_billing_cycle_status(self, obj):
-        return obj.billing_cycle.status if obj.billing_cycle else '-'
-    get_billing_cycle_status.short_description = 'Billing Cycle Status'
-    get_billing_cycle_status.admin_order_field = 'billing_cycle__status'
 
     def get_run_id(self, obj):
         return obj.run_id if obj.run_id else '-'

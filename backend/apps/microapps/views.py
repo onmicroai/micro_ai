@@ -118,7 +118,7 @@ class MicroAppList(APIView):
             data = request.data
             cid = data.get("collection_id")
             if (cid is not None and isinstance(cid, int)):
-                usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+                usage_info = MicroAppUsage.check_max_apps(request.user.id)
                 if usage_info["can_create"]:
                     serializer = MicroAppSerializer(data=data)
                     if serializer.is_valid():
@@ -308,7 +308,8 @@ class CloneMicroApp(APIView):
                     )
                 target_collection_id = default_collection.id
 
-            if MicroAppUsage.microapp_related_info(request.user.id):
+            usage_info = MicroAppUsage.check_max_apps(request.user.id)
+            if usage_info["can_create"]:
                 # Instead of using model_to_dict, use the serializer to get the data
                 original_data = MicroAppSerializer(microapp).data
                 # Remove the fields we don't want to copy
@@ -572,8 +573,6 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
 
-            print("CREDITS", response["credits"])
-
             credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
 
@@ -622,84 +621,76 @@ class RunList(APIView):
         except Exception as e:
             log.error(e)
             log.error(f"Response data: {response}")
-    
-    def fixed_response_phase(self, phase_type, fixed_response):
-        """
-        Router for fixed response phases based on type.
-        
-        Args:
-            phase_type (str): Type of phase - 'skip', 'no_submission', or 'hard_coded'
-            
-        Returns:
-            dict: Response data for the specified phase type
-        """
-        if fixed_response:
-            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": fixed_response, "cost": 0, "credits": 0}
-        if phase_type == "skip":
-            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
-        elif phase_type == "hard_coded":
-            return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission. No prompt provided", "cost": 0, "credits": 0}
-        
-        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0}
 
-    def update_user_credits(self, run_id, user_id):
+    def skip_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
+
+    def no_submission_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "No submission", "cost": 0, "credits": 0 }
+
+    def hard_coded_phase(self):
+        return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "", "cost": 0, "credits": 0}
+
+    def update_user_credits(self, run_id, app_owner_id, consumer_id):
         try:
             billing_cycle = BillingCycle.objects.filter(
-                user=user_id,
+                user=app_owner_id,
                 status='open',
                 start_date__lte=timezone.now(),
                 end_date__gte=timezone.now()
             ).first()
 
-            if billing_cycle:
-                credit_charged = self.credits
+            main_available = billing_cycle.credits_remaining
+            
+            top_ups = TopUpToSubscription.objects.filter(user=app_owner_id)
+            
+            original_credits = self.credits
+            credits_to_deduct = original_credits
+
+            if main_available >= credits_to_deduct:
+                billing_cycle.record_usage(credits_to_deduct)
+                credits_to_deduct = 0
+            else:
+                billing_cycle.record_usage(main_available)
+                credits_to_deduct -= main_available
+
+            if credits_to_deduct > 0:
+                top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
+                for top_up in top_ups_to_update:
+                    if credits_to_deduct <= 0:
+                        break
+                    available_in_topup = top_up.remaining_credits
+                    if available_in_topup >= credits_to_deduct:
+                        top_up.record_usage(credits_to_deduct)
+                        credits_to_deduct = 0
+                    else:
+                        top_up.record_usage(available_in_topup)
+                        credits_to_deduct -= available_in_topup
                 
-                try:
-                    # Record usage in our system
-                    billing_cycle.record_usage(credit_charged)
+            try:
+                # Create usage event
+                usage_event_data = {
+                    "billing_cycle": billing_cycle.id,
+                    "top_up": top_up.id if top_up else None,
+                    "user": app_owner_id,
+                    "consumer": consumer_id,
+                    "run_id": run_id,
+                    "credits_charged": original_credits,
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                serializer = UsageEventSerializer(data=usage_event_data)
+                if serializer.is_valid():
+                    serializer.save()
                     
-                    # Create usage event
-                    usage_event_data = {
-                        "billing_cycle": billing_cycle.id,
-                        "user": user_id,
-                        "run_id": run_id,
-                        "credits_charged": credit_charged,
-                        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    }
-                    serializer = UsageEventSerializer(data=usage_event_data)
-                    if serializer.is_valid():
-                        serializer.save()
-                        
-                        # Submit usage to Stripe if we have a subscription item ID
-                        if billing_cycle.stripe_subscription_item_id:
-                            try:
-                                # Initialize Stripe API key
-                                stripe.api_key = env("STRIPE_TEST_SECRET_KEY")
-                                
-                                log.info(f"Submitting usage to Stripe: {billing_cycle.stripe_subscription_item_id}, {credit_charged}, {int(datetime.datetime.now().timestamp())}")
-                                stripe.SubscriptionItem.create_usage_record(
-                                    billing_cycle.stripe_subscription_item_id,
-                                    quantity=credit_charged,
-                                    timestamp=int(datetime.datetime.now().timestamp()),
-                                    action='increment'
-                                )
-                                billing_cycle.last_usage_record_timestamp = timezone.now()
-                                billing_cycle.save()
-                            except Exception as e:
-                                log.error(f"Failed to submit usage to Stripe: {str(e)}")
-                        else:
-                            log.info("No subscription item ID found")
-                        
-                        return True
+                    return True
+                
+                log.error(serializer.errors)
+                return False
+                
+            except ValueError as e:
+                log.error(f"Error recording usage: {str(e)}")
+                return False
                     
-                    log.error(serializer.errors)
-                    return False
-                    
-                except ValueError as e:
-                    log.error(f"Error recording usage: {str(e)}")
-                    return False
-                    
-            return False
             
         except Exception as e:
             log.error(e)
@@ -725,7 +716,7 @@ class RunList(APIView):
             ip = get_user_ip(request)
             # Handle guest users usage
             if not request.user.id:
-                if not GuestUsage.get_run_related_info(self, ip):
+                if not GuestUsage.check_usage_limit(self, ip):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
                 app_owner_id = None
             # Handle logged-in users usage
@@ -739,9 +730,13 @@ class RunList(APIView):
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
-                # Checking for usage limit
-                if not RunUsage.get_run_related_info(self, app_owner_id, user_date_joined):
-                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
+                # Check if the owner has any credits available
+                credits_check = RunUsage.check_for_available_credits(self, app_owner_id, user_date_joined)
+                if not credits_check["has_credits"]:
+                    return Response(
+                        {"error": credits_check["message"]},
+                        status = status.HTTP_400_BAD_REQUEST
+                    )
                 
             # Return model instance based on AI-model name
             print("data.get('model')", data.get("model"))
@@ -765,22 +760,18 @@ class RunList(APIView):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
-            fixed_response = data.get("fixed_response")
-            has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
-            if has_fixed_response:
-                response = self.fixed_response_phase('no_submission', fixed_response)
-                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
-            elif data.get("request_skip"):
-                response = self.fixed_response_phase('skip')
+            # Handle skip phase
+            if data.get("request_skip"):
+                response = self.skip_phase()
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
-                    response = self.fixed_response_phase('hard_coded')
+                    response = self.hard_coded_phase()
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
-                    response = self.fixed_response_phase('no_submission')
+                    response = self.no_submission_phase()
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
@@ -816,7 +807,7 @@ class RunList(APIView):
             if serializer.is_valid():
                 
                 serialize = serializer.save()
-                self.update_user_credits(serialize.id, request.user.id)
+                self.update_user_credits(serialize.id, app_owner_id, request.user.id if request.user.id else None)
                 run_data["id"] = serialize.id
                 run_data["credits"] = self.credits
 
@@ -927,7 +918,9 @@ class AnonymousRunList(RunList):
     def check_payload(self, data, request):
         try:
             # For anonymous runs, we don't require user_id or ma_id
-            required_fields = []
+            required_fields = [
+                "ma_id"
+            ]
 
             for field in required_fields:
                 if data.get(field) is None:
@@ -952,13 +945,12 @@ class AnonymousRunList(RunList):
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
             
-            app_owner_id = None
-            if data.get("ma_id"):
-                try:
-                    app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
-                    app_owner_id = app_owner.user_id.id 
-                except MicroAppUserJoin.DoesNotExist:
-                    pass
+            try:
+                app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+                app_owner_id = app_owner.user_id.id
+            except MicroAppUserJoin.DoesNotExist:
+                return Response({"error": "Microapp owner not found", "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND)
             
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
@@ -970,8 +962,25 @@ class AnonymousRunList(RunList):
             ip = get_user_ip(request)
             
             # Handle guest users usage
-            if not GuestUsage.get_run_related_info(self, ip):
+            if not GuestUsage.check_usage_limit(self, ip):
                 return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
+            else:
+                # Get microapp owner id
+                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
+                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+                # Get ma hash_id
+                ma_data = Microapp.objects.get(id=data.get("ma_id"))
+                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
+                # Get owner details
+                users = CustomUser.objects.get(id = app_owner_id)
+                user_date_joined = UserSerializer(users).data["date_joined"]
+                # Check if the owner has any credits available
+                credits_check = RunUsage.check_for_available_credits(self, app_owner_id, user_date_joined)
+                if not credits_check["has_credits"]:
+                    return Response(
+                        {"error": credits_check["message"]},
+                        status = status.HTTP_400_BAD_REQUEST
+                    )
             
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
@@ -997,23 +1006,18 @@ class AnonymousRunList(RunList):
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
 
             # Handle skip phase
-            fixed_response = data.get("fixed_response")
-            has_fixed_response = data.get("has_fixed_response") and isinstance(fixed_response, str) and len(fixed_response) > 0
-            if has_fixed_response:
-                response = self.fixed_response_phase('no_submission', fixed_response)
-                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
-            elif data.get("request_skip"):
-                response = self.fixed_response_phase('skip')
+            if data.get("request_skip"):
+                response = self.skip_phase()
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             elif data.get("no_submission"):
                 # Handle hardcoded phase
                 if not data.get("prompt"):
-                    response = self.fixed_response_phase('hard_coded')
+                    response = self.hard_coded_phase()
                     self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
                 # Handle no-submission phase
                 else:
-                    response = self.fixed_response_phase('no_submission')
-                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE            
+                    response = self.no_submission_phase()
+                    self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
                 response = model.get_response(api_params)
@@ -1047,7 +1051,8 @@ class AnonymousRunList(RunList):
             serializer = RunGetSerializer(data=run_data)
 
             if serializer.is_valid():
-                serializer.save()
+                serialize = serializer.save()
+                self.update_user_credits(serialize.id, app_owner_id, request.user.id if request.user.id else None)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},
                     status=status.HTTP_200_OK,
@@ -1469,7 +1474,7 @@ class AppQuota(APIView):
     def get(self, request):
         try:
             # Get usage info from MicroAppUsage
-            usage_info = MicroAppUsage.microapp_related_info(request.user.id)
+            usage_info = MicroAppUsage.check_max_apps(request.user.id)
             
             # Calculate remaining apps
             remaining_apps = usage_info["limit"] - usage_info["current_count"]

@@ -158,11 +158,6 @@ export function PricingSection() {
           </div>
         ))}
       </div>
-      <div className="mt-16 flex justify-center">
-        <div className="w-full max-w-4xl rounded-lg bg-white p-8 shadow-md ring-1 ring-gray-200">
-          <StripePricingTable />
-        </div>
-      </div>
     </div>
   );
 }

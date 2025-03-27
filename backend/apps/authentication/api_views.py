@@ -23,6 +23,9 @@ from allauth.account.models import EmailConfirmation
 import logging
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
 import os
+from apps.subscriptions.helpers import create_free_subscription, create_free_billing_cycle
+from apps.utils.usage_helper import subscription_details
+from apps.subscriptions.models import Subscription
 
 logger = logging.getLogger(__name__)
 
@@ -273,6 +276,14 @@ class CustomRegisterView(BaseRegisterView):
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
+        
+        # Create free subscription for new user
+        subscription_instance = create_free_subscription(user)
+        # Get the serialized version of the new subscription
+        subscription_data = subscription_details(user.id)
+        subscription_instance = Subscription.objects.get(id=subscription_data["id"])
+
+        create_free_billing_cycle(user, subscription_instance)
         
         # Check if email verification is already set up
         from allauth.account.models import EmailAddress

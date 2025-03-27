@@ -30,7 +30,7 @@ const features = [
   {
     title: 'Start for Free',
     description:
-      'A generous free tier offers 100,000 AI credits each month. No credit card required.',
+      'A generous free tier offers 10,000 AI credits each month. No credit card required.',
     image: '/img/homepage/registration-bg.png',
   },
 ]
