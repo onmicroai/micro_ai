@@ -12,7 +12,6 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
 from apps.users.models import CustomUser
 from .serializers import LoginResponseSerializer, OtpRequestSerializer, EmailVerificationSerializer
 import uuid
@@ -236,7 +235,7 @@ class EmailVerificationView(GenericAPIView):
             )
 
 class APICustomLogoutView(APIView):
-    permission_classes = (IsAuthenticated,)
+    permission_classes = ()
 
     def post(self, request):
         try:
