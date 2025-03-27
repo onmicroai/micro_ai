@@ -269,6 +269,7 @@ const {
       id: crypto.randomUUID(),
       aiModel: aiConfig.aiModel,
       cost: 0,
+      credits: 0,
       status: 'pending' as const,
       createdAt: Date.now(),
       updatedAt: Date.now(),
