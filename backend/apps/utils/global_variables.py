@@ -113,14 +113,19 @@ class AIModelConstants:
             "max_tokens": 4096,
             "supports_image": True
         },
+        "gemini-1.5-pro": {
+            **AIModelFamilyDefaults.GEMINI,
+            "model": "gemini/gemini-1.5-pro",
+            "supports_image": True
+        },
         "gemini-2.0-flash": {
             **AIModelFamilyDefaults.GEMINI,
             "model": "gemini/gemini-2.0-flash",
             "supports_image": True
         },
-        "gemini-pro": {
+        "gemini-2.0-flash-lite": {
             **AIModelFamilyDefaults.GEMINI,
-            "model": "gemini/gemini-pro",
+            "model": "gemini/gemini-2.0-flash-lite",
             "supports_image": True
         },
         "sonar-pro": {
