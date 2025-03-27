@@ -63,6 +63,7 @@ const handleAIResponse = async (
             run_score: responseData.run_score,
             no_submission: responseData.no_submission,
             cost: responseData.cost,
+            credits: responseData.credits,
             session_id: responseData.session_id
          });
       }

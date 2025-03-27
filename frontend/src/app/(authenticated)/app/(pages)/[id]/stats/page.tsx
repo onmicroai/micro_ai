@@ -173,15 +173,15 @@ export default function StatsPage({ params }: { params: { id: string } }) {
               </p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-600 text-sm">Total Cost (Lifetime)</p>
+              <p className="text-gray-600 text-sm">Total Cost (Credits)</p>
               <p className="text-2xl font-bold">
-                ${stats?.data[0]?.total_cost?.toFixed(6) || '0.00'}
+                {stats?.data[0]?.total_credits || '0'}
               </p>
             </div>
             <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-gray-600 text-sm">Avg. Cost per Usage</p>
+              <p className="text-gray-600 text-sm">Avg. Cost per Usage (Credits)</p>
               <p className="text-2xl font-bold">
-                ${stats?.data[0]?.avg_cost_session?.toFixed(6) || '0.00'}
+                {stats?.data[0]?.avg_credits_session || '0'}
               </p>
             </div>
           </div>
@@ -241,7 +241,7 @@ export default function StatsPage({ params }: { params: { id: string } }) {
                     Messages
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Cost
+                    Credits
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Model
@@ -264,7 +264,7 @@ export default function StatsPage({ params }: { params: { id: string } }) {
                       {conv.messages_count}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                      ${conv.total_cost.toFixed(6)}
+                      {conv.total_credits}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {conv.model}

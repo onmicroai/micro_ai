@@ -112,7 +112,7 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
             </div>
             {(isOwner || isAdmin) && (
                <span className="text-xs text-gray-400">
-                  Cost: ${typeof run.cost === 'string' ? Number(run.cost).toFixed(6) : run.cost?.toFixed(6) || '0.000000'}
+                  Credits Used: {typeof run.credits === 'string' ? Number(run.credits).toFixed(0) : run.credits?.toFixed(0) || '0'}
                </span>
             )}
          </div>

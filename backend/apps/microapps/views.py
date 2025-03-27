@@ -1327,12 +1327,14 @@ class AppStatistics(APIView):
                 total_cost=Sum(
                     'cost'
                 ),
+                total_credits=Sum('credits'),
                 unique_users=Count('user_ip', distinct=True),
                 sessions=Count('session_id', distinct=True),
                 avg_cost_session = F('total_cost') / F('sessions'),
+                avg_credits_session = F('total_credits') / F('sessions'),
 
 
-            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'unique_users', 'sessions' ,'avg_cost_session')
+            ).values('ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 'total_responses', 'total_cost', 'total_credits', 'unique_users', 'sessions' ,'avg_cost_session', 'avg_credits_session')
        
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)  
               
@@ -1361,7 +1363,8 @@ class AppConversations(APIView):
             conversations = query.values('session_id').annotate(
                 start_time=Min('timestamp'),
                 total_cost=Sum('cost'),
-                messages_count=Count('id')
+                messages_count=Count('id'),
+                total_credits=Sum('credits')
             )
 
             # Step 2: For satisfaction and ai_model, calculate mode separately

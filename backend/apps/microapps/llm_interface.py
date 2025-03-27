@@ -177,7 +177,7 @@ class UnifiedLLMInterface:
             
             usage = response.usage
             total_cost = response._hidden_params["response_cost"]
-            credits = int(total_cost * 1000)
+            credits = self.calculate_credits(total_cost)
             ai_score = response.choices[0].message.content
             score_result = False
             
