@@ -2,7 +2,6 @@
 "use client"; 
 
 import axios from "axios";
-import axiosInstance from "@/utils/axiosInstance";
 import {
    createContext,
    FC,
@@ -75,7 +74,6 @@ const handleApiError = (error: any) => {
  * @returns 
  */
 export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
-   const api = axiosInstance();
    const router = useRouter();
    const { 
       user,
@@ -224,7 +222,9 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
     */
    const logout = useCallback(async (): Promise<void> => {
       try {
-         await api.post('/api/auth/logout/');
+         await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
+            withCredentials: true
+         });
       } catch (error: any) {
          handleApiError(error);
       } finally {
@@ -234,7 +234,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
          useDashboardStore.getState().reset();
          resetUserStore();
       }
-   }, [resetUserStore, router, api]);
+   }, [resetUserStore, router]);
 
    useEffect(() => {
       const controller = new AbortController();

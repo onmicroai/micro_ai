@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { Collection, AppSerialized, AppRaw } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
 import { toast } from 'react-toastify';
-
 interface DashboardStore {
    // State
    collections: Collection[];
