@@ -9,11 +9,12 @@ import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 
 /**
- * Logs out a user when authentication fails
+ * Private function that logs out a user when authentication fails for edge cases
+ * 
  * @param {any} error - Error object that triggered the logout
  * @returns Promise<void>
  */
-export const forceLogout = async (error: any): Promise<void> => {
+const forceLogout = async (error: any): Promise<void> => {
    console.log("forceLogout", error);
 
    if (error?.response?.status !== 401) {
@@ -115,13 +116,7 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
     return true;
   }
 
-  const expirationTimeNumber = Number(expirationTime);
-
-  if (isNaN(expirationTimeNumber)) {
-    return true;
-  }
-
-  const expirationDate = new Date(expirationTimeNumber);
+  const expirationDate = new Date(expirationTime);
   const currentTime = new Date();
   return currentTime >= expirationDate;
 };
