@@ -7,6 +7,27 @@
 
 import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
+
+/**
+ * Logs out a user
+ * @param {any} error - The error object
+ * @returns Promise<void>
+ */
+export const forceLogout = async (error: any): Promise<void> => {
+   console.log("forceLogout", error);
+   try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
+         withCredentials: true
+      });
+   } catch (error: any) {
+      console.error("Error logging out:", error);
+   } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('accessTokenExpiration');
+      window.location.href = '/accounts/login';
+   }
+};
+
 /**
  * Singleton, that manages a queue of requests for access token update.
  * Prevents multiple API requests for access token update at the same time
@@ -70,10 +91,7 @@ const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
       processQueue(error, null);
       // If refresh token is expired, clear tokens and redirect to login
       if (error.name !== "CanceledError") {
-        console.error("........getAccessToken error........", error);
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("accessTokenExpiration");
-        window.location.href = "/accounts/login";
+        forceLogout(error);
       }
       throw error;
     } finally {
@@ -202,6 +220,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         return config;
       },
       (error: any) => {
+        forceLogout(error);
         return Promise.reject(error);
       }
     );
@@ -222,6 +241,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
 
         if (isPublic) {
+          forceLogout(error);
           return Promise.reject(error);
         }
 
@@ -237,7 +257,8 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             let accessToken = localStorage.getItem("accessToken");
 
             if (!accessToken) {
-               return Promise.reject(error);
+              forceLogout(error);
+              return Promise.reject(error);
             }
 
             // Normal token handling for non-public or unknown pages
@@ -255,11 +276,12 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             // Retry the original request with null check
             return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
           } catch (refreshError) {
-            // If refresh token is also expired, redirect to login
+            forceLogout(refreshError);
             return Promise.reject(refreshError);
           }
         }
 
+        forceLogout(error);
         return Promise.reject(error);
       }
     );
