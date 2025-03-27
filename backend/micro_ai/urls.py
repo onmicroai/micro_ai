@@ -22,8 +22,6 @@ from django.urls import path, include
 from django.views.generic import RedirectView
 from apps.subscriptions.webhooks import stripe_webhook
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
-from apps.subscriptions.urls import team_urlpatterns as subscriptions_team_urls
-from apps.web.urls import team_urlpatterns as web_team_urls
 from apps.web.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
@@ -34,13 +32,6 @@ sitemaps = {
     "static": StaticViewSitemap(),
 }
 
-# urls that are unique to using a team should go here
-team_urlpatterns = [
-    path("", include(web_team_urls)),
-    path("subscription/", include(subscriptions_team_urls)),
-    path("team/", include(single_team_urls)),
-]
-
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("admin/doc/", include("django.contrib.admindocs.urls")),
@@ -48,7 +39,6 @@ urlpatterns = [
     path("admin/login/", RedirectView.as_view(pattern_name="account_login")),
     path("api/dashboard/", include("apps.dashboard.urls")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
-    path("a/<slug:team_slug>/", include(team_urlpatterns)),
     path("accounts/login/", CustomLoginView.as_view(), name='account_login'),
     path("accounts/signup/", CustomSignupView.as_view(), name='account_signup'),
     path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
