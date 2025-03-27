@@ -9,12 +9,17 @@ import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 
 /**
- * Logs out a user
- * @param {any} error - The error object
+ * Logs out a user when authentication fails
+ * @param {any} error - Error object that triggered the logout
  * @returns Promise<void>
  */
 export const forceLogout = async (error: any): Promise<void> => {
    console.log("forceLogout", error);
+
+   if (error?.response?.status !== 401) {
+      return;
+   }
+
    try {
       await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
          withCredentials: true
