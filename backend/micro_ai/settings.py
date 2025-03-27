@@ -413,12 +413,6 @@ if REDIS_URL.startswith("rediss"):
 CELERY_BROKER_URL = CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
-# Waffle config
-
-WAFFLE_FLAG_MODEL = "teams.Flag"
-
-# Pegasus config
-
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
     "NAME": gettext_lazy("OnMicro.AI"),
