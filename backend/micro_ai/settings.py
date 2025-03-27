@@ -72,9 +72,7 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "rest_framework_api_key",
     "celery_progress",
-    "djstripe",  # stripe integration
     "whitenoise.runserver_nostatic",  # whitenoise runserver
-    "waffle",
     "django_celery_beat",
 ]
 
@@ -104,7 +102,6 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
@@ -413,6 +410,7 @@ if REDIS_URL.startswith("rediss"):
 CELERY_BROKER_URL = CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
+
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
     "NAME": gettext_lazy("OnMicro.AI"),
@@ -470,15 +468,8 @@ TOP_UP_CREDITS_PLAN_ID=env("TOP_UP_CREDITS_PLAN_ID")
 TOP_UP_CREDITS=env.int("TOP_UP_CREDITS", default=200000)
 
 DEFAULT_PORTAL_CONFIGURATION_ID=env("DEFAULT_PORTAL_CONFIGURATION_ID")
-# djstripe settings
-# Get it from the section in the Stripe dashboard where you added the webhook endpoint
-# or from the stripe CLI when testing
-DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"  # change to "djstripe_id" if not a new installation
-DJSTRIPE_SUBSCRIBER_MODEL = "teams.Team"
-DJSTRIPE_SUBSCRIBER_MODEL_REQUEST_CALLBACK = lambda request: request.team  # noqa E731
 
 SILENCED_SYSTEM_CHECKS = [
-    "djstripe.I002",  # Pegasus uses the same settings as dj-stripe for keys, so don't complain they are here
 ]
 
 LOGGING = {
