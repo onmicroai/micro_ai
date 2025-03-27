@@ -220,7 +220,7 @@ class EmailVerificationView(GenericAPIView):
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
-                max_age=timedelta(days=7).total_seconds(),
+                max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
                 httponly=True,
                 secure=is_production,
                 samesite=samesite,
@@ -245,26 +245,30 @@ class APICustomLogoutView(APIView):
                 try:
                     token = RefreshToken(refresh_token)
                     token.blacklist()
-                except Exception:
-                    pass
-                    # return Response(
-                    #     {"detail": "Failed to log out, token not found."},
-                    #     status=status.HTTP_400_BAD_REQUEST)
-                
-                response = Response(
-                    {"detail": "Successfully logged out."},
-                    status=status.HTTP_205_RESET_CONTENT
-                )
+                except Exception as e:
+                    logger.warning(f"Failed to blacklist token: {str(e)}")
 
-                response.delete_cookie('refresh_token')
-                response.delete_cookie('csrftoken')
+                response = Response({"detail": "Successfully logged out."}, status=status.HTTP_205_RESET_CONTENT)
+
+                # Get the same settings used when setting the cookie
+                is_production = os.getenv("PRODUCTION", "False") == "True"
+                samesite = "None" if is_production else "Lax"
+                cookies_domain = os.getenv("COOKIES_DOMAIN", None)
+
+                try:
+                    response.delete_cookie("refresh_token", domain=cookies_domain, path="/", samesite=samesite)
+                except Exception as e:
+                    logger.error(f"Failed to delete cookies: {str(e)}")
+                    # Continue with response even if cookie deletion fails
 
                 return response
+            else:
+                logger.warning("No refresh token found in cookies")
+                return Response({"detail": "No refresh token found."}, status=status.HTTP_400_BAD_REQUEST)
 
         except Exception as e:
-            return Response(
-                {"detail": "Failed to log out."},
-                status=status.HTTP_400_BAD_REQUEST)
+            logger.error(f"Logout failed: {str(e)}")
+            return Response({"detail": "Failed to log out."}, status=status.HTTP_400_BAD_REQUEST)
 
 class CustomRegisterView(BaseRegisterView):
     def get_response_data(self, user):
@@ -302,8 +306,6 @@ class CustomRegisterView(BaseRegisterView):
         # Create a new confirmation with the correct template
         if email_addresses:
             email_address = email_addresses[0]
-            from allauth.account.adapter import get_adapter
-            
             # Create confirmation
             confirmation = EmailConfirmation.create(email_address)
             
