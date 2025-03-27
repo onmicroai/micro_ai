@@ -220,7 +220,7 @@ class EmailVerificationView(GenericAPIView):
             response.set_cookie(
                 'refresh_token',
                 str(refresh),
-                max_age=timedelta(days=7).total_seconds(),
+                max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
                 httponly=True,
                 secure=is_production,
                 samesite=samesite,

@@ -2,8 +2,8 @@
 
 import os
 from django.utils.deprecation import MiddlewareMixin
-from datetime import timedelta
 from rest_framework_simplejwt.tokens import RefreshToken
+from django.conf import settings
 
 class JWTRefreshTokenMiddleware(MiddlewareMixin):
     def process_response(self, request, response):
@@ -18,7 +18,7 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                 response.set_cookie(
                     'refresh_token',
                     response.data['refresh'],
-                    max_age=timedelta(days=7).total_seconds(),
+                    max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
                     httponly=True,
                     secure=is_production,
                     samesite=samesite,
@@ -37,7 +37,7 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                 response.set_cookie(
                     'refresh_token',
                     str(refresh),
-                    max_age=timedelta(days=7).total_seconds(),
+                    max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
                     httponly=True,
                     secure=is_production,
                     samesite=samesite,
