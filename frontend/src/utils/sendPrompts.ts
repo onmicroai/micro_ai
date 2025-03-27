@@ -63,6 +63,7 @@ const handleAIResponse = async (
             run_score: responseData.run_score,
             no_submission: responseData.no_submission,
             cost: responseData.cost,
+            credits: responseData.credits,
             session_id: responseData.session_id
          });
       }
@@ -268,6 +269,7 @@ const {
       id: crypto.randomUUID(),
       aiModel: aiConfig.aiModel,
       cost: 0,
+      credits: 0,
       status: 'pending' as const,
       createdAt: Date.now(),
       updatedAt: Date.now(),

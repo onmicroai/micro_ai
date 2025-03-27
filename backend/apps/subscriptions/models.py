@@ -85,13 +85,17 @@ class Subscription(models.Model):
     )
     customer = models.ForeignKey(
         StripeCustomer,
+        null=True,
+        blank=True,
         on_delete=models.CASCADE,
         related_name='subscriptions'
     )
     subscription_id = models.CharField(
         max_length=255,
         unique=True,
-        help_text="ID of the Stripe subscription"
+        null=True,
+        blank=True,
+        help_text="ID of the Stripe subscription (only required for Stripe subscriptions)"
     )
     price_id = models.CharField(
         max_length=255,
@@ -104,6 +108,11 @@ class Subscription(models.Model):
         choices=SubscriptionStatus.choices,
         null=True,
         blank=True
+    )
+    source = models.CharField(
+        max_length=20,
+        choices=[('stripe', 'Stripe'), ('internal', 'Internal')],
+        default='internal'
     )
     period_start = models.BigIntegerField(
         null=True,
@@ -282,7 +291,15 @@ class BillingCycle(models.Model):
 
 class UsageEvent(models.Model):
     billing_cycle = models.ForeignKey(BillingCycle, on_delete=models.CASCADE)
+    top_up = models.ForeignKey(TopUpToSubscription, on_delete=models.CASCADE, null=True, blank=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    consumer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='consumed_usage_events'
+    )
     run_id = models.ForeignKey(Run, on_delete=models.CASCADE)
     credits_charged = models.FloatField()
     timestamp = models.DateTimeField(auto_now_add=True)

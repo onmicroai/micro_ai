@@ -12,7 +12,7 @@ const features = [
   {
     title: 'Build',
     description:
-      "Build apps using the drag and drop editor without touching any code. Create apps that leverage AI to accelerate course development processes, scale your feedback, or automate assessment, all while protecting your voice and your pedagogy.",
+      "Build apps using the drag and drop editor without touching any code. Create apps that leverage AI to accelerate course development processes, scale your feedback, or automate assessment. All while protecting instructor voice and pedagogy.",
     image: '/img/homepage/build.gif',
   },
   {
@@ -30,7 +30,7 @@ const features = [
   {
     title: 'Start for Free',
     description:
-      'A generous free tier offers 100,000 AI credits each month. No credit card required.',
+      'A generous free tier offers 10,000 AI credits each month. No credit card required.',
     image: '/img/homepage/registration-bg.png',
   },
 ]

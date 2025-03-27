@@ -1,19 +1,19 @@
 import logging
+import uuid
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.conf import settings
+from datetime import timedelta
 import stripe
 
 from stripe.error import InvalidRequestError
-from stripe.api_resources.billing_portal.session import Session as BillingPortalSession
-from stripe.api_resources.checkout import Session as CheckoutSession
-
 from apps.subscriptions.constants import PLANS, PRICE_IDS
 from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
+from apps.utils.usage_helper import convert_timestamp_to_datetime
+from apps.utils.global_variables import UsageVariables
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -116,7 +116,7 @@ def create_stripe_checkout_session(plan, customer_id=None, customer_email=None,
 
         return checkout_session
 
-    except Exception as e:
+    except:
         raise
 
 def get_subscription_details(subscription_id: str) -> dict:
@@ -238,10 +238,6 @@ def set_subscription_max_apps(subscription, max_apps: int) -> None:
         config.max_apps = max_apps
         config.save()
 
-def get_subscription_max_apps(subscription) -> int:
-    from .models import SubscriptionConfiguration
-    return SubscriptionConfiguration.get_max_apps(subscription)
-
 def upsert_subscription(customer_id, data):
     from apps.utils.usage_helper import convert_timestamp_to_datetime
 
@@ -283,6 +279,7 @@ def upsert_subscription(customer_id, data):
             user=stripe_customer.user,
             customer=stripe_customer,
             subscription_id=new_subscription_id,
+            source="stripe",
             price_id=data.get("price_id"),
             status=data.get("status"),
             cancel_at_period_end=data.get("cancel_at_period_end"),
@@ -485,3 +482,39 @@ def cancel_active_schedule(subscription):
                 "No downgrade phase found in schedule %s; no modification needed.",
                 schedule.id
             )
+
+
+def create_free_subscription(user):
+    """
+    Creates a free subscription for a new user.
+    """
+    now = timezone.now()
+    subscription = Subscription.objects.create(
+        user=user,
+        customer=None,
+        subscription_id=f"free_{uuid.uuid4().hex}",
+        status='active',
+        source='internal',
+        price_id="id_free",
+        period_start=int(now.timestamp()),
+        period_end=int((now + timedelta(days=30)).timestamp()),
+    )
+    return subscription
+
+def create_free_billing_cycle(user, subscription_instance):
+    """
+    Creates a free billing cycle for a new user.
+    """
+
+    period_start = convert_timestamp_to_datetime(subscription_instance.period_start)
+    period_end = convert_timestamp_to_datetime(subscription_instance.period_end)
+    billing_cycle = BillingCycle.objects.create(
+        user=user,
+        subscription=subscription_instance,
+        status="open",
+        start_date=period_start,
+        end_date=period_end,
+        credits_allocated=UsageVariables.FREE_PLAN_CREDIT_LIMIT,
+        credits_remaining=UsageVariables.FREE_PLAN_CREDIT_LIMIT,
+    )
+    log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")

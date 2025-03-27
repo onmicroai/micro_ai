@@ -1,4 +1,4 @@
-name: NGINX Production
+name: NGINX Development
 
 on:
   workflow_dispatch:
@@ -6,14 +6,13 @@ on:
       force_recreate:
         description: 'Force Recreate?'
         required: true
-        default: 'true'
+        default: true
         type: boolean
-
-
 
 jobs:
   # Verify if containers are running, otherwise starting nginx would lead into an error like "host not found".
   verify_containers:
+    name: Verify Containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
 
@@ -21,20 +20,21 @@ jobs:
       - name: verify containers are running
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host: ${{ secrets.SERVER_IP }}
+          host: ${{ secrets.SERVER_IP_DEV }}
           username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           port: 22
           script: |
-            containers=("frontend" "frontend-staging" "web" "web-staging")
+            containers=("frontend" "web")
             for container in "${containers[@]}"; do
               if ! docker ps --filter "name=^/${container}$" --filter "status=running" -q | grep -q . ; then
                 echo "ERROR: Container '$container' is NOT running!"
                 exit 1
               fi
-            done
+            done  
 
   recreate_nginx:
+    name: Recreate NGINX
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: verify_containers
@@ -43,27 +43,27 @@ jobs:
     - name: prepare
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           mkdir -p /docker/volumes/nginx
           
           cd /home/ubuntu/microai-frontend
-          git pull origin main
+          git pull origin dev
           
           cd nginx
-          /bin/cp -rf nginx.prod.conf /docker/volumes/nginx/nginx.conf
+          /bin/cp -rf nginx.dev.conf /docker/volumes/nginx/nginx.conf
           /bin/cp -rf docker-compose-nginx.yaml /docker/volumes/nginx/docker-compose.yaml
           /bin/cp -rf fallback /docker/volumes/nginx/
 
     - name: rebuild nginx
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SERVER_IP }}
+        host: ${{ secrets.SERVER_IP_DEV }}
         username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
         port: 22
         script: |
           

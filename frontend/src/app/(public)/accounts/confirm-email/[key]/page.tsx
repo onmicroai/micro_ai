@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "react-toastify";
-import { Loader2 } from "lucide-react";
+import { DotLottieReact } from '@lottiefiles/dotlottie-react';
+
 import { useAuth } from "@/context/AuthContext";
 
 export default function EmailVerificationPage({
@@ -83,7 +84,11 @@ export default function EmailVerificationPage({
   return (
     <div className="container max-w-lg mx-auto mt-10 px-4">
       <div className="flex flex-col items-center justify-center space-y-4">
-        <Loader2 className="h-8 w-8 animate-spin" />
+         <DotLottieReact
+                src="/img/success_animated.json"
+                loop
+                autoplay
+         />
         <p className="text-lg">Verifying your email...</p>
       </div>
     </div>

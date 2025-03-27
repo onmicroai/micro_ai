@@ -5,16 +5,42 @@
  */
 "use client";
 
-import axios from "axios";
+import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
+
+/**
+ * Private function that logs out a user when authentication fails for edge cases
+ * 
+ * @param {any} error - Error object that triggered the logout
+ * @returns Promise<void>
+ */
+const forceLogout = async (error: any): Promise<void> => {
+   console.log("forceLogout", error);
+
+   if (error?.response?.status !== 401) {
+      return;
+   }
+
+   try {
+      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
+         withCredentials: true
+      });
+   } catch (error: any) {
+      console.error("Error logging out:", error);
+   } finally {
+      localStorage.removeItem('accessToken');
+      localStorage.removeItem('accessTokenExpiration');
+      window.location.href = '/accounts/login';
+   }
+};
+
 /**
  * Singleton, that manages a queue of requests for access token update.
  * Prevents multiple API requests for access token update at the same time
  *
- * @returns {Function}
+ * @returns {() => Promise<string | null>}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const getAccessTokenSingleton = (): Function => {
+const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
   let isRefreshing = false;
   let pendingRequests: Array<(error: any, token: string | null) => void> = [];
 
@@ -71,10 +97,7 @@ const getAccessTokenSingleton = (): Function => {
       processQueue(error, null);
       // If refresh token is expired, clear tokens and redirect to login
       if (error.name !== "CanceledError") {
-        console.error("........getAccessToken error........", error);
-        localStorage.removeItem("accessToken");
-        localStorage.removeItem("accessTokenExpiration");
-        window.location.href = "/accounts/login";
+        forceLogout(error);
       }
       throw error;
     } finally {
@@ -102,11 +125,10 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
  * Singleton returns axios configured instance.
  * Prevents creation of the axios configuration for the multiple times
  *
- * @returns {Function}
+ * @returns {() => AxiosInstance}
  */
-// eslint-disable-next-line @typescript-eslint/no-unsafe-function-type
-const axiosInstanceSingleton = (): Function => {
-  let api: any = null;
+const axiosInstanceSingleton = (): (() => AxiosInstance) => {
+  let api: AxiosInstance | null = null;
   const getAccessToken = getAccessTokenSingleton();
   // Cache variables for path visibility
   let lastCheckedPath: string | null = null;
@@ -177,7 +199,7 @@ const axiosInstanceSingleton = (): Function => {
 
         let accessToken = localStorage.getItem("accessToken");
 
-        if (!accessToken && isPublic) {
+        if (!accessToken || isPublic) {
           return config;
         }
 
@@ -198,6 +220,7 @@ const axiosInstanceSingleton = (): Function => {
         return config;
       },
       (error: any) => {
+        forceLogout(error);
         return Promise.reject(error);
       }
     );
@@ -218,6 +241,7 @@ const axiosInstanceSingleton = (): Function => {
         const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
 
         if (isPublic) {
+          forceLogout(error);
           return Promise.reject(error);
         }
 
@@ -230,20 +254,34 @@ const axiosInstanceSingleton = (): Function => {
           originalRequest._retry = true;
 
           try {
-            // Get a new access token
-            const accessToken = await getAccessToken();
+            let accessToken = localStorage.getItem("accessToken");
+
+            if (!accessToken) {
+              forceLogout(error);
+              return Promise.reject(error);
+            }
+
+            // Normal token handling for non-public or unknown pages
+            const expirationTime = localStorage.getItem(
+              "accessTokenExpiration"
+            );
+
+            if (isTokenExpired(expirationTime)) {
+              accessToken = await getAccessToken();
+            }
 
             // Update the authorization header
             originalRequest.headers.Authorization = `Bearer ${accessToken}`;
 
-            // Retry the original request
-            return api(originalRequest);
+            // Retry the original request with null check
+            return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
           } catch (refreshError) {
-            // If refresh token is also expired, redirect to login
+            forceLogout(refreshError);
             return Promise.reject(refreshError);
           }
         }
 
+        forceLogout(error);
         return Promise.reject(error);
       }
     );

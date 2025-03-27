@@ -1,3 +1,7 @@
+import logging
+
+log = logging.getLogger("micro_ai.subscription")
+
 from apps.microapps.models import Run
 from apps.subscriptions.models import Subscription, BillingCycle
 from apps.subscriptions.serializers import CustomSubscriptionSerializer, PlansSerializer
@@ -7,8 +11,10 @@ from dateutil.relativedelta import relativedelta
 from apps.utils.global_variables import UsageVariables
 from apps.microapps.models import MicroAppUserJoin
 from django.db.models import Count
-from apps.subscriptions.helpers import get_subscription_max_apps
+
+from apps.subscriptions.models import TopUpToSubscription
 from django.utils import timezone
+from apps.users.models import CustomUser
 
 def convert_timestamp_to_datetime(timestamp):
     dt = datetime.fromtimestamp(int(timestamp))
@@ -21,14 +27,6 @@ def subscription_details(user_id):
         serializerData = serializer.data
         return serializerData
     return None
-
-def check_plan(amount):
-        if amount == UsageVariables.FREE_PLAN_AMOUNT_MONTH or amount == UsageVariables.FREE_PLAN_AMOUNT_YEAR:
-            return{"limit": UsageVariables.FREE_PLAN_CREDIT_LIMIT, "plan": UsageVariables.FREE_PLAN}
-        elif amount == UsageVariables.ENTERPRISE_PLAN_AMOUNT_MONTH or amount == UsageVariables.ENTERPRISE_PLAN_AMOUNT_YEAR:
-            return{"limit": UsageVariables.ENTERPRISE_PLAN_CREDIT_LIMIT, "plan": UsageVariables.ENTERPRISE_PLAN}
-        else:
-            return{"limit": UsageVariables.INDIVIDUAL_PLAN_CREDIT_LIMIT, "plan": UsageVariables.INDIVIDUAL_PLAN} 
 
 def get_user_ip(request):
         x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
@@ -45,55 +43,67 @@ class RunUsage:
         end = datetime.strptime(end_date, '%Y-%m-%dT%H:%M:%SZ').strftime('%Y-%m-%d')
         return {"start":start, "end":end}
     
-    def credits_calculation(self, user_id, start_date, end_date):
-        filters = {
-                "owner_id": user_id,
-                "timestamp__date__gte": start_date,
-                "timestamp__date__lte": end_date
-            }
-        filters = {k: v for k, v in filters.items() if v is not None}
-        queryset = Run.objects.filter(**filters).aggregate(total_credits = Sum('credits'))
-        return queryset["total_credits"] if queryset["total_credits"] else UsageVariables.DEFAULT_TOTAL_COST
-
     @staticmethod
-    def get_run_related_info(self, user_id, date_joined):
-        subscription = subscription_details(user_id)
-        print("SUBSCRIPTION", subscription)
-        # Enterprise and individual plan implementation
-        if subscription and subscription["status"] == "active":
-            # Get active billing cycle for this subscription
-            active_cycle = BillingCycle.objects.filter(
-                subscription_id=subscription["id"],
-                status='open',
-                start_date__lte=timezone.now(),
-                end_date__gte=timezone.now()
-            ).first()
-            # Check if billing cycle exists and has credits remaining
-            return active_cycle and active_cycle.credits_remaining > 0
+    def check_for_available_credits(self, user_id, date_joined):
+        from apps.subscriptions.helpers import create_free_subscription, create_free_billing_cycle
+        user = CustomUser.objects.get(id=user_id)
+        subscription_data = subscription_details(user_id)
         
-        # Default free plan implementation
-        try:
-            # First try parsing with microseconds
-            day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%S.%fZ").date().strftime("%d")
-        except ValueError:
-            # If that fails, try without microseconds
-            day_joined = datetime.strptime(date_joined, "%Y-%m-%dT%H:%M:%SZ").date().strftime("%d")
-        current_month = datetime.now().strftime("%m")
-        current_year = datetime.now().strftime("%Y")
-        if datetime.now().strftime("%d") > day_joined:
-            start_date = f"{current_year}-{current_month}-{day_joined}"
-            end_date = (datetime.strptime(start_date, "%Y-%m-%d").date() + relativedelta(months=1)).strftime("%Y-%m-%d")
-        else:
-            end_date = f"{current_year}-{current_month}-{day_joined}"
-            start_date = ((datetime.strptime(end_date, "%Y-%m-%d").date() - relativedelta(months=1)).strftime("%Y-%m-%d"))
-        limit = UsageVariables.FREE_PLAN_CREDIT_LIMIT
-        plan = UsageVariables.FREE_PLAN
-        total_credits = RunUsage.credits_calculation(self, user_id, start_date, end_date)
-        return limit > total_credits
+        if not subscription_data or subscription_data["status"] == "canceled":
+            #If the user has no subscription or they have canceled a paid plan, create a free one
+            subscription_instance = create_free_subscription(user)
+            # Get the serialized version of the new subscription
+            subscription_data = subscription_details(user_id)
+            
+        if subscription_data["status"] in ["incomplete", "incomplete_expired", "past_due", "unpaid"]:
+            return {
+                "status": "invalid_subscription",
+                "message": f"Subscription is {subscription_data['status']}",
+                "has_credits": False
+            }
+            
+        if subscription_data["status"] == "active":
+            subscription_instance = Subscription.objects.get(id=subscription_data["id"])
+            billing_cycle = BillingCycle.objects.filter(subscription=subscription_instance, status='open').first()
+            
+            if not billing_cycle:
+                #If the user has no billing cycle, create a free one
+                create_free_billing_cycle(user, subscription_instance)
+                # Fetch the newly created billing cycle to ensure we have fresh data
+                billing_cycle = BillingCycle.objects.filter(
+                    subscription=subscription_instance, 
+                    status='open'
+                ).first()
+                
+            if not billing_cycle:
+                # If we still don't have a billing cycle, something went wrong
+                return {
+                    "status": "error",
+                    "message": "Failed to create or retrieve billing cycle",
+                    "has_credits": False
+                }
+                
+            main_available = billing_cycle.credits_remaining
+            top_ups = TopUpToSubscription.objects.filter(user=user_id)
+            total_topup_available = sum([top_up.remaining_credits for top_up in top_ups])
+            combined_available = main_available + total_topup_available
+            if combined_available <= 0:
+                return {
+                    "status": "no_credits",
+                    "message": "No credits remaining in active subscription",
+                    "has_credits": False
+                }
+                
+            return {
+                "status": "active",
+                "message": "Credits available",
+                "has_credits": True,
+                "credits_remaining": combined_available
+            }
     
 class MicroAppUsage:
     @staticmethod
-    def microapp_related_info(user_id):
+    def check_max_apps(user_id):
         # Get user's subscription details if they exist
         subscription = subscription_details(user_id)
         
@@ -116,7 +126,8 @@ class MicroAppUsage:
             # Get the subscription object
             subscription_obj = Subscription.objects.get(id=subscription["id"])
             # Get max_apps from subscription configuration
-            max_apps = get_subscription_max_apps(subscription_obj)
+            #TODO: Avoid hardcoding the max apps limit
+            max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT
             
             # Get price_id from subscription
             from apps.subscriptions.constants import PRICE_IDS
@@ -155,6 +166,6 @@ class GuestUsage:
         return sessions
 
     @staticmethod
-    def get_run_related_info(self, ip):
+    def check_usage_limit(self, ip):
         sessions = GuestUsage.get_user_sessions(self, ip)
         return sessions < UsageVariables.GUEST_USER_SESSION_LIMIT

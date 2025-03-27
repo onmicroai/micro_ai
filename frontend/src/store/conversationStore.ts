@@ -12,6 +12,7 @@ export interface Run {
     id: string;
     aiModel: string;
     cost: number;
+    credits: number;
     status: 'pending' | 'running' | 'completed' | 'failed';
     createdAt: number;
     updatedAt: number;

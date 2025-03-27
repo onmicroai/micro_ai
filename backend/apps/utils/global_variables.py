@@ -189,11 +189,11 @@ class UsageVariables:
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "18.00"
     INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
     # Guest Users
-    GUEST_USER_SESSION_LIMIT = 300
+    GUEST_USER_SESSION_LIMIT = 10
 
     # The number of credits per penny of cost.
-    # E.g. Multiplier of 1000 means 1 credit per $0.001 of cost.
-    # E.g. Multipler of 1000 also means 10 credits per $0.01 of cost.
-    CREDITS_MULTIPLIER = 1000
+    # E.g. Multiplier of 10000 means 1 credit per $0.0001 of cost.
+    # E.g. Multipler of 10000 also means 100 credits per $0.01 of cost.
+    CREDITS_MULTIPLIER = 10000
     # The minimum number of credits to charge for any response.
     MINIMUM_CREDITS = 1
