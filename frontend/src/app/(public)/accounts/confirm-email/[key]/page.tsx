@@ -85,9 +85,9 @@ export default function EmailVerificationPage({
     <div className="container max-w-lg mx-auto mt-10 px-4">
       <div className="flex flex-col items-center justify-center space-y-4">
          <DotLottieReact
-            src="/img/verifying_email.lottie"
-            loop
-            autoplay
+                src="/img/success_animated.json"
+                loop
+                autoplay
          />
         <p className="text-lg">Verifying your email...</p>
       </div>

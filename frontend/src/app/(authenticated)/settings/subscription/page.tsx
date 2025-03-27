@@ -194,57 +194,93 @@ export default function SubscriptionPage() {
             <div className="mt-6">
               
               {billingDetails && (
-                <div className="mb-6 space-y-4">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Plan:</span> {selectedPlan}
-                    </p>
-                  <div>
-                    <div className="flex justify-between text-sm text-gray-600 mb-1">
-                      <span>Credits Usage</span>
-                      <span>{billingDetails.credits_used.toLocaleString()} / {billingDetails.credits_allocated.toLocaleString()}</span>
-                    </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5">
-                      <div 
-                        className="bg-blue-600 h-2.5 rounded-full"
-                        style={{ 
-                          width: `${Math.min((billingDetails.credits_used / billingDetails.credits_allocated) * 100, 100)}%`
-                        }}
-                      ></div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Plan Credits Remaining:</span> {billingDetails.credits_remaining.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Top-up Credits:</span> {topUpCredits.toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Total Credits Available:</span> {(billingDetails.credits_remaining + topUpCredits).toLocaleString()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">Billing Period:</span> {new Date(billingDetails.start_date).toLocaleDateString()} - {new Date(billingDetails.end_date).toLocaleDateString()}
-                    </p>
-                    <p className="text-sm text-gray-600">
-                      <span className="font-medium">
-                        {userData.subscription?.cancel_at_period_end ? "Plan Expires on:" : "Next Renewal Date:"}
-                      </span>{" "}
-                      {new Date(billingDetails.end_date).toLocaleDateString()}
-                      {userData.subscription?.cancel_at_period_end && (
-                        <span className="text-red-500 ml-2">
-                          (You will not be rebilled)
-                        </span>
-                      )}
-                      {userData.subscription?.cancel_at_period_end && (
-                        <button
-                          onClick={handleCancelDowngrade}
-                          className="px-4 py-2 rounded-md text-sm font-medium bg-red-500 text-white"
+                <div className="flex flex-col items-center mt-4 mb-4">
+                  <div className="rounded-lg w-full bg-background border divide-y">
+                    {/* Header Section */}
+                    <div className="flex max-sm:flex-col justify-between items-center max-sm:items-start gap-3 px-6 py-4">
+                      <span className="font-semibold text-base">Subscription Details</span>
+                      <button
+                        onClick={handleManageSubscription}
+                        className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
+                        disabled={!subscription?.customer_id}
                         >
-                          Cancel Downgrade
-                        </button>
-                      )}
-                    </p>
+                        Manage my Payment Method
+                     </button>
+                    </div>
+
+                    {/* Plan Section */}
+                    <div className="flex gap-4 px-6 py-4 items-center justify-between">
+                      <span className="font-medium text-sm text-gray-700">Current Plan</span>
+                      <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-gray-alpha-100">
+                        {selectedPlan}
+                      </div>
+                    </div>
+
+                    {/* Subscription Status */}
+                    <div className="flex gap-4 px-6 py-4 items-center justify-between">
+                      <span className="font-medium text-sm text-gray-700">Subscription status</span>
+                      <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-green-100 text-green-950">
+                        {userData.subscription?.cancel_at_period_end ? "Canceling" : "Active"}
+                      </div>
+                    </div>
+
+                    {/* Billing Period Section */}
+                    <div className="flex gap-4 px-6 py-4 items-center justify-between">
+                      <span className="font-medium text-sm text-gray-700">Billing Period</span>
+                      <span className="text-sm">
+                        {new Date(billingDetails.start_date).toLocaleDateString()} - {new Date(billingDetails.end_date).toLocaleDateString()}
+                      </span>
+                    </div>
+
+                    {/* Credits Usage Section */}
+                    <div className="gap-4 px-6 py-4 items-center block">
+                      <span className="font-medium text-sm text-gray-700">Credit Usage</span>
+                      <span className="font-medium text-right block text-xs text-gray-500 mb-3 max-sm:hidden">
+                        {billingDetails.credits_used.toLocaleString()} / {billingDetails.credits_allocated.toLocaleString()} used
+                        (Resets on {new Date(billingDetails.end_date).toLocaleDateString()})
+                      </span>
+                      <div className="bg-gray-200 h-[6px] rounded-full max-sm:mt-3 w-full">
+                        <div 
+                          className="bg-blue-600 h-[6px] rounded-full"
+                          style={{ 
+                            width: `${Math.min((billingDetails.credits_used / billingDetails.credits_allocated) * 100, 100)}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Additional Details */}
+                    <div className="px-6 py-4 space-y-3">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-700">Plan Credits Remaining</span>
+                        <span className="text-sm">{billingDetails.credits_remaining.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-gray-700">Top-up Credits</span>
+                        <span className="text-sm">{topUpCredits.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between bg-gray-50 p-2 rounded-md">
+                        <span className="text-sm font-medium text-gray-900">Total Credits Available</span>
+                        <span className="text-sm font-medium text-gray-900">{(billingDetails.credits_remaining + topUpCredits).toLocaleString()}</span>
+                      </div>
+                    </div>
+
+                    {/* Cancel Downgrade Section */}
+                    {userData.subscription?.cancel_at_period_end && (
+                      <div className="px-6 py-4">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-red-500">
+                            Your plan will be canceled on {new Date(billingDetails.end_date).toLocaleDateString()}
+                          </span>
+                          <button
+                            onClick={handleCancelDowngrade}
+                            className="px-4 py-2 rounded-md text-sm font-medium bg-red-500 text-white hover:bg-red-600"
+                          >
+                            Cancel Downgrade
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -262,13 +298,7 @@ export default function SubscriptionPage() {
           />
 
           <div className="mt-8">
-            <button
-              onClick={handleManageSubscription}
-              className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
-              disabled={!subscription?.customer_id}
-            >
-              Manage my Payment Method
-            </button>
+
           </div>
         </div>
       )}
