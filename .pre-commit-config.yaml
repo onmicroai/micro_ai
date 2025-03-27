@@ -1,5 +1,5 @@
 exclude: ^static/.*|assets/.*|/migrations/.*|\.min\.js$|\.min\.css$|\.css\.map$|\.min\.js$|\.js\.map$|\.svg$
-default_stages: [commit]
+default_stages: [pre-commit]
 default_language_version:
    python: python3.11
 
@@ -9,7 +9,6 @@ repos:
     rev: v0.4.4
     hooks:
       - id: ruff
-      - id: ruff-format
 
   - repo: local
     hooks:
