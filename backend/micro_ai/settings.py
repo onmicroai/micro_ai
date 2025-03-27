@@ -213,9 +213,6 @@ ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 
 TOTP_ISSUER = "OnMicro.AI"
 
-ACCOUNT_FORMS = {
-    "signup": "apps.teams.forms.TeamSignupForm",
-}
 SOCIALACCOUNT_FORMS = {
     "signup": "apps.users.forms.CustomSocialSignupForm",
 }
