@@ -352,9 +352,13 @@ REST_FRAMEWORK = {
 is_production = os.getenv('PRODUCTION', 'False') == 'True'
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
+# Get token lifetime settings from environment with fallbacks
+ACCESS_TOKEN_LIFETIME_MINUTES = env.float("ACCESS_TOKEN_LIFETIME_MINUTES", default=60.0)
+REFRESH_TOKEN_LIFETIME_DAYS = env.float("REFRESH_TOKEN_LIFETIME_DAYS", default=7.0)
+
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=ACCESS_TOKEN_LIFETIME_MINUTES),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS),
     "ROTATE_REFRESH_TOKENS": False,
     "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": True,
