@@ -116,13 +116,7 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
     return true;
   }
 
-  const expirationTimeNumber = Number(expirationTime);
-
-  if (isNaN(expirationTimeNumber)) {
-    return true;
-  }
-
-  const expirationDate = new Date(expirationTimeNumber);
+  const expirationDate = new Date(expirationTime);
   const currentTime = new Date();
   return currentTime >= expirationDate;
 };
