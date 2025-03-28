@@ -43,11 +43,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='billingcycle',
-            name='subscription',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='djstripe.subscription'),
-        ),
-        migrations.AddField(
-            model_name='billingcycle',
             name='updated_at',
             field=models.DateTimeField(auto_now=True),
         ),

@@ -16,7 +16,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('max_apps', models.IntegerField(help_text='Maximum number of apps allowed for this subscription')),
-                ('subscription', models.OneToOneField(on_delete=django.db.models.deletion.CASCADE, related_name='configuration', to='djstripe.subscription')),
             ],
         ),
     ]
