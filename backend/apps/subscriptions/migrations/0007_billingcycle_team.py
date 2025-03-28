@@ -8,7 +8,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('subscriptions', '0006_alter_billingcycle_options_billingcycle_created_at_and_more'),
-        ('teams', '0003_team_billing_details_last_changed_team_customer_and_more'),
     ]
 
     operations = [

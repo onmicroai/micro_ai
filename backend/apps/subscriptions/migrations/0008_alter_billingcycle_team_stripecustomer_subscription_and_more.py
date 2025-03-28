@@ -9,7 +9,6 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ('subscriptions', '0007_billingcycle_team'),
-        ('teams', '0003_team_billing_details_last_changed_team_customer_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 

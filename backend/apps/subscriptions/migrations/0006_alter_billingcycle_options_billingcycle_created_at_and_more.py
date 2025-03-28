@@ -8,7 +8,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('djstripe', '0012_2_8'),
         ('subscriptions', '0005_delete_subscription_detail'),
     ]
 
