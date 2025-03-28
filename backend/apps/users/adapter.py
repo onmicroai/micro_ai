@@ -3,8 +3,18 @@ from allauth.account.adapter import DefaultAccountAdapter
 from allauth.account.utils import user_email, user_field
 from allauth.mfa.models import Authenticator
 from django.conf import settings
+from django.urls import reverse
+from rest_framework import serializers
+import django
 import json
 import os
+from apps.collection.models import Collection
+from apps.collection.views import CollectionList
+from apps.microapps.serializer import MicroAppSerializer
+from apps.microapps.views import MicroAppList
+from apps.users.models import CustomUser
+from apps.utils.custom_error_message import ErrorMessages as error
+from apps.utils.global_variables import CollectionVariables
 
 json_file_path = os.path.join(settings.BASE_DIR, 'apps/utils', 'data', 'microapp_create.json')
 with open(json_file_path, 'r') as file:
@@ -24,7 +34,6 @@ class EmailAsUsernameAdapter(DefaultAccountAdapter):
         Override to use the DOMAIN setting from .env instead of the request's domain.
         """
         from django.conf import settings
-        from django.urls import reverse
         
         # Get the path part of the URL
         path = reverse("account_confirm_email", args=[emailconfirmation.key])
@@ -60,6 +69,58 @@ class EmailAsUsernameAdapter(DefaultAccountAdapter):
         ctx['domain'] = settings.DOMAIN
         ctx['user_email'] = user.email
         return ctx
+
+
+class AcceptInvitationAdapter(EmailAsUsernameAdapter):
+    """
+    Adapter that checks for an invitation id in the session and redirects
+    to accepting it after login.
+    """
+    
+    def save_user(self, request, user, form, commit=True):
+        try:
+            username = form.cleaned_data.get('email')
+            if CustomUser.objects.filter(username=username):
+                raise serializers.ValidationError({'error': error.EMAIL_ALREADY_EXIST})
+            else:
+                user = super().save_user(request, user, form, commit)
+                if user.pk is None: 
+                    user.save()
+                self.collection_details(user)
+                return user
+        except django.db.utils.IntegrityError as e:  
+            raise serializers.ValidationError({'error': repr(e)})
+        except Exception as e:
+            raise serializers.ValidationError({'error': repr(e)})
+            
+    def add_app_templates(self, user, cid):
+        try:
+            current_user_id = user.id
+            micro_app_list = MicroAppList
+            app_templates = data["data"]
+            for app in app_templates:
+                serializer = MicroAppSerializer(data = app)
+                if serializer.is_valid():
+                    microapp = serializer.save()
+                    micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp, max_count = False)
+                    micro_app_list.add_collection_microapp(self, cid, microapp)
+        except Exception:
+           raise Exception(error.SERVER_ERROR)
+            
+    def collection_details(self, user):
+        try:
+            current_user_id = user.id
+            collection_list = CollectionList
+            collections_data = [
+                {"name": CollectionVariables.MY_COLLECTION},
+                {"name": CollectionVariables.SHARED_WITH_ME_COLLECTION},
+            ]
+            collections = Collection.objects.bulk_create([Collection(**data) for data in collections_data])
+            for collection in collections:
+                collection_list.add_collection_user(self, uid=current_user_id, cid=collection.id)
+            self.add_app_templates(user, collections[0].id)
+        except Exception:
+            raise Exception(error.SERVER_ERROR)
 
 
 class NoNewUsersAccountAdapter(DefaultAccountAdapter):
