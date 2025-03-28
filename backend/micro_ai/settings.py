@@ -85,7 +85,8 @@ PROJECT_APPS = [
     "apps.api.apps.APIConfig",
     "apps.web",
     "apps.microapps",
-    "apps.collection"
+    "apps.collection",
+    "apps.utils"
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -412,7 +413,7 @@ CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
     "NAME": gettext_lazy("OnMicro.AI"),
-    "URL": "http://localhost:8000",
+    "URL": env("DOMAIN", default="http://localhost"),
     "DESCRIPTION": gettext_lazy("Build Micro Apps with No Code"),
     "IMAGE": "/static/images/web/favicon.png",
     "KEYWORDS": "SaaS, django",
