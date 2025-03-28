@@ -99,10 +99,12 @@ export default function SubscriptionPage() {
     }
   };
 
-  const handleContinue = async () => {
+  const handlePlanSelection = async (plan: string) => {
+    setSelectedPlan(plan);
+    
     try {
       if (
-        selectedPlan !== "Free" &&
+        plan !== "Free" &&
         (!subscription?.customer_id ||
           subscription?.status === "canceled" ||
           subscription?.status === "incomplete_expired")
@@ -110,18 +112,18 @@ export default function SubscriptionPage() {
         const response = await api.post(
           "/api/subscriptions/checkout-session/",
           {
-            plan: selectedPlan,
+            plan: plan,
             successUrl: `${window.location.origin}/settings/subscription?updated=success`,
             cancelUrl: `${window.location.origin}/settings/subscription?updated=failure`,
           }
         );
         window.location.href = response.data.url;
-        localStorage.setItem("expectedPlan", selectedPlan);
+        localStorage.setItem("expectedPlan", plan);
       } else {
         const response = await api.post(
           "/api/subscriptions/update-subscription/",
           {
-            plan: selectedPlan,
+            plan: plan,
           }
         );
 
@@ -142,7 +144,6 @@ export default function SubscriptionPage() {
       toast.error("Failed to update subscription: " + error.message);
     }
   };
-
 
   const handlePollingClose = () => {
     setIsPollingOpen(false);
@@ -270,7 +271,7 @@ export default function SubscriptionPage() {
                       <div className="px-6 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-red-500">
-                            Your plan will be canceled on {new Date(billingDetails.end_date).toLocaleDateString()}
+                            Your plan will be downgraded on {new Date(billingDetails.end_date).toLocaleDateString()}
                           </span>
                           <button
                             onClick={handleCancelDowngrade}
@@ -291,10 +292,7 @@ export default function SubscriptionPage() {
           <PricingCards 
             showTopUp={false} 
             currentPlan={selectedPlan} 
-            onPlanSelect={async (plan) => {
-              setSelectedPlan(plan);
-              await handleContinue();
-            }}
+            onPlanSelect={handlePlanSelection}
           />
 
           <div className="mt-8">
