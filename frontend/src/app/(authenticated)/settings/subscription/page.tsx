@@ -271,7 +271,7 @@ export default function SubscriptionPage() {
                       <div className="px-6 py-4">
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-red-500">
-                            Your plan will be canceled on {new Date(billingDetails.end_date).toLocaleDateString()}
+                            Your plan will be downgraded on {new Date(billingDetails.end_date).toLocaleDateString()}
                           </span>
                           <button
                             onClick={handleCancelDowngrade}

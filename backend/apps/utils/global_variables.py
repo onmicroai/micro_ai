@@ -174,25 +174,12 @@ class AIModelConstants:
         return config.get("family", "")
 
 class UsageVariables:
-    # Plan names
-    FREE_PLAN = "free"
-    INDIVIDUAL_PLAN = "individual"
-    ENTERPRISE_PLAN = "enterprise"
     # Plan limits in credits
     FREE_PLAN_CREDIT_LIMIT = 10000
     INDIVIDUAL_PLAN_CREDIT_LIMIT = 100000
     ENTERPRISE_PLAN_CREDIT_LIMIT = 400000
-    # Default values
-    DEFAULT_PLAN_ID = 1
-    DEFAULT_TOTAL_COST = 0
+
     FREE_PLAN_MICROAPP_LIMIT = int(env("FREE_PLAN_MICROAPP_LIMIT"))
-    # Plan amounts
-    FREE_PLAN_AMOUNT_MONTH = "0.00"
-    FREE_PLAN_AMOUNT_YEAR = "0.00"
-    ENTERPRISE_PLAN_AMOUNT_MONTH = "79.00"
-    ENTERPRISE_PLAN_AMOUNT_YEAR = "850.00"
-    INDIVIDUAL_PLAN_AMOUNT_YEAR = "18.00"
-    INDIVIDUAL_PLAN_AMOUNT_YEAR = "195.00"
     # Guest Users
     GUEST_USER_SESSION_LIMIT = 10
 

@@ -50,19 +50,7 @@ class ProductWithPriceSerializer(rest_framework.serializers.Serializer):
             "price": int(obj.get("default_price", {}).get("unit_amount", 0)),
             "currency": obj.get("default_price", {}).get("currency", "usd").upper(),
             "interval": obj.get("default_price", {}).get("recurring", {}).get("interval", "month"),
-            "features": self.get_features(obj),
         }
-
-    def get_features(self, obj):
-        # Determine features based on the product name
-        plan_name = obj.get("name", "")
-        if plan_name == settings.FREE_PLAN_NAME:
-            return settings.FREE_PLAN_FEATURES
-        elif plan_name == settings.INDIVIDUAL_PLAN_NAME:
-            return settings.INDIVIDUAL_PLAN_FEATURES
-        elif plan_name == settings.ENTERPRISE_PLAN_NAME:
-            return settings.ENTERPRISE_PLAN_FEATURES
-        return []
 
 @extend_schema(tags=["subscriptions"])
 class ProductsListAPI(APIView):

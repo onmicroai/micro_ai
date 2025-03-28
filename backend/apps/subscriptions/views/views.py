@@ -11,7 +11,7 @@ from stripe.error import InvalidRequestError
 from ..decorators import redirect_subscription_errors, active_subscription_required
 from ..forms import UsageRecordForm
 from ..helpers import get_subscription_urls, subscription_is_active, subscription_is_trialing
-from ..metadata import get_active_products_with_metadata, ACTIVE_PLAN_INTERVALS, get_active_plan_interval_metadata
+from ..metadata import get_active_products_with_metadata, get_active_plan_interval_metadata
 from apps.teams.decorators import team_admin_required, login_and_team_required
 from ..models import SubscriptionModelBase, SubscriptionStatus
 from apps.utils.billing import get_stripe_module

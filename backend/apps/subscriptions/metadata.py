@@ -172,22 +172,6 @@ def get_active_plan_interval_metadata() -> List[PlanIntervalMetadata]:
     ]
 
 
-# Active plan intervals. Only allowed values are "PlanInterval.month" and "PlanInterval.year"
-# Remove one of them to only allow monthly/annual pricing.
-# The first element is considered the default
-ACTIVE_PLAN_INTERVALS = [
-    PlanInterval.month,
-    PlanInterval.year,
-]
-
-ACTIVE_PRODUCTS = [
-    ProductMetadata(stripe_id=settings.FREE_PLAN_PID, slug='free', name=settings.FREE_PLAN_NAME, features=settings.FREE_PLAN_FEATURES, price_displays={}, description=settings.FREE_PLAN_DESC, is_default=True),
-    ProductMetadata(stripe_id=settings.INDIVIDUAL_PLAN_PID, slug='individual', name=settings.INDIVIDUAL_PLAN_NAME, features=settings.INDIVIDUAL_PLAN_FEATURES, price_displays={}, description=settings.INDIVIDUAL_PLAN_DESC, is_default=False),
-    ProductMetadata(stripe_id=settings.ENTERPRISE_PLAN_PID, slug='enterprise', name=settings.ENTERPRISE_PLAN_NAME, features=settings.ENTERPRISE_PLAN_FEATURES, price_displays={}, description=settings.ENTERPRISE_PLAN_DESC, is_default=False),
-]
-
-ACTIVE_PRODUCTS_BY_ID = {p.stripe_id: p for p in ACTIVE_PRODUCTS}   
-
 
 def get_active_products_with_metadata() -> Generator[ProductWithMetadata]:
     # if we have set active products in metadata then filter the full list
