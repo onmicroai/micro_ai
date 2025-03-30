@@ -84,6 +84,7 @@ PROJECT_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.api.apps.APIConfig",
     "apps.web",
+    "apps.teams",
     "apps.microapps",
     "apps.collection",
     "apps.utils"
