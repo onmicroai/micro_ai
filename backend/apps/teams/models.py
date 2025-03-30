@@ -4,7 +4,6 @@ from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext
 from waffle.models import AbstractUserFlag
-
 from apps.subscriptions.models import SubscriptionModelBase
 from apps.utils.models import BaseModel
 

@@ -10,8 +10,31 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveField(
-            model_name='billingcycle',
-            name='team',
-        ),
+        # Empty operations list - will be populated dynamically
     ]
+
+    def __init__(self, name, app_label):
+        super().__init__(name, app_label)
+        
+        # Check if this migration needs to be applied
+        # This will be run when Django loads the migration
+        from django.apps import apps
+        try:
+            BillingCycle = apps.get_model('subscriptions', 'BillingCycle')
+            if hasattr(BillingCycle, 'team'):
+                # Field exists, add the operation to remove it
+                self.operations = [
+                    migrations.RemoveField(
+                        model_name='billingcycle',
+                        name='team',
+                    ),
+                ]
+        except:
+            # Model doesn't exist or can't be loaded yet,
+            # do the safe thing and include the operation
+            self.operations = [
+                migrations.RemoveField(
+                    model_name='billingcycle',
+                    name='team',
+                ),
+            ]
