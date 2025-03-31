@@ -1,4 +1,3 @@
-// \microai-frontend\app\context\AuthContext.tsx
 "use client"; 
 
 import axios from "axios";
@@ -14,7 +13,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useDashboardStore } from "@/app/(authenticated)/(dashboard)/dashboard/[tab]/store/dashboardStore";
 import { useUserStore } from "@/store/userStore";
-
+import isTokenExpired from "@/utils/isTokenExpired";
 interface AuthContextProps {
    isAuthenticated: boolean;
    authorizeUserWithJwt: (jwtData: any, signal?: AbortSignal) => Promise<void>;
@@ -82,45 +81,18 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
    } = useUserStore();
 
    /**
-    * Checks if the auth credentials (tokens) are valid based on token presence and expiration
-    * @returns boolean indicating if auth credentials are valid
-    */
-   const isAuthCredentialsValid = useCallback(() => {
-      const token = typeof window !== 'undefined' ? localStorage.getItem("accessToken") : null;
-      const tokenExpiration = typeof window !== 'undefined' ? localStorage.getItem("accessTokenExpiration") : null;
-      
-      if (!token || !tokenExpiration) {
-        return false;
-      }
-      
-      // Check if token is expired
-      let expirationTime: number;
-      
-      // Handle both timestamp format and ISO date string format
-      if (!isNaN(Number(tokenExpiration))) {
-        // If it's already a number (Unix timestamp)
-        expirationTime = parseInt(tokenExpiration, 10);
-      } else {
-        // If it's an ISO date string
-        expirationTime = Math.floor(new Date(tokenExpiration).getTime() / 1000);
-      }
-      
-      const currentTime = Math.floor(Date.now() / 1000);
-      
-      return expirationTime > currentTime;
-   }, []);
-
-   /**
     * Checks if the user is authenticated based on valid credentials AND user data
     * @returns boolean indicating if user is authenticated
     */
    const isAuthenticated = useMemo(() => {
-      // First check if auth credentials are valid
-      const credentialsValid = isAuthCredentialsValid();
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined') return false;
       
+      const tokenExpiration = localStorage.getItem("accessTokenExpiration");
+      const isAccessTokenExpired = isTokenExpired(tokenExpiration);
       // Then check if user data is loaded
-      return credentialsValid && !!user?.id;
-   }, [isAuthCredentialsValid, user]);
+      return !isAccessTokenExpired && !!user?.id;
+   }, [user]);
 
    /**
     * Sets user authentication tokens from JWT data

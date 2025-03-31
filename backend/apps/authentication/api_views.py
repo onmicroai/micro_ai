@@ -62,12 +62,12 @@ class LoginViewWith2fa(LoginView):
             if super_response.status_code == status.HTTP_200_OK:
                 jwt_data = super_response.data
                 
-                # Calculate token expiration time
+                # Calculate token expiration time in UTC
                 access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
-                expiration_time = datetime.now() + access_token_lifetime
+                expiration_time = datetime.utcnow() + access_token_lifetime
                 
-                # Add expiration information to the response
-                jwt_data['access_expiration'] = expiration_time.timestamp()
+                # Add expiration information to the response in ISO format with UTC timezone
+                jwt_data['access_expiration'] = expiration_time.isoformat() + 'Z'
                 
                 # rewrap login responses to match our serializer schema
                 wrapped_jwt_data = {

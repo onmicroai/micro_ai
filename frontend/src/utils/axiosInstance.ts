@@ -1,4 +1,3 @@
-// \microai-frontend\app\utils\axiosInstance.ts
 
 /**
  * It currently works only on client, because it uses LocalStorage for the storaging access token
@@ -7,7 +6,7 @@
 
 import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
-
+import isTokenExpired from "./isTokenExpired";
 /**
  * Private function that logs out a user when authentication fails for edge cases
  * 
@@ -104,21 +103,6 @@ const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
       isRefreshing = false;
     }
   };
-};
-
-/**
- * Checks if token is expired or not
- *
- * @returns {Boolean}
- */
-const isTokenExpired = (expirationTime: string | null): boolean => {
-  if (expirationTime === null) {
-    return true;
-  }
-
-  const expirationDate = new Date(expirationTime);
-  const currentTime = new Date();
-  return currentTime >= expirationDate;
 };
 
 /**
