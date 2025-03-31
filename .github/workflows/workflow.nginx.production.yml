@@ -58,6 +58,26 @@ jobs:
           /bin/cp -rf docker-compose-nginx.yaml /docker/volumes/nginx/docker-compose.yaml
           /bin/cp -rf fallback /docker/volumes/nginx/
 
+    - name: stop system nginx
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        port: 22
+        script: |
+          # Stop the system nginx service
+          sudo systemctl stop nginx
+          sudo systemctl disable nginx
+          
+          # Double check that port 80 is free
+          sleep 2
+          if sudo lsof -i :80; then
+            echo "Port 80 is still in use. Attempting to kill processes..."
+            sudo fuser -k 80/tcp
+            sleep 2
+          fi
+
     - name: rebuild nginx
       uses: appleboy/ssh-action@v1.0.3
       with:
