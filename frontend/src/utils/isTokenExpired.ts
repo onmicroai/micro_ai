@@ -8,8 +8,8 @@ const isTokenExpired = (expirationTime: string | null): boolean => {
      return true;
    }
 
-   // Convert Unix timestamp to milliseconds and create Date object
-   const expirationDate = new Date(parseFloat(expirationTime) * 1000);
+   // Create Date object directly from ISO string
+   const expirationDate = new Date(expirationTime);
    const currentTime = new Date();
    const isExpired = currentTime > expirationDate;
    
