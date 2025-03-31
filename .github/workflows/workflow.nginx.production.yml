@@ -50,8 +50,8 @@ jobs:
         script: |
           mkdir -p /docker/volumes/nginx
           
-          cd /home/ubuntu/microai-frontend
-          git pull origin main
+          cd /home/ubuntu/micro_ai
+          git pull origin master
           
           cd nginx
           /bin/cp -rf nginx.prod.conf /docker/volumes/nginx/nginx.conf
