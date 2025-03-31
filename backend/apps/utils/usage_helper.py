@@ -1,20 +1,14 @@
 import logging
+from datetime import datetime
+from django.db.models import Count
+from django.utils import timezone
+from apps.microapps.models import Run, MicroAppUserJoin
+from apps.subscriptions.models import Subscription, BillingCycle, TopUpToSubscription
+from apps.subscriptions.serializers import CustomSubscriptionSerializer
+from apps.users.models import CustomUser
+from apps.utils.global_variables import UsageVariables
 
 log = logging.getLogger("micro_ai.subscription")
-
-from apps.microapps.models import Run
-from apps.subscriptions.models import Subscription, BillingCycle
-from apps.subscriptions.serializers import CustomSubscriptionSerializer, PlansSerializer
-from datetime import datetime
-from django.db.models import Sum
-from dateutil.relativedelta import relativedelta
-from apps.utils.global_variables import UsageVariables
-from apps.microapps.models import MicroAppUserJoin
-from django.db.models import Count
-
-from apps.subscriptions.models import TopUpToSubscription
-from django.utils import timezone
-from apps.users.models import CustomUser
 
 def convert_timestamp_to_datetime(timestamp):
     dt = datetime.fromtimestamp(int(timestamp))
@@ -123,8 +117,6 @@ class MicroAppUsage:
 
         # If user has an active subscription
         if subscription and subscription["status"] == "active":
-            # Get the subscription object
-            subscription_obj = Subscription.objects.get(id=subscription["id"])
             # Get max_apps from subscription configuration
             #TODO: Avoid hardcoding the max apps limit
             max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT

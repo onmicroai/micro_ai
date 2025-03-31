@@ -13,7 +13,6 @@ from apps.collection.views import CollectionList
 from apps.microapps.serializer import MicroAppSerializer
 from apps.microapps.views import MicroAppList
 from apps.users.models import CustomUser
-from apps.teams.invitations import clear_invite_from_session
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.global_variables import CollectionVariables
 
@@ -35,7 +34,6 @@ class EmailAsUsernameAdapter(DefaultAccountAdapter):
         Override to use the DOMAIN setting from .env instead of the request's domain.
         """
         from django.conf import settings
-        from django.urls import reverse
         
         # Get the path part of the URL
         path = reverse("account_confirm_email", args=[emailconfirmation.key])
@@ -77,24 +75,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
     """
     Adapter that checks for an invitation id in the session and redirects
     to accepting it after login.
-
-    Necessary to use team invitations with social login.
     """
-
-    def get_login_redirect_url(self, request):
-        from apps.teams.models import Invitation
-
-        if request.session.get("invitation_id"):
-            invite_id = request.session.get("invitation_id")
-            try:
-                invite = Invitation.objects.get(id=invite_id)
-                if not invite.is_accepted:
-                    return reverse("teams:accept_invitation", args=[request.session["invitation_id"]])
-                else:
-                    clear_invite_from_session(request)
-            except Invitation.DoesNotExist:
-                pass
-        return super().get_login_redirect_url(request)
     
     def save_user(self, request, user, form, commit=True):
         try:
@@ -123,7 +104,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                     microapp = serializer.save()
                     micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp, max_count = False)
                     micro_app_list.add_collection_microapp(self, cid, microapp)
-        except Exception as e:
+        except Exception:
            raise Exception(error.SERVER_ERROR)
             
     def collection_details(self, user):
@@ -138,7 +119,7 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
             for collection in collections:
                 collection_list.add_collection_user(self, uid=current_user_id, cid=collection.id)
             self.add_app_templates(user, collections[0].id)
-        except Exception as e:
+        except Exception:
             raise Exception(error.SERVER_ERROR)
 
 

@@ -12,7 +12,6 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
 import type { CustomUser } from './CustomUser';
 import {
     CustomUserFromJSON,

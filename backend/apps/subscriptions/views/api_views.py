@@ -3,20 +3,16 @@ from rest_framework import serializers
 from apps.subscriptions.constants import PLANS
 from apps.subscriptions.serializers import SpendCreditsSerializer
 import rest_framework.serializers
-from django.utils.decorators import method_decorator
 from drf_spectacular.types import OpenApiTypes
 from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 from apps.subscriptions.models import BillingCycle, StripeCustomer, TopUpToSubscription
-from rest_framework.permissions import AllowAny
 from django.db.models import F
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
-from apps.teams.decorators import team_admin_required
 
-from ..exceptions import SubscriptionConfigError
 from ..helpers import (
     cancel_active_schedule,
     cancel_subscription,
@@ -272,7 +268,7 @@ class UpdateSubscription(APIView):
 
             if is_downgrade(current_plan, plan):
                 stripe_subscription = get_subscription_details(subscription.subscription_id)
-                if stripe_subscription["cancel_at_period_end"] == True:
+                if stripe_subscription["cancel_at_period_end"]:
                     stripe_module.Subscription.modify(
                         subscription.subscription_id,
                         cancel_at_period_end=False
@@ -284,7 +280,7 @@ class UpdateSubscription(APIView):
                     )
                 except Exception as e:
                     log.error("Error creating SubscriptionSchedule in Stripe: %s", str(e))
-                    return Response({"detail": f"Subscription schedule already exists"}, status=500)
+                    return Response({"detail": "Subscription schedule already exists"}, status=500)
 
                 current_phases = scheduled_subscription.phases
 

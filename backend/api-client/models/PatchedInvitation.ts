@@ -32,12 +32,7 @@ export interface PatchedInvitation {
      * @memberof PatchedInvitation
      */
     readonly id?: string;
-    /**
-     * 
-     * @type {number}
-     * @memberof PatchedInvitation
-     */
-    team?: number;
+  
     /**
      * 
      * @type {string}
@@ -82,7 +77,6 @@ export function PatchedInvitationFromJSONTyped(json: any, ignoreDiscriminator: b
     return {
         
         'id': json['id'] == null ? undefined : json['id'],
-        'team': json['team'] == null ? undefined : json['team'],
         'email': json['email'] == null ? undefined : json['email'],
         'role': json['role'] == null ? undefined : RoleEnumFromJSON(json['role']),
         'invitedBy': json['invited_by'] == null ? undefined : json['invited_by'],
@@ -96,7 +90,6 @@ export function PatchedInvitationToJSON(value?: Omit<PatchedInvitation, 'id'|'in
     }
     return {
         
-        'team': value['team'],
         'email': value['email'],
         'role': RoleEnumToJSON(value['role']),
         'is_accepted': value['isAccepted'],

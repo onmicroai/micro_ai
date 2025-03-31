@@ -8,7 +8,6 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('djstripe', '0012_2_8'),
         ('subscriptions', '0005_delete_subscription_detail'),
     ]
 
@@ -41,11 +40,6 @@ class Migration(migrations.Migration):
             model_name='billingcycle',
             name='stripe_subscription_item_id',
             field=models.CharField(blank=True, max_length=255, null=True),
-        ),
-        migrations.AddField(
-            model_name='billingcycle',
-            name='subscription',
-            field=models.ForeignKey(null=True, on_delete=django.db.models.deletion.SET_NULL, to='djstripe.subscription'),
         ),
         migrations.AddField(
             model_name='billingcycle',

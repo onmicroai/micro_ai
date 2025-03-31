@@ -12,7 +12,6 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
 /**
  * Basic serializer to pass CustomUser details to the front end.
  * Extend with any fields your app needs.

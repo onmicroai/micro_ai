@@ -34,12 +34,6 @@ export interface Invitation {
     readonly id: string;
     /**
      * 
-     * @type {number}
-     * @memberof Invitation
-     */
-    team: number;
-    /**
-     * 
      * @type {string}
      * @memberof Invitation
      */
@@ -69,7 +63,6 @@ export interface Invitation {
  */
 export function instanceOfInvitation(value: object): boolean {
     if (!('id' in value)) return false;
-    if (!('team' in value)) return false;
     if (!('email' in value)) return false;
     if (!('invitedBy' in value)) return false;
     return true;
@@ -86,7 +79,6 @@ export function InvitationFromJSONTyped(json: any, ignoreDiscriminator: boolean)
     return {
         
         'id': json['id'],
-        'team': json['team'],
         'email': json['email'],
         'role': json['role'] == null ? undefined : RoleEnumFromJSON(json['role']),
         'invitedBy': json['invited_by'],
@@ -100,7 +92,6 @@ export function InvitationToJSON(value?: Omit<Invitation, 'id'|'invited_by'> | n
     }
     return {
         
-        'team': value['team'],
         'email': value['email'],
         'role': RoleEnumToJSON(value['role']),
         'is_accepted': value['isAccepted'],

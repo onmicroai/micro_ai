@@ -1,7 +1,6 @@
 .openapi-generator-ignore
 apis/ApiApi.ts
 apis/DashboardApi.ts
-apis/TeamsApi.ts
 apis/index.ts
 index.ts
 models/CustomUser.ts
@@ -12,11 +11,9 @@ models/LoginResponse.ts
 models/Membership.ts
 models/OtpRequest.ts
 models/PaginatedInvitationList.ts
-models/PaginatedTeamList.ts
 models/PasswordChange.ts
 models/PatchedCustomUser.ts
 models/PatchedInvitation.ts
-models/PatchedTeam.ts
 models/Price.ts
 models/Register.ts
 models/RestAuthDetail.ts
@@ -24,7 +21,6 @@ models/RoleEnum.ts
 models/StatusEnum.ts
 models/Subscription.ts
 models/SubscriptionItem.ts
-models/Team.ts
 models/TokenRefresh.ts
 models/TokenVerify.ts
 models/UserSignupStats.ts

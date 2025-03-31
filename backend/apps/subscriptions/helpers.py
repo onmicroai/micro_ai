@@ -1,24 +1,15 @@
 import logging
-import os
 import uuid
-from django.db import transaction
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
 from django.utils import timezone
 from django.conf import settings
 from datetime import timedelta
 import stripe
 
 from stripe.error import InvalidRequestError
-from stripe.api_resources.billing_portal.session import Session as BillingPortalSession
-from stripe.api_resources.checkout import Session as CheckoutSession
-
 from apps.subscriptions.constants import PLANS, PRICE_IDS
 from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
 
-from .exceptions import SubscriptionConfigError
-from apps.teams.models import Team
-from apps.users.models import CustomUser
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
 from apps.utils.usage_helper import convert_timestamp_to_datetime
@@ -125,7 +116,7 @@ def create_stripe_checkout_session(plan, customer_id=None, customer_email=None,
 
         return checkout_session
 
-    except Exception as e:
+    except:
         raise
 
 def get_subscription_details(subscription_id: str) -> dict:

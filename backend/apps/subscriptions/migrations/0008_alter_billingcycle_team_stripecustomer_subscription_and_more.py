@@ -8,17 +8,11 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('subscriptions', '0007_billingcycle_team'),
-        ('teams', '0003_team_billing_details_last_changed_team_customer_and_more'),
+        ('subscriptions', '0006_alter_billingcycle_options_billingcycle_created_at_and_more'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
-        migrations.AlterField(
-            model_name='billingcycle',
-            name='team',
-            field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, to='teams.team'),
-        ),
         migrations.CreateModel(
             name='StripeCustomer',
             fields=[
@@ -42,7 +36,7 @@ class Migration(migrations.Migration):
                 ('user', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='subscriptions', to=settings.AUTH_USER_MODEL)),
             ],
         ),
-        migrations.AlterField(
+        migrations.AddField(
             model_name='billingcycle',
             name='subscription',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, to='subscriptions.subscription'),

@@ -4,7 +4,7 @@ from allauth.account.views import LogoutView as AllAuthLogoutView
 from apps.subscriptions.helpers import get_plan_name
 from apps.subscriptions.models import Subscription
 from dj_rest_auth.views import UserDetailsView, PasswordResetView, PasswordResetConfirmView, PasswordChangeView
-from django.urls import reverse, resolve, get_resolver
+from django.urls import reverse
 from django.shortcuts import render
 from rest_framework.response import Response
 from rest_framework import status, serializers
@@ -68,9 +68,9 @@ class CustomPasswordResetConfirmSerializer(serializers.Serializer):
         return attrs
 
     def save(self):
-        print(f"save called")
+        print("save called")
         self.set_password_form.save()
-        print(f"Password saved successfully")
+        print("Password saved successfully")
         return self.user
 
 def custom_url_generator(request, user, temp_key):
@@ -240,13 +240,7 @@ class CustomUserDetailsView(UserDetailsView):
 
         user_data["subscription"] = subscription_data
         user_data["plan"] = get_plan_name(subscription.price_id if subscription else None)
-
-        # Safely get the team slug if available
-        team = getattr(request, 'team', None)
-        if team:
-            user_data['slug'] = team.slug
-        else:
-            user_data['slug'] = None
+        user_data['slug'] = None
 
         return Response(user_data, status=status.HTTP_200_OK)
 
