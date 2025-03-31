@@ -118,6 +118,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /docker/volumes/micro_ai
-            docker compose -p backend -f docker-compose.prod.yml up -d web-staging celery
+            cd /docker/volumes/micro_ai_staging
+            docker-compose -p backend -f docker-compose.prod.yml up -d web-staging celery
             docker-compose -p frontend -f docker-compose.prod.yml up -d frontend-staging
