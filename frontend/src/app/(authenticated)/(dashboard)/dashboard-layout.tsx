@@ -12,8 +12,6 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user, isLoading: userIsLoading } = useUserStore();
-  console.log("user:", user);
-  console.log("userIsLoading:", userIsLoading);
   const enableWaitlist = process.env.NEXT_PUBLIC_ENABLE_WAITLIST === 'true';
 
   return (
