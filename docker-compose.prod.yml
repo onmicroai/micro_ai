@@ -135,7 +135,7 @@ services:
       micronet:
         ipv4_address: 172.25.0.20
     env_file:
-      - ./frontend/.env
+      - ./.env
     logging:
       driver: json-file
       options:
