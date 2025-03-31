@@ -1,194 +1,154 @@
-# Micro AI
+<a href="https://onmicro.ai"><img src="https://onmicro.ai/_next/static/media/onMicroAI_logo_horiz_color-cropped.d48f058a.svg" alt="OnMicro.AI Logo" width="350"></a>
 
 Build Micro Apps with No Code
 
-## Installation - Docker
+## Overview
 
-The easiest way to get up and running is with [Docker](https://www.docker.com/).
+### What is OnMicro.AI?
+OnMicro.AI is a user-friendly platform that allows educators to build and deploy AI applications as easily as creating a Google form. The platform's mission is to provide agency over AI for educators through accessible tools and research, putting them in the driver's seat rather than treating AI as a black box of complex algorithms.
 
-Just [install Docker](https://www.docker.com/get-started) and
-[Docker Compose](https://docs.docker.com/compose/install/)
-and then run:
+### Core Features
+- **No-Code App Builder**: Create AI-powered educational applications using a drag-and-drop editor without writing any code
+  <img src="https://onmicro.ai/img/homepage/build.gif" alt="No-Code App Builder Demo">
+- **Educational Focus**: Build applications that leverage AI to accelerate course development, scale feedback, or automate assessment while protecting your pedagogical approach
+- **Instant Sharing**: Share applications seamlessly with colleagues, students, or the public
+  <img src="https://onmicro.ai/img/homepage/share.gif" alt="Instant Sharing Demo">
+- **Data Analysis**: Gather valuable metrics about usage, cost, satisfaction, and accuracy to make informed decisions about AI implementation
+  <img src="https://onmicro.ai/img/homepage/app_stats.png" alt="App Statistics">
+- **Diverse AI Models**: Access to various AI models including GPT 4o-mini, Claude Haiku, Google Gemini Flash, and more advanced options in higher tiers
 
-```
-make init
-```
+## Prerequisites
 
-This will spin up a database, web worker, celery worker, and Redis broker and run your migrations.
+Before you begin, make sure you have the following installed:
 
-You can then go to [localhost:8000](http://localhost:8000/) to view the app.
+1. [Docker](https://www.docker.com/get-started) - Version 20.10 or higher
+2. [Docker Compose](https://docs.docker.com/compose/install/) - Version 2.0 or higher
 
-*Note: if you get an error, make sure you have a `.env` file, or create one based on `.env.example`.*
+## Installation
 
-### Using the Makefile
-
-You can run `make` to see other helper functions, and you can view the source
-of the file in case you need to run any specific commands.
-
-For example, you can run management commands in containers using the same method 
-used in the `Makefile`. E.g.
-
-```
-docker compose exec web python manage.py createsuperuser
-```
-
-### Launch Stripe subscription
+1. **Clone the Repository**
 ```bash
-sudo docker exec -it web /bin/sh
-python ./manage.py bootstrap_subscriptions
+git clone https://github.com/onmicroai/micro_ai.git
+cd micro_ai
 ```
 
-## Installation - Native
+2. **Environment Setup**
+The application will automatically create a `.env` file with default settings. If you need to customize the environment variables, you can edit the `.env` file.
 
-You can also install/run the app directly on your OS using the instructions below.
-
-Setup a virtualenv and install requirements
-(this example uses [virtualenvwrapper](https://virtualenvwrapper.readthedocs.io/en/latest/)):
-
+3. **Start the Application**
 ```bash
-mkvirtualenv micro_ai -p python3.11
-pip install -r dev-requirements.txt
+docker compose up
 ```
 
-## Set up database
+This command will:
+- Build and start all necessary containers (Frontend, Backend, Database, Redis, etc.)
+- Run database migrations
+- Start the development servers
 
-*If you are using Docker you can skip these steps.*
+4. **Access the Application**
+Once all containers are running, you can access:
+- Main application: http://localhost
+- Admin interface: http://localhost:8000/admin
+- API documentation: http://localhost:8000/api/schema/
 
-Create a database named `micro_ai`.
+## Project Structure
 
-```
-createdb micro_ai
-```
+The project consists of several components:
 
-Create database migrations:
+- `frontend/`: Next.js frontend application
+- `backend/`: Django backend application
+- `nginx/`: Nginx configuration for serving the application
+- `docker-compose.yml`: Docker configuration for all services
 
-```
-./manage.py makemigrations
-```
+## Troubleshooting
 
-Create database tables:
+If you encounter any issues:
 
-```
-./manage.py migrate
-```
-
-## Running server
-
-**Docker:**
-
+1. Make sure all required ports (80, 8000, 5432) are available on your system
+2. Check if Docker and Docker Compose are running properly
+3. Try stopping and removing all containers:
 ```bash
-make start
+docker compose down
 ```
-
-**Native:**
-
+4. Rebuild the containers:
 ```bash
-./manage.py runserver
+docker compose build
+docker compose up
 ```
 
-## Building front-end
+## Support
 
-To build JavaScript and CSS files, first install npm packages:
+For support, please:
+1. Open an issue in the [GitHub repository](https://github.com/onmicroai/micro_ai/issues)
+2. Contact the development team at john@onmicro.ai
 
-**Docker:**
+## Contributing
 
-```bash
-make npm-install
-```
+We welcome contributions to OnMicro.AI! Here's how you can help:
 
-**Native:**
+1. **Fork the Repository**
+   - Go to [https://github.com/onmicroai/micro_ai](https://github.com/onmicroai/micro_ai)
+   - Click the "Fork" button in the top-right corner
+   - Clone your forked repository locally
 
-```bash
-npm install
-```
+2. **Create a Feature Branch**
+   ```bash
+   git checkout -b feature/your-feature-name
+   # or
+   git checkout -b fix/your-fix-name
+   ```
 
-Then build (and watch for changes locally):
+3. **Make Your Changes**
+   - Write clear, descriptive commit messages
+   - Follow the existing code style
+   - Add tests for new features
+   - Update documentation as needed
 
-**Docker:**
+4. **Submit a Pull Request**
+   - Push your changes to your fork
+   - Go to the original repository
+   - Click "New Pull Request"
+   - Select your feature branch
+   - Fill out the pull request template
+   - Submit and wait for review
 
-```bash
-make npm-watch
-```
+5. **Code Review Process**
+   - Address any feedback from reviewers
+   - Make requested changes
+   - Ensure all tests pass
+   - Keep the PR up to date with the main branch
 
-**Native:**
+### Development Guidelines
 
-```bash
-npm run dev-watch
-```
+- Follow PEP 8 style guide for Python code
+- Use ESLint and Prettier for JavaScript/TypeScript code
+- Write meaningful commit messages following [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) specification:
+  ```
+  <type>: #<issue-number> <description> 
 
-## Running Celery
+  [optional body]
+  ```
+  - Types:
+    - `feat`: New feature (correlates with MINOR in SemVer)
+    - `fix`: Bug fix (correlates with PATCH in SemVer)
+    - `docs`: Documentation changes
+    - `style`: Code style changes (formatting, etc.)
+    - `refactor`: Code changes that neither fix a bug nor add a feature
+    - `perf`: Performance improvements
+    - `test`: Adding or modifying tests
+    - `build`: Changes that affect the build system
+    - `ci`: Changes to CI configuration files
+    - `chore`: Other changes that don't modify source or test files
+  - Breaking changes must be indicated with `!` after type/scope or with `BREAKING CHANGE:` footer
+  - Always include the issue number in the commit message using `#<issue-number>`
+  - Examples:
+    - `feat: #123 change authentication method to OAuth2 #123`
+    - `fix: #111 handle null response from external service #456`
+    - `docs: #115 update installation instructions #789`
+- Include tests for new features and bug fixes
+- Update documentation for any changes
 
-Celery can be used to run background tasks.
-If you use Docker it will start automatically.
+## License
 
-You can run it using:
+[GNU LESSER GENERAL PUBLIC LICENSE Version 2.1](https://github.com/onmicroai/micro_ai/blob/master/LICENSE.md)
 
-```bash
-celery -A micro_ai worker -l INFO
-```
-
-Or with celery beat (for scheduled tasks):
-
-```bash
-celery -A micro_ai worker -l INFO -B
-```
-
-## Google Authentication Setup
-
-To setup Google Authentication, follow the [instructions here](https://docs.allauth.org/en/latest/socialaccount/providers/google.html).
-
-## Installing Git commit hooks
-
-To install the Git commit hooks run the following:
-
-```shell
-$ pre-commit install --install-hooks
-```
-
-Once these are installed they will be run on every commit.
-
-For more information see the [docs](https://docs.saaspegasus.com/code-structure.html#code-formatting).
-
-## Running Tests
-
-To run tests:
-
-**Docker:**
-
-```bash
-make test
-```
-
-**Native:**
-
-```bash
-./manage.py test
-```
-
-Or to test a specific app/module:
-
-**Docker:**
-
-```bash
-docker compose exec web python manage.py test apps.utils.tests.test_slugs
-```
-
-**Native:**
-
-```bash
-./manage.py test apps.utils.tests.test_slugs
-```
-
-On Linux-based systems you can watch for changes using the following:
-
-**Docker:**
-
-```bash
-find . -name '*.py' | entr docker compose exec web python manage.py test apps.utils.tests.test_slugs
-```
-
-**Native:**
-
-```bash
-find . -name '*.py' | entr python ./manage.py test apps.utils.tests.test_slugs
-```

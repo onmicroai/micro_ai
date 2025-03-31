@@ -1,0 +1,157 @@
+name: CI/CD Full (Development)
+
+on:
+  push:
+    branches:
+      - dev
+
+concurrency:
+  group: ${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  prepare:
+    name: Prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Pull dev branch and ensure db and redis are up
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            git pull origin dev
+            
+            # ensure db and redis are up
+            docker-compose -p backend -f docker-compose.dev.yml up -d redis
+            docker-compose -p backend -f docker-compose.dev.yml up -d db
+            
+            # Copy .env file before building to ensure Next.js has access to public env vars at build time
+            cp -f /opt/secrets/.env /home/ubuntu/micro_ai/.env
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prepare
+
+    steps:
+      - name: Build Frontend
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            docker-compose -p frontend -f docker-compose.dev.yml build frontend
+
+      - name: Build Web
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            docker-compose -p backend -f docker-compose.dev.yml build web
+
+      - name: Build Celery
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            docker-compose -p backend -f docker-compose.dev.yml build celery 
+
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: build
+
+    steps:
+    - name: Stop Containers
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+          if [ -d "/docker/volumes/micro_ai" ]; then
+            cd /docker/volumes/micro_ai
+            docker-compose -p backend -f docker-compose.dev.yml down celery
+            docker-compose -p backend -f docker-compose.dev.yml down web
+            docker-compose -p frontend -f docker-compose.dev.yml down frontend
+          else
+            echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
+          fi
+
+    - name: Rsync Data and Env
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+
+          cd /home/ubuntu/micro_ai
+          rsync -r --delete ./ /docker/volumes/micro_ai
+
+          cd /docker/volumes/micro_ai
+          cp -f /opt/secrets/.env .env
+
+    - name: Deploy Backend & Frontend
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |          
+          cd /docker/volumes/micro_ai
+          docker compose -p backend -f docker-compose.dev.yml up -d web celery
+          docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
+
+  clean:
+    name: Clean
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: deploy
+
+    steps:
+    - name: Prune unused Docker resources
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_IP_DEV }}
+        username: 'ubuntu'
+        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+        port: 22
+        script: |
+
+          echo "Pruning unused Docker resources..."
+          # Only remove stopped containers
+          sudo docker container prune -f
+          # Only remove dangling images
+          sudo docker image prune -f
+          # Never prune volumes automatically
+          sudo docker builder prune -f
+          # Remove unused volumes while preserving media_data
+          echo "Removing unused volumes except media_data:"
+          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm
+          
+          # Check disk space after cleanup
+          echo "Disk space after cleanup:"
+          df -h /

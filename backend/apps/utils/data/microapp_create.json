@@ -1,0 +1,630 @@
+{
+    "data": [
+    {
+        "title": "MCQ Generator",
+        "app_json": {
+            "title": "MCQ Generator",
+            "completedHtml": "You've reached the end",
+            "description": "This micro-app allows you to generate multiple-choice questions quickly and consistently. \nIt work with either GPT-3.5 Turbo, GPT-4, or both.\nOptionally, users can modify the AI configuration by opening the left sidebar.",
+            "privacySettings": "private",
+            "temperature": 0.7,
+            "aiModel": "gpt-4o-mini",
+            "phases": [
+            {
+                "id": "1",
+                "title": "MCQ Generator",
+                "rubric": "",
+                "prompts": [
+                    {
+                        "id": "prompt-1734748849075",
+                        "name": "prompt1",
+                        "text": "Please write {questions_num} {question_level} level multiple-choice question(s), each with {correct_ans_num} correct answer(s) and {distractors_num} distractors, based on text that I will provide.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "prompt-1734748888396",
+                        "name": "prompt2",
+                        "text": "Please create questions based solely on the provided text.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748594529"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734748915476",
+                        "name": "prompt3",
+                        "text": "Please create questions that incorporate both the provided text as well as your knowledge of the topic. ",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": false,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748594529"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734748946706",
+                        "name": "prompt4",
+                        "text": "Distractors should be obviously incorrect options.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": "Obvious",
+                        "operator": "equals",
+                        "sourceFieldId": "radio-1734748792342"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749014260",
+                        "name": "prompt5",
+                        "text": "Distractors should sound like they could be plausible, but are ultimately incorrect.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": "Challenging",
+                        "operator": "equals",
+                        "sourceFieldId": "radio-1734748792342"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749050973",
+                        "name": "prompt6",
+                        "text": "Focus on meeting the following learning objective(s): {learning_objective}",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "operator": "is_not_empty",
+                        "sourceFieldId": "textarea-1734748622067"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749075244",
+                        "name": "prompt7",
+                        "text": "Please provide a feedback section for each question that says why the correct answer is the best answer and the other options are incorrect. ",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748814483"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749115751",
+                        "name": "prompt8",
+                        "text": "Also, include a hint for each question.",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false,
+                        "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734748825768"
+                        }
+                    },
+                    {
+                        "id": "prompt-1734749144277",
+                        "name": "prompt9",
+                        "text": "Format each question like the following:\nQuestion: [Question Text] \nA) [Answer A] \nB) [Answer B] \n....\nN) [Answer N] \n\nSolution: [Answer A, B...N]",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "prompt-1734749193118",
+                        "name": "prompt10",
+                        "text": "Here is the content/topic:\n================\n{topic_content}",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                    }
+                ],
+                "elements": [
+                    {
+                        "id": "textarea-1734749230606",
+                        "name": "topic_content",
+                        "type": "textarea",
+                        "label": "Enter the content for question generation:",
+                        "isRequired": true
+                    },
+                    {
+                        "id": "boolean-1734748594529",
+                        "name": "original_content_only",
+                        "type": "boolean",
+                        "label": "Focus only on the provided text?",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "textarea-1734748622067",
+                        "name": "learning_objective",
+                        "type": "textarea",
+                        "label": "Specify a learning objective (optional)",
+                        "isRequired": false,
+                        "placeholder": ""
+                    },
+                    {
+                        "id": "slider-1734748649583",
+                        "name": "questions_num",
+                        "type": "slider",
+                        "label": "Number of questions",
+                        "maxValue": 6,
+                        "isRequired": false,
+                        "defaultValue": 1
+                    },
+                    {
+                        "id": "slider-1734748678142",
+                        "name": "correct_ans_num",
+                        "type": "slider",
+                        "label": "Correct answers per question",
+                        "maxValue": 4,
+                        "isRequired": false,
+                        "defaultValue": 1
+                    },
+                    {
+                        "id": "checkbox-1734748705188",
+                        "name": "question_level",
+                        "type": "checkbox",
+                        "label": "Question difficulty level:",
+                        "choices": [
+                            {
+                                "text": "Grade School",
+                                "value": "Item 1"
+                            },
+                            {
+                                "text": "High School",
+                                "value": "Item 2"
+                            },
+                            {
+                                "text": "University",
+                                "value": "Item 3"
+                            }
+                        ],
+                        "isRequired": false,
+                        "showOtherItem": true
+                    },
+                    {
+                        "id": "slider-1734748744876",
+                        "name": "distractors_num",
+                        "type": "slider",
+                        "label": "Number of Distractors",
+                        "maxValue": 6,
+                        "isRequired": false,
+                        "defaultValue": 3
+                    },
+                    {
+                        "id": "radio-1734748792342",
+                        "name": "distractors_difficulty",
+                        "type": "radio",
+                        "label": "Distractors difficulty",
+                        "choices": [
+                            {
+                                "text": "Normal",
+                                "value": "Item 1"
+                            },
+                            {
+                                "text": "Obvious",
+                                "value": "Item 2"
+                            },
+                            {
+                                "text": "Challenging",
+                                "value": "Item 3"
+                            }
+                        ],
+                        "isRequired": false,
+                        "defaultValue": "Item 1"
+                    },
+                    {
+                        "id": "boolean-1734748814483",
+                        "name": "feedback",
+                        "type": "boolean",
+                        "label": "Include Learner Feedback?",
+                        "isRequired": false
+                    },
+                    {
+                        "id": "boolean-1734748825768",
+                        "name": "hints",
+                        "type": "boolean",
+                        "label": "Include hints?",
+                        "isRequired": false
+                    }
+                ],
+                "minScore": 0,
+                "skipPhase": false,
+                "description": "",
+                "scoredPhase": false
+                }
+                ]  
+            }
+        },
+        {
+            "title": "Alt Text Generator",
+            "app_json": {
+              "title": "Alt Text Generator",
+              "description": "This app accepts images via upload or URL and returns alt text for accessibility.",
+              "privacySettings": "private",
+              "clonable": true,
+              "temperature": 0.7,
+              "aiModel": "gpt-4o-mini",
+              "completedHtml": "You've reached the end",
+              "phases": [
+                {
+                  "id": "1",
+                  "title": "Phase 1",
+                  "rubric": "",
+                  "prompts": [
+                    {
+                      "id": "aiInstructions-1734490607819",
+                      "name": "aiInstructions1",
+                      "text": "Generate the alt text for the image url(s).",
+                      "type": "aiInstructions",
+                      "label": "",
+                      "isRequired": false
+                    },
+                    {
+                      "id": "prompt-1734411758020",
+                      "name": "prompt1",
+                      "text": "I am sending you one or more app_images. Please provide separate appropriate alt text for each image I send. The alt text should:\n- Aim to put the most important information at the beginning.",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false
+                    },
+                    {
+                      "id": "prompt-1734490731595",
+                      "name": "prompt5",
+                      "text": "- Make sure to include any text in this image as part of the alt text",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false,
+                      "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734490531574"
+                      }
+                    },
+                    {
+                      "id": "prompt-1734490669128",
+                      "name": "prompt4",
+                      "text": "One or more of my images are complex. Please provide a short description to identify the image, and a long description to represent the essential information conveyed by the image. \nPlease provide your output in this format: \n\n**Short Description:**\n[Short Description]\n\n**Long Description:**\n[Long Description]",
+                      "type": "prompt",
+                      "label": "",
+                      "isRequired": false,
+                      "conditionalLogic": {
+                        "value": true,
+                        "operator": "equals",
+                        "sourceFieldId": "boolean-1734490588349"
+                      }
+                    }
+                  ],
+                  "elements": [
+                    {
+                      "id": "imageUpload-1734411633943",
+                      "name": "alt_text_image_6",
+                      "type": "imageUpload",
+                      "label": "Please enter images",
+                      "maxFiles": 2,
+                      "multiple": true,
+                      "isRequired": false,
+                      "maxFileSize": 6,
+                      "allowedFileTypes": [
+                        "image/jpeg",
+                        "image/png"
+                      ]
+                    },
+                    {
+                      "id": "boolean-1734490531574",
+                      "name": "important_text",
+                      "type": "boolean",
+                      "label": "The text in my images is important",
+                      "isRequired": false,
+                      "description": "If text is important, it should be included in the alt text. If it is irrelevant or covered in text elsewhere on the page, it should not be included.",
+                      "defaultValue": false
+                    },
+                    {
+                      "id": "boolean-1734490588349",
+                      "name": "complex_image",
+                      "type": "boolean",
+                      "label": "My image is a complex image (chart, infographic, etc...)",
+                      "isRequired": false,
+                      "description": "Complex app_images get both a short and a long description of the image"
+                    }
+                  ],
+                  "minScore": 0,
+                  "skipPhase": false,
+                  "description": "",
+                  "scoredPhase": false
+                }
+              ]
+          }
+        },
+        {
+            "title": "Rubric Generator",
+            "app_json": {
+                "title": "Rubric Generator",
+                "description": "This app generates a rubric for an assignment with a customizable number of criteria and scoring levels, and can align to provided learning objectives. ",
+                "privacySettings": "private",
+                "clonable": true,
+                "temperature": 0.7,
+                "aiModel": "gpt-4o-mini",
+                "completedHtml": "You've reached the end",
+                "phases": [
+                    {
+                        "id": "1",
+                        "title": "Assignment Details",
+                        "skipPhase": false,
+                        "scoredPhase": false,
+                        "rubric": "",
+                        "minScore": 0,
+                        "prompts": [
+                            {
+                                "id": "aiInstructions-1734201767465",
+                                "type": "aiInstructions",
+                                "name": "aiInstructions1",
+                                "text": "Generate the rubric in the form of a markdown table. The first row heading for the table should include the achievement levels and points. The first column on the left of the table should display the criteria. The descriptors for each component and score should be listed under the correct achievement level and points column and criteria row. Make the descriptors in the table as specific to the objectives as possible.\n\nPlease provide no other preamble or post-text, just the table. ",
+                                "label": ""
+                            },
+                            {
+                                "id": "prompt-1734201711785",
+                                "type": "prompt",
+                                "name": "prompt1",
+                                "text": "Act as an experienced {subject} teacher and create a well crafted and clear grading rubric with {num_criteria} criteria and {num_levels} achievement levels per criteria, based on an assignment description that I will provide. Use {grade_level} student friendly language. The maximum points for the assignment is {max_points}, please make sure the rubric's maximum value adds up to that number.\n\nIf provided, please align the rubric to the following learning objectives: \n{learning_objectives}\n\nHere is the assignment description for the rubric: \n{assignment_description}",
+                                "label": ""
+                            }
+                        ],
+                        "elements": [
+                            {
+                                "id": "textarea-1734201588378",
+                                "type": "textarea",
+                                "name": "assignment_description",
+                                "label": "Describe the assignment",
+                                "isRequired": false,
+                                "placeholder": "In this assignment, you will create a concept map that visually represents the key concepts, processes, and relationships involved in human memory, as covered in this course. Your concept map should include at least five major concepts discussed in class (e.g., encoding, storage, retrieval, types of memory, etc.) and demonstrate how they are interconnected. You will also provide brief explanations for each connection to showcase your understanding of how these processes work together to form a cohesive memory system."
+                            },
+                            {
+                                "id": "text-1734586006067",
+                                "type": "text",
+                                "name": "subject",
+                                "label": "Subject:",
+                                "isRequired": false,
+                                "placeholder": "Cognitive Psychology"
+                            },
+                            {
+                                "id": "text-1734201607140",
+                                "type": "text",
+                                "name": "max_points",
+                                "label": "Maximum Points",
+                                "isRequired": false,
+                                "placeholder": "100"
+                            },
+                            {
+                                "id": "slider-1734201618653",
+                                "type": "slider",
+                                "name": "num_criteria",
+                                "label": "Number of Criteria",
+                                "description": "Number of rows in the rubric",
+                                "isRequired": false,
+                                "maxValue": 6,
+                                "defaultValue": 3
+                            },
+                            {
+                                "id": "slider-1734201650919",
+                                "type": "slider",
+                                "name": "num_levels",
+                                "label": "Number of Scoring Levels",
+                                "isRequired": false,
+                                "maxValue": 6,
+                                "defaultValue": 3
+                            },
+                            {
+                                "id": "radio-1734201673398",
+                                "type": "radio",
+                                "name": "grade_level",
+                                "label": "What is the grade level of your audience?",
+                                "isRequired": false,
+                                "choices": [
+                                    {
+                                        "text": "Undergraduate",
+                                        "value": "Item 1"
+                                    },
+                                    {
+                                        "text": "Graduate",
+                                        "value": "Item 2"
+                                    },
+                                    {
+                                        "text": "Post Graduate",
+                                        "value": "Item 3"
+                                    }
+                                ],
+                                "showOtherItem": true
+                            },
+                            {
+                                "id": "textarea-1734586088986",
+                                "type": "textarea",
+                                "name": "learning_objectives",
+                                "label": "Align with the following learning objectives:",
+                                "isRequired": false,
+                                "placeholder": "- Demonstrate knowledge of the basic concepts and processes involved in human cognition, particularly memory.\n- Break down the complex interactions between different types of memory and how they contribute to overall cognitive functioning.\n- Use concept mapping to visually organize and relate theoretical concepts from the course to better understand their practical implications.\n- Present ideas clearly and concisely through a well-structured concept map, supported by logical explanations of relationships between concepts."
+                            }
+                          ]
+                    }
+                ]
+            }
+        },        
+        {
+          "title": "Debate an AI",
+          "app_json": {
+              "title": "Debate an AI",
+              "description": "This app allows you to engage in a mock debate with an AI over a topic of your choice. You can choose the difficulty of the debate and the topic.",
+              "privacySettings": "private",
+              "clonable": true,
+              "completedHtml": "Great debating!",
+              "temperature": 0.7,
+              "aiModel": "gpt-4o-mini",
+              "phases": [
+                  {
+                      "id": "1",
+                      "title": "About You",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "elements": [
+                          {
+                              "id": "text-1734203658981",
+                              "type": "text",
+                              "name": "name",
+                              "label": "What is your name?",
+                              "isRequired": true
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "fixedResponse-1734203665565",
+                              "type": "fixedResponse",
+                              "name": "fixedResponse1",
+                              "text": "Welcome, {name}! Let's have a friendly debate!"
+                          }
+                      ]
+                  },
+                  {
+                      "id": "2",
+                      "title": "Begin the debate",
+                      "description": "",
+                      "skipPhase": false,
+                      "scoredPhase": false,
+                      "rubric": "",
+                      "minScore": 0,
+                      "elements": [
+                          {
+                              "id": "radio-1734203705057",
+                              "type": "radio",
+                              "name": "experience",
+                              "label": "Do you have debate experience?",
+                              "isRequired": false,
+                              "choices": [
+                                  {
+                                      "text": "Yes",
+                                      "value": "Item 1"
+                                  },
+                                  {
+                                      "text": "No",
+                                      "value": "Item 2"
+                                  }
+                              ]
+                          },
+                          {
+                              "id": "text-1734203727107",
+                              "type": "text",
+                              "name": "years",
+                              "label": "How many years of experience do you have?",
+                              "isRequired": false,
+                              "conditionalLogic": {
+                                  "sourceFieldId": "radio-1734203705057",
+                                  "operator": "equals",
+                                  "value": "Yes"
+                              }
+                          },
+                          {
+                              "id": "text-1734203762590",
+                              "type": "text",
+                              "name": "topic",
+                              "label": "Please provide a topic for our debate",
+                              "isRequired": true
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "prompt-1734203778641",
+                              "type": "prompt",
+                              "name": "prompt1",
+                              "text": "Let's have a two round debate. I will provide a topic and you provide an opening argument. Then I will respond. \nHere is the topic: {topic}"
+                          },
+                          {
+                              "id": "prompt-1734203800024",
+                              "type": "prompt",
+                              "name": "prompt2",
+                              "text": "I have {years} years debate experience. Please adjust your difficulty for a seasoned debater like myself. ",
+                              "conditionalLogic": {
+                                  "sourceFieldId": "text-1734203727107",
+                                  "operator": "is_not_empty"
+                              }
+                          }
+                      ]
+                  },
+                  {
+                      "id": "3",
+                      "title": "Respond to the opening argument",
+                      "description": "The AI has made their opening statement. Now is your chance to respond. ",
+                      "skipPhase": false,
+                      "scoredPhase": true,
+                      "rubric": "Specific Points\n2 points - The user's argument references at least two specific points from the assistant's opening statement. \n0 points - The user's argument does not reference at least two specific points from the assistant's opening statement. ",
+                      "minScore": 2,
+                      "elements": [
+                          {
+                              "id": "textarea-1734203877925",
+                              "type": "textarea",
+                              "name": "response",
+                              "label": "Please respond to the opening argument from the AI",
+                              "description": "Make sure that you reference at least two specific points brought up by the AI. ",
+                              "isRequired": false
+                          }
+                      ],
+                      "prompts": [
+                          {
+                              "id": "aiInstructions-1734203925249",
+                              "type": "aiInstructions",
+                              "name": "aiInstructions1",
+                              "text": "The user will respond to your opening argument and has been instructed to reference two specific points from your opening statement. \n\nYou will respond to their counterpoint. "
+                          },
+                          {
+                              "id": "prompt-1734203939975",
+                              "type": "prompt",
+                              "name": "prompt3",
+                              "text": "{response}"
+                          }
+                      ]
+                  },
+                  {
+                    "id": "4",
+                    "title": "Respond and Defend your position",
+                    "rubric": "",
+                    "prompts": [
+                      {
+                        "id": "prompt-1742504044061",
+                        "name": "prompt4",
+                        "text": "<div>Here is my counterpoint:&nbsp;<br> {defence} <br></div><div><br></div><div>Please conclude this debate by summarizing&nbsp;the key points of the debate, highlighting the strongest arguments I've made and commending me for my insights. Conclude the debate by reiterating the importance of discussing such topics.</div>",
+                        "type": "prompt",
+                        "label": "",
+                        "isRequired": false
+                      }
+                    ],
+                    "elements": [
+                      {
+                        "id": "textarea-1742504147304",
+                        "name": "defence",
+                        "type": "textarea",
+                        "label": "Respond to the AI's claims and defend your position",
+                        "isRequired": false
+                      }
+                    ],
+                    "minScore": 0,
+                    "skipPhase": false,
+                    "description": "",
+                    "scoredPhase": false
+                  }
+              ]
+          }
+        }
+    ]
+}

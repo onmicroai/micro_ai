@@ -1,0 +1,122 @@
+# \micro_ai\docker-compose.dev.yml
+
+services:
+  db:
+    container_name: db
+    image: postgres:17
+    # persist data beyond lifetime of container
+    volumes:
+      - /docker/volumes/postgres/:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=micro_ai
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - "5432:5432"
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.2
+
+    healthcheck:
+      test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
+      interval: 2s
+      retries: 10
+  redis:
+    container_name: redis
+    image: redis
+    # persistent storage
+    command: redis-server --appendonly yes
+    volumes:
+      - /docker/volumes/redis/:/var/lib/postgresql/data/
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.3
+    healthcheck:
+      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
+      interval: 2s
+      retries: 10
+  web:
+    container_name: web
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.web
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    expose:
+      - "8000"
+    environment:
+      - DEBUG=1
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.11
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: curl --fail http://localhost:8000/ || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 20
+      start_period: 15s
+
+  celery:
+    container_name: celery
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.web
+    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    env_file:
+      - .env
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.12
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  frontend:
+    container_name: frontend
+    image: frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    expose:
+      - "3000"
+    volumes:
+      - ./frontend:/frontend
+      - /frontend/node_modules
+      - /frontend/.next            
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.20
+    env_file:
+      - ./.env
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: "1000:1000" # ubuntu:ubuntu user:group
+
+volumes:
+  postgres_data:
+  redis_data:
+  media_data:
+
+networks:
+  micronet:
+    external: true
