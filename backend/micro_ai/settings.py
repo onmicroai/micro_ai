@@ -73,7 +73,6 @@ THIRD_PARTY_APPS = [
     "rest_framework_api_key",
     "celery_progress",
     "whitenoise.runserver_nostatic",  # whitenoise runserver
-    "waffle",
     "django_celery_beat",
 ]
 
@@ -85,7 +84,6 @@ PROJECT_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.api.apps.APIConfig",
     "apps.web",
-    "apps.teams",
     "apps.microapps",
     "apps.collection",
     "apps.utils"
@@ -105,7 +103,6 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
@@ -411,10 +408,6 @@ if REDIS_URL.startswith("rediss"):
 
 CELERY_BROKER_URL = CELERY_RESULT_BACKEND = REDIS_URL
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
-# Waffle config
-
-WAFFLE_FLAG_MODEL = "teams.Flag"
 
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
