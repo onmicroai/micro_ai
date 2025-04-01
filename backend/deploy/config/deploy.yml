@@ -11,7 +11,6 @@ env:
     - POSTGRES_PASSWORD
     - SECRET_KEY
     - DATABASE_URL
-    - REDIS_URL
     - STRIPE_LIVE_PUBLIC_KEY
     - STRIPE_LIVE_SECRET_KEY
     - STRIPE_TEST_PUBLIC_KEY
@@ -72,12 +71,6 @@ accessories:
         POSTGRES_DB: micro_ai
       secret:
         - POSTGRES_PASSWORD
-  ## docker hostname will be 'micro_ai-redis'
-  redis:
-    image: redis
-    host: <IP-ADDRESS>
-    options:
-      network: micro_ai-network
 
 traefik:
   options:

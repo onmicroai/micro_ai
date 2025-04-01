@@ -15,7 +15,6 @@ on:
         type: choice
         options:
           - db
-          - redis
           - web
           - frontend
           - backend
@@ -56,9 +55,6 @@ jobs:
             if [ "${{ inputs.containers }}" = "db" ]; then
               docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE db
             
-            elif [ "${{ inputs.containers }}" = "redis" ]; then
-              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE redis
-            
             elif [ "${{ inputs.containers }}" = "web" ]; then
               docker-compose -p backend -f docker-compose.prod.yml build web
               docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
@@ -73,8 +69,8 @@ jobs:
               docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
             
             elif [ "${{ inputs.containers }}" = "all" ]; then
-              # Ensure db and redis are up
-              docker-compose -p backend -f docker-compose.prod.yml up -d redis db
+              # Ensure db is up
+              docker-compose -p backend -f docker-compose.prod.yml up -d db
               
               # Build and deploy backend services
               docker-compose -p backend -f docker-compose.prod.yml build web

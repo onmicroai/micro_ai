@@ -19,19 +19,6 @@ services:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 5s
       retries: 20
-  redis:
-    container_name: redis
-    image: redis
-    # persistent storage
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - microaiNetwork
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
-      interval: 5s
-      retries: 20
   web:
     container_name: web
     build:
@@ -50,8 +37,6 @@ services:
       - microaiNetwork
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=1)"]
@@ -104,7 +89,6 @@ services:
 
 volumes:
   postgres_data:
-  redis_data:
   static:
   media_data:
 

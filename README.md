@@ -41,7 +41,7 @@ docker compose up
 ```
 
 This command will:
-- Build and start all necessary containers (Frontend, Backend, Database, Redis, etc.)
+- Build and start all necessary containers (Frontend, Backend, Database, etc.)
 - Run database migrations
 - Start the development servers
 

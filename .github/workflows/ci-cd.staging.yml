@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Pull master branch and ensure db and redis are up
+      - name: Pull master branch and ensure db is up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -27,8 +27,7 @@ jobs:
             cd /home/ubuntu/micro_ai
             git pull origin master
             
-            # ensure db and redis are up
-            docker-compose -p backend -f docker-compose.prod.yml up -d redis
+            # ensure db is up
             docker-compose -p backend -f docker-compose.prod.yml up -d db            
 
   build:
