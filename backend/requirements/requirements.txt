@@ -42,11 +42,6 @@ brotli==1.1.0
     # via whitenoise
 cachetools==5.5.1
     # via google-auth
-celery[redis]==5.4.0
-    # via
-    #   -r requirements/requirements.in
-    #   django-celery-beat
-celery-progress==0.5
     # via -r requirements/requirements.in
 certifi==2025.1.31
     # via

@@ -16,10 +16,6 @@ drf-spectacular
 stripe
 dj-stripe==2.8.4
 django-anymail[mailgun]  # email services
-celery-progress
-celery
-celery[redis]
-django-celery-beat
 whitenoise[brotli]
 openai>=1.2.0
 google-generativeai

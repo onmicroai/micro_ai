@@ -59,25 +59,6 @@ services:
       timeout: 5s
       retries: 5
       start_period: 15s
-  celery:
-    container_name: celery
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
-    volumes:
-      - ./backend:/code
-    env_file:
-      - ./.env
-    networks:
-      - microaiNetwork
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      web:
-        condition: service_healthy
   frontend:
     container_name: frontend
     build:
@@ -118,8 +99,6 @@ services:
       frontend:
         condition: service_healthy
       web:
-        condition: service_healthy
-      celery:
         condition: service_healthy
 
 volumes:

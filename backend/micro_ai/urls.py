@@ -48,8 +48,6 @@ urlpatterns = [
     path("api/subscriptions/", include("apps.subscriptions.api_urls")),  # API endpoints
     path("subscriptions/", include("apps.subscriptions.urls")),  # Web views
     path("", include("apps.web.urls")),
-    path("celery-progress/", include("celery_progress.urls")),
-    # cutom API's
     path("api/microapps/", include(microapp_urls)),
     path("api/collection/", include(collection_urls)),
     # auth API

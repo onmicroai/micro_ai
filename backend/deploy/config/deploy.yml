@@ -32,22 +32,6 @@ servers:
       traefik.http.routers.micro_ai_secure.rule: Host(`localhost:8000`)
       traefik.http.routers.micro_ai_secure.tls: true
       traefik.http.routers.micro_ai_secure.tls.certresolver: letsencrypt
-  celery:
-    hosts:
-      - <IP-ADDRESS>
-    cmd: celery -A micro_ai worker -l INFO --concurrency 2
-    options:
-      network: micro_ai-network
-    labels:
-      traefik.enable: "false"
-  celerybeat:
-    hosts:
-      - <IP-ADDRESS>
-    cmd: celery -A micro_ai beat -l INFO
-    options:
-      network: micro_ai-network
-    labels:
-      traefik.enable: "false"
 
 # https://kamal-deploy.org/docs/configuration#using-a-custom-healthcheck
 healthcheck:

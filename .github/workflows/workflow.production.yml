@@ -17,7 +17,6 @@ on:
           - db
           - redis
           - web
-          - celery
           - frontend
           - backend
           - all
@@ -64,26 +63,22 @@ jobs:
               docker-compose -p backend -f docker-compose.prod.yml build web
               docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
             
-            elif [ "${{ inputs.containers }}" = "celery" ]; then
-              docker-compose -p backend -f docker-compose.prod.yml build celery
-              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE celery
-            
             elif [ "${{ inputs.containers }}" = "frontend" ]; then
               docker-compose -p frontend -f docker-compose.prod.yml build frontend
               docker-compose -p frontend -f docker-compose.prod.yml up -d $FORCE_RECREATE frontend
             
             elif [ "${{ inputs.containers }}" = "backend" ]; then
-              # Deploy both web and celery
-              docker-compose -p backend -f docker-compose.prod.yml build web celery
-              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web celery
+              # Deploy both web
+              docker-compose -p backend -f docker-compose.prod.yml build web
+              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
             
             elif [ "${{ inputs.containers }}" = "all" ]; then
               # Ensure db and redis are up
               docker-compose -p backend -f docker-compose.prod.yml up -d redis db
               
               # Build and deploy backend services
-              docker-compose -p backend -f docker-compose.prod.yml build web celery
-              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web celery
+              docker-compose -p backend -f docker-compose.prod.yml build web
+              docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
               
               # Build and deploy frontend
               docker-compose -p frontend -f docker-compose.prod.yml build frontend

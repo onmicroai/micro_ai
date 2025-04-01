@@ -63,17 +63,6 @@ jobs:
             cd /home/ubuntu/micro_ai
             docker-compose -p backend -f docker-compose.dev.yml build web
 
-      - name: Build Celery
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP_DEV }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          port: 22
-          script: |
-            cd /home/ubuntu/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml build celery 
-
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -91,7 +80,6 @@ jobs:
         script: |
           if [ -d "/docker/volumes/micro_ai" ]; then
             cd /docker/volumes/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml down celery
             docker-compose -p backend -f docker-compose.dev.yml down web
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
           else
@@ -122,7 +110,6 @@ jobs:
         port: 22
         script: |          
           cd /docker/volumes/micro_ai
-          docker compose -p backend -f docker-compose.dev.yml up -d web celery
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:
