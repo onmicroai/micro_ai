@@ -60,7 +60,7 @@ def get_price_display_with_currency(amount: float, currency: str) -> str:
         return f"{amount:.2f} {currency}"
 
 
-def get_subscription_urls(subscription_holder):
+def get_subscription_urls():
     url_bases = [
         "subscription_details",
         "subscription_demo",
@@ -71,7 +71,7 @@ def get_subscription_urls(subscription_holder):
     ]
 
     def _construct_url(base):
-        return reverse(f"subscriptions_team:{base}", args=[subscription_holder.slug])
+        return reverse(f"subscriptions:{base}")
 
     return {url_base: _construct_url(url_base) for url_base in url_bases}
 
