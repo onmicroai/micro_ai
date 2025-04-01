@@ -358,7 +358,6 @@ SIMPLE_JWT = {
     "SIGNING_KEY": env("SIMPLE_JWT_SIGNING_KEY", default="django-insecure-HF3Rx2KW345SJ0XCxcuSJqKTz5347aFJCV5w34VEyhnKFyHBuXPjxotI5MM1R2345WmohV3"),
     "ALGORITHM": "HS512",
     "AUTH_COOKIE": "refresh_token",
-    "AUTH_COOKIE_DOMAIN": cookies_domain, 
     "AUTH_COOKIE_SECURE": is_production,      
     "AUTH_COOKIE_HTTP_ONLY": True,   
     "AUTH_COOKIE_PATH": "/",         
