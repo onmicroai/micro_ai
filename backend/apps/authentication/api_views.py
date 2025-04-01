@@ -214,7 +214,6 @@ class EmailVerificationView(GenericAPIView):
             # Set refresh token cookie using the same approach as in JWTRefreshTokenMiddleware
             is_production = os.getenv('PRODUCTION', 'False') == 'True'
             samesite = 'None' if is_production else 'Lax'
-            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
             
             response.set_cookie(
                 'refresh_token',
@@ -223,7 +222,7 @@ class EmailVerificationView(GenericAPIView):
                 httponly=True,
                 secure=is_production,
                 samesite=samesite,
-                domain=cookies_domain
+                # Do NOT set the domain attribute
             )
             
             return response
@@ -252,10 +251,9 @@ class APICustomLogoutView(APIView):
                 # Get the same settings used when setting the cookie
                 is_production = os.getenv("PRODUCTION", "False") == "True"
                 samesite = "None" if is_production else "Lax"
-                cookies_domain = os.getenv("COOKIES_DOMAIN", None)
 
                 try:
-                    response.delete_cookie("refresh_token", domain=cookies_domain, path="/", samesite=samesite)
+                    response.delete_cookie("refresh_token", path="/", samesite=samesite)
                 except Exception as e:
                     logger.error(f"Failed to delete cookies: {str(e)}")
                     # Continue with response even if cookie deletion fails
