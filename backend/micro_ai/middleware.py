@@ -11,8 +11,6 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
         if request.path == '/api/auth/token/refresh/' and response.status_code == 200:
             is_production = os.getenv('PRODUCTION', 'False') == 'True'
             samesite = 'None' if is_production else 'Lax'
-            cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
-            
             # Get the new refresh token from the response data
             if hasattr(response, 'data') and 'refresh' in response.data:
                 response.set_cookie(
@@ -22,7 +20,6 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                     httponly=True,
                     secure=is_production,
                     samesite=samesite,
-                    domain=cookies_domain
                 )
             return response
 
@@ -32,7 +29,6 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                 refresh = RefreshToken.for_user(request.user)
                 is_production = os.getenv('PRODUCTION', 'False') == 'True'
                 samesite = 'None' if is_production else 'Lax'
-                cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
                 
                 response.set_cookie(
                     'refresh_token',
@@ -41,6 +37,5 @@ class JWTRefreshTokenMiddleware(MiddlewareMixin):
                     httponly=True,
                     secure=is_production,
                     samesite=samesite,
-                    domain=cookies_domain
                 )
         return response
