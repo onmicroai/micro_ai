@@ -4,7 +4,6 @@ docutils
 Django
 django-allauth[socialaccount,mfa]==0.63.3
 django-otp  # this is required for the allauth two-factor migration, but can be removed after that
-django-waffle
 psycopg2-binary
 django-environ
 djangorestframework
@@ -16,10 +15,6 @@ drf-spectacular
 stripe
 dj-stripe==2.8.4
 django-anymail[mailgun]  # email services
-celery-progress
-celery
-celery[redis]
-django-celery-beat
 whitenoise[brotli]
 openai>=1.2.0
 google-generativeai
