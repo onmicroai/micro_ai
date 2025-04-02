@@ -122,7 +122,7 @@ jobs:
         port: 22
         script: |          
           cd /docker/volumes/micro_ai
-          docker compose -p backend -f docker-compose.dev.yml up -d web celery
+          docker compose -p backend -f docker-compose.dev.yml up -d web
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:
