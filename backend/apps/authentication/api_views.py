@@ -67,7 +67,7 @@ class LoginViewWith2fa(LoginView):
                 expiration_time = datetime.now(UTC) + access_token_lifetime
                 
                 # Add expiration information to the response in ISO format with UTC timezone
-                jwt_data['access_expiration'] = expiration_time.isoformat() + 'Z'
+                jwt_data['access_expiration'] = expiration_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
                 
                 # rewrap login responses to match our serializer schema
                 wrapped_jwt_data = {
@@ -119,7 +119,7 @@ class VerifyOTPView(GenericAPIView):
             ).data
             
             # Add expiration information to the response
-            response_data['access_expiration'] = expiration_time.isoformat() + 'Z'
+            response_data['access_expiration'] = expiration_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             
             return Response(
                 response_data,
@@ -199,7 +199,7 @@ class EmailVerificationView(GenericAPIView):
                     "id": user.id,
                     "email": user.email,
                 },
-                "access_expiration": expiration_time.isoformat() + 'Z'
+                "access_expiration": expiration_time.strftime('%Y-%m-%dT%H:%M:%S.%fZ')
             }
             
             wrapped_jwt_data = {
