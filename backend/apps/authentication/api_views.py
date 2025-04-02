@@ -17,8 +17,7 @@ from .serializers import LoginResponseSerializer, OtpRequestSerializer, EmailVer
 import uuid
 from django.core.cache import cache
 from django.conf import settings
-from datetime import datetime, timedelta
-from django.utils import timezone
+from datetime import datetime, timedelta, UTC
 from allauth.account.models import EmailConfirmation
 import logging
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
@@ -65,7 +64,7 @@ class LoginViewWith2fa(LoginView):
                 
                 # Calculate token expiration time in UTC
                 access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
-                expiration_time = datetime.now(timezone.utc) + access_token_lifetime
+                expiration_time = datetime.now(UTC) + access_token_lifetime
                 
                 # Add expiration information to the response in ISO format with UTC timezone
                 jwt_data['access_expiration'] = expiration_time.isoformat() + 'Z'
@@ -108,7 +107,7 @@ class VerifyOTPView(GenericAPIView):
             
             # Calculate token expiration time
             access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
-            expiration_time = datetime.now(timezone.utc) + access_token_lifetime
+            expiration_time = datetime.now(UTC) + access_token_lifetime
             
             # Create response data
             response_data = JWTSerializer(
@@ -190,7 +189,7 @@ class EmailVerificationView(GenericAPIView):
             
             # Calculate token expiration time
             access_token_lifetime = settings.SIMPLE_JWT.get('ACCESS_TOKEN_LIFETIME', timedelta(minutes=60))
-            expiration_time = datetime.now(timezone.utc) + access_token_lifetime
+            expiration_time = datetime.now(UTC) + access_token_lifetime
             
             # Create the response data
             jwt_data = {
