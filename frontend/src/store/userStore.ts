@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import axiosInstance from '@/utils/axiosInstance';
+import { getAccessToken } from '@/utils/tokenCookieUtils';
 
 export interface User {
    id: number;
@@ -52,7 +53,7 @@ export const useUserStore = create<UserState>((set, get) => {
    const fetchUserData = async (signal?: AbortSignal) => {
       setLoading(true);
       try {
-         const accessToken = localStorage.getItem("accessToken");
+         const accessToken = getAccessToken();
          if (!accessToken) {
             set({ user: null, isLoading: false });
             return;
