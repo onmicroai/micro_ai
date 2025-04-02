@@ -267,7 +267,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             }
           }
 
-          forceLogout(error);
+          forceLogout(error, isPublic);
         }
 
         return Promise.reject(error);
