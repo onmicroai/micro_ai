@@ -161,7 +161,9 @@ class ReportUsageAPI(APIView):
     def post(self, request):
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required"}, status=401)
-        if not request.team or not request.team.subscription:
+        
+        subscription = request.user.subscriptions.first()
+        if not subscription:
             return Response({"detail": "No active subscription found"}, status=404)
 
         serializer = self.serializer_class(data=request.data)
@@ -172,7 +174,7 @@ class ReportUsageAPI(APIView):
         try:
             # Retrieve the subscription from Stripe and expand its items
             stripe_subscription = stripe.Subscription.retrieve(
-                request.team.subscription.subscription_id,
+                subscription.subscription_id,
                 expand=["items.data.price.recurring"]
             )
             metered_item = None
@@ -205,12 +207,14 @@ class ListUsageRecordsAPI(APIView):
     def get(self, request):
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required"}, status=401)
-        if not request.team or not request.team.subscription:
+        
+        subscription = request.user.subscriptions.first()
+        if not subscription:
             return Response({"detail": "No active subscription found"}, status=404)
         try:
             stripe = get_stripe_module()
             stripe_subscription = stripe.Subscription.retrieve(
-                request.team.subscription.subscription_id,
+                subscription.subscription_id,
                 expand=["items.data.price.recurring"]
             )
             metered_item = None
