@@ -23,13 +23,13 @@ export function CallToAction() {
       <Container className="relative">
         <div className="mx-auto max-w-lg text-center">
           <h2 className="font-display text-3xl tracking-tight text-white sm:text-4xl">
-            Get started today
+            Get started with free monthly usage
           </h2>
           <p className="mt-4 text-lg tracking-tight text-white">
-            Make today the day you start leveraging AI in pedagogically sound, data-driven ways to improve your classrooms. Start with a free month on us. 
+            More than an intro offer. Get a generous tier of free usage every month when you sign up. Make today the day you start leveraging AI in pedagogically sound, data-driven ways to improve your classrooms. 
           </p>
           <Button href="/accounts/signup" color="white" className="mt-10">
-            Get your first month free
+            Get free monthly usage
           </Button>
         </div>
       </Container>
