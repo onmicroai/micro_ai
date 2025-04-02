@@ -89,7 +89,6 @@ django==5.1.6
     #   django-cors-headers
     #   django-otp
     #   django-timezone-field
-    #   django-waffle
     #   djangorestframework
     #   djangorestframework-simplejwt
     #   drf-spectacular
@@ -107,8 +106,6 @@ django-otp==1.5.4
     # via -r requirements/requirements.in
 django-timezone-field==7.1
     # via django-celery-beat
-django-waffle==4.2.0
-    # via -r requirements/requirements.in
 djangorestframework==3.15.2
     # via
     #   -r requirements/requirements.in

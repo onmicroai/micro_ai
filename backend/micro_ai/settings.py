@@ -72,7 +72,6 @@ THIRD_PARTY_APPS = [
     "drf_spectacular",
     "rest_framework_api_key",
     "whitenoise.runserver_nostatic",  # whitenoise runserver
-    "waffle"
 ]
 
 # Put your project-specific apps here
@@ -83,7 +82,6 @@ PROJECT_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.api.apps.APIConfig",
     "apps.web",
-    "apps.teams",
     "apps.microapps",
     "apps.collection",
     "apps.utils"
@@ -103,7 +101,6 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
@@ -393,10 +390,6 @@ SPECTACULAR_SETTINGS = {
         }
     ],
 }
-
-# Waffle config
-
-WAFFLE_FLAG_MODEL = "teams.Flag"
 
 # replace any values below with specifics for your project
 PROJECT_METADATA = {
