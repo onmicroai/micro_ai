@@ -220,14 +220,6 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         }
 
         const originalRequest = error.config;
-        const path = originalRequest?.url;
-        // Check if the request URL or current page is for a public app
-        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
-
-        if (isPublic) {
-          forceLogout(error);
-          return Promise.reject(error);
-        }
 
         // Check if the error is due to an invalid token
         if (
@@ -263,6 +255,14 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             forceLogout(refreshError);
             return Promise.reject(refreshError);
           }
+        }
+
+        // Check if the request URL or current page is for a public app
+        const path = originalRequest?.url;
+        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
+
+        if (isPublic) {
+          return Promise.reject(error);
         }
 
         forceLogout(error);
