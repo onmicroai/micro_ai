@@ -1,4 +1,3 @@
-
 /**
  * It currently works only on client, because it uses LocalStorage for the storaging access token
  */
@@ -11,9 +10,10 @@ import isTokenExpired from "./isTokenExpired";
  * Private function that logs out a user when authentication fails for edge cases
  * 
  * @param {any} error - Error object that triggered the logout
+ * @param {boolean} isPublic - Path of the page that triggered the logout
  * @returns Promise<void>
  */
-const forceLogout = async (error: any): Promise<void> => {
+const forceLogout = async (error: any, isPublic?: boolean): Promise<void> => {
    console.log("forceLogout", error);
 
    if (error?.response?.status !== 401) {
@@ -29,7 +29,10 @@ const forceLogout = async (error: any): Promise<void> => {
    } finally {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('accessTokenExpiration');
-      window.location.href = '/accounts/login';
+
+      if (!isPublic) {
+         window.location.href = '/accounts/login';
+      }
    }
 };
 
@@ -183,6 +186,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         let accessToken = localStorage.getItem("accessToken");
 
+        //Checking app page is public or page can work without access token   
         if (!accessToken || isPublic) {
           return config;
         }
@@ -220,11 +224,12 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         }
 
         const originalRequest = error.config;
+        const path = window.location.pathname;
+        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
 
         // Check if the error is due to an invalid token
         if (
           error.response?.status === 401 &&
-          error.response?.data?.code === "token_not_valid" &&
           !originalRequest._retry
         ) {
           originalRequest._retry = true;
@@ -233,7 +238,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             let accessToken = localStorage.getItem("accessToken");
 
             if (!accessToken) {
-              forceLogout(error);
+              forceLogout(error, isPublic);
               return Promise.reject(error);
             }
 
@@ -252,20 +257,11 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             // Retry the original request with null check
             return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
           } catch (refreshError) {
-            forceLogout(refreshError);
+            forceLogout(refreshError, isPublic);
             return Promise.reject(refreshError);
           }
         }
 
-        // Check if the request URL or current page is for a public app
-        const path = originalRequest?.url;
-        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
-
-        if (isPublic) {
-          return Promise.reject(error);
-        }
-
-        forceLogout(error);
         return Promise.reject(error);
       }
     );
