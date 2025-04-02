@@ -6,38 +6,38 @@
 import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 import isTokenExpired from "./isTokenExpired";
-import { 
-  getAccessToken as getCookieAccessToken, 
-  getAccessTokenExpiration, 
-  setAccessToken, 
-  removeAccessToken 
+import {
+  getAccessToken as getCookieAccessToken,
+  getAccessTokenExpiration,
+  setAccessToken,
+  removeAccessToken,
 } from "./tokenCookieUtils";
 /**
  * Private function that logs out a user when authentication fails for edge cases
- * 
+ *
  * @param {any} error - Error object that triggered the logout
  * @param {boolean} isPublic - Path of the page that triggered the logout
  * @returns Promise<void>
  */
 const forceLogout = async (error: any, isPublic?: boolean): Promise<void> => {
-   console.log("forceLogout", error);
+  console.error("forceLogout", error);
 
-   if (error?.response?.status !== 401) {
-      return;
-   }
-
-   try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
-         withCredentials: true
-      });
-   } catch (error: any) {
-      console.error("Error logging out:", error);
-   } finally {
-      removeAccessToken();
-      if (!isPublic) {
-         window.location.href = '/accounts/login';
+  try {
+    await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`,
+      {},
+      {
+        withCredentials: true,
       }
-   }
+    );
+  } catch (error: any) {
+    console.error("Error logging out:", error);
+  } finally {
+    removeAccessToken();
+    if (!isPublic) {
+      window.location.href = "/accounts/login";
+    }
+  }
 };
 
 /**
@@ -99,7 +99,9 @@ const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
       processQueue(error, null);
       // If refresh token is expired, clear tokens and redirect to login
       if (error.name !== "CanceledError") {
-        forceLogout(error);
+        if (error?.response?.status === 401) {
+          forceLogout(error);
+        }
       }
       throw error;
     } finally {
@@ -158,7 +160,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
       return result.isPublic;
     } catch (error: any) {
       // Don't log aborted requests as errors
-      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+      if (error.name !== "AbortError" && error.name !== "CanceledError") {
         console.error("Error checking app visibility:", error);
       }
       // In case of error, default to not public
@@ -175,7 +177,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
       baseURL: process.env.NEXT_PUBLIC_API_URL,
       headers: {
         "Content-Type": "application/json",
-      }
+      },
     });
 
     api.interceptors.request.use(
@@ -186,7 +188,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         let accessToken = getCookieAccessToken();
 
-        //Checking app page is public or page can work without access token   
+        //Checking app page is public or page can work without access token
         if (!accessToken || isPublic) {
           return config;
         }
@@ -208,7 +210,10 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         return config;
       },
       (error: any) => {
-        forceLogout(error);
+        if (error?.response?.status == 401) {
+          forceLogout(error);
+        }
+
         return Promise.reject(error);
       }
     );
@@ -225,39 +230,44 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         const originalRequest = error.config;
         const path = window.location.pathname;
-        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
+        const isPublic = await checkCurrentPagePrivacy(
+          path,
+          originalRequest?.signal
+        );
 
         // Check if the error is due to an invalid token
-        if (
-          error.response?.status === 401 &&
-          !originalRequest._retry
-        ) {
-          originalRequest._retry = true;
+        if (error.response?.status === 401) {
+          if (!originalRequest._retry) {
+            originalRequest._retry = true;
+            try {
+              let accessToken = getCookieAccessToken();
 
-          try {
-            let accessToken = getCookieAccessToken();
+              if (!accessToken) {
+                forceLogout(error, isPublic);
+                return Promise.reject(error);
+              }
 
-            if (!accessToken) {
-              forceLogout(error, isPublic);
-              return Promise.reject(error);
+              // Normal token handling for non-public or unknown pages
+              const expirationTime = getAccessTokenExpiration();
+
+              if (isTokenExpired(expirationTime)) {
+                accessToken = await getAccessToken();
+              }
+
+              // Update the authorization header
+              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+              // Retry the original request with null check
+              return api
+                ? api(originalRequest)
+                : Promise.reject(new Error("API instance is null"));
+            } catch (refreshError) {
+              forceLogout(refreshError, isPublic);
+              return Promise.reject(refreshError);
             }
-
-            // Normal token handling for non-public or unknown pages
-            const expirationTime = getAccessTokenExpiration();
-
-            if (isTokenExpired(expirationTime)) {
-              accessToken = await getAccessToken();
-            }
-
-            // Update the authorization header
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-            // Retry the original request with null check
-            return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
-          } catch (refreshError) {
-            forceLogout(refreshError, isPublic);
-            return Promise.reject(refreshError);
           }
+
+          forceLogout(error);
         }
 
         return Promise.reject(error);
