@@ -21,20 +21,6 @@ services:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
       retries: 10
-  redis:
-    container_name: redis
-    image: redis
-    # persistent storage
-    command: redis-server --appendonly yes
-    volumes:
-      - /docker/volumes/redis/:/var/lib/postgresql/data/
-    networks:
-      micronet:
-        ipv4_address: 172.25.0.3
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
-      interval: 2s
-      retries: 10
   web-staging:
     container_name: web-staging
     image: web:latest
@@ -56,8 +42,6 @@ services:
         ipv4_address: 172.25.0.11
     depends_on:
       db:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     healthcheck:
       test: curl --fail http://localhost:8000/ || exit 1
@@ -85,37 +69,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: curl --fail http://localhost:8000/ || exit 1
       interval: 10s
       timeout: 5s
       retries: 20
       start_period: 15s
-
-  celery:
-    container_name: celery
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.web
-    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
-    volumes:
-      - ./backend:/code
-      - media_data:/code/media
-    env_file:
-      - ./.env
-    networks:
-      micronet:
-        ipv4_address: 172.25.0.12
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      web-staging:
-        condition: service_healthy
-
   frontend-staging:
     container_name: frontend-staging
     image: frontend:latest

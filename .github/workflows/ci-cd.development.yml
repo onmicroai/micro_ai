@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Pull dev branch and ensure db and redis are up
+      - name: Pull dev branch and ensure db is up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP_DEV }}
@@ -27,8 +27,7 @@ jobs:
             cd /home/ubuntu/micro_ai
             git pull origin dev
             
-            # ensure db and redis are up
-            docker-compose -p backend -f docker-compose.dev.yml up -d redis
+            # ensure db is up
             docker-compose -p backend -f docker-compose.dev.yml up -d db
             
             # Copy .env file before building to ensure Next.js has access to public env vars at build time
@@ -63,17 +62,6 @@ jobs:
             cd /home/ubuntu/micro_ai
             docker-compose -p backend -f docker-compose.dev.yml build web
 
-      - name: Build Celery
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP_DEV }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-          port: 22
-          script: |
-            cd /home/ubuntu/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml build celery 
-
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
@@ -91,7 +79,6 @@ jobs:
         script: |
           if [ -d "/docker/volumes/micro_ai" ]; then
             cd /docker/volumes/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml down celery
             docker-compose -p backend -f docker-compose.dev.yml down web
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
           else
@@ -122,7 +109,6 @@ jobs:
         port: 22
         script: |          
           cd /docker/volumes/micro_ai
-          docker compose -p backend -f docker-compose.dev.yml up -d web celery
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:
@@ -150,7 +136,7 @@ jobs:
           sudo docker builder prune -f
           # Remove unused volumes while preserving media_data
           echo "Removing unused volumes except media_data:"
-          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm
+          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data" | xargs -r sudo docker volume rm
           
           # Check disk space after cleanup
           echo "Disk space after cleanup:"

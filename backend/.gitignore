@@ -4,7 +4,6 @@
 db.sqlite3
 venv/
 .sass-cache/
-celerybeat-schedule
 micro_ai/localsettings.py
 micro_ai/local.py
 static_root/
