@@ -16,7 +16,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Pull master branch and ensure db and redis are up
+      - name: Pull master branch and ensure db is up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -27,8 +27,7 @@ jobs:
             cd /home/ubuntu/micro_ai
             git pull origin master
             
-            # ensure db and redis are up
-            docker-compose -p backend -f docker-compose.prod.yml up -d redis
+            # ensure db is up
             docker-compose -p backend -f docker-compose.prod.yml up -d db            
 
   build:
@@ -60,17 +59,6 @@ jobs:
             cd /home/ubuntu/micro_ai
             docker-compose -p backend -f docker-compose.prod.yml build web-staging
 
-      - name: Build Celery
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            cd /home/ubuntu/micro_ai
-            docker-compose -p backend -f docker-compose.prod.yml build celery 
-
   staging:
     name: Deploy Staging
     runs-on: ubuntu-latest
@@ -88,7 +76,6 @@ jobs:
           script: |
             if [ -d "/docker/volumes/micro_ai_staging" ]; then
               cd /docker/volumes/micro_ai_staging
-              docker-compose -p backend -f docker-compose.prod.yml down celery
               docker-compose -p backend -f docker-compose.prod.yml down web-staging
               docker-compose -p frontend -f docker-compose.prod.yml down frontend-staging
             else
@@ -118,6 +105,5 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /docker/volumes/micro_ai_staging
-            docker-compose -p backend -f docker-compose.prod.yml up -d web-staging celery
+            cd /docker/volumes/micro_ai
             docker-compose -p frontend -f docker-compose.prod.yml up -d frontend-staging

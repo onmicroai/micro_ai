@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export function middleware(request: NextRequest) {
-  const refreshToken = request.cookies.get("refresh_token")?.value;
+  const accessToken = request.cookies.get("access_token")?.value;
   const pathname = request.nextUrl.pathname.toLowerCase();
   
 
@@ -20,14 +20,14 @@ export function middleware(request: NextRequest) {
   const isAuthPath = authPaths.some(path => pathname.toLowerCase() === path.toLowerCase());
 
   // Redirect to login if trying to access protected path without token
-  if (isProtectedPath && !refreshToken) {
+  if (isProtectedPath && !accessToken) {
     const url = new URL("/accounts/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
   // Redirect to dashboard if accessing auth paths while logged in
-  if (isAuthPath && refreshToken) {
+  if (isAuthPath && accessToken) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

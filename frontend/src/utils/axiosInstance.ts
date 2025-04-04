@@ -1,36 +1,43 @@
-
 /**
- * It currently works only on client, because it uses LocalStorage for the storaging access token
+ * It currently works only on client, because it uses cookies for storing access token
  */
 "use client";
 
 import axios, { AxiosInstance } from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
 import isTokenExpired from "./isTokenExpired";
+import {
+  getAccessToken as getCookieAccessToken,
+  getAccessTokenExpiration,
+  setAccessToken,
+  removeAccessToken,
+} from "./tokenCookieUtils";
 /**
  * Private function that logs out a user when authentication fails for edge cases
- * 
+ *
  * @param {any} error - Error object that triggered the logout
+ * @param {boolean} isPublic - Path of the page that triggered the logout
  * @returns Promise<void>
  */
-const forceLogout = async (error: any): Promise<void> => {
-   console.log("forceLogout", error);
+const forceLogout = async (error: any, isPublic?: boolean): Promise<void> => {
+  console.error("forceLogout", error);
 
-   if (error?.response?.status !== 401) {
-      return;
-   }
-
-   try {
-      await axios.post(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`, {}, {
-         withCredentials: true
-      });
-   } catch (error: any) {
-      console.error("Error logging out:", error);
-   } finally {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('accessTokenExpiration');
-      window.location.href = '/accounts/login';
-   }
+  try {
+    await axios.post(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`,
+      {},
+      {
+        withCredentials: true,
+      }
+    );
+  } catch (error: any) {
+    console.error("Error logging out:", error);
+  } finally {
+    removeAccessToken();
+    if (!isPublic) {
+      window.location.href = "/accounts/login";
+    }
+  }
 };
 
 /**
@@ -84,11 +91,7 @@ const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
       );
 
       const { access, access_expiration } = data;
-      localStorage.setItem("accessToken", access);
-      localStorage.setItem(
-        "accessTokenExpiration",
-        access_expiration.toString()
-      );
+      setAccessToken(access, access_expiration.toString());
 
       processQueue(null, access);
       return access; // Return access as a string
@@ -96,7 +99,9 @@ const getAccessTokenSingleton = (): (() => Promise<string | null>) => {
       processQueue(error, null);
       // If refresh token is expired, clear tokens and redirect to login
       if (error.name !== "CanceledError") {
-        forceLogout(error);
+        if (error?.response?.status === 401) {
+          forceLogout(error);
+        }
       }
       throw error;
     } finally {
@@ -155,7 +160,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
       return result.isPublic;
     } catch (error: any) {
       // Don't log aborted requests as errors
-      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+      if (error.name !== "AbortError" && error.name !== "CanceledError") {
         console.error("Error checking app visibility:", error);
       }
       // In case of error, default to not public
@@ -172,7 +177,7 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
       baseURL: process.env.NEXT_PUBLIC_API_URL,
       headers: {
         "Content-Type": "application/json",
-      }
+      },
     });
 
     api.interceptors.request.use(
@@ -181,14 +186,15 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         // Check if the request URL or current page is for a public app
         const isPublic = await checkCurrentPagePrivacy(path, config.signal);
 
-        let accessToken = localStorage.getItem("accessToken");
+        let accessToken = getCookieAccessToken();
 
+        //Checking app page is public or page can work without access token
         if (!accessToken || isPublic) {
           return config;
         }
 
         // Normal token handling for non-public or unknown pages
-        const expirationTime = localStorage.getItem("accessTokenExpiration");
+        const expirationTime = getAccessTokenExpiration();
 
         if (isTokenExpired(expirationTime)) {
           accessToken = await getAccessToken();
@@ -204,7 +210,10 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         return config;
       },
       (error: any) => {
-        forceLogout(error);
+        if (error?.response?.status == 401) {
+          forceLogout(error);
+        }
+
         return Promise.reject(error);
       }
     );
@@ -220,52 +229,47 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
         }
 
         const originalRequest = error.config;
-        const path = originalRequest?.url;
-        // Check if the request URL or current page is for a public app
-        const isPublic = await checkCurrentPagePrivacy(path, originalRequest?.signal);
-
-        if (isPublic) {
-          forceLogout(error);
-          return Promise.reject(error);
-        }
+        const path = window.location.pathname;
+        const isPublic = await checkCurrentPagePrivacy(
+          path,
+          originalRequest?.signal
+        );
 
         // Check if the error is due to an invalid token
-        if (
-          error.response?.status === 401 &&
-          error.response?.data?.code === "token_not_valid" &&
-          !originalRequest._retry
-        ) {
-          originalRequest._retry = true;
+        if (error.response?.status === 401) {
+          if (!originalRequest._retry) {
+            originalRequest._retry = true;
+            try {
+              let accessToken = getCookieAccessToken();
 
-          try {
-            let accessToken = localStorage.getItem("accessToken");
+              if (!accessToken) {
+                forceLogout(error, isPublic);
+                return Promise.reject(error);
+              }
 
-            if (!accessToken) {
-              forceLogout(error);
-              return Promise.reject(error);
+              // Normal token handling for non-public or unknown pages
+              const expirationTime = getAccessTokenExpiration();
+
+              if (isTokenExpired(expirationTime)) {
+                accessToken = await getAccessToken();
+              }
+
+              // Update the authorization header
+              originalRequest.headers.Authorization = `Bearer ${accessToken}`;
+
+              // Retry the original request with null check
+              return api
+                ? api(originalRequest)
+                : Promise.reject(new Error("API instance is null"));
+            } catch (refreshError) {
+              forceLogout(refreshError, isPublic);
+              return Promise.reject(refreshError);
             }
-
-            // Normal token handling for non-public or unknown pages
-            const expirationTime = localStorage.getItem(
-              "accessTokenExpiration"
-            );
-
-            if (isTokenExpired(expirationTime)) {
-              accessToken = await getAccessToken();
-            }
-
-            // Update the authorization header
-            originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-
-            // Retry the original request with null check
-            return api ? api(originalRequest) : Promise.reject(new Error("API instance is null"));
-          } catch (refreshError) {
-            forceLogout(refreshError);
-            return Promise.reject(refreshError);
           }
+
+          forceLogout(error, isPublic);
         }
 
-        forceLogout(error);
         return Promise.reject(error);
       }
     );

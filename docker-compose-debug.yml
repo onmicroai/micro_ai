@@ -19,19 +19,6 @@ services:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
       retries: 10
-  redis:
-    container_name: redis
-    image: redis
-    # persistent storage
-    command: redis-server --appendonly yes
-    volumes:
-      - redis_data:/data
-    networks:
-      - microaiNetwork
-    healthcheck:
-      test: bash -c 'exec 6<>/dev/tcp/redis/6379'
-      interval: 2s
-      retries: 10
   web:
     container_name: web
     build:
@@ -51,33 +38,12 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      redis:
-        condition: service_healthy
     healthcheck:
       test: curl --fail http://localhost:8000/ || exit 1
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 15s
-  celery:
-    container_name: celery
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    command: celery -A micro_ai worker -l INFO --beat --concurrency 2
-    volumes:
-      - ./backend:/code
-    env_file:
-      - ./.env
-    networks:
-      - microaiNetwork
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      web:
-        condition: service_healthy
   frontend:
     container_name: frontend
     build:
@@ -119,12 +85,9 @@ services:
         condition: service_healthy
       web:
         condition: service_healthy
-      celery:
-        condition: service_healthy
 
 volumes:
   postgres_data:
-  redis_data:
 
 networks:
   microaiNetwork:

@@ -42,11 +42,6 @@ brotli==1.1.0
     # via whitenoise
 cachetools==5.5.1
     # via google-auth
-celery[redis]==5.4.0
-    # via
-    #   -r requirements/requirements.in
-    #   django-celery-beat
-celery-progress==0.5
     # via -r requirements/requirements.in
 certifi==2025.1.31
     # via
@@ -94,7 +89,6 @@ django==5.1.6
     #   django-cors-headers
     #   django-otp
     #   django-timezone-field
-    #   django-waffle
     #   djangorestframework
     #   djangorestframework-simplejwt
     #   drf-spectacular
@@ -112,8 +106,6 @@ django-otp==1.5.4
     # via -r requirements/requirements.in
 django-timezone-field==7.1
     # via django-celery-beat
-django-waffle==4.2.0
-    # via -r requirements/requirements.in
 djangorestframework==3.15.2
     # via
     #   -r requirements/requirements.in
@@ -286,8 +278,6 @@ pyyaml==6.0.2
     #   huggingface-hub
 qrcode==8.0
     # via django-allauth
-redis==5.2.1
-    # via celery
 referencing==0.36.2
     # via
     #   jsonschema

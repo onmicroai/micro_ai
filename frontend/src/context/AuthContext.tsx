@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useDashboardStore } from "@/app/(authenticated)/(dashboard)/dashboard/[tab]/store/dashboardStore";
 import { useUserStore } from "@/store/userStore";
 import isTokenExpired from "@/utils/isTokenExpired";
+import { getAccessTokenExpiration, setAccessToken, removeAccessToken } from "@/utils/tokenCookieUtils";
 interface AuthContextProps {
    isAuthenticated: boolean;
    authorizeUserWithJwt: (jwtData: any, signal?: AbortSignal) => Promise<void>;
@@ -88,7 +89,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       // Check if we're in a browser environment
       if (typeof window === 'undefined') return false;
       
-      const tokenExpiration = localStorage.getItem("accessTokenExpiration");
+      const tokenExpiration = getAccessTokenExpiration();
       const isAccessTokenExpired = isTokenExpired(tokenExpiration);
       // Then check if user data is loaded
       return !isAccessTokenExpired && !!user?.id;
@@ -110,8 +111,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
          const token = jwtData.access;
          const tokenExpiration = jwtData.access_expiration;
      
-         localStorage.setItem("accessToken", token);
-         localStorage.setItem("accessTokenExpiration", tokenExpiration.toString());
+         setAccessToken(token, tokenExpiration.toString());
      
          // Get user data with the new token
          await getUser(signal);
@@ -200,8 +200,7 @@ export const AuthProvider: FC<AuthProviderProps> = ({ children }) => {
       } catch (error: any) {
          handleApiError(error);
       } finally {
-         localStorage.removeItem('accessToken');
-         localStorage.removeItem('accessTokenExpiration');
+         removeAccessToken();
          router.push('/accounts/login');
          useDashboardStore.getState().reset();
          resetUserStore();

@@ -71,10 +71,7 @@ THIRD_PARTY_APPS = [
     "dj_rest_auth.registration",
     "drf_spectacular",
     "rest_framework_api_key",
-    "celery_progress",
     "whitenoise.runserver_nostatic",  # whitenoise runserver
-    "waffle",
-    "django_celery_beat",
 ]
 
 # Put your project-specific apps here
@@ -85,7 +82,6 @@ PROJECT_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.api.apps.APIConfig",
     "apps.web",
-    "apps.teams",
     "apps.microapps",
     "apps.collection",
     "apps.utils"
@@ -105,7 +101,6 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "waffle.middleware.WaffleMiddleware",
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
@@ -395,26 +390,6 @@ SPECTACULAR_SETTINGS = {
         }
     ],
 }
-
-# Celery setup (using redis)
-if "REDIS_URL" in env:
-    REDIS_URL = env("REDIS_URL")
-elif "REDIS_TLS_URL" in env:
-    REDIS_URL = env("REDIS_TLS_URL")
-else:
-    REDIS_HOST = env("REDIS_HOST", default="localhost")
-    REDIS_PORT = env("REDIS_PORT", default="6379")
-    REDIS_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
-
-if REDIS_URL.startswith("rediss"):
-    REDIS_URL = f"{REDIS_URL}?ssl_cert_reqs=none"
-
-CELERY_BROKER_URL = CELERY_RESULT_BACKEND = REDIS_URL
-CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
-
-# Waffle config
-
-WAFFLE_FLAG_MODEL = "teams.Flag"
 
 # replace any values below with specifics for your project
 PROJECT_METADATA = {

@@ -9,7 +9,6 @@ PORT=${PORT:-8000}
 # Run database migrations
 echo "Running Django migrations..."
 python manage.py migrate --noinput --settings=micro_ai.settings_production
-python manage.py migrate django_celery_beat
 
 # Collect static files
 echo "Collecting static files..."
