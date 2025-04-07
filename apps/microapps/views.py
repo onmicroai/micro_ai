@@ -30,6 +30,7 @@ from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.microapps.document_parser import DocumentParser
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
@@ -1575,35 +1576,23 @@ class MicroAppFileUpload(APIView):
         summary="Upload file for microapp"
     )
     def post(self, request, pk=None):
-        """
-        Upload file for microapp
-        """
-        # Validate microapp ID is provided
         if not pk:
-            return Response(
-                {"error": "Microapp ID is required", "status": status.HTTP_400_BAD_REQUEST},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Microapp ID is required"}, status=status.HTTP_400_BAD_REQUEST)
 
-        # Check if microapp exists
         microapp = self.get_microapp(pk)
         if not microapp:
-            return Response(
-                {"error": "Microapp not found", "status": status.HTTP_404_NOT_FOUND},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Microapp not found"}, status=status.HTTP_404_NOT_FOUND)
 
         serializer = FileUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        filename = serializer.validated_data['filename']
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
         content_type = serializer.validated_data['content_type']
         file_type = serializer.validated_data.get('file_type', 'general')
 
-        # Sanitize filename to remove any potentially problematic characters
-        filename = re.sub(r'[^a-zA-Z0-9._-]', '', filename)
-        
+        file_key = f'microapps/{microapp.id}/files/{filename}'
+
         try:
             s3_client = boto3.client(
                 's3',
@@ -1613,38 +1602,48 @@ class MicroAppFileUpload(APIView):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
             )
 
-            # Use the validated microapp ID in the file path
-            file_key = f'microapps/{microapp.id}/files/{filename}'
-
             conditions = [
                 {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
                 ['starts-with', '$key', f'microapps/{microapp.id}/files/'],
                 {'Content-Type': content_type}
             ]
-            
+
             response = s3_client.generate_presigned_post(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
                 Key=file_key,
-                Fields={
-                    'Content-Type': content_type
-                },
+                Fields={'Content-Type': content_type},
                 Conditions=conditions,
                 ExpiresIn=300
             )
 
-            # Return the complete presigned POST response
-            formatted_response = {
+            # Use a temporary file to simulate file analysis
+            temp_file = tempfile.NamedTemporaryFile(delete=False)
+            uploaded_file = request.FILES.get('file')
+
+            if uploaded_file:
+                temp_file.write(uploaded_file.read())
+                temp_file.flush()
+
+                processor = DocumentParser()
+                result = processor.extract_text(temp_file.name)
+            else:
+                result = "No file attached for validation"
+
+            temp_file.close()
+            os.unlink(temp_file.name)  # Clean up temp file
+
+            return Response({
                 'data': {
                     'url': response['url'],
                     'fields': {
                         **response['fields'],
                         'key': file_key,
                         'filename': filename
-                    }
+                    },
+                    'parsed_content': result
                 }
-            }
+            })
 
-            return Response(formatted_response)
         except Exception as e:
             log.error(f"S3 presigned URL generation error: {str(e)}")
             return handle_exception(e)
