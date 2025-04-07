@@ -1,4 +1,5 @@
-name: NGINX Development
+# Deploy NGINX on Dev Server
+name: NGINX (Dev Server)
 
 on:
   workflow_dispatch:

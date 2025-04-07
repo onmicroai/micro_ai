@@ -1,0 +1,137 @@
+# Re-Deploy Different Containers
+name: Postgresql(Prod Server)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_recreate:
+        description: 'Force Recreate?'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  deploy_production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Deploy Production
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            cd /home/ubuntu/micro_ai
+            git pull origin master
+            
+            # Sync from staging to production
+            sudo rsync -a --delete /docker/volumes/micro_ai_staging/ /home/ubuntu/micro_ai/
+            
+            # Copy environment files
+            cd /home/ubuntu/micro_ai
+            sudo cp -f /opt/secrets/production.env .env
+            
+            # Setup force recreate flag
+            FORCE_RECREATE=""
+            if [ "${{ inputs.force_recreate }}" = "true" ]; then
+              FORCE_RECREATE="--force-recreate"
+            fi
+           
+            docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE db
+            
+            # Verify deployment
+            docker ps
+
+#
+#
+#
+#            # Re-Deploy Different Containers
+#            name: Postgresql(Prod Server)
+#
+#            on:
+#              workflow_dispatch:
+#                inputs:
+#                  force_recreate:
+#                    description: 'Force Recreate?'
+#                    required: false
+#                    default: false
+#                    type: boolean
+#                  containers:
+#                    description: 'Containers to Up/Recreate'
+#                    required: true
+#                    default: 'all'
+#                    type: choice
+#                    options:
+#                      - db
+#                      - web
+#                      - frontend
+#                      - backend
+#                      - all
+#
+#            jobs:
+#              deploy_production:
+#                name: Deploy to Production
+#                runs-on: ubuntu-latest
+#                timeout-minutes: 60
+#
+#                steps:
+#                  - name: Deploy Production
+#                    uses: appleboy/ssh-action@v1.0.3
+#                    with:
+#                      host: ${{ secrets.SERVER_IP }}
+#                      username: 'ubuntu'
+#                      key: ${{ secrets.SSH_PRIVATE_KEY }}
+#                      port: 22
+#                      script: |
+#                        cd /home/ubuntu/micro_ai
+#                        git pull origin master
+#
+#                        # Sync from staging to production
+#                        sudo rsync -a --delete /docker/volumes/micro_ai_staging/ /home/ubuntu/micro_ai/
+#
+#                        # Copy environment files
+#                        cd /home/ubuntu/micro_ai
+#                        sudo cp -f /opt/secrets/production.env .env
+#
+#                        # Setup force recreate flag
+#                        FORCE_RECREATE=""
+#                        if [ "${{ inputs.force_recreate }}" = "true" ]; then
+#                          FORCE_RECREATE="--force-recreate"
+#                        fi
+#
+#                        # Handle different container deployment options
+#                        if [ "${{ inputs.containers }}" = "db" ]; then
+#                          docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE db
+#
+#                        elif [ "${{ inputs.containers }}" = "web" ]; then
+#                          docker-compose -p backend -f docker-compose.prod.yml build web
+#                          docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
+#
+#                        elif [ "${{ inputs.containers }}" = "frontend" ]; then
+#                          docker-compose -p frontend -f docker-compose.prod.yml build frontend
+#                          docker-compose -p frontend -f docker-compose.prod.yml up -d $FORCE_RECREATE frontend
+#
+#                        elif [ "${{ inputs.containers }}" = "backend" ]; then
+#                          # Deploy both web
+#                          docker-compose -p backend -f docker-compose.prod.yml build web
+#                          docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
+#
+#                        elif [ "${{ inputs.containers }}" = "all" ]; then
+#                          # Ensure db is up
+#                          docker-compose -p backend -f docker-compose.prod.yml up -d db
+#
+#                          # Build and deploy backend services
+#                          docker-compose -p backend -f docker-compose.prod.yml build web
+#                          docker-compose -p backend -f docker-compose.prod.yml up -d $FORCE_RECREATE web
+#
+#                          # Build and deploy frontend
+#                          docker-compose -p frontend -f docker-compose.prod.yml build frontend
+#                          docker-compose -p frontend -f docker-compose.prod.yml up -d $FORCE_RECREATE frontend
+#                        fi
+#
+#                        # Verify deployment
+#                        docker ps
