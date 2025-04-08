@@ -1,4 +1,5 @@
-name: Postgresql Development
+# Deploy Postgresql on Dev Server
+name: Postgresql (Dev Server)
 
 on:
   workflow_dispatch:
@@ -8,14 +9,6 @@ on:
         required: false
         default: false
         type: boolean
-      containers:
-        description: 'Containers to Up/Recreate'
-        required: true
-        default: 'both'
-        type: choice
-        options:
-          - db
-          - both
 
 jobs:
   recreate_db:
@@ -41,11 +34,4 @@ jobs:
              FORCE_RECREATE="--force-recreate"
             fi
   
-            CONTAINERS=""
-            if [ "${{ inputs.containers }}" = "both" ]; then
-              CONTAINERS="db"
-            else
-              CONTAINERS="${{ inputs.containers }}"
-            fi
-  
-            docker-compose -p backend -f docker-compose.dev.yml up -d $FORCE_RECREATE $CONTAINERS
+            docker-compose -p backend -f docker-compose.dev.yml up -d $FORCE_RECREATE db

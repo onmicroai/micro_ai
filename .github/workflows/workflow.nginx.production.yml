@@ -1,4 +1,5 @@
-name: NGINX Production
+# Deploy NGINX on Prod Server
+name: NGINX (Prod Server)
 
 on:
   workflow_dispatch:

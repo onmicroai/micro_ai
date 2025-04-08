@@ -1,6 +1,5 @@
-# \microai-frontend\.github\workflows\ci-cd.frontend.dev.yml
-
-name: Backend And Frontend Prod Deploy
+# Deploy WEB + FRONTEND to Production
+name: PRODUCTION DEPLOY(Prod Server) $$
 
 on:
   workflow_dispatch:
@@ -74,5 +73,3 @@ jobs:
             sudo docker image prune -a -f
             # Remove build cache
             sudo docker builder prune -f
-            # Remove unused volumes (preserving media_data)
-            sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data|redis_data" | xargs -r sudo docker volume rm
