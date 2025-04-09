@@ -30,6 +30,7 @@ from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import AIModelConstants, MicroappVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.microapps.document_parser import DocumentParser, DocumentProcessor
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
@@ -48,6 +49,7 @@ from rest_framework.decorators import action
 from django.conf import settings
 import json
 from .llm_interface import UnifiedLLMInterface
+import tempfile
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -61,6 +63,10 @@ class PresignedUrlResponse(serializers.Serializer):
     url = serializers.CharField()
     fields = serializers.DictField()
 
+class FileUploadSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    content_type = serializers.CharField()
+    file_type = serializers.CharField(required=False)
 
 def handle_exception(e):
     log.error(e)
@@ -1496,6 +1502,12 @@ class AppQuota(APIView):
 class MicroAppImageUpload(APIView):
     permission_classes = [IsAuthenticated]
 
+    def get_microapp(self, app_id):
+        try:
+            return Microapp.objects.get(id=app_id)
+        except Microapp.DoesNotExist:
+            return None
+
     @extend_schema(
         request=ImageUploadSerializer,
         responses={200: PresignedUrlResponse},
@@ -1505,6 +1517,22 @@ class MicroAppImageUpload(APIView):
         """
         Upload image for microapp
         """
+
+        # Validate microapp ID is provided
+        if not pk:
+            return Response(
+                {"error": "Microapp ID is required", "status": status.HTTP_400_BAD_REQUEST},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Check if microapp exists
+        microapp = self.get_microapp(pk)
+        if not microapp:
+            return Response(
+                {"error": "Microapp not found", "status": status.HTTP_404_NOT_FOUND},
+                status=status.HTTP_404_NOT_FOUND
+            )
+
         serializer = ImageUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -1524,12 +1552,12 @@ class MicroAppImageUpload(APIView):
                 aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
             )
 
-            # The key includes the microapp ID and filename
-            file_key = f'microapp-images/{pk}/{filename}'
+            # Use the validated microapp ID in the file path
+            file_key = f'microapps/{microapp.id}/images/{filename}'
 
             conditions = [
                 {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
-                ['starts-with', '$key', f'microapp-images/{pk}/'],
+                ['starts-with', '$key', f'microapps/{microapp.id}/images/'],
                 {'Content-Type': content_type}
             ]
 
@@ -1551,7 +1579,8 @@ class MicroAppImageUpload(APIView):
                     'url': response['url'],
                     'fields': {
                         **response['fields'],
-                        'key': file_key
+                        'key': file_key,
+                        'filename': filename
                     }
                 }
             }
@@ -1561,3 +1590,90 @@ class MicroAppImageUpload(APIView):
             log.error(f"S3 presigned URL generation error: {str(e)}")
             return handle_exception(e)
 
+class MicroAppFileUpload(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_microapp(self, app_id):
+        try:
+            return Microapp.objects.get(id=app_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    @extend_schema(
+        request=FileUploadSerializer,
+        responses={200: PresignedUrlResponse},
+        summary="Upload file for microapp"
+    )
+    def post(self, request, pk=None):
+        if not pk:
+            return Response({"error": "Microapp ID is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        microapp = self.get_microapp(pk)
+        if not microapp:
+            return Response({"error": "Microapp not found"}, status=status.HTTP_404_NOT_FOUND)
+
+        serializer = FileUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
+        content_type = serializer.validated_data['content_type']
+        file_type = serializer.validated_data.get('file_type', 'general')
+
+        file_key = f'microapps/{microapp.id}/files/{filename}'
+
+        try:
+            s3_client = boto3.client(
+                's3',
+                config=Config(signature_version='s3v4'),
+                region_name=settings.AWS_S3_REGION_NAME,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+            )
+
+            conditions = [
+                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
+                ['starts-with', '$key', f'microapps/{microapp.id}/files/'],
+                {'Content-Type': content_type}
+            ]
+
+            response = s3_client.generate_presigned_post(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=file_key,
+                Fields={'Content-Type': content_type},
+                Conditions=conditions,
+                ExpiresIn=300
+            )
+
+            parsed_content = "No file attached for validation"
+            uploaded_file = request.FILES.get('file')
+
+            if uploaded_file:
+                # Create a temporary file and properly handle cleanup
+                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
+                    for chunk in uploaded_file.chunks():
+                        temp_file.write(chunk)
+                    temp_file.flush()
+                    
+                    try:
+                        processor = DocumentProcessor()
+                        parsed_content = processor.extract_text(temp_file.name)
+                    finally:
+                        # Clean up the temporary file
+                        os.unlink(temp_file.name)
+
+            return Response({
+                'data': {
+                    'url': response['url'],
+                    'fields': {
+                        **response['fields'],
+                        'key': file_key,
+                        'filename': filename
+                    },
+                    'parsed_content': parsed_content
+                }
+            })
+
+        except Exception as e:
+            log.error(f"S3 presigned URL generation error: {str(e)}")
+            return handle_exception(e)

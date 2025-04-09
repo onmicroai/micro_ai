@@ -10,8 +10,6 @@ aiohttp==3.11.12
     # via litellm
 aiosignal==1.3.2
     # via aiohttp
-amqp==5.3.1
-    # via kombu
 annotated-types==0.7.0
     # via pydantic
 anthropic==0.45.2
@@ -30,8 +28,6 @@ attrs==25.1.0
     #   aiohttp
     #   jsonschema
     #   referencing
-billiard==4.2.1
-    # via celery
 boto3==1.36.16
     # via -r requirements/requirements.in
 botocore==1.36.16
@@ -42,7 +38,6 @@ brotli==1.1.0
     # via whitenoise
 cachetools==5.5.1
     # via google-auth
-    # via -r requirements/requirements.in
 certifi==2025.1.31
     # via
     #   httpcore
@@ -51,25 +46,17 @@ certifi==2025.1.31
 cffi==1.17.1
     # via cryptography
 charset-normalizer==3.4.1
-    # via requests
+    # via
+    #   pdfminer-six
+    #   requests
 click==8.1.8
     # via
     #   -r requirements/requirements.in
-    #   celery
-    #   click-didyoumean
-    #   click-plugins
-    #   click-repl
     #   litellm
-click-didyoumean==0.3.1
-    # via celery
-click-plugins==1.1.1
-    # via celery
-click-repl==0.3.0
-    # via celery
-cron-descriptor==1.4.5
-    # via django-celery-beat
 cryptography==44.0.0
-    # via pyjwt
+    # via
+    #   pdfminer-six
+    #   pyjwt
 distro==1.9.0
     # via
     #   anthropic
@@ -85,10 +72,8 @@ django==5.1.6
     #   dj-stripe
     #   django-allauth
     #   django-anymail
-    #   django-celery-beat
     #   django-cors-headers
     #   django-otp
-    #   django-timezone-field
     #   djangorestframework
     #   djangorestframework-simplejwt
     #   drf-spectacular
@@ -96,16 +81,12 @@ django-allauth[mfa,socialaccount]==0.63.3
     # via -r requirements/requirements.in
 django-anymail[mailgun]==12.0
     # via -r requirements/requirements.in
-django-celery-beat==2.7.0
-    # via -r requirements/requirements.in
 django-cors-headers==4.7.0
     # via -r requirements/requirements.in
 django-environ==0.12.0
     # via -r requirements/requirements.in
 django-otp==1.5.4
     # via -r requirements/requirements.in
-django-timezone-field==7.1
-    # via django-celery-beat
 djangorestframework==3.15.2
     # via
     #   -r requirements/requirements.in
@@ -120,6 +101,8 @@ docutils==0.21.2
     # via -r requirements/requirements.in
 drf-spectacular==0.28.0
     # via -r requirements/requirements.in
+et-xmlfile==2.0.0
+    # via openpyxl
 filelock==3.17.0
     # via huggingface-hub
 frozenlist==1.5.0
@@ -199,30 +182,45 @@ jsonschema==4.23.0
     #   litellm
 jsonschema-specifications==2024.10.1
     # via jsonschema
-kombu==5.4.2
-    # via celery
 litellm==1.60.8
     # via -r requirements/requirements.in
+lxml==5.3.2
+    # via
+    #   python-docx
+    #   python-pptx
 markupsafe==3.0.2
     # via jinja2
 multidict==6.1.0
     # via
     #   aiohttp
     #   yarl
+numpy==1.24.3
+    # via pandas
 oauthlib==3.2.2
     # via requests-oauthlib
 openai==1.61.1
     # via
     #   -r requirements/requirements.in
     #   litellm
+openpyxl==3.1.5
+    # via -r requirements/requirements.in
 packaging==24.2
     # via
     #   djangorestframework-api-key
     #   huggingface-hub
-pillow==10.4.0
+    #   pytesseract
+pandas==2.0.3
     # via -r requirements/requirements.in
-prompt-toolkit==3.0.50
-    # via click-repl
+pdfminer-six==20250327
+    # via pdfplumber
+pdfplumber==0.11.6
+    # via -r requirements/requirements.in
+pillow==10.4.0
+    # via
+    #   -r requirements/requirements.in
+    #   pdfplumber
+    #   pytesseract
+    #   python-pptx
 propcache==0.2.1
     # via
     #   aiohttp
@@ -261,17 +259,26 @@ pyjwt[crypto]==2.10.1
     # via
     #   django-allauth
     #   djangorestframework-simplejwt
+pymupdf==1.25.5
+    # via -r requirements/requirements.in
 pyparsing==3.2.1
     # via httplib2
-python-crontab==3.2.0
-    # via django-celery-beat
+pypdfium2==4.30.1
+    # via pdfplumber
+pytesseract==0.3.13
+    # via -r requirements/requirements.in
 python-dateutil==2.9.0.post0
     # via
     #   botocore
-    #   celery
-    #   python-crontab
+    #   pandas
+python-docx==1.1.2
+    # via -r requirements/requirements.in
 python-dotenv==1.0.1
     # via litellm
+python-pptx==1.0.2
+    # via -r requirements/requirements.in
+pytz==2025.2
+    # via pandas
 pyyaml==6.0.2
     # via
     #   drf-spectacular
@@ -334,12 +341,11 @@ typing-extensions==4.12.2
     #   openai
     #   pydantic
     #   pydantic-core
+    #   python-docx
+    #   python-pptx
     #   referencing
 tzdata==2025.1
-    # via
-    #   celery
-    #   django-celery-beat
-    #   kombu
+    # via pandas
 uritemplate==4.1.1
     # via
     #   drf-spectacular
@@ -349,15 +355,10 @@ urllib3==2.3.0
     #   botocore
     #   django-anymail
     #   requests
-vine==5.1.0
-    # via
-    #   amqp
-    #   celery
-    #   kombu
-wcwidth==0.2.13
-    # via prompt-toolkit
 whitenoise[brotli]==6.9.0
     # via -r requirements/requirements.in
+xlsxwriter==3.2.2
+    # via python-pptx
 yarl==1.18.3
     # via aiohttp
 zipp==3.21.0
