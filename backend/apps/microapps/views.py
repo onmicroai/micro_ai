@@ -1599,6 +1599,35 @@ class MicroAppFileUpload(APIView):
         except Microapp.DoesNotExist:
             return None
 
+    def upload_to_s3(self, file_key, file_content, content_type):
+        """Helper method to upload content to S3"""
+        try:
+            s3_client = boto3.client(
+                's3',
+                config=Config(signature_version='s3v4'),
+                region_name=settings.AWS_S3_REGION_NAME,
+                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
+            )
+            
+            s3_client.put_object(
+                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
+                Key=file_key,
+                Body=file_content,
+                ContentType=content_type
+            )
+            return True
+        except Exception as e:
+            log.error(f"S3 upload error: {str(e)}")
+            return False
+
+    def count_words(self, text):
+        """Count words efficiently without loading full text into memory"""
+        count = 0
+        for word in text.split():
+            count += 1
+        return count
+
     @extend_schema(
         request=FileUploadSerializer,
         responses={200: PresignedUrlResponse},
@@ -1618,62 +1647,71 @@ class MicroAppFileUpload(APIView):
 
         filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
         content_type = serializer.validated_data['content_type']
-        file_type = serializer.validated_data.get('file_type', 'general')
+        
+        # Define S3 keys for both files
+        original_file_key = f'microapps/{microapp.id}/files/original/{filename}'
+        base_name, ext = os.path.splitext(filename)
+        text_file_key = f'microapps/{microapp.id}/files/text/{base_name}__{ext[1:]}.txt'
 
-        file_key = f'microapps/{microapp.id}/files/{filename}'
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            s3_client = boto3.client(
-                's3',
-                config=Config(signature_version='s3v4'),
-                region_name=settings.AWS_S3_REGION_NAME,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
-            )
-
-            conditions = [
-                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
-                ['starts-with', '$key', f'microapps/{microapp.id}/files/'],
-                {'Content-Type': content_type}
-            ]
-
-            response = s3_client.generate_presigned_post(
-                Bucket=settings.AWS_STORAGE_BUCKET_NAME,
-                Key=file_key,
-                Fields={'Content-Type': content_type},
-                Conditions=conditions,
-                ExpiresIn=300
-            )
-
-            parsed_content = "No file attached for validation"
-            uploaded_file = request.FILES.get('file')
-
-            if uploaded_file:
-                # Create a temporary file and properly handle cleanup
-                with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
-                    for chunk in uploaded_file.chunks():
-                        temp_file.write(chunk)
-                    temp_file.flush()
+            # Create a temporary file and process it
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
+                for chunk in uploaded_file.chunks():
+                    temp_file.write(chunk)
+                temp_file.flush()
+                
+                try:
+                    # Extract text content
+                    processor = DocumentProcessor()
+                    parsed_content = processor.extract_text(temp_file.name)
                     
-                    try:
-                        processor = DocumentProcessor()
-                        parsed_content = processor.extract_text(temp_file.name)
-                    finally:
-                        # Clean up the temporary file
-                        os.unlink(temp_file.name)
+                    # Count words
+                    word_count = self.count_words(parsed_content)
 
-            return Response({
-                'data': {
-                    'url': response['url'],
-                    'fields': {
-                        **response['fields'],
-                        'key': file_key,
-                        'filename': filename
-                    },
-                    'parsed_content': parsed_content
-                }
-            })
+                    # Upload original file to S3
+                    uploaded_file.seek(0)
+                    original_upload_success = self.upload_to_s3(
+                        original_file_key, 
+                        uploaded_file.read(), 
+                        content_type
+                    )
+
+                    # Upload extracted text to S3
+                    text_upload_success = self.upload_to_s3(
+                        text_file_key,
+                        parsed_content.encode('utf-8'),
+                        'text/plain'
+                    )
+
+                    if not (original_upload_success and text_upload_success):
+                        return Response(
+                            {"error": "Failed to upload files to S3"}, 
+                            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                        )
+
+                    # Only return a preview of the content
+                    preview_length = 1000  # First 1000 characters
+                    content_preview = parsed_content[:preview_length]
+                    has_more = len(parsed_content) > preview_length
+
+                    return Response({
+                        'data': {
+                            'original_file': original_file_key,
+                            'text_file': text_file_key,
+                            'content_preview': content_preview,
+                            'has_more_content': has_more,
+                            'word_count': word_count
+                        }
+                    }, status=status.HTTP_200_OK)
+
+                finally:
+                    # Clean up the temporary file
+                    os.unlink(temp_file.name)
 
         except Exception as e:
-            log.error(f"S3 presigned URL generation error: {str(e)}")
+            log.error(f"File processing error: {str(e)}")
             return handle_exception(e)
