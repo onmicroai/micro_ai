@@ -7,7 +7,7 @@ FROM python:3.11-slim-bookworm as build-python
 RUN apt-get update \
   && apt-get install -y build-essential libpq-dev
 COPY ./requirements /requirements
-RUN pip install pip-tools \
+RUN pip install --upgrade pip wheel pip-tools setuptools build \
     && pip-compile /requirements/requirements.in \
     && pip-compile /requirements/prod-requirements.in \
     && pip wheel --no-cache-dir --no-deps --wheel-dir /wheels \
@@ -49,7 +49,7 @@ RUN addgroup --system django \
 # Copy Python dependencies from the previous stage
 COPY --from=build-python /wheels /wheels
 COPY ./requirements /requirements
-RUN pip install pip-tools \
+RUN pip install --upgrade pip wheel pip-tools setuptools build \
     && pip-compile /requirements/requirements.in \
     && pip-compile /requirements/prod-requirements.in \
     && pip install --no-index --find-links=/wheels \
