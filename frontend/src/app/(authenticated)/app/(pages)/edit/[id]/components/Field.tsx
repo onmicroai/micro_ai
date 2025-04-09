@@ -891,10 +891,16 @@ export default function Field({
                 field.type !== "fixedResponse" &&
                 field.type !== "richText" && (
                   <textarea
-                    value={field.label || "Enter your question text..."}
-                    onFocus={(e) => {
-                      if (e.target.value === "Enter your question text...") {
-                        e.target.value = "";
+                    value={field.label || ""}
+                    onFocus={() => {
+                      if (!field.label) {
+                        onUpdateFieldLabel(
+                          field.id,
+                          "",
+                          field.type === "prompt" ||
+                            field.type === "aiInstructions" ||
+                            field.type === "fixedResponse"
+                        );
                       }
                     }}
                     onChange={(e) => {
