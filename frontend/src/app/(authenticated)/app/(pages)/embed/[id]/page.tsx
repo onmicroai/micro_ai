@@ -206,23 +206,24 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                   <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
                      <div className="text-sm/6  max-w-none text-green-800" dangerouslySetInnerHTML={{ __html: surveyJson?.completedHtml || "" }} />
                   </div>
-                  <div className="mt-4">
-                     <a 
-                        href="#" 
-                        onClick={(e) => {
-                           e.preventDefault();
-                           resetConversations();
-                           softResetSurveyStore();
-                           setShowThankYouMessage(false);
-                           toast.success("App state cleared successfully");
-                        }}
-                        className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
-                     >
-                        Clear State
-                     </a>
-                  </div>
                </div>
             )}
+
+            <div className="mt-4">
+               <a 
+                  href="#" 
+                  onClick={(e) => {
+                     e.preventDefault();
+                     resetConversations();
+                     softResetSurveyStore();
+                     setShowThankYouMessage(false);
+                     toast.success("App state cleared successfully");
+                  }}
+                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
+               >
+                  Clear State
+               </a>
+            </div>
 
             {(isOwner || isAdmin) && (
                <DebugInformation
