@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SurveyState, SaveState, ModelTemperatureRanges } from '../types';
+import { SurveyState, SaveState, ModelTemperatureRanges, AttachedFile } from '../types';
 import axiosInstance from "@/utils//axiosInstance";
 import { toast } from 'react-toastify';
 import debounce from 'lodash/debounce';
@@ -27,6 +27,7 @@ const initialState = {
   privacy: 'private',
   clonable: true,
   completedHtml: '',
+  attachedFiles: [] as AttachedFile[],
   //debounce state
   saveState: {
     isSaving: false,
@@ -87,7 +88,8 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
           privacySettings: state.privacy,
           clonable: state.clonable,
           completedHtml: state.completedHtml,
-          aiConfig: state.aiConfig
+          aiConfig: state.aiConfig,
+          attachedFiles: state.attachedFiles
         },
       };
 
@@ -299,6 +301,22 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
 
     /**
+    * Sets the attached files of the survey
+     * @param attachedFiles - The attached files of the survey
+     * @param skipServerUpdate - Whether to skip saving to server
+     * @param signal - The AbortSignal to cancel the request
+     */
+      setAttachedFiles: async (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => {
+      const state = get();
+      if (JSON.stringify(state.attachedFiles) !== JSON.stringify(attachedFiles)) {
+         set({ attachedFiles });
+         if (!skipServerUpdate) {
+            await get().saveToServer(signal);
+         }
+      }
+      },
+
+    /**
      * Saves the survey to the server
      * @param signal - The AbortSignal to cancel the request
      * @returns 
@@ -332,6 +350,35 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
       } catch (error) {
         console.error('Failed to fetch collections:', error);
         set({ isLoadingCollections: false });
+      }
+    },
+    /**
+     * Adds a filename to the list of attached files
+     * @param filename - The filename to add
+     * @param skipServerUpdate - Whether to skip saving to server
+     * @param signal - The AbortSignal to cancel the request
+     */
+    addAttachedFile: async (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+      set((state) => ({
+        attachedFiles: [...state.attachedFiles, file]
+      }));
+      if (!skipServerUpdate) {
+        await get().saveToServer(signal);
+      }
+    },
+
+    /**
+     * Removes a filename from the list of attached files
+     * @param filename - The filename to remove
+     * @param skipServerUpdate - Whether to skip saving to server
+     * @param signal - The AbortSignal to cancel the request
+     */
+    removeAttachedFile: async (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+      set((state) => ({
+        attachedFiles: state.attachedFiles.filter(f => f.filename !== filename)
+      }));
+      if (!skipServerUpdate) {
+        await get().saveToServer(signal);
       }
     },
 

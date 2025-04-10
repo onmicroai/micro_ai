@@ -19,14 +19,17 @@ interface S3UploadResponse {
 }
 
 interface FileUploadResult {
-  url: string;
-  filename: string;
+  url?: string;
+  filename?: string;
+  original_file?: string;
+  text_file?: string;
+  word_count?: number;
 }
 
 interface FileUploadConfig {
   microappId: string;
-  endpoint: string;  // The specific endpoint to use (e.g., 'upload-image' or 'upload-file')
-  cloudFrontDomain?: string;  // Optional CloudFront domain for URL construction
+  endpoint: string;
+  cloudFrontDomain?: string;
 }
 
 /**
@@ -50,49 +53,35 @@ export class FileUploadService {
    */
   async uploadFile(file: File): Promise<FileUploadResult> {
     const api = axiosInstance();
-
-    // Generate a unique filename by adding a timestamp
     const timestamp = new Date().getTime();
     const fileExtension = file.name.split('.').pop();
     const uniqueFilename = `${file.name.split('.')[0]}_${timestamp}.${fileExtension}`;
 
-    // Get pre-signed URL from server
-    const presignedResponse = await api.post(`/api/microapps/${this.microappId}/${this.endpoint}/`, {
-      filename: uniqueFilename,
-      content_type: file.type,
-    });
+    // Handle image uploads with presigned URLs
+    if (this.endpoint === 'upload-image') {
+      // Get pre-signed URL from server
+      const presignedResponse = await api.post(`/api/microapps/${this.microappId}/${this.endpoint}/`, {
+        filename: uniqueFilename,
+        content_type: file.type,
+      });
 
-    if (presignedResponse.status !== 200) {
-      throw new Error('Failed to get upload URL');
-    }
+      if (presignedResponse.status !== 200) {
+        throw new Error('Failed to get upload URL');
+      }
 
-    const { data }: S3UploadResponse = presignedResponse.data;
+      const { data }: S3UploadResponse = presignedResponse.data;
 
-    // Prepare form data for S3 upload
-    const formData = new FormData();
-    
-    // Add all fields from the presigned URL response EXCEPT filename
-    // The order of fields is important for S3
-    if (data.fields['success_action_status']) {
-      formData.append('success_action_status', data.fields['success_action_status']);
-    }
-    if (data.fields['Content-Type']) {
-      formData.append('Content-Type', data.fields['Content-Type']);
-    }
-    formData.append('key', data.fields.key);
-    formData.append('policy', data.fields.policy);
-    formData.append('x-amz-algorithm', data.fields['x-amz-algorithm']);
-    formData.append('x-amz-credential', data.fields['x-amz-credential']);
-    formData.append('x-amz-date', data.fields['x-amz-date']);
-    formData.append('x-amz-signature', data.fields['x-amz-signature']);
-    if (data.fields['acl']) {
-      formData.append('acl', data.fields['acl']);
-    }
-    
-    // Add the file last
-    formData.append('file', file);
+      // Prepare form data for S3 upload
+      const formData = new FormData();
+      
+      // Add all fields from the presigned URL response
+      Object.entries(data.fields).forEach(([key, value]) => {
+        formData.append(key, value);
+      });
+      
+      // Add the file last
+      formData.append('file', file);
 
-    try {
       // Upload directly to S3
       const uploadResponse = await fetch(data.url, {
         method: 'POST',
@@ -105,19 +94,41 @@ export class FileUploadService {
         throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
       }
 
-      // Construct the final URL
-      const fileKey = data.fields.key;
-      const finalUrl = `https://${this.cloudFrontDomain}/${fileKey}`;
-      
+      // Return the CloudFront URL for images
       return {
-        url: finalUrl,
+        url: `https://${this.cloudFrontDomain}/${data.fields.key}`,
         filename: uniqueFilename
       };
-
-    } catch (error) {
-      console.error('Upload error:', error);
-      throw error;
     }
+
+    // Handle document uploads through backend
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('filename', uniqueFilename);
+    formData.append('content_type', file.type);
+
+    const uploadResponse = await api.post(
+      `/api/microapps/${this.microappId}/${this.endpoint}/`,
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+
+    if (uploadResponse.status !== 200) {
+      throw new Error('Failed to upload file');
+    }
+
+    const { data } = uploadResponse.data;
+
+    // Return processed document data
+    return {
+      original_file: data.original_file,
+      text_file: data.text_file,
+      word_count: data.word_count
+    };
   }
 }
 

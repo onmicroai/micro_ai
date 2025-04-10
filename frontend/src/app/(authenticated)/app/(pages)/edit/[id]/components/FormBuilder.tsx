@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { DragDropContext } from '@hello-pangea/dnd';
-import { Plus, Trash2, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, ChevronDown, Upload, X, FileText } from 'lucide-react';
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
@@ -20,9 +20,44 @@ import { useSurveyStore } from '../store/editSurveyStore';
 import { PhaseType, FieldType, ChoiceType, ConditionalLogic } from '../types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { HelpCircle } from 'lucide-react';
+import { useDropzone } from 'react-dropzone';
+import { createFileUploader } from "@/utils/imageUpload";
+
+const ACCEPTED_FILE_TYPES = {
+  'application/pdf': ['.pdf'],
+  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+  'application/msword': ['.doc'],
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+  'application/vnd.ms-excel': ['.xls'],
+  'text/csv': ['.csv'],
+  'text/plain': ['.txt', '.log'],
+  'image/jpeg': ['.jpg', '.jpeg'],
+  'image/png': ['.png'],
+  'image/tiff': ['.tiff'],
+  'image/bmp': ['.bmp']
+};
+
+//TO-DO: Just use the backend max file size
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB max file size
+
+const MAX_DESCRIPTION_LENGTH = 200;
+
+interface UploadedFile {
+  name: string;
+  url?: string;
+  size: number;
+  filename: string;
+  word_count?: number;
+  original_file?: string;
+  text_file?: string;
+  description?: string;
+}
 
 export default function FormBuilder() {
   const [isOpen, setIsOpen] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
 
   const {
     phases,
@@ -36,6 +71,7 @@ export default function FormBuilder() {
     availableModels,
     isLoadingCollections,
     aiConfig,
+    attachedFiles,
     setPhases,
     setTitle,
     setDescription,
@@ -44,10 +80,74 @@ export default function FormBuilder() {
     setClonable,
     setCompletedHtml,
     setAIConfig,
+    addAttachedFile,
+    removeAttachedFile,
     fetchCollections,
     fetchModels,
-    appId
+    appId,
   } = useSurveyStore();
+
+  const fileUploader = createFileUploader(appId?.toString() || '');
+
+  const handleFileUpload = useCallback(async (file: File) => {
+    if (file.size > MAX_FILE_SIZE) {
+      alert('File size must be less than 5MB');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      const result = await fileUploader.uploadFile(file);
+
+      console.log('File upload result:', result);
+      
+      // Extract filename from original_file path
+      const filename = result.original_file?.split('/').pop();
+      if (!filename) {
+        throw new Error('No filename returned from upload');
+      }
+
+      const fileData = {
+        filename,
+        size: file.size,
+        word_count: result.word_count,
+      };
+
+      setUploadedFiles(prev => [...prev, {
+        name: file.name,
+        url: result.url,
+        ...fileData,
+        original_file: result.original_file,
+        text_file: result.text_file
+      }]);
+
+      await addAttachedFile(fileData);
+
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      alert('Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [fileUploader, addAttachedFile]);
+
+  const removeFile = useCallback(async (index: number) => {
+    const file = uploadedFiles[index];
+    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
+    if (!file.filename) {
+      throw new Error('No filename found for file');
+    }
+    await removeAttachedFile(file.filename);
+  }, [uploadedFiles, removeAttachedFile]);
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop: (acceptedFiles) => {
+      acceptedFiles.forEach(file => handleFileUpload(file));
+    },
+    accept: ACCEPTED_FILE_TYPES,
+    maxSize: MAX_FILE_SIZE,
+    disabled: isUploading
+  });
 
   // Initialize phases with default phase if phases is empty
   useEffect(() => {
@@ -65,6 +165,34 @@ export default function FormBuilder() {
       });
     }
   }, [phases, aiConfig, setPhases, setAIConfig]);
+
+  // Initialize uploadedFiles from attachedFiles
+  useEffect(() => {
+    if (attachedFiles && attachedFiles.length > 0) {
+      const files = attachedFiles
+        .filter(file => file && file.filename)
+        .map(file => ({
+          name: file.filename.split('_')[0],
+          filename: file.filename,
+          url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.filename}`,
+          size: file.size,
+          word_count: file.word_count,
+          description: file.description
+        }));
+      setUploadedFiles(files);
+    } else {
+      setUploadedFiles([]);
+    }
+  }, [attachedFiles]);
+
+  // Add initial render debug log
+  useEffect(() => {
+    console.log('FormBuilder initial render:', {
+      attachedFiles,
+      uploadedFiles,
+      appId
+    });
+  }, []);
 
   // Load collections on mount
   useEffect(() => {
@@ -184,6 +312,7 @@ export default function FormBuilder() {
     const newPhaseNumber = (phases?.length || 0) + 1;
     setPhases([...(phases || []), { 
       id: String(newPhaseNumber), 
+      name: `phase${newPhaseNumber}`,
       title: `Phase ${newPhaseNumber}`, 
       description: '', 
       elements: [], 
@@ -811,6 +940,24 @@ export default function FormBuilder() {
     }));
   };
 
+  const updateFileDescription = (index: number, description: string) => {
+    // Limit description to MAX_DESCRIPTION_LENGTH characters
+    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
+    
+    setUploadedFiles(prev => prev.map((file, i) => 
+      i === index ? { ...file, description: truncatedDescription } : file
+    ));
+
+    // Also update in store
+    const file = uploadedFiles[index];
+    if (file) {
+      addAttachedFile({
+        ...file,
+        description: truncatedDescription
+      });
+    }
+  };
+
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
       <div className="container mx-auto py-8 px-4 max-w-7xl">
@@ -962,6 +1109,92 @@ export default function FormBuilder() {
                     text-gray-900 focus:border-primary focus:ring-primary"
                   placeholder="Message to show when the form is completed"
                 />
+              </div>
+
+              <div className="border-t border-gray-200 pt-4">
+                <div className="flex items-center gap-2 mb-4">
+                  <h3 className="text-sm font-medium">Attached Files</h3>
+                  <TooltipProvider delayDuration={0}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={5}>
+                        <p className="w-[200px] text-sm">
+                          Upload files that will be available to users of your app. Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+
+                <div
+                  {...getRootProps()}
+                  className={`
+                    mt-2 border-2 border-dashed rounded-lg p-6 transition-colors duration-150 ease-in-out
+                    ${isDragActive ? 'border-primary-400 bg-primary-50' : isUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-600'}
+                    ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
+                  `}
+                >
+                  <input {...getInputProps()} />
+                  <div className="text-center">
+                    <Upload className={`mx-auto h-12 w-12 ${isDragActive || isUploading ? 'text-primary-400' : 'text-gray-400'}`} />
+                    <p className="mt-2 text-sm text-gray-600">
+                      {isDragActive ? "Drop files here" : "Drag and drop files here, or click to select files"}
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      PDF, PPT, DOC, TXT, CSV, JSON, MD (Max 50MB)
+                    </p>
+                    {isUploading && (
+                      <div className="mt-4 flex items-center justify-center gap-2">
+                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+                        <span className="text-sm text-gray-600">Uploading...</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {uploadedFiles.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {uploadedFiles.map((file, index) => (
+                      <div key={index} className="space-y-2">
+                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-5 w-5 text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                              <p className="text-xs text-gray-500">
+                                {(file.size / 1024 / 1024).toFixed(2)} MB
+                                {file.word_count && ` • ${file.word_count} words`}
+                              </p>
+                            </div>
+                          </div>
+                          <button
+                            onClick={() => removeFile(index)}
+                            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                          >
+                            <X className="h-4 w-4 text-gray-500" />
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={file.description || ''}
+                            onChange={(e) => updateFileDescription(index, e.target.value)}
+                            placeholder="Add a description so the AI understands the content of this file better (optional)"
+                            maxLength={MAX_DESCRIPTION_LENGTH}
+                            className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
+                              focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+                              placeholder:text-gray-400"
+                          />
+                          <div className="absolute right-2 bottom-1 text-xs text-gray-400">
+                            {(file.description?.length || 0)}/{MAX_DESCRIPTION_LENGTH}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="space-y-4 border-t border-gray-200 pt-4">
@@ -1208,6 +1441,7 @@ export default function FormBuilder() {
                       privacySettings={privacy}
                       clonable={clonable}
                       completedHtml={completedHtml}
+                      attachedFiles={attachedFiles}
                       aiConfig={aiConfig}
                     />
                   </div>

@@ -34,6 +34,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setCompletedHtml,
       setIsInitialLoad,
       setAIConfig,
+      setAttachedFiles,
       fetchCollections,
       fetchModels
    } = useSurveyStore();
@@ -103,6 +104,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
             setClonable(appJson.clonable === undefined ? true : appJson.clonable, true, signal);
             setCompletedHtml(appJson.completedHtml, true, signal);
             setAIConfig(appJson.aiConfig || {}, true, signal);
+            setAttachedFiles(appJson.attachedFiles || [], true, signal);
 
             if (Array.isArray(appCollectionsData)) {
                const appCollections = structuredClone(appCollectionsData);

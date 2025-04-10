@@ -11,12 +11,20 @@ interface JsonPreviewProps {
   privacySettings: string;
   clonable: boolean;
   completedHtml: string;
+  attachedFiles: AttachedFile[];
   aiConfig: {
     aiModel: string;
     temperature: number;
     maxResponseTokens: number | null;
     systemPrompt: string;
   };
+}
+
+interface AttachedFile {
+  filename: string;
+  size: number;
+  word_count?: number;
+  description?: string;
 }
 
 export default function JsonPreview({
@@ -27,6 +35,7 @@ export default function JsonPreview({
   privacySettings,
   clonable,
   completedHtml,
+  attachedFiles,
   aiConfig
 }: JsonPreviewProps) {
   const formData = {
@@ -36,6 +45,7 @@ export default function JsonPreview({
     privacySettings,
     clonable,
     completedHtml,
+    attachedFiles,
     aiConfig: {
       aiModel: aiConfig.aiModel,
       temperature: aiConfig.temperature,

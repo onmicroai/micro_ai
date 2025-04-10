@@ -120,6 +120,13 @@ interface AIConfig {
   systemPrompt: string;
 }
 
+export interface AttachedFile {
+  filename: string;
+  size: number;
+  word_count?: number;
+  description?: string;
+}
+
 export interface SurveyState {
   phases: PhaseType[];
   title: string | undefined;
@@ -128,6 +135,7 @@ export interface SurveyState {
   privacy: string;
   clonable: boolean;
   completedHtml: string;
+  attachedFiles: AttachedFile[];
   aiConfig: AIConfig;
   setAIConfig: (aiConfig: AIConfig, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
   setPhases: (phases: any, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
@@ -151,6 +159,9 @@ export interface SurveyState {
   isLoadingModels: boolean;
   fetchCollections: () => Promise<void>;
   fetchModels: () => Promise<void>;
+  setAttachedFiles: (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+  addAttachedFile: (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+  removeAttachedFile: (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
 }
 
 export interface SaveState {
