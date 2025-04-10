@@ -45,7 +45,8 @@ export default function FormBuilder() {
     setCompletedHtml,
     setAIConfig,
     fetchCollections,
-    fetchModels
+    fetchModels,
+    appId
   } = useSurveyStore();
 
   // Initialize phases with default phase if phases is empty
@@ -1170,6 +1171,7 @@ export default function FormBuilder() {
                     onUpdateChatbotInstructions={(fieldId, instructions) =>
                       updateChatbotInstructions(phase.id, fieldId, instructions)
                     }
+                    appId={appId}
                   />
                 </div>
               </Card>

@@ -39,6 +39,7 @@ interface PhaseProps {
   onUpdateFieldMaxMessages: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage: (fieldId: string, initialMessage: string) => void;
   onUpdateChatbotInstructions: (fieldId: string, instructions: string) => void;
+  appId: number | null;
 }
 
 export default function Phase({
@@ -64,6 +65,7 @@ export default function Phase({
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
+  appId,
 }: PhaseProps) {
 
    /**
@@ -79,7 +81,8 @@ export default function Phase({
     return (
       <Field 
         field={field} 
-        index={index} 
+        index={index}
+        appId={appId}
         phaseFields={phase.elements}
         appFields={getAllElementsFromPhases(appPhases)}
         onUpdateFieldLabel={onUpdateFieldLabel}
@@ -186,6 +189,7 @@ export default function Phase({
                   key={prompt.id} 
                   field={prompt} 
                   index={index}
+                  appId={appId}
                   phaseFields={phase.elements}
                   appFields={getAllElementsFromPhases(appPhases)}
                   onUpdateFieldLabel={(fieldId, newLabel) => onUpdateFieldLabel(fieldId, newLabel, true)}

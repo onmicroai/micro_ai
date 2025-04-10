@@ -46,6 +46,7 @@ interface FieldProps {
   index: number;
   phaseFields: FieldType[];
   appFields: FieldType[];
+  appId: number | null;
   onUpdateFieldLabel: (
     fieldId: string,
     newLabel: string,
@@ -120,6 +121,7 @@ export default function Field({
   index,
   phaseFields,
   appFields,
+  appId,
   onUpdateFieldLabel,
   onUpdateFieldName,
   onUpdateFieldRequired,
@@ -676,7 +678,7 @@ export default function Field({
               onUpdateRichText?.(field.id, value);
             }}
             // TODO: Remove this once we have a real microapp ID
-            microappId={"1"}
+            microappId={appId?.toString() || ""}
           />
         );
       case "imageUpload":
