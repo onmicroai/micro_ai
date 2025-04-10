@@ -260,6 +260,7 @@ const {
       systemPrompt: appConfig?.aiConfig.systemPrompt || ""
     };
 
+    const attachedFiles = appConfig?.attachedFiles || [];
    const page = appConfig?.phases?.[pageIndex] || null;
    const pageConfig = getPageConfig(page);
 
@@ -312,7 +313,7 @@ const {
       fixedResponseText = combinedText;
    }
 
-   const requestBody = buildRequestBody(
+   const requestBody = await buildRequestBody(
       combinedPrompt,
       combinedAiInstructions,
       appId,
@@ -322,6 +323,7 @@ const {
       pageConfig,
       images,
       appHashId,
+      attachedFiles,
       skipScoredRun,
       hasFixedResponse,
       fixedResponseText,

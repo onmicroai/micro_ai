@@ -121,7 +121,8 @@ interface AIConfig {
 }
 
 export interface AttachedFile {
-  filename: string;
+  original_filename: string;
+  text_filename: string;
   size: number;
   word_count?: number;
   description?: string;

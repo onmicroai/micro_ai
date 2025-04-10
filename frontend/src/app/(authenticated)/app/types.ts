@@ -1,4 +1,5 @@
 import { ChangeEvent } from "react";
+import { AttachedFile } from "./(pages)/edit/[id]/types";
 
 // Add these new types
 export type Answers = {
@@ -173,6 +174,7 @@ export interface SurveyJson {
    title: string;
    description: string;
    phases: SurveyPage[];
+   attachedFiles: AttachedFile[];
    id: number;
    hashId: string;
    privacy: string;

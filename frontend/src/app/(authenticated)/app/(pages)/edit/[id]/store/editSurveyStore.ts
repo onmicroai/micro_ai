@@ -373,9 +373,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    removeAttachedFile: async (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    removeAttachedFile: async (original_filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => {
       set((state) => ({
-        attachedFiles: state.attachedFiles.filter(f => f.filename !== filename)
+        attachedFiles: state.attachedFiles.filter(f => f.original_filename !== original_filename)
       }));
       if (!skipServerUpdate) {
         await get().saveToServer(signal);

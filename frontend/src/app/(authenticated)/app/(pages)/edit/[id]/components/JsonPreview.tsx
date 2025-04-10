@@ -1,6 +1,6 @@
 "use client";
 
-import { PhaseType } from '../types';
+import { PhaseType, AttachedFile } from '../types';
 import { ScrollArea } from "./ui/scroll-area";
 
 interface JsonPreviewProps {
@@ -18,13 +18,6 @@ interface JsonPreviewProps {
     maxResponseTokens: number | null;
     systemPrompt: string;
   };
-}
-
-interface AttachedFile {
-  filename: string;
-  size: number;
-  word_count?: number;
-  description?: string;
 }
 
 export default function JsonPreview({
@@ -45,7 +38,13 @@ export default function JsonPreview({
     privacySettings,
     clonable,
     completedHtml,
-    attachedFiles,
+    attachedFiles: attachedFiles.map(file => ({
+      original_filename: file.original_filename,
+      text_filename: file.text_filename,
+      size: file.size,
+      word_count: file.word_count,
+      description: file.description
+    })),
     aiConfig: {
       aiModel: aiConfig.aiModel,
       temperature: aiConfig.temperature,

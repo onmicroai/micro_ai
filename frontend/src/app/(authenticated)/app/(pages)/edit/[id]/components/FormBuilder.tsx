@@ -47,10 +47,9 @@ interface UploadedFile {
   name: string;
   url?: string;
   size: number;
-  filename: string;
   word_count?: number;
-  original_file?: string;
-  text_file?: string;
+  original_filename: string;
+  text_filename: string;
   description?: string;
 }
 
@@ -85,6 +84,7 @@ export default function FormBuilder() {
     fetchCollections,
     fetchModels,
     appId,
+    setAttachedFiles,
   } = useSurveyStore();
 
   const fileUploader = createFileUploader(appId?.toString() || '');
@@ -102,13 +102,15 @@ export default function FormBuilder() {
       console.log('File upload result:', result);
       
       // Extract filename from original_file path
-      const filename = result.original_file?.split('/').pop();
-      if (!filename) {
+      const original_filename = result.original_file?.split('/').pop();
+      const text_filename = result.text_file?.split('/').pop();
+      if (!original_filename || !text_filename) {
         throw new Error('No filename returned from upload');
       }
 
       const fileData = {
-        filename,
+        original_filename,
+        text_filename,
         size: file.size,
         word_count: result.word_count,
       };
@@ -116,9 +118,10 @@ export default function FormBuilder() {
       setUploadedFiles(prev => [...prev, {
         name: file.name,
         url: result.url,
-        ...fileData,
-        original_file: result.original_file,
-        text_file: result.text_file
+        original_filename,
+        text_filename,
+        size: file.size,
+        word_count: result.word_count
       }]);
 
       await addAttachedFile(fileData);
@@ -134,10 +137,10 @@ export default function FormBuilder() {
   const removeFile = useCallback(async (index: number) => {
     const file = uploadedFiles[index];
     setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    if (!file.filename) {
+    if (!file.original_filename) {
       throw new Error('No filename found for file');
     }
-    await removeAttachedFile(file.filename);
+    await removeAttachedFile(file.original_filename);
   }, [uploadedFiles, removeAttachedFile]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -170,11 +173,12 @@ export default function FormBuilder() {
   useEffect(() => {
     if (attachedFiles && attachedFiles.length > 0) {
       const files = attachedFiles
-        .filter(file => file && file.filename)
+        .filter(file => file && file.original_filename)
         .map(file => ({
-          name: file.filename.split('_')[0],
-          filename: file.filename,
-          url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.filename}`,
+          name: file.original_filename.split('_')[0],
+          original_filename: file.original_filename,
+          text_filename: file.text_filename,
+          url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.original_filename}`,
           size: file.size,
           word_count: file.word_count,
           description: file.description
@@ -941,20 +945,28 @@ export default function FormBuilder() {
   };
 
   const updateFileDescription = (index: number, description: string) => {
-    // Limit description to MAX_DESCRIPTION_LENGTH characters
     const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
+    console.log('Updating description:', { index, description: truncatedDescription });
     
     setUploadedFiles(prev => prev.map((file, i) => 
       i === index ? { ...file, description: truncatedDescription } : file
     ));
 
-    // Also update in store
+    // Update description in store
     const file = uploadedFiles[index];
     if (file) {
-      addAttachedFile({
-        ...file,
-        description: truncatedDescription
+      console.log('File to update:', file);
+      const updatedFiles = attachedFiles.map(attachedFile => {
+        console.log('Comparing:', {
+          attached: attachedFile.original_filename,
+          current: file.original_filename
+        });
+        return attachedFile.original_filename === file.original_filename
+          ? { ...attachedFile, description: truncatedDescription }
+          : attachedFile;
       });
+      console.log('Updated files:', updatedFiles);
+      setAttachedFiles(updatedFiles);
     }
   };
 

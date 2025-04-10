@@ -1,3 +1,4 @@
+import { AttachedFile } from '@/app/(authenticated)/app/(pages)/edit/[id]/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 
@@ -31,7 +32,7 @@ const getPageConfig = (page: SurveyPage | null) => {
  * @param noSubmit Whether to skip the submission.
  * @returns 
  */
-export const buildRequestBody = (
+export const buildRequestBody = async (
    finalPrompt: string,
    finalAiInstructions: string,
    appId: number,
@@ -41,6 +42,7 @@ export const buildRequestBody = (
    pageConfig: ReturnType<typeof getPageConfig>,
    images: Base64Images,
    appHashId: string | undefined,
+   attachedFiles: AttachedFile[],
    skipScoredRun: boolean = false,
    hasFixedResponse: boolean = false,
    fixedResponseText: string = "",
@@ -75,17 +77,52 @@ export const buildRequestBody = (
       });
    }
 
+   // First, fetch all text file contents
+   const fileContents = await Promise.all(
+      attachedFiles.map(async file => {
+         const textUrl = `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/microapps/${appId}/files/text/${file.text_filename}`;
+         try {
+            const response = await fetch(textUrl);
+            const text = await response.text();
+            return {
+               filename: file.original_filename,
+               description: file.description || 'No description provided',
+               content: text
+            };
+         } catch (error) {
+            console.error(`Failed to fetch text for ${file.original_filename}:`, error);
+            return null;
+         }
+      })
+   );
+
+   // Build context string from files
+   const contextString = fileContents
+      .filter(file => file !== null)
+      .map(file => `
+File: ${file!.filename}
+Description: ${file!.description}
+============
+${file!.content}
+============
+`)
+      .join('\n\n');
+
    const requestBody: any = {
       model: aiConfig.aiModel,
       messages: [
-         // Add system prompt if it exists. 
+         // System prompt (if exists)
          ...(aiConfig.systemPrompt ? [{
             role: "system",
             content: aiConfig.systemPrompt,
          }] : []),
-         // Add history messages. 
+         // Context documents as assistant message
+         {
+            role: "assistant",
+            content: `Context Documents:\n${contextString}`,
+         },
+         // Rest of the conversation
          ...historyMessages,
-         // Add phase instructions if it exists. 
          ...(finalAiInstructions ? [{ 
             role: "assistant",
             content: finalAiInstructions,

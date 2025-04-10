@@ -50,6 +50,7 @@ const serializeAppData = (data: any): SurveyJson => {
       temperature: parsedJSON?.temperature || 0.5,
       copyAllowed: parsedJSON?.copy_allowed ?? true,
       aiConfig: parsedJSON?.app_json?.aiConfig || [],
+      attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
       phases: appJson.phases,
       completedHtml: parsedJSON?.app_json?.completedHtml || "You've reached the end",
    };
@@ -143,6 +144,7 @@ export const useSurveyStore = create<SurveyStore>()(
       responses: [],
       completedPhases: [],
       errors: [],
+      attachedFiles: [],
       loading: true,
       promptLoading: false,
       promptResponse: null,
