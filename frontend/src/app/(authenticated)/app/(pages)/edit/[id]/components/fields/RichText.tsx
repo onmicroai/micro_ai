@@ -327,8 +327,10 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
     try {
       setIsUploading(true);
       const result = await imageUploader.uploadFile(file);
-      editor?.chain().focus().setImage({ src: result.url }).run();
-      setShowImageDialog(false);
+      if (result.url) {
+        editor?.chain().focus().setImage({ src: result.url }).run();
+        setShowImageDialog(false);
+      }
     } catch (error) {
       console.error('Error uploading image:', error);
       alert('Failed to process image');
