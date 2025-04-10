@@ -16,108 +16,13 @@ import {
   Palette,
   X
 } from 'lucide-react';
-import axiosInstance from "@/utils//axiosInstance"; 
+import { createImageUploader } from "@/utils/imageUpload";
 import { useDropzone } from 'react-dropzone';
 
 /**
  * Maximum file size allowed for image uploads (10MB)
  */
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes
-
-/**
- * Interface defining the contract for file upload services
- */
-interface FileUploadService {
-  /**
-   * Uploads a file and returns a URL or data URI
-   * @param {File} file - The file to upload
-   * @returns {Promise<string>} A promise that resolves to the file's URL or data URI
-   */
-  uploadFile: (file: File) => Promise<string>;
-}
-
-interface S3UploadResponse {
-   data: {
-     url: string;  // The S3 bucket URL
-     fields: {
-       key: string;  // The file path/key in the bucket
-       policy: string;
-       'x-amz-algorithm': string;
-       'x-amz-credential': string;
-       'x-amz-date': string;
-       'x-amz-signature': string;
-       'Content-Type': string;
-       'success_action_status'?: string;  // Optional, defaults to 201
-       'acl'?: string;  // Optional, if you're setting ACLs
-     }
-   },
-   status: number;
-}
-
-class ServerFileUploadService implements FileUploadService {
-   private microappId: string;
- 
-   constructor(microappId: string) {
-     this.microappId = microappId;
-   }
- 
-   async uploadFile(file: File): Promise<string> {
-     const api = axiosInstance(); // Initialize axios instance
-
-     // Generate a unique filename by adding a timestamp
-     const timestamp = new Date().getTime();
-     const fileExtension = file.name.split('.').pop();
-     const uniqueFilename = `${file.name.split('.')[0]}_${timestamp}.${fileExtension}`;
-
-     // Get pre-signed URL from server
-     const presignedResponse = await api.post(`/api/microapps/${this.microappId}/upload-image/`, {
-       filename: uniqueFilename,
-       content_type: file.type,
-     });
-
-     if (presignedResponse.status !== 200) {
-       throw new Error('Failed to get upload URL');
-     }
-
-     const { data }: S3UploadResponse = presignedResponse.data;
-
-     // Prepare form data for S3 upload
-     const formData = new FormData();
-     
-     // Add all fields from the presigned URL response first
-     Object.entries(data.fields).forEach(([key, value]) => {
-       formData.append(key, value);
-     });
-     
-     // Add the file last
-     formData.append('file', file);
-
-     try {
-       // Upload directly to S3
-       const uploadResponse = await fetch(data.url, {
-         method: 'POST',
-         body: formData,
-       });
-
-       if (!uploadResponse.ok) {
-         const errorText = await uploadResponse.text();
-         console.error('S3 Upload Error:', errorText);
-         throw new Error(`Failed to upload file: ${uploadResponse.status} ${uploadResponse.statusText}`);
-       }
-
-       // Construct the CloudFront URL
-       const CLOUDFRONT_DOMAIN = process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN;
-       const fileKey = data.fields.key;
-       const finalUrl = `https://${CLOUDFRONT_DOMAIN}/${fileKey}`;
-       return finalUrl;
-
-     } catch (error) {
-       console.error('Upload error:', error);
-       throw error;
-     }
-   }
- }
- 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB in bytes 
 
 /**
  * Props interface for the RichText editor component
@@ -369,6 +274,8 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
   const [imageUrl, setImageUrl] = useState('');
   const [customColor, setCustomColor] = useState('#000000');
   const [isUploading, setIsUploading] = useState(false);
+  const imageUploader = createImageUploader(microappId);
+  
 
   const editor = useEditor({
     extensions: [
@@ -419,9 +326,8 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
 
     try {
       setIsUploading(true);
-      const fileUploadService = new ServerFileUploadService(microappId);
-      const imageUrl = await fileUploadService.uploadFile(file);
-      editor?.chain().focus().setImage({ src: imageUrl }).run();
+      const result = await imageUploader.uploadFile(file);
+      editor?.chain().focus().setImage({ src: result.url }).run();
       setShowImageDialog(false);
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -429,7 +335,7 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
     } finally {
       setIsUploading(false);
     }
-  }, [editor, microappId]);
+  }, [editor, imageUploader, microappId]);
 
   /**
    * Handles submission of image URLs to insert into the editor
