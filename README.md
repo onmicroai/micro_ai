@@ -35,9 +35,14 @@ cd micro_ai
 2. **Environment Setup**
 The application will automatically create a `.env` file with default settings. If you need to customize the environment variables, you can edit the `.env` file.
 
+For test-fly do
+```
+cp .env.example .env
+```
+
 3. **Start the Application**
 ```bash
-docker compose up
+docker-compose up -d
 ```
 
 This command will:
