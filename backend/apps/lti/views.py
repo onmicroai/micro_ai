@@ -29,12 +29,6 @@ KEYS_DIR = BASE_DIR / 'apps' / 'lti'
 PRIVATE_KEY_PATH = KEYS_DIR / 'private.key'
 PUBLIC_KEY_PATH = KEYS_DIR / 'public.key'
 
-with open(PRIVATE_KEY_PATH, 'r') as f:
-    private_key = f.read()
-
-with open(PUBLIC_KEY_PATH, 'r') as f:
-    public_key = f.read()
-
 frontend_url = "https://onmicro.ai/"
 
 class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
@@ -59,10 +53,19 @@ def get_tool_conf(request):
          "auth_token_url":   cfg.auth_token_url,
          "key_set_url":      cfg.key_set_url,
          "deployment_ids":   cfg.deployment_ids,
-         "private_key_file": private_key,
-         "public_key_file":  public_key,
+         "private_key_file": str(PRIVATE_KEY_PATH),             
+         "public_key_file":  str(PUBLIC_KEY_PATH),
       })
-   return ToolConfDict(tool_conf_map)
+   
+   tool_conf = ToolConfDict(tool_conf_map)
+
+   private_pem = PRIVATE_KEY_PATH.read_text()
+   public_pem  = PUBLIC_KEY_PATH.read_text()
+   for cfg in LTIConfig.objects.all():
+        tool_conf.set_private_key(cfg.issuer, private_pem, client_id=cfg.client_id)
+        tool_conf.set_public_key(cfg.issuer, public_pem,   client_id=cfg.client_id)
+
+   return tool_conf
 
 def get_jwk_from_public_key(key_name):
     key_path = os.path.join(settings.BASE_DIR, '..', 'configs', key_name)
@@ -104,7 +107,7 @@ def launch(request):
       iss = message_launch.get_iss()
       client_id = ld.get("aud")
       cfg = LTIConfig.objects.get(issuer=iss, client_id=client_id)
-      # print(f"LID: {message_launch.get_launch_id()}")
+      print(f"LID: {message_launch.get_launch_id()}")
       return redirect(cfg.redirect_url)
     
     except Exception as e:
@@ -119,19 +122,12 @@ def get_jwks(request):
 def configure(request, launch_id, difficulty):
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
-    message_launch = ExtendedDjangoMessageLaunch.from_cache(launch_id, request, tool_conf,
-                                                            launch_data_storage=launch_data_storage)
-
+    message_launch = ExtendedDjangoMessageLaunch.from_cache(launch_id, request, tool_conf, launch_data_storage=launch_data_storage)
     if not message_launch.is_deep_link_launch():
         return HttpResponseForbidden('Must be a deep link!')
-
-    launch_url = request.build_absolute_uri(reverse('app-launch') + '?difficulty=' + difficulty)
-
+    launch_url = request.build_absolute_uri(reverse('app-launch'))
     resource = DeepLinkResource()
-    resource.set_url(launch_url)\
-        .set_custom_params({'difficulty': difficulty})\
-        .set_title('Breakout ' + difficulty + ' mode!')
-
+    resource.set_url(launch_url)
     html = message_launch.get_deep_link().output_response_form([resource])
     return HttpResponse(html)
 
@@ -140,8 +136,7 @@ def configure(request, launch_id, difficulty):
 def score(request, launch_id, earned_score, time_spent):
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
-    message_launch = ExtendedDjangoMessageLaunch.from_cache(launch_id, request, tool_conf,
-                                                            launch_data_storage=launch_data_storage)
+    message_launch = ExtendedDjangoMessageLaunch.from_cache(launch_id, request, tool_conf, launch_data_storage=launch_data_storage)
     resource_link_id = message_launch.get_launch_data() \
         .get('https://purl.imsglobal.org/spec/lti/claim/resource_link', {}).get('id')
 
@@ -153,7 +148,6 @@ def score(request, launch_id, earned_score, time_spent):
     time_spent = int(time_spent)
 
     ags = message_launch.get_ags()
-
     if ags.can_create_lineitem():
         sc = Grade()
         sc.set_score_given(earned_score)\
