@@ -64,19 +64,6 @@ export const buildRequestBody = async (
       }
    }
 
-   const historyMessages = conversationHistory.map(msg => ({
-      role: msg.role,
-      content: msg.content,
-   }));
-
-   // Add dummy user message if first message exists and is not from user
-   if (historyMessages.length == 0 || historyMessages[0].role !== 'user') {
-      historyMessages.unshift({
-         role: "user",
-         content: ".",
-      });
-   }
-
    // First, fetch all text file contents
    const fileContents = await Promise.all(
       attachedFiles.map(async file => {
@@ -108,6 +95,27 @@ ${file!.content}
 `)
       .join('\n\n');
 
+   const historyMessages = [
+      // Add context documents as first user message if there are any
+      ...(contextString ? [{
+         role: "user",
+         content: `Context Documents:\n${contextString}`,
+      }] : []),
+      // Add the rest of the conversation history
+      ...conversationHistory.map(msg => ({
+         role: msg.role,
+         content: msg.content,
+      }))
+   ];
+
+   // Add dummy user message if first message exists and is not from user
+   if (historyMessages.length == 0 || historyMessages[0].role !== 'user') {
+      historyMessages.unshift({
+         role: "user",
+         content: ".",
+      });
+   }
+
    const requestBody: any = {
       model: aiConfig.aiModel,
       messages: [
@@ -116,12 +124,7 @@ ${file!.content}
             role: "system",
             content: aiConfig.systemPrompt,
          }] : []),
-         // Context documents as assistant message
-         {
-            role: "assistant",
-            content: `Context Documents:\n${contextString}`,
-         },
-         // Rest of the conversation
+         // Rest of the conversation including context documents
          ...historyMessages,
          ...(finalAiInstructions ? [{ 
             role: "assistant",
