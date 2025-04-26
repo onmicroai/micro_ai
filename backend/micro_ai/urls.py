@@ -59,4 +59,5 @@ urlpatterns = [
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # url - for stripe webhook
     path("stripe/webhook/", stripe_webhook, name="stripe-webhook"),
+    path("lti/",  include('apps.lti.urls'))
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

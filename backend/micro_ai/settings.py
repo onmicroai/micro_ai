@@ -84,7 +84,8 @@ PROJECT_APPS = [
     "apps.web",
     "apps.microapps",
     "apps.collection",
-    "apps.utils"
+    "apps.utils",
+    "apps.lti",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS
@@ -467,3 +468,6 @@ SESSION_COOKIE_PATH = '/admin/'  # Only set session cookie for admin paths
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = is_production
 SESSION_COOKIE_SAMESITE = 'Lax'  # More restrictive for admin
+
+LTI_PUBLIC_KEY_PATH = os.path.join(BASE_DIR, "public.key")
+LTI_PRIVATE_KEY_PATH = os.path.join(BASE_DIR, "private.key")

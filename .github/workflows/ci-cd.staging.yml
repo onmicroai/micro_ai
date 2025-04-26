@@ -47,7 +47,7 @@ jobs:
           port: 22
           script: |
             cd /home/ubuntu/micro_ai
-            docker-compose -p frontend -f docker-compose.prod.yml build frontend-staging
+            docker-compose -p frontend -f docker-compose.prod.yml build --no-cache frontend-staging
 
       - name: Build Web
         uses: appleboy/ssh-action@v1.0.3
