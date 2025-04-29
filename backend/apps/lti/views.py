@@ -107,8 +107,8 @@ def launch(request):
       iss = message_launch.get_iss()
       client_id = ld.get("aud")
       cfg = LTIConfig.objects.get(issuer=iss, client_id=client_id)
-      print(f"LID: {message_launch.get_launch_id()}")
-      return redirect(cfg.redirect_url)
+      lid = message_launch.get_launch_id()
+      return redirect(f"{cfg.redirect_url}/?lid={lid}")
     
     except Exception as e:
       print(e)
