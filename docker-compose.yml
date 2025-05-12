@@ -52,7 +52,7 @@ services:
     expose:
       - "3000"
     volumes:
-      #- ./frontend:/frontend
+      - ./frontend:/frontend
       - /frontend/node_modules
     networks:
       - microaiNetwork
