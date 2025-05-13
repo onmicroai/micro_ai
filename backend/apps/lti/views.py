@@ -108,7 +108,13 @@ def launch(request):
       client_id = ld.get("aud")
       cfg = LTIConfig.objects.get(issuer=iss, client_id=client_id)
       lid = message_launch.get_launch_id()
-      return redirect(f"{cfg.redirect_url}/?lid={lid}")
+      
+      # Generate redirect URL based on the app ID
+      if not cfg.microapp:
+         raise Exception(f"No microapp associated with LTI config for issuer {iss} and client_id {client_id}")
+      
+      redirect_url = f"{frontend_url}app/embed/{cfg.microapp.hashId}/?lid={lid}"
+      return redirect(redirect_url)
     
     except Exception as e:
       print(e)
