@@ -345,7 +345,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                         {/* Step 1: LTI Tool Configuration */}
                         <div className="mb-6">
                            <h4 className="font-semibold text-gray-900 mb-3">Step 1: Configure your LMS</h4>
-                           <p className="text-gray-600 mb-4">Add these values in your LMS to configure OnMicro.AI as an LTI provider. Your LMS should then generated credentials for you that you'll use in Step 2.</p>
+                           <p className="text-gray-600 mb-4">Add these values in your LMS to configure OnMicro.AI as an LTI provider. Your LMS should then generated credentials for you that you&apos;ll use in Step 2.</p>
                            <div className="space-y-3">
                               <div>
                                  <label className="block text-sm font-medium text-gray-700">LTI Version</label>
