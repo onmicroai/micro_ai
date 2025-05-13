@@ -84,7 +84,8 @@ PROJECT_APPS = [
     "apps.web",
     "apps.microapps",
     "apps.collection",
-    "apps.utils"
+    "apps.utils",
+    "apps.lti",
 ]
 
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + PROJECT_APPS

@@ -51,12 +51,12 @@ jobs:
         script: |
           mkdir -p /docker/volumes/nginx
           
-          cd /home/ubuntu/microai-frontend
+          cd /home/ubuntu/micro_ai
           git pull origin dev
           
           cd nginx
           /bin/cp -rf nginx.dev.conf /docker/volumes/nginx/nginx.conf
-          /bin/cp -rf docker-compose-nginx.yaml /docker/volumes/nginx/docker-compose.yaml
+          /bin/cp -rf docker-compose-nginx.dev.yaml /docker/volumes/nginx/docker-compose.yaml
           /bin/cp -rf fallback /docker/volumes/nginx/
 
     - name: rebuild nginx

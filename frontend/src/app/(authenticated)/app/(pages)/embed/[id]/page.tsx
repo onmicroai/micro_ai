@@ -11,6 +11,8 @@ import { useUserStore } from "@/store/userStore";
 import DebugInformation from "../../../../../../components/DebugInformation";
 import { checkIsOwner, checkIsAdmin } from '@/utils/checkRoles';
 import { checkIsPublic } from '@/utils/checkAppPrivacy';
+import axiosInstance from '@/utils/axiosInstance';
+import { useSearchParams } from 'next/navigation';
 
 type PageParams = {
    params: {
@@ -19,6 +21,8 @@ type PageParams = {
 };
 
 const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
+   const searchParams = useSearchParams();
+   const launchId = searchParams.get('lid');
    const [showThankYouMessage, setShowThankYouMessage] = useState(false);
    const { user } = useUserStore();
    const userId = Number(user?.id);
@@ -109,6 +113,17 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       }
    }, [surveyJson, currentPhaseIndex, setCurrentPhase, setElements, completedPhases]);
 
+   const submitLTIScore = async () => {
+      if (!launchId) return;
+      
+      try {
+         const api = axiosInstance();
+         await api.post(`/lti/api/score/${launchId}/1/1/`);
+      } catch (error) {
+         console.error('Error submitting LTI score:', error);
+      }
+   };
+
    useEffect(() => {
       const phasesLength = surveyJson?.phases?.length;
       const completedPhasesLength = completedPhases.length;
@@ -118,6 +133,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
       let timeoutId: NodeJS.Timeout;
       if (shouldShowThankYouMessage === true) {
+         submitLTIScore();
          timeoutId = setTimeout(() => {
             setShowThankYouMessage(true);
          }, 1000);
@@ -128,7 +144,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
             clearTimeout(timeoutId);
          }
       };
-   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage]);
+   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage, launchId]);
 
    useEffect(() => {
       const abortController = new AbortController();

@@ -14,6 +14,8 @@ import { checkRole } from '@/utils/checkRoles';
 import { checkIsPublic } from '@/utils/checkAppPrivacy';
 import RemixBanner from "@/components/RemixBanner";
 import { useUserStore } from "@/store/userStore";
+import axiosInstance from '@/utils/axiosInstance';
+import { useSearchParams } from 'next/navigation';
 
 type PageParams = {
    params: {
@@ -22,6 +24,8 @@ type PageParams = {
 };
 
 const SurveyDisplay = ({ params }: PageParams) => {
+   const searchParams = useSearchParams();
+   const launchId = searchParams.get('lid');
    const [showThankYouMessage, setShowThankYouMessage] = useState(false);
    const [showRemixBanner, setShowRemixBanner] = useState(true);
    const { user } = useUserStore();
@@ -122,6 +126,17 @@ const SurveyDisplay = ({ params }: PageParams) => {
       }
    }, [surveyJson, currentPhaseIndex, setCurrentPhase, setElements, completedPhases]);
 
+   const submitLTIScore = async () => {
+      if (!launchId) return;
+      
+      try {
+         const api = axiosInstance();
+         await api.post(`/lti/api/score/${launchId}/1/1/`);
+      } catch (error) {
+         console.error('Error submitting LTI score:', error);
+      }
+   };
+
    useEffect(() => {
       const phasesLength = surveyJson?.phases?.length;
       const completedPhasesLength = completedPhases.length;
@@ -133,18 +148,18 @@ const SurveyDisplay = ({ params }: PageParams) => {
 
       let timeoutId: NodeJS.Timeout;
       if (shouldShowThankYouMessage === true) {
+         submitLTIScore();
          timeoutId = setTimeout(() => {
             setShowThankYouMessage(true);
          }, 1000);
       }
 
-      // Clear the timeout when the component unmounts or when dependencies change
       return () => {
          if (timeoutId) {
             clearTimeout(timeoutId);
          }
       };
-   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage]);
+   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage, launchId]);
 
    useEffect(() => {
       const abortController = new AbortController();
