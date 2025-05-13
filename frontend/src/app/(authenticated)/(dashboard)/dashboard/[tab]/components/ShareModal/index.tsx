@@ -146,7 +146,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
       const { name, value } = e.target;
       const newConfig = {
          ...ltiConfig,
-         [name]: value
+         [name]: name === 'deployment_ids' ? [value] : value
       };
       setLtiConfig(newConfig);
       setHasChanges(checkForChanges(newConfig));
@@ -161,14 +161,20 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
          const response = await api.post('/lti/api/config/', {
             ...ltiConfig,
             microapp_id: app.id,
-            id: hasExistingConfig ? ltiConfig.id : undefined
+            id: hasExistingConfig ? ltiConfig.id : undefined,
+            deployment_id: ltiConfig.deployment_ids?.[0] || ''
          });
          
          if (response.status === 200) {
-            setLtiConfig(response.data);
+            // Ensure deployment_ids is properly set from the response
+            const updatedConfig = {
+               ...response.data,
+               deployment_ids: response.data.deployment_ids || [response.data.deployment_id].filter(Boolean)
+            };
+            setLtiConfig(updatedConfig);
             setHasExistingConfig(true);
             setHasChanges(false);
-            initialConfigRef.current = response.data;
+            initialConfigRef.current = updatedConfig;
          }
       } catch (error) {
          console.error('Error saving LTI config:', error);
@@ -262,23 +268,23 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
             {/* Header with close button */}
             <div className="p-6 pb-0 flex justify-between items-center">
                <div className="flex space-x-4 border-b w-full">
-                  <button 
-                     onClick={handleDirectUrlTab} 
-                     disabled={showShareUrl}
-                     className={`pb-2 px-4 ${showShareUrl 
-                        ? 'text-blue-600 border-b-2 border-blue-600' 
-                        : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                     Direct URL
-                  </button>
-                  <button 
-                     onClick={handleEmbedCodeTab} 
-                     disabled={showEmbedCode}
-                     className={`pb-2 px-4 ${showEmbedCode 
-                        ? 'text-blue-600 border-b-2 border-blue-600' 
-                        : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                     Embed Code
+               <button 
+                  onClick={handleDirectUrlTab} 
+                  disabled={showShareUrl}
+                  className={`pb-2 px-4 ${showShareUrl 
+                     ? 'text-blue-600 border-b-2 border-blue-600' 
+                     : 'text-gray-500 hover:text-gray-700'}`}
+               >
+                  Direct URL
+               </button>
+               <button 
+                  onClick={handleEmbedCodeTab} 
+                  disabled={showEmbedCode}
+                  className={`pb-2 px-4 ${showEmbedCode 
+                     ? 'text-blue-600 border-b-2 border-blue-600' 
+                     : 'text-gray-500 hover:text-gray-700'}`}
+               >
+                  Embed Code
                   </button>
                   <button 
                      onClick={handleLtiConfigTab} 
@@ -300,43 +306,43 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
 
             {/* Scrollable content */}
             <div className="p-6 overflow-y-auto">
-               {/* Direct URL input */}
-               {showShareUrl && (
-                  <div className="flex items-center space-x-2 mb-4">
-                     <input
-                        type="text"
-                        value={getShareUrl()}
-                        readOnly
-                        className="flex-1 p-2 border rounded-lg bg-gray-50"
-                     />
-                     <button 
-                        onClick={handleCopyLink}
-                        className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                     >
-                        <Copy size={16} />
-                     </button>
-                  </div>
-               )}
+            {/* Direct URL input */}
+            {showShareUrl && (
+               <div className="flex items-center space-x-2 mb-4">
+                  <input
+                     type="text"
+                     value={getShareUrl()}
+                     readOnly
+                     className="flex-1 p-2 border rounded-lg bg-gray-50"
+                  />
+                  <button 
+                     onClick={handleCopyLink}
+                     className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                     <Copy size={16} />
+                  </button>
+               </div>
+            )}
 
-               {/* Embed code textarea */}
-               {showEmbedCode && (
-                  <div className="space-y-2 mb-4">
-                     <div className="relative">
-                        <textarea
-                           readOnly
-                           value={`<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`}
-                           rows={3}
-                           className="w-full p-2 border rounded-lg bg-gray-50 font-mono text-sm"
-                        />
-                     </div>
-                     <button 
-                        onClick={handleCopyIframe}
-                        className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                     >
-                        <Copy size={16} />
-                     </button>
+            {/* Embed code textarea */}
+            {showEmbedCode && (
+               <div className="space-y-2 mb-4">
+                  <div className="relative">
+                     <textarea
+                        readOnly
+                        value={`<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`}
+                        rows={3}
+                        className="w-full p-2 border rounded-lg bg-gray-50 font-mono text-sm"
+                     />
                   </div>
-               )}
+                  <button 
+                     onClick={handleCopyIframe}
+                     className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                  >
+                     <Copy size={16} />
+                  </button>
+               </div>
+            )}
 
                {/* LTI Configuration section */}
                {showLtiConfig && (
@@ -482,7 +488,18 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                                     required
                                  />
                               </div>
-                              <button
+                              <div>
+                                 <label className="block text-sm font-medium text-gray-700">Deployment ID</label>
+                                 <input
+                                    type="text"
+                                    name="deployment_ids"
+                                    value={ltiConfig.deployment_ids?.length > 0 ? ltiConfig.deployment_ids[0] : ''}
+                                    onChange={handleLtiConfigChange}
+                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
+                                    required
+                                 />
+                              </div>
+            <button 
                                  type="submit"
                                  disabled={!hasChanges || isSaving}
                                  className={`w-full py-2 px-4 rounded-lg transition-colors ${
@@ -502,7 +519,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                                        Saved
                                     </>
                                  )}
-                              </button>
+            </button>
                            </form>
                         </div>
                      </div>
