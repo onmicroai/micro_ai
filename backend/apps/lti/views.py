@@ -117,8 +117,12 @@ def launch(request):
       return redirect(redirect_url)
     
     except Exception as e:
-      print(e)
-      return redirect(frontend_url)
+      import traceback
+      print("LTI Launch Error:")
+      print(traceback.format_exc())
+      print(f"Request data: {request.POST}")
+      print(f"Request headers: {request.headers}")
+      return HttpResponse(f"LTI Launch Error: {str(e)}", status=500)
 
 def get_jwks(request):
     tool_conf = get_tool_conf(request)
