@@ -113,7 +113,7 @@ def launch(request):
       if not cfg.microapp:
          raise Exception(f"No microapp associated with LTI config for issuer {iss} and client_id {client_id}")
       
-      redirect_url = f"{frontend_url}app/embed/{cfg.microapp.hashId}/?lid={lid}"
+      redirect_url = f"{frontend_url}app/embed/{cfg.microapp.hash_id}/?lid={lid}"
       return redirect(redirect_url)
     
     except Exception as e:
