@@ -29,7 +29,7 @@ KEYS_DIR = BASE_DIR / 'apps' / 'lti'
 PRIVATE_KEY_PATH = KEYS_DIR / 'private.key'
 PUBLIC_KEY_PATH = KEYS_DIR / 'public.key'
 
-frontend_url = "https://onmicro.ai/"
+frontend_url = settings.DOMAIN + "/"
 
 class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
     def _generate_nonce(self) -> str:
