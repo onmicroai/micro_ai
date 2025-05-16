@@ -8,6 +8,7 @@ from django.shortcuts import render
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch, DjangoCacheDataStorage
+from pylti1p3.contrib.django.cookie import DjangoCookieService
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
@@ -30,6 +31,24 @@ PRIVATE_KEY_PATH = KEYS_DIR / 'private.key'
 PUBLIC_KEY_PATH = KEYS_DIR / 'public.key'
 
 frontend_url = settings.DOMAIN + "/"
+
+class ExtendedDjangoCookieService(DjangoCookieService):
+      def __init__(self, request):
+        super().__init__(request)
+      def update_response(self, response):
+        for key, cookie_data in self._cookie_data_to_set.items():
+            kwargs = {
+                "value": cookie_data["value"],
+                "max_age": cookie_data["exp"],
+                "secure": True,
+                "httponly": True,
+                "path": "/",
+            }
+
+            kwargs["samesite"] = "None"
+            response.set_cookie(key, **kwargs)
+
+
 
 class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
     def _generate_nonce(self) -> str:
@@ -57,6 +76,7 @@ def get_tool_conf(request):
          "public_key_file":  str(PUBLIC_KEY_PATH),
       })
    
+
    tool_conf = ToolConfDict(tool_conf_map)
 
    private_pem = PRIVATE_KEY_PATH.read_text()
@@ -89,11 +109,9 @@ def get_launch_url(request):
 def login(request):
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
-    oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
+    oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage, cookie_service=ExtendedDjangoCookieService(request=request))
     target_link_uri = get_launch_url(request)
-    return oidc_login\
-        .enable_check_cookies()\
-        .redirect(target_link_uri)
+    return oidc_login.redirect(target_link_uri)
 
 @csrf_exempt
 @require_POST
