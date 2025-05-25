@@ -3,6 +3,7 @@
 import React, { ChangeEvent } from "react";
 import { Element, ErrorObject, Answers, ConditionalLogic } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
+import { handleTextAreaDoubleClick } from "@/utils/inputHandlers";
 
 interface TextAreaQuestionProps {
    element: Element;
@@ -39,6 +40,17 @@ const TextAreaQuestion = ({
       e.target.style.height = 'auto';
       e.target.style.height = `${e.target.scrollHeight}px`;
       handleInputChange(e);
+   };
+
+   const onDoubleClick = (e: React.MouseEvent<HTMLTextAreaElement>) => {
+      handleTextAreaDoubleClick({
+         input: e.currentTarget,
+         placeholder: element.placeholder,
+         disabled,
+         readOnly: element.readOnly,
+         name: element.name,
+         handleInputChange,
+      });
    };
 
    return (
@@ -86,6 +98,7 @@ const TextAreaQuestion = ({
             `}
             value={answers[element.name]?.value || ''}
             onChange={handleAutoHeight}
+            onDoubleClick={onDoubleClick}
             placeholder={element.placeholder}
             disabled={disabled || element.readOnly}
             rows={1}

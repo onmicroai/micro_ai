@@ -3,6 +3,7 @@
 import React, { ChangeEvent } from "react";
 import { Element, ErrorObject, Answers, ConditionalLogic } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
+import { handleInputDoubleClick } from "@/utils/inputHandlers";
 
 interface TextQuestionProps {
    element: Element;
@@ -31,6 +32,17 @@ const TextQuestion = ({
 
    const errorMessage = getErrorMessage(element.name);
    const hasError = !!errorMessage;
+
+   const onDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
+      handleInputDoubleClick({
+         input: e.currentTarget,
+         placeholder: element.placeholder,
+         disabled,
+         readOnly: element.readOnly,
+         name: element.name,
+         handleInputChange,
+      });
+   };
 
    return (
       <div
@@ -76,6 +88,7 @@ const TextQuestion = ({
                `}
                value={answers[element.name]?.value || ''}
                onChange={handleInputChange}
+               onDoubleClick={onDoubleClick}
                placeholder={element.placeholder}
                disabled={disabled || element.readOnly}
             />
