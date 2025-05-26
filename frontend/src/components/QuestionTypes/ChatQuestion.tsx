@@ -171,7 +171,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
        {isActive ? (
          <div>
-          <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px' }}>
+          <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px', position: 'relative', zIndex: 0 }}>
             <MainContainer>
               <ChatContainer>
                 <MessageList 
