@@ -42,6 +42,7 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
       setInputValue,
       setImages,
       surveyJson,
+      setElements,
    } = useSurveyStore();
    const [isOwner, setIsOwner] = useState(false);
    const [isAdmin, setIsAdmin] = useState(false);
@@ -71,6 +72,15 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
       return () => controller.abort();
    }, [user, surveyJson?.hashId]);
 
+   // Add this effect to load elements
+   useEffect(() => {
+      if (surveyJson?.phases) {
+         // Get all elements from all phases
+         const allElements = surveyJson.phases.flatMap(phase => phase.elements || []);
+         setElements(allElements);
+      }
+   }, [surveyJson, setElements]);
+
    return (
       <div key={page.name} className="space-y-6">
          {page.title && page.title.length > 0 && (
@@ -82,6 +92,15 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
          {page.elements.map((element: any) => {
             if (element.type === 'chat') {
                const chatHistory = answers[element.name]?.value || [];
+               const isVisible = evaluateVisibility(
+                  element.conditionalLogic || {} as ConditionalLogic,
+                  answers
+               );
+               
+               if (!isVisible) {
+                  return null;
+               }
+
                return (
                   <div key={element.name} className="mt-6">
                      {element.label && (
@@ -119,9 +138,11 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                   </div>
                );
             }
-            if (!evaluateVisibility(element.conditionalLogic || {} as ConditionalLogic, answers)) {
-               return null;
-            }
+            const isVisible = evaluateVisibility(
+               element.conditionalLogic || {} as ConditionalLogic,
+               answers
+            );
+
             return (
                <RenderQuestion
                   key={element.name}
@@ -132,10 +153,7 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                   handleInputChange={handleInputChange}
                   setInputValue={setInputValue}
                   setImages={setImages}
-                  visible={evaluateVisibility(
-                     element.conditionalLogic || {} as ConditionalLogic,
-                     answers
-                  )}
+                  visible={isVisible}
                   appId={surveyJson?.id || 0}
                   userId={null}
                   surveyJson={surveyJson}

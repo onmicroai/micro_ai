@@ -209,31 +209,35 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({ appId, userId, answers, isO
                   <p className="mt-1 text-sm/6 text-gray-600">{currentPhase.description}</p>
                </div>
             )}
-            {currentPhase.elements?.map((element: Element) => (
-               <RenderQuestion
-                  key={element.name}
-                  errors={errors}
-                  element={{
-                     ...element,
-                     isRequired: element.isRequired,
-                     conditionalLogic: element.conditionalLogic,
-                     type: element.type,
-                  }} 
-                  answers={answers}
-                  disabled={false}
-                  handleInputChange={handleInputChange}
-                  setInputValue={setInputValue}
-                  setImages={setImages}
-                  visible={evaluateVisibility(
-                     element.conditionalLogic || {} as ConditionalLogic,
-                     answers
-                  )}
-                  appId={appId}
-                  userId={userId}
-                  surveyJson={surveyJson}
-                  currentPhaseIndex={currentPhaseIndex}
-               />
-            ))}
+            {currentPhase.elements?.map((element: Element) => {
+               const isVisible = evaluateVisibility(
+                  element.conditionalLogic || {} as ConditionalLogic,
+                  answers
+               );
+
+               return (
+                  <RenderQuestion
+                     key={element.name}
+                     errors={errors}
+                     element={{
+                        ...element,
+                        isRequired: element.isRequired,
+                        conditionalLogic: element.conditionalLogic,
+                        type: element.type,
+                     }} 
+                     answers={answers}
+                     disabled={false}
+                     handleInputChange={handleInputChange}
+                     setInputValue={setInputValue}
+                     setImages={setImages}
+                     visible={isVisible}
+                     appId={appId}
+                     userId={userId}
+                     surveyJson={surveyJson}
+                     currentPhaseIndex={currentPhaseIndex}
+                  />
+               );
+            })}
             {currentPhase.prompts && (
                <div className="space-y-0">
                   <RenderPrompt
