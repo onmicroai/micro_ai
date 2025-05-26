@@ -94,7 +94,7 @@ const TextAreaQuestion = ({
                }
                ${disabled || element.readOnly ? 'bg-gray-50 text-gray-500' : 'bg-white'}
                transition duration-150 ease-in-out
-               min-h-[100px] overflow-hidden resize-none
+               min-h-[100px] max-h-[500px] overflow-y-auto resize-none
             `}
             value={answers[element.name]?.value || ''}
             onChange={handleAutoHeight}
