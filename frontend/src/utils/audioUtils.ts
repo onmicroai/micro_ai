@@ -1,3 +1,10 @@
+// Add type declaration for webkitAudioContext
+declare global {
+  interface Window {
+    webkitAudioContext: typeof AudioContext;
+  }
+}
+
 export const convertToWav = async (blob: Blob): Promise<Blob> => {
   const audioContext = new (window.AudioContext || window.webkitAudioContext)();
   const arrayBuffer = await blob.arrayBuffer();

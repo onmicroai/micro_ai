@@ -6,7 +6,7 @@ import evaluateVisibility from "@/utils/evaluateVisibility";
 import { sendPromptsUtil } from "@/utils/sendPrompts";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
-import { Mic, MicOff, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
 
 interface ChatQuestionProps {
