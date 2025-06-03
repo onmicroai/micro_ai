@@ -4,6 +4,8 @@ from django.conf import settings
 import logging
 from apps.utils.global_variables import UsageVariables, AIModelConstants
 import re
+import tempfile
+import os
 
 log = logging.getLogger(__name__)
 
@@ -242,3 +244,56 @@ class UnifiedLLMInterface:
         except Exception as e:
             log.error(f"Error building instruction: {str(e)}")
             return messages
+
+    def transcribe_audio(self, audio_file: bytes) -> Dict[str, Any]:
+        """
+        Transcribe audio using LiteLLM's Whisper implementation.
+        
+        Args:
+            audio_file: The audio file content in bytes
+            
+        Returns:
+            Dictionary containing:
+                - status: Boolean indicating success
+                - data: Dictionary containing:
+                    - text: The transcribed text
+                    - cost: The cost of the transcription
+        """
+        try:
+            # Create a temporary file to ensure proper file handling
+            with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as temp_file:
+                temp_file.write(audio_file)
+                temp_file.flush()
+                
+                # Open the file in binary read mode for the API call
+                with open(temp_file.name, 'rb') as file:
+                    # Make the API call using litellm with the file object
+                    response = litellm.transcription(
+                        model="whisper-1",
+                        file=file
+                    )
+
+                    # Debug logging
+                    log.debug(f"LiteLLM response: {response}")
+
+                    # Extract usage information and cost
+                    total_cost = response._hidden_params["response_cost"]
+                    
+                    return {
+                        "status": True,
+                        "data": {
+                            "text": response.text,
+                            "cost": total_cost
+                        }
+                    }
+            
+        except Exception as e:
+            log.error(f"Error transcribing audio: {str(e)}")
+            return {"status": False, "message": str(e)}
+        finally:
+            # Clean up the temporary file
+            if 'temp_file' in locals():
+                try:
+                    os.unlink(temp_file.name)
+                except Exception as e:
+                    log.error(f"Error cleaning up temporary file: {str(e)}")

@@ -5,13 +5,6 @@ import evaluateVisibility from "@/utils//evaluateVisibility";
 import RenderQuestion from '@/components/RenderQuestion';
 import { useSurveyStore } from '../store/runtimeSurveyStore';
 import { ConditionalLogic } from '../app/(authenticated)/app/(pages)/edit/[id]/types';
-import { 
-  MainContainer, 
-  ChatContainer, 
-  MessageList, 
-  Message 
-} from '@chatscope/chat-ui-kit-react';
-import '@/styles/chatscope.scss';
 import {
    AIResponseDisplay,
    RunScoreDisplay,
@@ -108,32 +101,43 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                            {element.label}
                         </label>
                      )}
-                     <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px' }}>
-                        <MainContainer>
-                           <ChatContainer>
-                              <MessageList className="p-4">
-                                 {Array.isArray(chatHistory) ? chatHistory.map((message: string, i: number) => {
-                                    const [sender, text] = message.split(': ');
-                                    return (
-                                       <Message 
-                                          key={i}
-                                          model={{
-                                             message: text,
-                                             sender: sender,
-                                             direction: sender === 'ai' ? 'incoming' : 'outgoing',
-                                             position: "normal"
-                                          }}
-                                          className="mb-3"
+                     <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px', position: 'relative' }}>
+                        <div className="flex flex-col h-full">
+                           {/* Messages Container */}
+                           <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                              {Array.isArray(chatHistory) ? chatHistory.map((message: string, i: number) => {
+                                 const [sender, text] = message.split(': ');
+                                 const direction = sender === 'ai' ? 'incoming' : 'outgoing';
+                                 
+                                 return (
+                                    <div
+                                       key={i}
+                                       className={`flex ${direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
+                                    >
+                                       <div
+                                          className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                                             direction === 'outgoing'
+                                                ? 'bg-[#5C5EF1] text-white'
+                                                : 'bg-[#f0f2f5] text-gray-900'
+                                          }`}
                                        >
-                                          <Message.Header>
+                                          <div className="text-xs font-medium mb-1">
                                              {sender === 'ai' ? 'Assistant' : 'You'}
-                                          </Message.Header>
-                                       </Message>
-                                    );
-                                 }) : null}
-                              </MessageList>
-                           </ChatContainer>
-                        </MainContainer>
+                                          </div>
+                                          <div className="text-sm whitespace-pre-wrap">{text}</div>
+                                       </div>
+                                    </div>
+                                 );
+                              }) : null}
+                           </div>
+                           
+                           {/* Footer to indicate this is a completed conversation */}
+                           <div className="border-t border-gray-200 p-4 bg-gray-50">
+                              <p className="text-sm text-gray-600 text-center">
+                                 Chat completed
+                              </p>
+                           </div>
+                        </div>
                      </div>
                   </div>
                );

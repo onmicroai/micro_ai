@@ -1715,3 +1715,114 @@ class MicroAppFileUpload(APIView):
         except Exception as e:
             log.error(f"File processing error: {str(e)}")
             return handle_exception(e)
+
+class AudioTranscription(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def transcribe_audio_logic(self, audio_file, user_id=None, ip=None):
+        """Shared transcription logic for both authenticated and anonymous users"""
+        try:
+            if not audio_file:
+                return Response(
+                    {"error": "No audio file provided"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Debug logging
+            log.debug(f"Received file: {audio_file.name}")
+            log.debug(f"File content type: {audio_file.content_type}")
+            log.debug(f"File size: {audio_file.size} bytes")
+            log.debug(f"User ID: {user_id}, IP: {ip}")
+
+            # Read the audio file content
+            audio_content = audio_file.read()
+
+            # Initialize the LLM interface with OpenAI configuration
+            model_config = AIModelConstants.get_configs("gpt-4o-mini")  # Using OpenAI config for Whisper
+            model = UnifiedLLMInterface(model_config)
+
+            # Transcribe the audio
+            result = model.transcribe_audio(audio_content)
+
+            if not result["status"]:
+                return Response(
+                    {"error": result["message"]},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+
+            return Response(result["data"], status=status.HTTP_200_OK)
+
+        except Exception as e:
+            log.error(f"Error in transcribe_audio_logic: {str(e)}")
+            return handle_exception(e)
+
+    @extend_schema(
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'audio': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Audio file to transcribe'
+                    }
+                }
+            }
+        },
+        responses={200: None},
+        summary="Transcribe audio file using Whisper (authenticated)"
+    )
+    def post(self, request, format=None):
+        try:
+            # For authenticated users, we can track usage by user ID
+            audio_file = request.FILES.get('audio')
+            return self.transcribe_audio_logic(
+                audio_file=audio_file,
+                user_id=request.user.id,
+                ip=get_user_ip(request)
+            )
+        except Exception as e:
+            return handle_exception(e)
+
+@extend_schema_view(
+    post=extend_schema(
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'audio': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Audio file to transcribe'
+                    }
+                }
+            }
+        },
+        responses={200: None},
+        summary="Transcribe audio file using Whisper (anonymous)"
+    )
+)
+class AnonymousAudioTranscription(AudioTranscription):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, format=None):
+        try:
+            # For anonymous users, check IP-based rate limiting
+            ip = get_user_ip(request)
+            
+            # Use the same guest usage check as AnonymousRunList
+            if not GuestUsage.check_usage_limit(self, ip):
+                return Response(
+                    error.RUN_USAGE_LIMIT_EXCEED, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            audio_file = request.FILES.get('audio')
+            return self.transcribe_audio_logic(
+                audio_file=audio_file,
+                user_id=None,  # No user ID for anonymous users
+                ip=ip
+            )
+        except Exception as e:
+            return handle_exception(e)
