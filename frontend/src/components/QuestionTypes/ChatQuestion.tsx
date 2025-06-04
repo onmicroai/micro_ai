@@ -6,8 +6,9 @@ import evaluateVisibility from "@/utils/evaluateVisibility";
 import { sendPromptsUtil } from "@/utils/sendPrompts";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
-import { Send } from 'lucide-react';
+import { Send, Volume2 } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
+import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
 
 interface ChatQuestionProps {
    element: Element;
@@ -25,6 +26,7 @@ interface ChatMessage {
   message: string;
   sender: 'user' | 'ai';
   direction: 'incoming' | 'outgoing';
+  wasAudioInput?: boolean;
 }
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
@@ -50,6 +52,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isUserTyping, setIsUserTyping] = useState(false);
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
+   const [isPlaying, setIsPlaying] = useState(false);
+   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
 
@@ -80,7 +84,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      try {
        setIsUserTyping(true);
        const transcribedText = await transcribeAudio(blob, userId);
-       await handleSend(transcribedText);
+       await handleSend(transcribedText, true);
      } catch (error) {
        console.error('Error transcribing audio:', error);
      } finally {
@@ -88,7 +92,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      }
    };
 
-   const handleSend = async (message: string) => {
+   const handleSend = async (message: string, wasAudioInput: boolean = false) => {
      if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
        return;
      }
@@ -96,7 +100,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      const userMessage: ChatMessage = {
        message,
        sender: 'user',
-       direction: 'outgoing'
+       direction: 'outgoing',
+       wasAudioInput
      };
      
      setMessages(prev => [...prev, userMessage]);
@@ -135,6 +140,22 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        });
 
        if (response.success && response.response) {
+         const shouldSynthesizeAudio = wasAudioInput;
+         setIsSynthesizingAudio(shouldSynthesizeAudio);
+
+         let audioData: string | null = null;
+         if (shouldSynthesizeAudio) {
+           try {
+             audioData = await synthesizeSpeech(
+               response.response,
+               "A clear, American female voice",
+               'elevenlabs'
+             );
+           } catch (error) {
+             console.error('Error synthesizing speech:', error);
+           }
+         }
+
          const aiMessage: ChatMessage = {
            message: response.response,
            sender: 'ai',
@@ -142,6 +163,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          };
 
          setMessages(prev => [...prev, aiMessage]);
+         
+         if (audioData) {
+           await playAudio(audioData);
+         }
          
          const chatHistory = [...messages, userMessage, aiMessage]
            .map(msg => `${msg.sender}: ${msg.message}`);
@@ -151,6 +176,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        console.error('Error getting AI response:', error);
      } finally {
        setIsAssistantTyping(false);
+       setIsSynthesizingAudio(false);
      }
    };
 
@@ -214,14 +240,39 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                          : 'bg-[#f0f2f5] text-gray-900'
                      }`}
                    >
-                     <div className="text-xs font-medium mb-1">
-                       {message.sender === 'ai' ? 'Assistant' : 'You'}
+                     <div className="text-xs font-medium mb-1 flex items-center justify-between">
+                       <span>{message.sender === 'ai' ? 'Assistant' : 'You'}</span>
+                       {message.sender === 'ai' && (
+                         <div className="flex items-center space-x-2">
+                           <button
+                             onClick={async () => {
+                               try {
+                                 setIsPlaying(true);
+                                 const audioData = await synthesizeSpeech(
+                                   message.message,
+                                   "A friendly and helpful AI assistant",
+                                   'elevenlabs'
+                                 );
+                                 await playAudio(audioData);
+                                 setIsPlaying(false);
+                               } catch (error) {
+                                 console.error('Error playing message:', error);
+                                 setIsPlaying(false);
+                               }
+                             }}
+                             className="p-1 hover:bg-gray-200 rounded-full transition-colors"
+                             disabled={isPlaying}
+                           >
+                             <Volume2 className="w-4 h-4" />
+                           </button>
+                         </div>
+                       )}
                      </div>
                      <div className="text-sm whitespace-pre-wrap">{message.message}</div>
                    </div>
                  </div>
                ))}
-               {isAssistantTyping && (
+               {(isAssistantTyping || isSynthesizingAudio) && (
                  <div className="flex justify-start">
                    <div className="bg-[#f0f2f5] rounded-lg px-4 py-2">
                      <div className="text-xs font-medium mb-1">Assistant</div>
