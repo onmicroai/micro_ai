@@ -14,15 +14,43 @@ const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY;
 const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 const hume = new HumeClient({ apiKey: HUME_API_KEY });
 
-// Default voice IDs
-const DEFAULT_ELEVENLABS_VOICE = "JBFqnCBsd6RMkjVDRZzb"; // You can change this to your preferred voice
+export interface ElevenLabsVoice {
+  voice_id: string;
+  name: string;
+  category: string;
+}
+
+export const getElevenLabsVoices = async (): Promise<ElevenLabsVoice[]> => {
+  try {
+    const response = await fetch('https://api.elevenlabs.io/v1/voices', {
+      headers: {
+        'xi-api-key': ELEVENLABS_API_KEY
+      }
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch voices');
+    }
+
+    const data = await response.json();
+    return data.voices.map((voice: any) => ({
+      voice_id: voice.voice_id,
+      name: voice.name,
+      category: voice.category
+    }));
+  } catch (error) {
+    console.error('Error fetching voices:', error);
+    return [];
+  }
+};
 
 type TTSProvider = 'hume' | 'elevenlabs';
 
 export const synthesizeSpeech = async (
   text: string, 
   description?: string,
-  provider: TTSProvider = 'hume'
+  provider: TTSProvider = 'hume',
+  voiceId?: string
 ): Promise<string> => {
   try {
     if (provider === 'hume') {
@@ -41,7 +69,7 @@ export const synthesizeSpeech = async (
       }
     } else {
       const response = await fetch(
-        `https://api.elevenlabs.io/v1/text-to-speech/${DEFAULT_ELEVENLABS_VOICE}`,
+        `https://api.elevenlabs.io/v1/text-to-speech/${voiceId || 'JBFqnCBsd6RMkjVDRZzb'}`,
         {
           method: 'POST',
           headers: {
