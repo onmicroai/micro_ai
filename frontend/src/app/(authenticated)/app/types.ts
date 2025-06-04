@@ -1,5 +1,4 @@
 import { ChangeEvent } from "react";
-import { AttachedFile } from "./(pages)/edit/[id]/types";
 
 // Add these new types
 export type Answers = {
@@ -112,8 +111,8 @@ export interface SurveyPage {
 export interface Prompt {
   id: string;
   name: string;
-  text: string;
   type: 'prompt' | 'aiInstructions' | 'fixedResponse';
+  text?: string;  // Make text optional
   label?: string;
   aiPromptProperty?: string; // AI prompt property
   aiModel?: string; // AI model
@@ -121,42 +120,87 @@ export interface Prompt {
   conditionalLogic?: ConditionalLogic;
 }
 
+export interface Value {
+   name: string;
+   value: string;
+ }
+
+export interface Conditional {
+   question: string;
+   operator: string;
+   value: string;
+ }
+
+export interface Instruction {
+   prompt: Prompt;
+   conditionals: Conditional[];
+ }
+ 
+export interface Instructions {
+instructions: Instruction[];
+}
+
+export interface AiInstruction {
+prompt: Prompt;
+conditionals: [Conditional];
+}
+
 export interface Element {
-  description: any; // Description of the field
-  placeholder: string | undefined; // Placeholder text for the field
-  swapOrder: any; // Swap the order of true/false?
-  labelFalse: string; // Label for the false option
-  labelTrue: string; // Label for the true option
-  defaultValue: boolean | string | number | readonly string[] | undefined; // Default value for the field
-  title: string; // Title of the field
-  readOnly: boolean; // Is the field read-only?
-  showOtherItem?: boolean; // Show the other item?
-  otherText?: string; // Text for the other item
-  otherPlaceholder?: string; // Placeholder for the other item
-  showNoneItem?: boolean;
-  noneText?: string;
-  otherErrorText?: string;
+  // Core properties
   id: string;
   name: string;
-  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'dropdown' | 'slider' | 'boolean' | 'richText' | 'chat';
+  title?: string;
+  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'dropdown' | 'slider' | 'boolean' | 'richText' | 'chat' | 'prompt' | 'aiInstructions' | 'fixedResponse' | 'imageUpload';
   label: string;
-  isRequired: boolean | false;
-  maxChars?: number;
+  description?: string;
+  isRequired: boolean;
+  readOnly?: boolean;
+  
+  // Value and default properties
+  value?: string;
+  defaultValue?: string | string[] | number | boolean | undefined;
+  placeholder?: string;
+  text?: string;  // For prompt, aiInstructions, and fixedResponse types
+  
+  // Text input specific
   minChars?: number;
+  maxChars?: number;
+  
+  // Choice-based fields (radio, checkbox, dropdown)
   choices?: Choice[];
-  step?: number;
-  maxValue?: number;
+  showOtherItem?: boolean;
+  otherText?: string;
+  otherPlaceholder?: string;
+  otherErrorText?: string;
+  showNoneItem?: boolean;
+  noneText?: string;
+  
+  // Slider specific
   minValue?: number;
+  maxValue?: number;
+  step?: number;
+  
+  // Boolean specific
+  labelTrue?: string;
+  labelFalse?: string;
+  swapOrder?: boolean;
+  
+  // Rich text specific
   html?: string;
-  conditionalLogic?: ConditionalLogic;
-  // Image upload specific properties
+  
+  // Image upload specific
   multiple?: boolean;
   maxFiles?: number;
   maxFileSize?: number;
   allowedFileTypes?: string[];
-  maxMessages?: number;      // For chatbot: maximum number of messages
-  initialMessage?: string;   // For chatbot: initial assistant message
+  
+  // Chat specific
+  maxMessages?: number;
+  initialMessage?: string;
   chatbotInstructions?: string;
+  
+  // Conditional logic
+  conditionalLogic?: ConditionalLogic;
 }
 
 export interface Choice {
@@ -165,7 +209,7 @@ export interface Choice {
 }
 
 export interface ConditionalLogic {
-  value: string;
+  value: string | number | boolean | undefined;
   operator: string;
   sourceFieldId: string;
 }
@@ -184,10 +228,93 @@ export interface SurveyJson {
    aiConfig: AIConfig;
 }
 
+
+export interface SurveyCreatorProps {
+   hashId: string;
+ }
+
+export type ChoiceType = {
+value: string;
+text: string;
+};
+
+export type PhaseType = {
+   id: string;
+   name: string;
+   title: string;
+   description: string;
+   elements: Element[];
+   prompts: Element[];
+   skipPhase: boolean;
+   scoredPhase: boolean;
+   rubric: string;
+   minScore?: number;
+ };
+
+export interface SurveyState {
+   phases: PhaseType[];
+   title: string | undefined;
+   description: string | undefined;
+   collectionId: number | null;
+   privacy: string;
+   clonable: boolean;
+   completedHtml: string;
+   attachedFiles: AttachedFile[];
+   aiConfig: AIConfig;
+   setAIConfig: (aiConfig: AIConfig, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+   setPhases: (phases: any, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setTitle: (title: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setDescription: (description: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setCollectionId: (id: number | null, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setPrivacy: (privacy: string, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setClonable: (clonable: boolean, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setCompletedHtml: (completedHtml: string, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   resetStore: (signal?: AbortSignal) => void;
+   saveState: SaveState;
+   appId: number | null;
+   setSaveState: (saveState: Partial<SaveState>) => void;
+   setAppId: (id: number | null) => void;
+   saveToServer: (signal?: AbortSignal) => Promise<void>;
+   isInitialLoad: boolean;
+   setIsInitialLoad: (isInitialLoad: boolean) => void;
+   collections: { value: number; text: string }[];
+   availableModels: ModelTemperatureRanges;
+   isLoadingCollections: boolean;
+   isLoadingModels: boolean;
+   fetchCollections: () => Promise<void>;
+   fetchModels: () => Promise<void>;
+   setAttachedFiles: (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+   addAttachedFile: (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+   removeAttachedFile: (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
+ }
+ 
+ export interface SaveState {
+    isSaving: boolean;
+    lastSaved: Date | null;
+    error: string | null;
+  }
+ 
+ export interface TemperatureRange {
+    min: number;
+    max: number;
+  }
+  
+  export interface ModelTemperatureRanges {
+    [modelName: string]: TemperatureRange;
+  }
+
+export interface AttachedFile {
+   original_filename: string;
+   text_filename: string;
+   size: number;
+   word_count?: number;
+   description?: string;
+}
+
 export interface AIConfig {
   aiModel: string;
   temperature: number;
-  maxResponseTokens: number;
+  maxResponseTokens: number | null;
   systemPrompt: string;
 }
 

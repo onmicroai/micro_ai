@@ -53,10 +53,10 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({ appId, userId, answers, isO
    useEffect(() => {
       if (currentPhase?.prompts) {
          const combinedPrompts = currentPhase.prompts
-            .filter((prompt: Prompt) => prompt.type === 'prompt')
+            .filter((prompt: Prompt) => prompt.type === 'prompt' && prompt.text)
             .map((prompt: Prompt) => 
                injectValuesIntoPrompt(
-                  prompt.text,
+                  prompt.text!,
                   answers
                )
             )
@@ -65,10 +65,10 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({ appId, userId, answers, isO
          setPrompt(combinedPrompts);
 
          const combinedAiInstructions = currentPhase.prompts
-            .filter((prompt: Prompt) => prompt.type === 'aiInstructions')
+            .filter((prompt: Prompt) => prompt.type === 'aiInstructions' && prompt.text)
             .map((prompt: Prompt) => 
                injectValuesIntoPrompt(
-                  prompt.text,
+                  prompt.text!,
                   answers
                )
             )

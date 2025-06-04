@@ -8,7 +8,7 @@ import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import axiosInstance from "@/utils/axiosInstance";
 import Modal from '@/components/modules/custom-prompt-modal/custom-prompt-modal';
-import { SurveyCreatorProps } from './types';
+import { SurveyCreatorProps } from '@/app/(authenticated)/app/types';
 import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
 import Link from "next/link";

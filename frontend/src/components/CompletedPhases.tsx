@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import RenderQuestion from '@/components/RenderQuestion';
 import { useSurveyStore } from '../store/runtimeSurveyStore';
-import { ConditionalLogic } from '../app/(authenticated)/app/(pages)/edit/[id]/types';
+import { ConditionalLogic } from '../app/(authenticated)/app/types';
 import {
    AIResponseDisplay,
    RunScoreDisplay,

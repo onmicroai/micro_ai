@@ -1,6 +1,6 @@
 "use client";
 
-import { PhaseType, AttachedFile } from '../types';
+import { PhaseType, AttachedFile } from '@/app/(authenticated)/app/types';
 import { ScrollArea } from "./ui/scroll-area";
 
 interface JsonPreviewProps {

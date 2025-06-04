@@ -1,4 +1,4 @@
-import { AttachedFile } from '@/app/(authenticated)/app/(pages)/edit/[id]/types';
+import { AttachedFile } from '@/app/(authenticated)/app/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 

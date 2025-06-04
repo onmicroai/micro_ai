@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Badge } from "../ui/badge";
-import { FieldType } from "../../types";
+import { Prompt, Element } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
 
 interface Tag {
@@ -9,8 +9,8 @@ interface Tag {
 }
 
 interface TagEditorProps {
-  field: FieldType;
-  fields: FieldType[];
+  field: Prompt;
+  fields: Element[];
   initialContent?: string;
   onChange?: (fieldId: string, content: string) => void;
 }

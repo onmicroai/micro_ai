@@ -1,6 +1,6 @@
 "use client";
 
-import { ChoiceType, FieldType } from "../types";
+import { Choice, Element } from "@/app/(authenticated)/app/types";
 import {
   GripVertical,
   Trash2,
@@ -42,10 +42,10 @@ interface ConditionalLogic {
 }
 
 interface FieldProps {
-  field: FieldType;
+  field: Element;
   index: number;
-  phaseFields: FieldType[];
-  appFields: FieldType[];
+  phaseFields: Element[];
+  appFields: Element[];
   appId: number | null;
   onUpdateFieldLabel: (
     fieldId: string,
@@ -80,7 +80,7 @@ interface FieldProps {
     defaultValue: string | string[] | number | boolean
   ) => void;
   onUpdateFieldPlaceholder: (fieldId: string, placeholder: string) => void;
-  onUpdateFieldChoices: (fieldId: string, choices: ChoiceType[]) => void;
+  onUpdateFieldChoices: (fieldId: string, choices: Choice[]) => void;
   onUpdateFieldShowOther: (fieldId: string, showOther: boolean) => void;
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
   onUpdateFieldSliderProps: (
@@ -143,7 +143,7 @@ export default function Field({
   onUpdateChatbotInstructions,
 }: FieldProps) {
   const [isValidationExpanded, setValidationExpanded] = useState(false);
-  const [choices, setChoices] = useState<ChoiceType[]>(field.choices || []);
+  const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
   const [otherCheckboxValue, setOtherCheckboxValue] = useState("");
   const [sliderMin, setSliderMin] = useState(0);
@@ -204,11 +204,11 @@ export default function Field({
     );
   };
 
-  const getOperatorsForFieldType = (fieldType: string) => {
+  const getOperatorsForElement = (Element: string) => {
     const operators = [];
 
     // Basic equality operators shared by most types
-    switch (fieldType) {
+    switch (Element) {
       case "text":
       case "textarea":
       case "radio":
@@ -222,7 +222,7 @@ export default function Field({
     }
 
     // Additional operators for text fields
-    switch (fieldType) {
+    switch (Element) {
       case "text":
       case "textarea":
       case "radio":
@@ -254,6 +254,23 @@ export default function Field({
   };
 
   const renderField = () => {
+    // Handle prompt-related types separately
+    if (field.type === "prompt" || field.type === "aiInstructions" || field.type === "fixedResponse") {
+      return (
+        <PromptField
+          field={{
+            id: field.id,
+            name: field.name,
+            type: field.type,
+            text: field.text
+          }}
+          fields={appFields}
+          onChange={onUpdatePromptText}
+        />
+      );
+    }
+
+    // Handle all other field types
     switch (field.type) {
       case "text":
         return (
@@ -659,16 +676,6 @@ export default function Field({
             />
             <Label htmlFor="boolean-switch">Yes/No</Label>
           </div>
-        );
-      case "prompt":
-      case "aiInstructions":
-      case "fixedResponse":
-        return (
-          <PromptField
-            field={field}
-            fields={appFields}
-            onChange={onUpdatePromptText}
-          />
         );
       case "richText":
         return (
@@ -1109,7 +1116,7 @@ export default function Field({
                             <SelectValue placeholder="Select condition" />
                           </SelectTrigger>
                           <SelectContent>
-                            {getOperatorsForFieldType(
+                            {getOperatorsForElement(
                               phaseFields.find((f) => f.id === selectedSourceField)
                                 ?.type || ""
                             ).map((op) => (

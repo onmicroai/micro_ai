@@ -1,7 +1,7 @@
 // \microai-frontend\app\hooks\etchAvailableModels.ts
 
 import axiosInstance from "@/utils//axiosInstance"
-import { ModelTemperatureRanges } from "../types";
+import { ModelTemperatureRanges } from "@/app/(authenticated)/app/types";
 
  function createErrorResponse(): ModelTemperatureRanges {
     return {

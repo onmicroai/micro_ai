@@ -1,6 +1,6 @@
 "use client";
 
-import { PhaseType, ChoiceType, ConditionalLogic } from '../types';
+import { PhaseType, ChoiceType, ConditionalLogic } from '@/app/(authenticated)/app/types';
 import Field from './Field';
 import { Droppable } from '@hello-pangea/dnd';
 import { Checkbox } from "./ui/checkbox";
@@ -100,7 +100,7 @@ export default function Phase({
         onUpdatePromptText={onUpdatePromptText}
         onUpdateRichText={onUpdateRichText}
         onUpdateConditionalLogic={(fieldId, logic) => 
-          onUpdateConditionalLogic(fieldId, logic, false)
+          onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, false)
         }
         onUpdateImageUploadSettings={onUpdateImageUploadSettings}
         onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
@@ -207,7 +207,7 @@ export default function Phase({
                   onUpdatePromptText={onUpdatePromptText}
                   onUpdateRichText={onUpdateRichText}
                   onUpdateConditionalLogic={(fieldId, logic) => 
-                    onUpdateConditionalLogic(fieldId, logic, true)
+                    onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, true)
                   }
                   onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
                   onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}

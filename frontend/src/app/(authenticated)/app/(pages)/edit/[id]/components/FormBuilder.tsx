@@ -17,7 +17,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import { Input } from "./ui/input";
 import { useSurveyStore } from '../store/editSurveyStore';
-import { PhaseType, FieldType, ChoiceType, ConditionalLogic } from '../types';
+import { PhaseType, Element, Choice, ConditionalLogic } from '@/app/(authenticated)/app/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { HelpCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
@@ -239,7 +239,7 @@ export default function FormBuilder() {
 
       const newField = {
         id: `${draggableId}-${Date.now()}`,
-        type: draggableId as FieldType['type'],
+        type: draggableId as Element['type'],
         label: '',
         name: `${draggableId}${existingFieldsCount + 1}`,
         isRequired: false,
@@ -611,7 +611,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, placeholder } : field
           )
         };
@@ -632,12 +632,12 @@ export default function FormBuilder() {
    * which is essential for creating structured data collection with consistent
    * response categories that can be easily analyzed and processed.
    */
-  const updateFieldChoices = (phaseId: string, fieldId: string, choices: ChoiceType[]) => {
+  const updateFieldChoices = (phaseId: string, fieldId: string, choices: Choice[]) => {
     setPhases(phases.map((phase: PhaseType) => {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, choices } : field
           )
         };
@@ -663,7 +663,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, showOtherItem: showOther } : field
           )
         };
@@ -697,7 +697,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, ...updates } : field
           )
         };
@@ -723,7 +723,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, defaultValue: value } : field
           )
         };
@@ -747,12 +747,12 @@ export default function FormBuilder() {
   const updateFieldText = (fieldId: string, text: string, isPrompt: boolean = false) => {
     setPhases(phases.map((phase: PhaseType) => {
       // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: FieldType) => field.id === fieldId);
+      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
       
       if (fieldExists) {
         return {
           ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: FieldType) =>
+          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
             field.id === fieldId ? { ...field, text } : field
           )
         };
@@ -777,12 +777,12 @@ export default function FormBuilder() {
   const updateFieldRichText = (fieldId: string, html: string, isPrompt: boolean = false) => {
     setPhases(phases.map((phase: PhaseType) => {
       // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: FieldType) => field.id === fieldId);
+      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
       
       if (fieldExists) {
         return {
           ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: FieldType) =>
+          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
             field.id === fieldId ? { ...field, html } : field
           ),
         };
@@ -810,7 +810,7 @@ export default function FormBuilder() {
       if (phase.id !== phaseId) return phase;
 
       const collection = isPrompt ? 'prompts' : 'elements';
-      const items = phase[collection].map((item: FieldType) => {
+      const items = phase[collection].map((item: Element) => {
         if (item.id !== fieldId) return item;
         return {
           ...item,
@@ -883,7 +883,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, maxMessages } : field
           )
         };
@@ -909,7 +909,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, initialMessage } : field
           )
         };
@@ -935,7 +935,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, chatbotInstructions: instructions } : field
           )
         };
