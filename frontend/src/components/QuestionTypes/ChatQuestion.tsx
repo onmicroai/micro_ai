@@ -46,7 +46,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        direction: 'incoming'
      }
    ]);
-   const [isTyping, setIsTyping] = useState(false);
+   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+   const [isUserTyping, setIsUserTyping] = useState(false);
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
    const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -77,13 +78,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
    const handleRecordingComplete = async (blob: Blob) => {
      try {
-       setIsTyping(true);
+       setIsUserTyping(true);
        const transcribedText = await transcribeAudio(blob, userId);
        await handleSend(transcribedText);
      } catch (error) {
        console.error('Error transcribing audio:', error);
      } finally {
-       setIsTyping(false);
+       setIsUserTyping(false);
      }
    };
 
@@ -100,7 +101,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      
      setMessages(prev => [...prev, userMessage]);
      setInputMessage(''); // Clear input after sending
-     setIsTyping(true);
+     setIsUserTyping(false);
+     setIsAssistantTyping(true);
 
      try {
        const prompts: Prompt[] = [];
@@ -148,7 +150,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      } catch (error) {
        console.error('Error getting AI response:', error);
      } finally {
-       setIsTyping(false);
+       setIsAssistantTyping(false);
      }
    };
 
@@ -219,13 +221,26 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                    </div>
                  </div>
                ))}
-               {isTyping && (
+               {isAssistantTyping && (
                  <div className="flex justify-start">
                    <div className="bg-[#f0f2f5] rounded-lg px-4 py-2">
+                     <div className="text-xs font-medium mb-1">Assistant</div>
                      <div className="flex space-x-2">
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-200" />
+                     </div>
+                   </div>
+                 </div>
+               )}
+               {isUserTyping && (
+                 <div className="flex justify-end">
+                   <div className="bg-[#5C5EF1] rounded-lg px-4 py-2">
+                     <div className="text-xs font-medium mb-1 text-white">You</div>
+                     <div className="flex space-x-2">
+                       <div className="w-2 h-2 bg-white animate-bounce" />
+                       <div className="w-2 h-2 bg-white animate-bounce delay-100" />
+                       <div className="w-2 h-2 bg-white animate-bounce delay-200" />
                      </div>
                    </div>
                  </div>
