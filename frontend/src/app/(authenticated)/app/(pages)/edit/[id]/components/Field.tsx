@@ -7,6 +7,8 @@ import {
   ChevronDown,
   ChevronUp,
   Settings,
+  Play,
+  Pause,
 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -34,6 +36,7 @@ import {
 } from "./ui/dialog";
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
+import { getElevenLabsVoices, ElevenLabsVoice, generateVoicePreviews, playBase64Audio, VoicePreview, generateAndSaveHumeVoice } from '@/utils/textToSpeechService';
 
 interface ConditionalLogic {
   sourceFieldId: string;
@@ -114,6 +117,11 @@ interface FieldProps {
     fieldId: string,
     chatbotInstructions: string
   ) => void;
+  onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
+  onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
+  onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
+  onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
+  onUpdateCustomVoiceId?: (fieldId: string, voiceId: string) => void;
 }
 
 export default function Field({
@@ -141,6 +149,11 @@ export default function Field({
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
+  onUpdateTtsVoiceId,
+  onUpdateTtsEnabled,
+  onUpdateVoiceInstructions,
+  onUpdateCustomVoiceId,
+  onUpdateTtsProvider,
 }: FieldProps) {
   const [isValidationExpanded, setValidationExpanded] = useState(false);
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
@@ -161,6 +174,31 @@ export default function Field({
     string | number | boolean
   >(field.conditionalLogic?.value || "");
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
+  const [isLoadingVoices, setIsLoadingVoices] = useState(false);
+  const [voicePreviews, setVoicePreviews] = useState<VoicePreview[]>([]);
+  const [isGeneratingPreviews, setIsGeneratingPreviews] = useState(false);
+  const [previewText, setPreviewText] = useState('');
+  const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
+  const [selectedPreviewId, setSelectedPreviewId] = useState<string | null>(null);
+  const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Fetch ElevenLabs voices on component mount
+  useEffect(() => {
+    const fetchVoices = async () => {
+      setIsLoadingVoices(true);
+      try {
+        const voices = await getElevenLabsVoices();
+        setElevenLabsVoices(voices);
+      } catch (error) {
+        console.error('Error fetching ElevenLabs voices:', error);
+      } finally {
+        setIsLoadingVoices(false);
+      }
+    };
+    fetchVoices();
+  }, []);
 
   useEffect(() => {
     if (field.conditionalLogic) {
@@ -169,6 +207,144 @@ export default function Field({
       setConditionValue(field.conditionalLogic.value || "");
     }
   }, [field.conditionalLogic]);
+
+  // Cleanup audio when component unmounts or voice instructions change
+  useEffect(() => {
+    return () => {
+      if (currentAudio) {
+        currentAudio.pause();
+        setCurrentAudio(null);
+        setPlayingPreviewId(null);
+      }
+    };
+  }, [currentAudio]);
+
+  // Reset voice previews and stop audio when voice instructions change  
+  useEffect(() => {
+    if (field.selectedVoiceId !== 'custom') {
+      // Stop any playing audio
+      if (currentAudio) {
+        currentAudio.pause();
+        setCurrentAudio(null);
+        setPlayingPreviewId(null);
+      }
+      setVoicePreviews([]);
+      setSelectedPreviewId(null);
+      setPreviewText('');
+    }
+  }, [field.selectedVoiceId, field.voiceInstructions]);
+
+  const handleGenerateVoicePreviews = async () => {
+    try {
+      setIsGeneratingPreviews(true);
+      setVoicePreviews([]);
+      setError(null);
+
+      // If selectedVoiceId is 'custom', use Hume for voice generation
+      if (field.selectedVoiceId === 'custom') {
+        console.log("Using Hume for custom voice generation");
+        const response = await generateAndSaveHumeVoice(
+          field.voiceInstructions || "Generate a voice sample",
+          field.voiceInstructions || "Custom voice"
+        );
+        console.log("Hume response:", response);
+
+        // Auto-select the preview and update the field's customVoiceId
+        if (onUpdateTtsVoiceId) {
+          onUpdateTtsVoiceId(field.id, 'custom');
+        }
+        if (onUpdateCustomVoiceId) {
+          console.log("Setting customVoiceId to Hume ID:", response.voiceId);
+          onUpdateCustomVoiceId(field.id, response.voiceId);
+        }
+        // Remove the separate TTS provider update since it's now handled in updateCustomVoiceId
+      } else {
+        // Use ElevenLabs for pre-made voices
+        const response = await generateVoicePreviews(field.voiceInstructions || "Generate a voice sample");
+        setVoicePreviews(response.previews);
+
+        // Auto-select the first sample and update the field's customVoiceId
+        if (response.previews.length > 0) {
+          const firstPreviewId = response.previews[0].generated_voice_id;
+          if (onUpdateTtsVoiceId) {
+            onUpdateTtsVoiceId(field.id, firstPreviewId);
+          }
+          if (onUpdateCustomVoiceId) {
+            console.log("Setting customVoiceId to ElevenLabs ID:", firstPreviewId);
+            onUpdateCustomVoiceId(field.id, firstPreviewId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error generating voice previews:", error);
+      setError(error instanceof Error ? error.message : "Failed to generate voice previews");
+    } finally {
+      setIsGeneratingPreviews(false);
+    }
+  };
+
+  const handlePlayPreview = async (preview: VoicePreview) => {
+    // If this preview is currently playing, pause it
+    if (playingPreviewId === preview.generated_voice_id && currentAudio) {
+      currentAudio.pause();
+      setPlayingPreviewId(null);
+      setCurrentAudio(null);
+      return;
+    }
+
+    // Stop any currently playing audio
+    if (currentAudio) {
+      currentAudio.pause();
+      setCurrentAudio(null);
+    }
+
+    setPlayingPreviewId(preview.generated_voice_id);
+    try {
+      // Create audio blob from base64
+      const audioBlob = new Blob([Uint8Array.from(atob(preview.audio_base_64), c => c.charCodeAt(0))], {
+        type: preview.media_type
+      });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      // Set up event listeners
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        setPlayingPreviewId(null);
+        setCurrentAudio(null);
+      };
+      
+      audio.onerror = () => {
+        URL.revokeObjectURL(audioUrl);
+        setPlayingPreviewId(null);
+        setCurrentAudio(null);
+        console.error('Error playing audio');
+      };
+      
+      // Play the audio
+      setCurrentAudio(audio);
+      await audio.play();
+    } catch (error) {
+      console.error('Error playing preview:', error);
+      setPlayingPreviewId(null);
+      setCurrentAudio(null);
+    }
+  };
+
+  const handleSelectPreview = (preview: VoicePreview) => {
+    setSelectedPreviewId(preview.generated_voice_id);
+    // Update both selectedVoiceId and customVoiceId when user explicitly selects a preview
+    if (onUpdateTtsVoiceId) {
+      onUpdateTtsVoiceId(field.id, 'custom');
+      if (onUpdateCustomVoiceId) {
+         console.log("1. updating voice id to ", preview.generated_voice_id)
+        onUpdateCustomVoiceId(field.id, preview.generated_voice_id);
+      }
+      if (onUpdateTtsProvider) {
+        onUpdateTtsProvider(field.id, field.selectedVoiceId === 'custom' ? 'hume' : 'elevenlabs');
+      }
+    }
+  };
 
   const handleAddOption = () => {
     const newChoices = [
@@ -817,6 +993,184 @@ export default function Field({
                   focus:ring-primary resize-y"
                 placeholder="Enter instructions for how the chatbot should behave..."
               />
+            </div>
+            
+            {/* TTS Configuration Section */}
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={field.enableTts || false}
+                  onCheckedChange={(checked) => {
+                    if (onUpdateTtsEnabled) {
+                      onUpdateTtsEnabled(field.id, checked);
+                    }
+                  }}
+                />
+                <div>
+                  <label className="text-sm font-medium">Enable Voice Conversations</label>
+                  <p className="text-xs text-gray-500 mt-1">Allow users to speak with the chatbot and hear responses out loud</p>
+                </div>
+              </div>
+              
+              {field.enableTts && (
+                <div className="space-y-2 ">
+                  
+                    
+
+                        <label className="text-sm font-medium">Voice Selection</label>
+                        <Select
+                          value={field.selectedVoiceId || ""}
+                          onValueChange={(value) => {
+                            if (onUpdateTtsVoiceId) {
+                              onUpdateTtsVoiceId(field.id, value);
+                            }
+                          }}
+                          disabled={isLoadingVoices}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder={
+                              isLoadingVoices 
+                                ? "Loading voices..." 
+                                : "Select a voice"
+                            } />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingVoices && (
+                              <div className="px-2 py-1.5 text-sm text-gray-500">
+                                Loading voices...
+                              </div>
+                            )}
+                            {!isLoadingVoices && elevenLabsVoices.length === 0 && (
+                              <div className="px-2 py-1.5 text-sm text-gray-500">
+                                No voices available
+                              </div>
+                            )}
+                            {!isLoadingVoices && elevenLabsVoices.length > 0 && 
+                              elevenLabsVoices.map((voice) => (
+                                <SelectItem key={voice.voice_id} value={voice.voice_id}>
+                                  {voice.name} ({voice.category})
+                                </SelectItem>
+                              ))
+                            }
+                            {!isLoadingVoices && (
+                              <SelectItem value="custom">
+                                Design your own Voice
+                              </SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        {!isLoadingVoices && elevenLabsVoices.length === 0 && (
+                          <p className="text-xs text-red-500">
+                            Unable to load voices. Please check your ElevenLabs API key.
+                          </p>
+                        )}
+                        
+                        {/* Voice Instructions field - shown when "Design your own Voice" is selected, a generated voice is being used, or when voice previews are available */}
+                        {(field.selectedVoiceId === "custom" || voicePreviews.some(preview => preview.generated_voice_id === field.customVoiceId) || voicePreviews.length > 0) && (
+                          <div className="space-y-2 mt-4">
+                            <label className="text-sm font-medium">Voice Instructions</label>
+                            <p className="text-xs text-gray-500">
+                              Describe the characteristics of the voice you want the AI to generate, including gender, age, accent, tone, and speaking style.
+                            </p>
+                            <textarea
+                              value={field.voiceInstructions || ""}
+                              onChange={(e) => {
+                                if (onUpdateVoiceInstructions) {
+                                  onUpdateVoiceInstructions(field.id, e.target.value);
+                                }
+                              }}
+                              className="w-full min-h-[80px] rounded-md border border-gray-300 
+                                px-3 py-2 text-gray-900 focus:border-primary 
+                                focus:ring-primary resize-y"
+                              placeholder="A 65 year old American female voice. Long time smoker with a raspy voice. Takes long pauses between sentences to catch her breath."
+                            />
+                            
+                            {/* Generate Voice Samples Button */}
+                            <div className="flex justify-end">
+                              <Button
+                                type="button"
+                                onClick={handleGenerateVoicePreviews}
+                                disabled={isGeneratingPreviews || !field.voiceInstructions?.trim()}
+                                className="mt-2"
+                              >
+                                {isGeneratingPreviews ? "Generating..." : "Generate Voice Samples"}
+                              </Button>
+                            </div>
+
+                            {/* Voice Samples Display */}
+                            {(() => {
+                              return voicePreviews.length > 0 ? (
+                              <div className="mt-4 space-y-3">
+                                <div className="border-t pt-3">
+                                  <label className="text-sm font-medium mb-2 block">Generated Voice Samples</label>
+                                  {previewText && (
+                                    <p className="text-xs text-gray-500 mb-3">
+                                      Sample text: "{previewText}"
+                                    </p>
+                                  )}
+                                  <div className="space-y-2">
+                                    {voicePreviews.map((preview, index) => (
+                                      <div
+                                        key={preview.generated_voice_id}
+                                        className={`flex items-center justify-between p-3 border rounded-lg transition-colors ${
+                                          selectedPreviewId === preview.generated_voice_id
+                                            ? 'border-primary bg-primary/5'
+                                            : 'border-gray-200 hover:border-gray-300'
+                                        }`}
+                                      >
+                                        <div className="flex items-center space-x-3">
+                                          <div className="flex items-center space-x-2">
+                                            <input
+                                              type="radio"
+                                              id={`voice-${preview.generated_voice_id}`}
+                                              name={`voice-selection-${field.id}`}
+                                              checked={selectedPreviewId === preview.generated_voice_id}
+                                              onChange={() => handleSelectPreview(preview)}
+                                              className="w-4 h-4 text-primary"
+                                            />
+                                            <label
+                                              htmlFor={`voice-${preview.generated_voice_id}`}
+                                              className="text-sm font-medium cursor-pointer"
+                                            >
+                                              Voice {index + 1}
+                                            </label>
+                                          </div>
+                                          <span className="text-xs text-gray-500">
+                                            ({preview.duration_secs.toFixed(1)}s)
+                                          </span>
+                                        </div>
+                                        <Button
+                                          type="button"
+                                          variant="outline"
+                                          size="sm"
+                                          onClick={() => handlePlayPreview(preview)}
+                                          className="flex items-center space-x-1"
+                                        >
+                                          {playingPreviewId === preview.generated_voice_id ? (
+                                            <Pause className="w-4 h-4" />
+                                          ) : (
+                                            <Play className="w-4 h-4" />
+                                          )}
+                                          <span>
+                                            {playingPreviewId === preview.generated_voice_id ? "Pause" : "Play"}
+                                          </span>
+                                        </Button>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  {selectedPreviewId && (
+                                    <p className="text-xs text-green-600 mt-2">
+                                      Selected voice will be used for text-to-speech in this chat.
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
+                </div>
+              )}
             </div>
           </div>
         );

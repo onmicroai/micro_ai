@@ -78,6 +78,11 @@ export default function JsonPreview({
           maxMessages: field.maxMessages,
           initialMessage: field.initialMessage,
           chatbotInstructions: field.chatbotInstructions,
+          ttsProvider: field.ttsProvider,
+          selectedVoiceId: field.selectedVoiceId,
+          customVoiceId: field.customVoiceId,
+          enableTts: field.enableTts,
+          voiceInstructions: field.voiceInstructions,
         } : {}),
         ...(field.type === 'text' || field.type === 'textarea' ? {
           minChars: field.minChars,

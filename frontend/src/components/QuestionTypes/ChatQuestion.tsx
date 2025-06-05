@@ -8,7 +8,7 @@ import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
 import { Send, Volume2 } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
-import { synthesizeSpeech, playAudio, getElevenLabsVoices, ElevenLabsVoice } from '@/utils/textToSpeechService';
+import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
 
 interface ChatQuestionProps {
    element: Element;
@@ -54,23 +54,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [inputMessage, setInputMessage] = useState('');
    const [isPlaying, setIsPlaying] = useState(false);
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
-   const [ttsProvider, setTtsProvider] = useState<'hume' | 'elevenlabs'>('hume');
-   const [elevenLabsVoices, setElevenLabsVoices] = useState<ElevenLabsVoice[]>([]);
-   const [selectedVoiceId, setSelectedVoiceId] = useState<string>('');
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
-
-   // Fetch available voices on component mount
-   useEffect(() => {
-     const fetchVoices = async () => {
-       const voices = await getElevenLabsVoices();
-       setElevenLabsVoices(voices);
-       if (voices.length > 0) {
-         setSelectedVoiceId(voices[0].voice_id);
-       }
-     };
-     fetchVoices();
-   }, []);
 
    // Add timeout to stop recording after 30 seconds
    useEffect(() => {
@@ -155,7 +140,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        });
 
        if (response.success && response.response) {
-         const shouldSynthesizeAudio = wasAudioInput;
+         const shouldSynthesizeAudio = wasAudioInput && (element.enableTts || false);
          setIsSynthesizingAudio(shouldSynthesizeAudio);
 
          let audioData: string | null = null;
@@ -163,9 +148,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
            try {
              audioData = await synthesizeSpeech(
                response.response,
-               "A clear, American female voice",
-               ttsProvider,
-               ttsProvider === 'elevenlabs' ? selectedVoiceId : undefined
+               element.ttsProvider || 'elevenlabs',
+               element.selectedVoiceId === 'custom' ? element.customVoiceId! : element.selectedVoiceId!
              );
            } catch (error) {
              console.error('Error synthesizing speech:', error);
@@ -242,32 +226,6 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        {isActive ? (
          <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px', position: 'relative' }}>
            <div className="flex flex-col h-full">
-             {/* TTS Controls */}
-             <div className="border-b border-gray-200 p-2 flex items-center space-x-4">
-               <select
-                 value={ttsProvider}
-                 onChange={(e) => setTtsProvider(e.target.value as 'hume' | 'elevenlabs')}
-                 className="text-sm border rounded px-2 py-1"
-               >
-                 <option value="hume">Hume AI</option>
-                 <option value="elevenlabs">ElevenLabs</option>
-               </select>
-               
-               {ttsProvider === 'elevenlabs' && (
-                 <select
-                   value={selectedVoiceId}
-                   onChange={(e) => setSelectedVoiceId(e.target.value)}
-                   className="text-sm border rounded px-2 py-1"
-                 >
-                   {elevenLabsVoices.map((voice) => (
-                     <option key={voice.voice_id} value={voice.voice_id}>
-                       {voice.name} ({voice.category})
-                     </option>
-                   ))}
-                 </select>
-               )}
-             </div>
-
              {/* Messages Container */}
              <div className="flex-1 overflow-y-auto p-4 space-y-4">
                {messages.map((message, i) => (
@@ -292,8 +250,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                                  setIsPlaying(true);
                                  const audioData = await synthesizeSpeech(
                                    message.message,
-                                   "A friendly and helpful AI assistant",
-                                   'elevenlabs'
+                                   element.ttsProvider || 'elevenlabs',
+                                   element.selectedVoiceId === 'custom' ? element.customVoiceId! : element.selectedVoiceId!
                                  );
                                  await playAudio(audioData);
                                  setIsPlaying(false);

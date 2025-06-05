@@ -199,6 +199,13 @@ export interface Element {
   initialMessage?: string;
   chatbotInstructions?: string;
   
+  // TTS specific (for chat fields)
+  ttsProvider?: string;
+  selectedVoiceId?: string;
+  customVoiceId?: string;  // ID of the generated custom voice when selectedVoiceId is 'custom'
+  enableTts?: boolean;
+  voiceInstructions?: string;
+  
   // Conditional logic
   conditionalLogic?: ConditionalLogic;
 }

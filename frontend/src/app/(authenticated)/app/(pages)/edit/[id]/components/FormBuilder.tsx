@@ -253,7 +253,11 @@ export default function FormBuilder() {
         // Add default values for chat fields
         ...(draggableId === 'chat' && {
           maxMessages: 10,
-          initialMessage: 'Hello! How can I help you today?'
+          initialMessage: 'Hello! How can I help you today?',
+          enableTts: false,
+          ttsProvider: 'elevenlabs',
+          selectedVoiceId: '',
+          voiceInstructions: '',
         }),
       };
 
@@ -944,6 +948,153 @@ export default function FormBuilder() {
     }));
   };
 
+  /**
+   * Updates the TTS provider setting for a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param provider - The TTS provider to use (currently 'elevenlabs')
+   * 
+   * This method allows form creators to choose between different TTS providers
+   * for audio synthesis in chat interactions, enabling customization of voice
+   * quality and characteristics based on the specific needs of the chat interface.
+   */
+  const updateTtsProvider = (phaseId: string, fieldId: string, provider: string) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { ...field, ttsProvider: provider } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the selected voice ID for ElevenLabs TTS in a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param voiceId - The ElevenLabs voice ID to use for audio synthesis
+   * 
+   * This method enables form creators to select specific voices when using
+   * ElevenLabs as the TTS provider, allowing for customization of the audio
+   * characteristics and personality of the chatbot's spoken responses.
+   */
+  const updateTtsVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { 
+              ...field, 
+              selectedVoiceId: voiceId,
+              ttsProvider: voiceId === 'custom' ? 'hume' : 'elevenlabs'  // Set both values in one update
+            } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the custom voice ID for generated custom voices in a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param voiceId - The generated custom voice ID to use for audio synthesis
+   * 
+   * This method stores the ID of the generated custom voice when using the
+   * "Design your own Voice" option, allowing the system to use the correct
+   * voice ID for audio synthesis while maintaining the 'custom' selection state.
+   */
+  const updateCustomVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
+    console.log("Updating custom voice ID:", { phaseId, fieldId, voiceId });
+    console.log("VoiceId type:", typeof voiceId);
+    console.log("VoiceId length:", voiceId.length);
+    console.log("Current phases:", phases);
+    
+    if (typeof voiceId !== 'string') {
+      console.error("Invalid voiceId type:", typeof voiceId);
+      return;
+    }
+    
+    setPhases(phases.map((phase: PhaseType) => {
+      console.log("Checking phase:", { phaseId: phase.id, hasField: phase.elements.some(e => e.id === fieldId) });
+      if (phase.id === phaseId) {
+        const updatedPhase = {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { 
+              ...field, 
+              customVoiceId: voiceId,
+              ttsProvider: 'hume'  // Set both values in one update
+            } : field
+          )
+        };
+        console.log("Updated phase:", updatedPhase);
+        console.log("Updated field:", updatedPhase.elements.find(e => e.id === fieldId));
+        return updatedPhase;
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Toggles TTS functionality for a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param enabled - Whether TTS should be enabled (true) or disabled (false)
+   * 
+   * This method allows form creators to enable or disable text-to-speech
+   * functionality for chat interactions, providing control over whether
+   * AI responses should be converted to audio or remain text-only.
+   */
+  const updateTtsEnabled = (phaseId: string, fieldId: string, enabled: boolean) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { ...field, enableTts: enabled } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the voice instructions for custom voice design in a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param instructions - The voice characteristic instructions for AI voice generation
+   * 
+   * This method allows form creators to specify custom voice characteristics when
+   * using the "Design your own Voice" option, enabling personalized voice synthesis
+   * based on detailed descriptions of desired vocal properties.
+   */
+  const updateVoiceInstructions = (phaseId: string, fieldId: string, instructions: string) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { ...field, voiceInstructions: instructions } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
   const updateFileDescription = (index: number, description: string) => {
     const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
     console.log('Updating description:', { index, description: truncatedDescription });
@@ -1415,6 +1566,21 @@ export default function FormBuilder() {
                     }
                     onUpdateChatbotInstructions={(fieldId, instructions) =>
                       updateChatbotInstructions(phase.id, fieldId, instructions)
+                    }
+                    onUpdateTtsProvider={(fieldId, provider) =>
+                      updateTtsProvider(phase.id, fieldId, provider)
+                    }
+                    onUpdateTtsVoiceId={(fieldId, voiceId) =>
+                      updateTtsVoiceId(phase.id, fieldId, voiceId)
+                    }
+                    onUpdateCustomVoiceId={(fieldId, voiceId) =>
+                      updateCustomVoiceId(phase.id, fieldId, voiceId)
+                    }
+                    onUpdateTtsEnabled={(fieldId, enabled) =>
+                      updateTtsEnabled(phase.id, fieldId, enabled)
+                    }
+                    onUpdateVoiceInstructions={(fieldId, instructions) =>
+                      updateVoiceInstructions(phase.id, fieldId, instructions)
                     }
                     appId={appId}
                   />

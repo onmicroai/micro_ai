@@ -39,6 +39,11 @@ interface PhaseProps {
   onUpdateFieldMaxMessages: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage: (fieldId: string, initialMessage: string) => void;
   onUpdateChatbotInstructions: (fieldId: string, instructions: string) => void;
+  onUpdateTtsProvider: (fieldId: string, provider: string) => void;
+  onUpdateTtsVoiceId: (fieldId: string, voiceId: string) => void;
+  onUpdateCustomVoiceId: (fieldId: string, voiceId: string) => void;
+  onUpdateTtsEnabled: (fieldId: string, enabled: boolean) => void;
+  onUpdateVoiceInstructions: (fieldId: string, instructions: string) => void;
   appId: number | null;
 }
 
@@ -65,6 +70,11 @@ export default function Phase({
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
+  onUpdateTtsProvider,
+  onUpdateTtsVoiceId,
+  onUpdateCustomVoiceId,
+  onUpdateTtsEnabled,
+  onUpdateVoiceInstructions,
   appId,
 }: PhaseProps) {
 
@@ -106,6 +116,11 @@ export default function Phase({
         onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
         onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
         onUpdateChatbotInstructions={onUpdateChatbotInstructions}
+        onUpdateTtsProvider={onUpdateTtsProvider}
+        onUpdateTtsVoiceId={onUpdateTtsVoiceId}
+        onUpdateCustomVoiceId={onUpdateCustomVoiceId}
+        onUpdateTtsEnabled={onUpdateTtsEnabled}
+        onUpdateVoiceInstructions={onUpdateVoiceInstructions}
       />
     );
   };
@@ -212,6 +227,11 @@ export default function Phase({
                   onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
                   onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
                   onUpdateChatbotInstructions={onUpdateChatbotInstructions}
+                  onUpdateTtsProvider={onUpdateTtsProvider}
+                  onUpdateTtsVoiceId={onUpdateTtsVoiceId}
+                  onUpdateCustomVoiceId={onUpdateCustomVoiceId}
+                  onUpdateTtsEnabled={onUpdateTtsEnabled}
+                  onUpdateVoiceInstructions={onUpdateVoiceInstructions}
                 />
               ))}
               {provided.placeholder}
