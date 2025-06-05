@@ -36,7 +36,7 @@ import {
 } from "./ui/dialog";
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
-import { getElevenLabsVoices, ElevenLabsVoice, generateVoicePreviews, playBase64Audio, VoicePreview, generateAndSaveHumeVoice } from '@/utils/textToSpeechService';
+import { getElevenLabsVoices, ElevenLabsVoice, VoicePreview, generateAndSaveHumeVoice } from '@/utils/textToSpeechService';
 
 interface ConditionalLogic {
   sourceFieldId: string;
@@ -244,7 +244,7 @@ export default function Field({
       if (field.selectedVoiceId === 'custom') {
         console.log("Using Hume for custom voice generation");
         const response = await generateAndSaveHumeVoice(
-          field.voiceInstructions || "Generate a voice sample",
+          field.initialMessage || "Hello! I'm a voice assistant that can have a conversation with you.",
           field.voiceInstructions || "Custom voice"
         );
         console.log("Hume response:", response);
@@ -258,22 +258,6 @@ export default function Field({
           onUpdateCustomVoiceId(field.id, response.voiceId);
         }
         // Remove the separate TTS provider update since it's now handled in updateCustomVoiceId
-      } else {
-        // Use ElevenLabs for pre-made voices
-        const response = await generateVoicePreviews(field.voiceInstructions || "Generate a voice sample");
-        setVoicePreviews(response.previews);
-
-        // Auto-select the first sample and update the field's customVoiceId
-        if (response.previews.length > 0) {
-          const firstPreviewId = response.previews[0].generated_voice_id;
-          if (onUpdateTtsVoiceId) {
-            onUpdateTtsVoiceId(field.id, firstPreviewId);
-          }
-          if (onUpdateCustomVoiceId) {
-            console.log("Setting customVoiceId to ElevenLabs ID:", firstPreviewId);
-            onUpdateCustomVoiceId(field.id, firstPreviewId);
-          }
-        }
       }
     } catch (error) {
       console.error("Error generating voice previews:", error);
