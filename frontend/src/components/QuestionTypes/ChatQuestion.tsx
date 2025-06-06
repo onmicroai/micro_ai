@@ -338,23 +338,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                      </button>
                    )}
                  </div>
-                 {element.enableTts && !recorder.isRecording && userMessageCount < MESSAGE_LIMIT && (
-                   <div className="flex-shrink-0">
-                     <VoiceRecorder
-                       onRecordingComplete={handleRecordingComplete}
-                       recorderControls={recorder}
-                       downloadFileExtension="webm"
-                       showVisualizer={false}
-                       classes={{
-                         AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
-                         AudioRecorderPauseResumeClass: '!p-2',
-                         AudioRecorderDiscardClass: '!p-2',
-                       }}
-                     />
-                   </div>
-                 )}
-                 {element.enableTts && recorder.isRecording && (
-                   <div className="flex-shrink-0 [&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto">
+                 {element.enableTts && userMessageCount < MESSAGE_LIMIT && (
+                   <div className={`flex-shrink-0 ${recorder.isRecording ? '[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto' : ''}`}>
                      <VoiceRecorder
                        onRecordingComplete={handleRecordingComplete}
                        recorderControls={recorder}
