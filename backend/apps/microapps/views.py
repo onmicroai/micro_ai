@@ -28,7 +28,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
-from apps.utils.global_variables import AIModelConstants, MicroappVariables
+from apps.utils.global_variables import AIModelConstants, MicroappVariables, UsageVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.microapps.document_parser import DocumentParser, DocumentProcessor
 from apps.collection.models import Collection, CollectionUserJoin
@@ -711,7 +711,10 @@ class RunList(APIView):
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
             if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
-            
+
+            if 'cost' in data:
+                # Round cost to 6 decimal places before serializer
+                data['cost'] = round(float(data['cost']), 6)
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
@@ -744,7 +747,6 @@ class RunList(APIView):
                     )
                 
             # Return model instance based on AI-model name
-            print("data.get('model')", data.get("model"))
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
            
             if not model_router:
@@ -864,6 +866,11 @@ class RunList(APIView):
     def patch(self, request):
         try:
             data = request.data
+            
+            if 'cost' in data:
+                # Round cost to 6 decimal places before serializer
+                data['cost'] = round(float(data['cost']), 6)
+            
             if self.checkPatchPayload(data):
                 id_value = data.get("id")
                 del data["id"]
@@ -879,8 +886,23 @@ class RunList(APIView):
                     
                     # Calculate the difference in credits
                     old_credits = run_object.credits
-                    new_credits = data.get('credits', old_credits)
+                    print("OLD CREDITS", old_credits)
+                    
+                    # If only cost is provided, calculate new credits from cost
+                    if 'cost' in data and 'credits' not in data:
+                        # For TTS operations, we can directly calculate credits from cost
+                        # Using the standard credit calculation (1 credit = $0.0001)
+                        new_credits = max(int(float(data['cost']) * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
+                        # Add the new credits to the data that will be saved
+                        data['credits'] = new_credits
+                    else:
+                        new_credits = data.get('credits', old_credits)
+
+                    print("NEW CREDITS", new_credits)
+                    
                     credits_diff = new_credits - old_credits
+
+                    print("CREDITS DIFF", credits_diff)
                     
                     if credits_diff > 0:
                         # Update the credits field to track the difference
@@ -888,18 +910,23 @@ class RunList(APIView):
                         # Deduct the additional credits
                         self.update_user_credits(run_object.id, app_owner_id, request.user.id if request.user.id else None)
                 
-                serializer = RunGetSerializer(run_object, data, partial=True)
+                serializer = RunPatchSerializer(run_object, data=data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
                     return Response(
                         {"data": serializer.data, "status": status.HTTP_200_OK},
                         status=status.HTTP_200_OK,
                     )
+                else:
+                    return Response(
+                        {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
                 return Response(
-                    error.validation_error(serializer.errors),
+                    {"error": "Invalid payload", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            return Response(error.INVALID_PAYLOAD, status = status.HTTP_400_BAD_REQUEST)
         except Run.DoesNotExist:
             return Response(
                 {"error": "Run not found", "status": status.HTTP_404_NOT_FOUND},
@@ -907,7 +934,7 @@ class RunList(APIView):
             )
         except Exception as e:
             return Response(
-                error.SERVER_ERROR,
+                {"error": str(e), "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
     

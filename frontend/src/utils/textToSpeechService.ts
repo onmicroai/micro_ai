@@ -1,3 +1,5 @@
+import { useUserStore } from '@/store/userStore';
+
 if (!process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY) {
   throw new Error('ELEVENLABS_API_KEY is not defined in environment variables');
 }
@@ -6,10 +8,23 @@ if (!process.env.NEXT_PUBLIC_HUME_API_KEY) {
   throw new Error('HUME_API_KEY is not defined in environment variables');
 }
 
+if (!process.env.NEXT_PUBLIC_ELEVENLABS_COST_PER_CHARACTER) {
+  throw new Error('NEXT_PUBLIC_ELEVENLABS_COST_PER_CHARACTER is not defined in environment variables');
+}
+
+if (!process.env.NEXT_PUBLIC_HUME_COST_PER_CHARACTER) {
+   throw new Error('NEXT_PUBLIC_HUME_COST_PER_CHARACTER is not defined in environment variables');
+ }
+
+import { useConversationStore } from '@/store/conversationStore';
+import { updateRunUtil } from './sendPrompts';
+
 // Initialize clients
 const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY;
 const ELEVENLABS_COLLECTION_ID = process.env.NEXT_PUBLIC_ELEVENLABS_COLLECTION_ID;
+const ELEVENLABS_COST_PER_CHARACTER = parseFloat(process.env.NEXT_PUBLIC_ELEVENLABS_COST_PER_CHARACTER);
+const HUME_COST_PER_CHARACTER = parseFloat(process.env.NEXT_PUBLIC_HUME_COST_PER_CHARACTER);
 
 export interface ElevenLabsVoice {
   voice_id: string;
@@ -65,6 +80,29 @@ export const getElevenLabsVoices = async (): Promise<ElevenLabsVoice[]> => {
   }
 };
 
+const updateTTSCosts = async (text: string, provider: 'elevenlabs' | 'hume') => {
+  const store = useConversationStore.getState();
+  const currentRun = store.currentConversation?.runs[store.currentConversation?.runs.length - 1];
+
+  if (currentRun) {
+    const userStore = useUserStore.getState();
+    const user = userStore.user;
+
+    // Calculate cost based on text length and provider
+    const costPerCharacter = provider === 'elevenlabs' ? ELEVENLABS_COST_PER_CHARACTER : HUME_COST_PER_CHARACTER;
+    const ttsCost = text.length * costPerCharacter;
+
+    // Update the run with TTS costs
+    await updateRunUtil(
+      currentRun.id,
+      {
+        cost: (currentRun.cost || 0) + ttsCost,
+      },
+      user?.id || null
+    );
+  }
+};
+
 export const synthesizeElevenLabsSpeech = async (
   text: string,
   voiceId: string
@@ -96,6 +134,10 @@ export const synthesizeElevenLabsSpeech = async (
 
     const audioBlob = await response.blob();
     const audioUrl = URL.createObjectURL(audioBlob);
+
+    // Update costs
+    await updateTTSCosts(text, 'elevenlabs');
+
     return audioUrl;
   } catch (error) {
     console.error('Error synthesizing speech with ElevenLabs:', error);
@@ -219,6 +261,9 @@ export const synthesizeHumeSpeech = async (
 
     const data = await response.json();
     const audioBase64 = data.generations[0].audio;
+
+    // Update costs
+    await updateTTSCosts(text, 'hume');
     
     // Convert base64 to blob URL
     const audioBlob = new Blob([Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0))], {
