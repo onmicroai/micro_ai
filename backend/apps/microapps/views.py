@@ -578,12 +578,6 @@ class RunList(APIView):
             usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
-
-            # Get transcription cost if it exists
-            transcription_cost = float(data.get("transcription_cost", 0))
-            
-            # Add transcription cost to the total cost
-            total_cost = round(float(response["cost"]) + transcription_cost, 6)
             
             credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
@@ -614,7 +608,7 @@ class RunList(APIView):
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
                 "credits": credits,
-                "cost": total_cost,
+                "cost": usage["cost"],
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
@@ -770,6 +764,10 @@ class RunList(APIView):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # Add transcription cost to api_params before get_response
+            api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
+
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
@@ -1014,6 +1012,9 @@ class AnonymousRunList(RunList):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # Add transcription cost to api_params before get_response
+            api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
 
             # Handle skip phase
             if data.get("request_skip"):

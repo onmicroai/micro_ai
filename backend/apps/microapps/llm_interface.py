@@ -77,7 +77,6 @@ class UnifiedLLMInterface:
         # Override with any user-provided values that exist in our params
         for key, value in data.items():
             if key in params and key != "model":  # Skip model as we handled it above
-                print("KEY", key, value)
                 # Convert to appropriate type based on existing value's type
                 if isinstance(params[key], bool):
                     params[key] = bool(value)
@@ -102,7 +101,6 @@ class UnifiedLLMInterface:
     def get_response(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get response from the model"""
         try:
-            print("params", params)
             # Make the API call using litellm
             response = litellm.completion(
                 model=params["model"],
@@ -116,15 +114,15 @@ class UnifiedLLMInterface:
                 drop_params=True
             )
 
-            print("LITELLM RESPONSE", response)
-
             # Extract usage information
             usage = response.usage
             
             # Calculate costs
-            total_cost = response._hidden_params["response_cost"]
+            llm_cost = response._hidden_params["response_cost"]
+            transcription_cost = float(params.get("transcription_cost", 0))
+            total_cost = round(llm_cost + transcription_cost, 6)
             
-            # Calculate credits (assuming 1 credit = $0.001)
+            # Calculate credits (assuming 1 credit = $0.0001)
             credits = self.calculate_credits(total_cost)
             
             return {
@@ -144,7 +142,7 @@ class UnifiedLLMInterface:
             return {"status": False, "message": str(e)}
 
     def calculate_credits(self, cost: float) -> int:
-        """Calculate credits from cost (1 credit = $0.001)"""
+        """Calculate credits from cost (1 credit = $0.0001)"""
         credits = max(int(cost * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
         return credits
 
