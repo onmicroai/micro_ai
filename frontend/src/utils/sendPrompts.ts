@@ -84,7 +84,7 @@ const handleAIResponse = async (
          success: true, 
          response: promptResponse, 
          run_passed: responseData.run_passed,
-         run_uuid: responseData.run_uuid || responseData.id  // Use run_uuid from response or fallback to id
+         run_uuid: responseData.run_uuid
       };
    } catch (error: any) {
       let errorResponse;
@@ -149,7 +149,7 @@ export const updateRunUtil = async (
    try {
       // Prepare the request payload
       const requestBody = {
-         id: runId,
+         id: runId,  // Use the same runId for backend lookup
          ...updateData
       };
       
@@ -168,7 +168,8 @@ export const updateRunUtil = async (
          });
          
          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
          }
          
          responseData = await response.json();
@@ -178,11 +179,18 @@ export const updateRunUtil = async (
          responseData = response.data;
       }
       
-      // Update the run in the local store
-      store.updateRun(runId, {
-         ...updateData,
-         updatedAt: Date.now()
-      });
+      // Update the run in the local store using the same runId
+      // Extract only the frontend-relevant fields from the backend response
+      const backendData = responseData.data || responseData;
+      const relevantUpdates = {
+         ...updateData,  // Original updates we sent
+         updatedAt: Date.now(),
+         // Include calculated fields from backend response
+         ...(backendData.cost !== undefined && { cost: backendData.cost }),
+         ...(backendData.credits !== undefined && { credits: backendData.credits }),
+      };
+      
+      store.updateRun(runId, relevantUpdates);
       
       return { 
          success: true, 
@@ -270,7 +278,6 @@ const {
    //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
    const run = {
       id: crypto.randomUUID(),
-      run_uuid: crypto.randomUUID(),
       aiModel: aiConfig.aiModel,
       cost: 0,
       credits: 0,

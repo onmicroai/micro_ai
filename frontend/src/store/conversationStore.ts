@@ -10,7 +10,6 @@ export interface Message {
 
 export interface Run {
     id: string;
-    run_uuid: string;
     aiModel: string;
     cost: number;
     credits: number;

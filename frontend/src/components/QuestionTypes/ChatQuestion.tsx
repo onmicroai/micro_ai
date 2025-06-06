@@ -30,7 +30,7 @@ interface ChatMessage {
   sender: 'user' | 'ai';
   direction: 'incoming' | 'outgoing';
   wasAudioInput?: boolean;
-  run_uuid?: string;
+  run_id?: string;
 }
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
@@ -70,12 +70,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        const formattedMessages = chatHistory.map((message: string) => {
          const [sender, ...rest] = message.split(': ');
          const fullText = rest.join(': '); // Rejoin in case the message contains colons
-         const [text, run_uuid] = fullText.split('|');
+         const [text, run_id] = fullText.split('|');
          return {
            message: text,
            sender: sender as 'user' | 'ai',
            direction: (sender === 'ai' ? 'incoming' : 'outgoing') as 'incoming' | 'outgoing',
-           run_uuid: run_uuid || undefined
+           run_id: run_id || undefined
          };
        });
        setMessages(formattedMessages);
@@ -184,13 +184,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
            }
          }
 
-         console.log('Creating AI message with run_uuid:', response.run_uuid);  // Debug log
+         console.log('Creating AI message with run_id:', response.run_uuid);  // Debug log
 
          const aiMessage: ChatMessage = {
            message: response.response,
            sender: 'ai',
            direction: 'incoming',
-           run_uuid: response.run_uuid
+           run_id: response.run_uuid
          };
 
          console.log('Created AI message:', aiMessage);  // Debug log
@@ -204,7 +204,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          const chatHistory = [...messages, userMessage, aiMessage]
            .map(msg => {
              if (msg.sender === 'ai') {
-               return `${msg.sender}: ${msg.message}${msg.run_uuid ? `|${msg.run_uuid}` : ''}`;
+               return `${msg.sender}: ${msg.message}${msg.run_id ? `|${msg.run_id}` : ''}`;
              }
              return `${msg.sender}: ${msg.message}`;
            });
@@ -235,12 +235,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const remainingMessages = MESSAGE_LIMIT - userMessageCount;
 
    const totalCredits = messages.reduce((sum, msg) => {
-     if (msg.sender === 'ai' && msg.run_uuid) {
+     if (msg.sender === 'ai' && msg.run_id) {
        console.log('[ChatQuestion] Processing message for credits', { 
          message: msg.message, 
-         run_uuid: msg.run_uuid 
+         run_id: msg.run_id 
        });
-       const run = store.currentConversation?.runs.find(r => r.run_uuid === msg.run_uuid);
+       const run = store.currentConversation?.runs.find(r => r.id === msg.run_id);
        console.log('[ChatQuestion] Found run', run);
        return sum + (run?.credits || 0);
      }
@@ -251,12 +251,11 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      totalCredits,
      messages: messages.map(m => ({ 
        sender: m.sender, 
-       run_uuid: m.run_uuid,
+       run_id: m.run_id,
        message: m.message 
      })),
      runs: store.currentConversation?.runs.map(r => ({
        id: r.id,
-       run_uuid: r.run_uuid,
        credits: r.credits,
        cost: r.cost
      }))

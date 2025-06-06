@@ -101,9 +101,9 @@ const updateTTSCosts = async (text: string, provider: 'elevenlabs' | 'hume') => 
       user?.id || null
     );
 
-    // If the update was successful and we got data back, update the store
-    if (updateResponse.success && updateResponse.data?.data) {
-      store.updateRun(currentRun.id, updateResponse.data.data);
+    // updateRunUtil already handles the store update, no need to do it again
+    if (!updateResponse.success) {
+      console.error('Failed to update run costs:', updateResponse.error);
     }
   }
 };
