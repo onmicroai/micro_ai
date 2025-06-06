@@ -6,7 +6,7 @@ import evaluateVisibility from "@/utils/evaluateVisibility";
 import { sendPromptsUtil } from "@/utils/sendPrompts";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
-import { Send, Volume2 } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
 import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
 
@@ -52,7 +52,6 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isUserTyping, setIsUserTyping] = useState(false);
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
-   const [isPlaying, setIsPlaying] = useState(false);
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();

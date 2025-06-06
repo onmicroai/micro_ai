@@ -187,7 +187,7 @@ export default function Field({
   const [playingPreviewId, setPlayingPreviewId] = useState<string | null>(null);
   const [selectedPreviewId, setSelectedPreviewId] = useState<string | null>(null);
   const [currentAudio, setCurrentAudio] = useState<HTMLAudioElement | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
 
   // Fetch ElevenLabs voices on component mount
   useEffect(() => {
@@ -243,7 +243,6 @@ export default function Field({
     try {
       setIsGeneratingPreviews(true);
       setVoicePreviews([]);
-      setError(null);
 
       // If selectedVoiceId is 'custom', use Hume for voice generation
       if (field.selectedVoiceId === 'custom') {
@@ -266,7 +265,6 @@ export default function Field({
       }
     } catch (error) {
       console.error("Error generating voice previews:", error);
-      setError(error instanceof Error ? error.message : "Failed to generate voice previews");
     } finally {
       setIsGeneratingPreviews(false);
     }
