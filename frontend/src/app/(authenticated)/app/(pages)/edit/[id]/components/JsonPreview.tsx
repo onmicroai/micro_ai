@@ -83,6 +83,7 @@ export default function JsonPreview({
           customVoiceId: field.customVoiceId,
           enableTts: field.enableTts,
           voiceInstructions: field.voiceInstructions,
+          avatarUrl: field.avatarUrl,
         } : {}),
         ...(field.type === 'text' || field.type === 'textarea' ? {
           minChars: field.minChars,

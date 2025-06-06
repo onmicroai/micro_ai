@@ -198,6 +198,7 @@ export interface Element {
   maxMessages?: number;
   initialMessage?: string;
   chatbotInstructions?: string;
+  avatarUrl?: string;  // URL for the chat avatar image
   
   // TTS specific (for chat fields)
   ttsProvider?: string;

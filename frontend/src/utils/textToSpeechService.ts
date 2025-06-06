@@ -9,7 +9,7 @@ if (!process.env.NEXT_PUBLIC_HUME_API_KEY) {
 // Initialize clients
 const ELEVENLABS_API_KEY = process.env.NEXT_PUBLIC_ELEVENLABS_API_KEY;
 const HUME_API_KEY = process.env.NEXT_PUBLIC_HUME_API_KEY;
-const ELEVENLABS_COLLECTION_ID = process.env.NEXT_PUBLIC_ELEVENLABS_COLLECTION_ID || 'SePLgcqc28jzdsYca2gm';
+const ELEVENLABS_COLLECTION_ID = process.env.NEXT_PUBLIC_ELEVENLABS_COLLECTION_ID;
 
 export interface ElevenLabsVoice {
   voice_id: string;

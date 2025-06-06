@@ -258,6 +258,7 @@ export default function FormBuilder() {
           ttsProvider: 'elevenlabs',
           selectedVoiceId: '',
           voiceInstructions: '',
+          avatarUrl: '',
         }),
       };
 
@@ -1082,13 +1083,39 @@ export default function FormBuilder() {
    * based on detailed descriptions of desired vocal properties.
    */
   const updateVoiceInstructions = (phaseId: string, fieldId: string, instructions: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
+    setPhases(phases.map(phase => {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, voiceInstructions: instructions } : field
-          )
+          elements: phase.elements.map(field => {
+            if (field.id === fieldId) {
+              return {
+                ...field,
+                voiceInstructions: instructions
+              };
+            }
+            return field;
+          })
+        };
+      }
+      return phase;
+    }));
+  };
+
+  const updateAvatarUrl = (phaseId: string, fieldId: string, avatarUrl: string) => {
+    setPhases(phases.map(phase => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map(field => {
+            if (field.id === fieldId) {
+              return {
+                ...field,
+                avatarUrl
+              };
+            }
+            return field;
+          })
         };
       }
       return phase;
@@ -1581,6 +1608,9 @@ export default function FormBuilder() {
                     }
                     onUpdateVoiceInstructions={(fieldId, instructions) =>
                       updateVoiceInstructions(phase.id, fieldId, instructions)
+                    }
+                    onUpdateAvatarUrl={(fieldId, avatarUrl) =>
+                      updateAvatarUrl(phase.id, fieldId, avatarUrl)
                     }
                     appId={appId}
                   />

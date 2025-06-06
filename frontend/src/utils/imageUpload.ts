@@ -74,9 +74,21 @@ export class FileUploadService {
       // Prepare form data for S3 upload
       const formData = new FormData();
       
-      // Add all fields from the presigned URL response
+      // Add only the fields that are explicitly allowed in the policy
+      const allowedFields = [
+        'key',
+        'policy',
+        'x-amz-algorithm',
+        'x-amz-credential',
+        'x-amz-date',
+        'x-amz-signature',
+        'Content-Type'
+      ];
+      
       Object.entries(data.fields).forEach(([key, value]) => {
-        formData.append(key, value);
+        if (allowedFields.includes(key)) {
+          formData.append(key, value);
+        }
       });
       
       // Add the file last

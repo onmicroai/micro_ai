@@ -78,7 +78,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    // Auto-scroll to bottom when messages change
    useEffect(() => {
      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-   }, [messages]);
+   }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio]);
 
    const handleRecordingComplete = async (blob: Blob) => {
      try {
@@ -231,51 +231,40 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                {messages.map((message, i) => (
                  <div
                    key={i}
-                   className={`flex ${message.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
+                   className={`flex ${message.direction === 'outgoing' ? 'justify-end' : 'justify-start'} items-start gap-1`}
                  >
+                   {message.sender === 'ai' && element.avatarUrl && (
+                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
+                       <img
+                         src={element.avatarUrl}
+                         alt="Assistant avatar"
+                         className="w-full h-full object-cover"
+                       />
+                     </div>
+                   )}
                    <div
-                     className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                     className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm ${
                        message.direction === 'outgoing'
-                         ? 'bg-[#5C5EF1] text-white'
-                         : 'bg-[#f0f2f5] text-gray-900'
+                         ? 'bg-[#5C5EF1] text-white rounded-tr-none'
+                         : 'bg-[#f0f2f5] text-gray-900 rounded-tl-none'
                      }`}
                    >
-                     <div className="text-xs font-medium mb-1 flex items-center justify-between">
-                       <span>{message.sender === 'ai' ? 'Assistant' : 'You'}</span>
-                       {message.sender === 'ai' && (
-                         <div className="flex items-center space-x-2">
-                           <button
-                             onClick={async () => {
-                               try {
-                                 setIsPlaying(true);
-                                 const audioData = await synthesizeSpeech(
-                                   message.message,
-                                   element.ttsProvider || 'elevenlabs',
-                                   element.selectedVoiceId === 'custom' ? element.customVoiceId! : element.selectedVoiceId!
-                                 );
-                                 await playAudio(audioData);
-                                 setIsPlaying(false);
-                               } catch (error) {
-                                 console.error('Error playing message:', error);
-                                 setIsPlaying(false);
-                               }
-                             }}
-                             className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-                             disabled={isPlaying}
-                           >
-                             <Volume2 className="w-4 h-4" />
-                           </button>
-                         </div>
-                       )}
-                     </div>
                      <div className="text-sm whitespace-pre-wrap">{message.message}</div>
                    </div>
                  </div>
                ))}
                {(isAssistantTyping || isSynthesizingAudio) && (
-                 <div className="flex justify-start">
-                   <div className="bg-[#f0f2f5] rounded-lg px-4 py-2">
-                     <div className="text-xs font-medium mb-1">Assistant</div>
+                 <div className="flex justify-start items-start gap-1">
+                   {element.avatarUrl && (
+                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
+                       <img
+                         src={element.avatarUrl}
+                         alt="Assistant avatar"
+                         className="w-full h-full object-cover"
+                       />
+                     </div>
+                   )}
+                   <div className="bg-[#f0f2f5] rounded-2xl px-4 py-2.5 shadow-sm rounded-tl-none">
                      <div className="flex space-x-2">
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
@@ -285,9 +274,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                  </div>
                )}
                {isUserTyping && (
-                 <div className="flex justify-end">
-                   <div className="bg-[#5C5EF1] rounded-lg px-4 py-2">
-                     <div className="text-xs font-medium mb-1 text-white">You</div>
+                 <div className="flex justify-end items-start gap-1">
+                   <div className="bg-[#5C5EF1] rounded-2xl px-4 py-2.5 shadow-sm rounded-tr-none">
                      <div className="flex space-x-2">
                        <div className="w-2 h-2 bg-white animate-bounce" />
                        <div className="w-2 h-2 bg-white animate-bounce delay-100" />
@@ -350,19 +338,36 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                      </button>
                    )}
                  </div>
-                 <div className={`flex-shrink-0 ${recorder.isRecording ? '[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto' : ''}`}>
-                   <VoiceRecorder
-                     onRecordingComplete={handleRecordingComplete}
-                     recorderControls={recorder}
-                     downloadFileExtension="webm"
-                     showVisualizer={false}
-                     classes={{
-                       AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
-                       AudioRecorderPauseResumeClass: '!p-2',
-                       AudioRecorderDiscardClass: '!p-2',
-                     }}
-                   />
-                 </div>
+                 {element.enableTts && !recorder.isRecording && userMessageCount < MESSAGE_LIMIT && (
+                   <div className="flex-shrink-0">
+                     <VoiceRecorder
+                       onRecordingComplete={handleRecordingComplete}
+                       recorderControls={recorder}
+                       downloadFileExtension="webm"
+                       showVisualizer={false}
+                       classes={{
+                         AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
+                         AudioRecorderPauseResumeClass: '!p-2',
+                         AudioRecorderDiscardClass: '!p-2',
+                       }}
+                     />
+                   </div>
+                 )}
+                 {element.enableTts && recorder.isRecording && (
+                   <div className="flex-shrink-0 [&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto">
+                     <VoiceRecorder
+                       onRecordingComplete={handleRecordingComplete}
+                       recorderControls={recorder}
+                       downloadFileExtension="webm"
+                       showVisualizer={false}
+                       classes={{
+                         AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
+                         AudioRecorderPauseResumeClass: '!p-2',
+                         AudioRecorderDiscardClass: '!p-2',
+                       }}
+                     />
+                   </div>
+                 )}
                </div>
              </div>
            </div>

@@ -9,6 +9,8 @@ import {
   Settings,
   Play,
   Pause,
+  Repeat2,
+  User,
 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -37,6 +39,7 @@ import {
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
 import { getElevenLabsVoices, ElevenLabsVoice, VoicePreview, generateAndSaveHumeVoice } from '@/utils/textToSpeechService';
+import { createImageUploader } from "@/utils/imageUpload";
 
 interface ConditionalLogic {
   sourceFieldId: string;
@@ -122,6 +125,7 @@ interface FieldProps {
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateCustomVoiceId?: (fieldId: string, voiceId: string) => void;
+  onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
 }
 
 export default function Field({
@@ -154,6 +158,7 @@ export default function Field({
   onUpdateVoiceInstructions,
   onUpdateCustomVoiceId,
   onUpdateTtsProvider,
+  onUpdateAvatarUrl,
 }: FieldProps) {
   const [isValidationExpanded, setValidationExpanded] = useState(false);
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
@@ -411,6 +416,21 @@ export default function Field({
 
   const operatorNeedsValue = (operator: string) => {
     return !["is_empty", "is_not_empty"].includes(operator);
+  };
+
+  const handleAvatarUpload = async (file: File) => {
+    if (!appId) return;
+    
+    try {
+      const imageUploader = createImageUploader(appId.toString());
+      const result = await imageUploader.uploadFile(file);
+      if (result.url && onUpdateAvatarUrl) {
+        onUpdateAvatarUrl(field.id, result.url);
+        console.log("Avatar uploaded:", result.url);
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+    }
   };
 
   const renderField = () => {
@@ -929,55 +949,95 @@ export default function Field({
       case "chat":
         return (
           <div className="space-y-4">
+            {/* Avatar Upload Section */}
+            <div className="flex gap-4 items-start">
+              <div className="space-y-2 flex-shrink-0">
+                <label className="text-sm font-medium">Avatar</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarUpload(file);
+                    }}
+                    className="hidden"
+                    id={`avatar-upload-${field.id}`}
+                  />
+                  <label
+                    htmlFor={`avatar-upload-${field.id}`}
+                    className="block w-24 h-24 rounded-full overflow-hidden cursor-pointer group relative"
+                  >
+                    {field.avatarUrl ? (
+                      <>
+                        <img
+                          src={field.avatarUrl}
+                          alt="Chat avatar"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+                          <Repeat2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors duration-200">
+                        <div className="text-gray-400 group-hover:text-gray-500 transition-colors duration-200">
+                          <User className="w-10 h-10" />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+                          <Repeat2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Rest of chat fields */}
+              <div className="space-y-2 flex-grow">
+                <label className="text-sm font-medium">
+                  Chatbot Instructions
+                </label>
+                <textarea
+                  value={field.chatbotInstructions || ""}
+                  onChange={(e) => {
+                    if (onUpdateChatbotInstructions) {
+                      onUpdateChatbotInstructions(field.id, e.target.value);
+                    }
+                  }}
+                  className="w-full min-h-[100px] rounded-md border border-gray-300 
+                    px-3 py-2 text-gray-900 focus:border-primary 
+                    focus:ring-primary resize-y"
+                  placeholder="Enter instructions for how the chatbot should behave..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Initial Message</label>
+              <textarea
+                value={field.initialMessage || ''}
+                onChange={(e) => onUpdateFieldInitialMessage?.(field.id, e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
+                placeholder="Enter initial message..."
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Max Messages</label>
               <Input
                 type="number"
                 min="1"
                 value={field.maxMessages || 10}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (onUpdateFieldMaxMessages && !isNaN(value)) {
                     onUpdateFieldMaxMessages(field.id, value);
                   }
                 }}
-                className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Initial Assistant Message
-              </label>
-              <textarea
-                value={field.initialMessage || ""}
-                onChange={(e) => {
-                  if (onUpdateFieldInitialMessage) {
-                    onUpdateFieldInitialMessage(field.id, e.target.value);
-                  }
-                }}
-                className="w-full min-h-[100px] rounded-md border border-gray-300 
-                  px-3 py-2 text-gray-900 focus:border-primary 
-                  focus:ring-primary resize-y"
-                placeholder="Enter the first message the assistant should say..."
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Chatbot Instructions
-              </label>
-              <textarea
-                value={field.chatbotInstructions || ""}
-                onChange={(e) => {
-                  if (onUpdateChatbotInstructions) {
-                    onUpdateChatbotInstructions(field.id, e.target.value);
-                  }
-                }}
-                className="w-full min-h-[100px] rounded-md border border-gray-300 
-                  px-3 py-2 text-gray-900 focus:border-primary 
-                  focus:ring-primary resize-y"
-                placeholder="Enter instructions for how the chatbot should behave..."
-              />
-            </div>
+
             
             {/* TTS Configuration Section */}
             <div className="border-t pt-4 space-y-4">

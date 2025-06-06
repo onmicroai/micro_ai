@@ -44,6 +44,7 @@ interface PhaseProps {
   onUpdateCustomVoiceId: (fieldId: string, voiceId: string) => void;
   onUpdateTtsEnabled: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions: (fieldId: string, instructions: string) => void;
+  onUpdateAvatarUrl: (fieldId: string, avatarUrl: string) => void;
   appId: number | null;
 }
 
@@ -75,6 +76,7 @@ export default function Phase({
   onUpdateCustomVoiceId,
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
+  onUpdateAvatarUrl,
   appId,
 }: PhaseProps) {
 
@@ -121,6 +123,7 @@ export default function Phase({
         onUpdateCustomVoiceId={onUpdateCustomVoiceId}
         onUpdateTtsEnabled={onUpdateTtsEnabled}
         onUpdateVoiceInstructions={onUpdateVoiceInstructions}
+        onUpdateAvatarUrl={onUpdateAvatarUrl}
       />
     );
   };
