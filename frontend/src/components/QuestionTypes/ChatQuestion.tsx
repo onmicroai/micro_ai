@@ -82,8 +82,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const handleRecordingComplete = async (blob: Blob) => {
      try {
        setIsUserTyping(true);
-       const transcribedText = await transcribeAudio(blob, userId);
-       await handleSend(transcribedText, true);
+       const { text: transcribedText, cost: transcriptionCost } = await transcribeAudio(blob, userId);
+       await handleSend(transcribedText, true, transcriptionCost);
      } catch (error) {
        console.error('Error transcribing audio:', error);
      } finally {
@@ -91,7 +91,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      }
    };
 
-   const handleSend = async (message: string, wasAudioInput: boolean = false) => {
+   const handleSend = async (message: string, wasAudioInput: boolean = false, transcriptionCost?: number) => {
      if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
        return;
      }
@@ -135,7 +135,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          pageIndex: currentPhaseIndex,
          userId: userId,
          requestSkip: false,
-         skipScoredRun: true
+         skipScoredRun: true,
+         transcriptionCost: transcriptionCost
        });
 
        if (response.success && response.response) {

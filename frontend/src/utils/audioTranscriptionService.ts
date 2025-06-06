@@ -1,7 +1,7 @@
 import { convertToWav } from './audioUtils';
 import axiosInstance from './axiosInstance';
 
-export const transcribeAudio = async (blob: Blob, userId?: number | null): Promise<string> => {
+export const transcribeAudio = async (blob: Blob, userId?: number | null): Promise<{ text: string; cost: number }> => {
   try {
     const wavBlob = await convertToWav(blob);
     const formData = new FormData();
@@ -19,7 +19,10 @@ export const transcribeAudio = async (blob: Blob, userId?: number | null): Promi
       if (response.status !== 200) {
         throw new Error('Transcription failed');
       }
-      return response.data.text;
+      return {
+        text: response.data.text,
+        cost: response.data.cost
+      };
     } else {
       // Anonymous request using fetch to the anonymous endpoint
       response = await fetch('/api/microapps/transcribe/anonymous/', {
@@ -30,7 +33,10 @@ export const transcribeAudio = async (blob: Blob, userId?: number | null): Promi
         throw new Error('Transcription failed');
       }
       const data = await response.json();
-      return data.text;
+      return {
+        text: data.text,
+        cost: data.cost
+      };
     }
   } catch (error) {
     console.error('Error transcribing audio:', error);

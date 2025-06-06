@@ -30,6 +30,7 @@ const getPageConfig = (page: SurveyPage | null) => {
  * @param appHashId The app hash ID.
  * @param skipScoredRun Whether to skip the scored run.
  * @param noSubmit Whether to skip the submission.
+ * @param transcriptionCost The transcription cost.
  * @returns 
  */
 export const buildRequestBody = async (
@@ -46,7 +47,8 @@ export const buildRequestBody = async (
    skipScoredRun: boolean = false,
    hasFixedResponse: boolean = false,
    fixedResponseText: string = "",
-   noSubmit: boolean = false
+   noSubmit: boolean = false,
+   transcriptionCost?: number
 ) => {
    const store = useConversationStore.getState();
    const currentConversation = store.currentConversation;
@@ -203,6 +205,10 @@ ${file!.content}
       requestBody.no_submission = true;
       requestBody.scored_run = false;
       requestBody.has_fixed_response = true;
+   }
+
+   if (transcriptionCost !== undefined) {
+      requestBody.transcription_cost = transcriptionCost;
    }
 
    const conversationId = store.ensureConversation();

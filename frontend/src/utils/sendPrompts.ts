@@ -213,6 +213,7 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
+  transcriptionCost?: number;
 }): Promise<SendPromptResponse> => {
 const {
     prompts = null,
@@ -225,7 +226,8 @@ const {
     skipScoredRun = false,
     requestSkip = false,
     set = (s: any) => s,
-    noSubmit = false
+    noSubmit = false,
+    transcriptionCost
   } = options;
 
   let {
@@ -327,7 +329,8 @@ const {
       skipScoredRun,
       hasFixedResponse,
       fixedResponseText,
-      noSubmit
+      noSubmit,
+      transcriptionCost
    );
 
    return handleAIResponse(requestBody, userId, set);

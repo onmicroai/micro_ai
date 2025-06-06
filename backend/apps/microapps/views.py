@@ -579,11 +579,14 @@ class RunList(APIView):
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
 
+            # Get transcription cost if it exists
+            transcription_cost = float(data.get("transcription_cost", 0))
+            
+            # Add transcription cost to the total cost
+            total_cost = round(float(response["cost"]) + transcription_cost, 6)
+            
             credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
-
-            # Round the cost to 6 decimal places
-            cost = round(float(response["cost"]), 6)
 
             # Ensure max_tokens is set from api_params if not in data
             max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
@@ -611,7 +614,7 @@ class RunList(APIView):
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
                 "credits": credits,
-                "cost": cost,
+                "cost": total_cost,
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
@@ -712,6 +715,7 @@ class RunList(APIView):
             if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
+            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
             
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
@@ -949,6 +953,7 @@ class AnonymousRunList(RunList):
             if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
+            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
             
             try:
                 app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
@@ -1727,12 +1732,6 @@ class AudioTranscription(APIView):
                     {"error": "No audio file provided"},
                     status=status.HTTP_400_BAD_REQUEST
                 )
-
-            # Debug logging
-            log.debug(f"Received file: {audio_file.name}")
-            log.debug(f"File content type: {audio_file.content_type}")
-            log.debug(f"File size: {audio_file.size} bytes")
-            log.debug(f"User ID: {user_id}, IP: {ip}")
 
             # Read the audio file content
             audio_content = audio_file.read()
