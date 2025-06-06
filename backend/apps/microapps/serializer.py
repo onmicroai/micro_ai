@@ -37,7 +37,7 @@ class AssetsMicroappSerializer(serializers.ModelSerializer):
 class RunPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Run
-        fields = ['ma_id', 'user_id', 'session_id', 'ai_model', 'no_submission', 'request_skip', 'scored_run', 'minimum_score', 'rubric','frequency_penalty', 'presence_penalty', 'top_p', 'temperature', 'max_tokens', 'satisfaction', 'response']
+        fields = ['ma_id', 'user_id', 'session_id', 'ai_model', 'no_submission', 'request_skip', 'scored_run', 'minimum_score', 'rubric','frequency_penalty', 'presence_penalty', 'top_p', 'temperature', 'max_tokens', 'satisfaction', 'response', 'run_uuid']
 
 class RunGetSerializer(serializers.ModelSerializer):
     class Meta:

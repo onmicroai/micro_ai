@@ -47,7 +47,6 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
       
       // Update on server
       updateRunUtil(
-         run.session_id,
          run.id,
          {
             satisfaction: newLiked ? 1 : null
@@ -64,7 +63,6 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
       
       // Update on server
       updateRunUtil(
-         run.session_id,
          run.id,
          {
             satisfaction: newDisliked ? -1 : null

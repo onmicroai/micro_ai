@@ -139,7 +139,6 @@ const handleAIResponse = async (
  * @returns A promise that resolves to the updated run data
  */
 export const updateRunUtil = async (
-   sessionId: string,
    runId: string,
    updateData: Record<string, any>,
    userId: number | null
@@ -149,7 +148,7 @@ export const updateRunUtil = async (
    try {
       // Prepare the request payload
       const requestBody = {
-         id: sessionId,
+         id: runId,
          ...updateData
       };
       
@@ -330,7 +329,8 @@ const {
       hasFixedResponse,
       fixedResponseText,
       noSubmit,
-      transcriptionCost
+      transcriptionCost,
+      run.id
    );
 
    return handleAIResponse(requestBody, userId, set);

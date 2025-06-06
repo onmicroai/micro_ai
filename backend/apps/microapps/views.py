@@ -619,6 +619,7 @@ class RunList(APIView):
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
+                "run_uuid": data.get("run_uuid")
             }
             return run_data
         except Exception as e:
@@ -867,18 +868,25 @@ class RunList(APIView):
                 id_value = data.get("id")
                 del data["id"]
                 
-                # Check if the ID is a UUID (contains hyphens)
-                if isinstance(id_value, str) and '-' in id_value:
-                    # Try to find the Run by session_id
-                    run_object = Run.objects.filter(session_id=id_value).first()
-                    if not run_object:
-                        return Response(
-                            {"error": "Run not found with the provided session ID", "status": status.HTTP_404_NOT_FOUND},
-                            status=status.HTTP_404_NOT_FOUND,
-                        )
-                else:
-                    # Use the ID directly
-                    run_object = Run.objects.get(id=id_value)
+                # Update the run with the matching run_uuid
+                run_object = Run.objects.get(run_uuid=id_value)
+                
+                # If cost or credits are being updated, we need to handle credit deduction
+                if 'cost' in data or 'credits' in data:
+                    # Get the app owner ID
+                    app_owner = MicroAppUserJoin.objects.get(ma_id=run_object.ma_id, role="owner")
+                    app_owner_id = app_owner.user_id.id
+                    
+                    # Calculate the difference in credits
+                    old_credits = run_object.credits
+                    new_credits = data.get('credits', old_credits)
+                    credits_diff = new_credits - old_credits
+                    
+                    if credits_diff > 0:
+                        # Update the credits field to track the difference
+                        self.credits = credits_diff
+                        # Deduct the additional credits
+                        self.update_user_credits(run_object.id, app_owner_id, request.user.id if request.user.id else None)
                 
                 serializer = RunGetSerializer(run_object, data, partial=True)
                 if serializer.is_valid():
