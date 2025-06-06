@@ -9,6 +9,7 @@ import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-vo
 import { Send } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
 import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
+import { useConversationStore } from '@/store/conversationStore';
 
 interface ChatQuestionProps {
    element: Element;
@@ -20,6 +21,8 @@ interface ChatQuestionProps {
    userId: number | null;
    surveyJson: any;
    currentPhaseIndex: number;
+   isOwner?: boolean;
+   isAdmin?: boolean;
 }
 
 interface ChatMessage {
@@ -27,6 +30,7 @@ interface ChatMessage {
   sender: 'user' | 'ai';
   direction: 'incoming' | 'outgoing';
   wasAudioInput?: boolean;
+  run_uuid?: string;
 }
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
@@ -39,6 +43,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    userId,
    surveyJson,
    currentPhaseIndex,
+   isOwner = false,
+   isAdmin = false,
 }) => {
    const MESSAGE_LIMIT = element.maxMessages || 10;
    const [messages, setMessages] = useState<ChatMessage[]>([
@@ -55,6 +61,26 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
+   const store = useConversationStore();
+
+   // Load chat history from answers when component mounts
+   useEffect(() => {
+     const chatHistory = answers[element.name]?.value || [];
+     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+       const formattedMessages = chatHistory.map((message: string) => {
+         const [sender, ...rest] = message.split(': ');
+         const fullText = rest.join(': '); // Rejoin in case the message contains colons
+         const [text, run_uuid] = fullText.split('|');
+         return {
+           message: text,
+           sender: sender as 'user' | 'ai',
+           direction: (sender === 'ai' ? 'incoming' : 'outgoing') as 'incoming' | 'outgoing',
+           run_uuid: run_uuid || undefined
+         };
+       });
+       setMessages(formattedMessages);
+     }
+   }, [answers, element.name]);
 
    // Add timeout to stop recording after 30 seconds
    useEffect(() => {
@@ -139,6 +165,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          transcriptionCost: transcriptionCost
        });
 
+       console.log('Response from sendPromptsUtil:', response);  // Debug log
+
        if (response.success && response.response) {
          const shouldSynthesizeAudio = wasAudioInput && (element.enableTts || false);
          setIsSynthesizingAudio(shouldSynthesizeAudio);
@@ -156,11 +184,16 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
            }
          }
 
+         console.log('Creating AI message with run_uuid:', response.run_uuid);  // Debug log
+
          const aiMessage: ChatMessage = {
            message: response.response,
            sender: 'ai',
-           direction: 'incoming'
+           direction: 'incoming',
+           run_uuid: response.run_uuid
          };
+
+         console.log('Created AI message:', aiMessage);  // Debug log
 
          setMessages(prev => [...prev, aiMessage]);
          
@@ -169,7 +202,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          }
          
          const chatHistory = [...messages, userMessage, aiMessage]
-           .map(msg => `${msg.sender}: ${msg.message}`);
+           .map(msg => {
+             if (msg.sender === 'ai') {
+               return `${msg.sender}: ${msg.message}${msg.run_uuid ? `|${msg.run_uuid}` : ''}`;
+             }
+             return `${msg.sender}: ${msg.message}`;
+           });
          setInputValue(element.name, chatHistory, '', 'chat');
        }
      } catch (error) {
@@ -195,6 +233,37 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const errorMessage = getErrorMessage(element.name);
    const hasError = !!errorMessage;
    const remainingMessages = MESSAGE_LIMIT - userMessageCount;
+
+   const totalCredits = messages.reduce((sum, msg) => {
+     if (msg.sender === 'ai' && msg.run_uuid) {
+       console.log('[ChatQuestion] Processing message for credits', { 
+         message: msg.message, 
+         run_uuid: msg.run_uuid 
+       });
+       const run = store.currentConversation?.runs.find(r => r.run_uuid === msg.run_uuid);
+       console.log('[ChatQuestion] Found run', run);
+       return sum + (run?.credits || 0);
+     }
+     return sum;
+   }, 0);
+
+   console.log('[ChatQuestion] Total credits calculation', {
+     totalCredits,
+     messages: messages.map(m => ({ 
+       sender: m.sender, 
+       run_uuid: m.run_uuid,
+       message: m.message 
+     })),
+     runs: store.currentConversation?.runs.map(r => ({
+       id: r.id,
+       run_uuid: r.run_uuid,
+       credits: r.credits,
+       cost: r.cost
+     }))
+   });
+
+   console.log('Current conversation:', store.currentConversation);
+   console.log('Total credits:', totalCredits);
 
    return (
      <div className={`mb-6 ${
@@ -360,6 +429,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        ) : (
          <div className="mt-2 p-4 bg-gray-50 rounded-md border">
            <p className="text-sm text-gray-600">Chat ended. History saved.</p>
+         </div>
+       )}
+
+       {/* Add credits display outside chatbox */}
+       {(isOwner || isAdmin) && (
+         <div className="flex justify-end mt-2">
+           <span className="text-xs text-gray-400">
+             Chat Credits Used: {totalCredits}
+           </span>
          </div>
        )}
      </div>

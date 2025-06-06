@@ -162,6 +162,7 @@ ${file!.content}
       stream: false,
       request_skip: requestSkip,
       no_submission: noSubmit,
+      run_uuid: run_uuid
    };
 
    if (userId !== null) {
@@ -211,10 +212,6 @@ ${file!.content}
 
    if (transcriptionCost !== undefined) {
       requestBody.transcription_cost = transcriptionCost;
-   }
-
-   if (run_uuid !== undefined) {
-      requestBody.run_uuid = run_uuid;
    }
 
    const conversationId = store.ensureConversation();

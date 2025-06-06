@@ -21,6 +21,7 @@ export interface SendPromptResponse {
    response?: any;
    error?: string;
    run_passed?: boolean;
+   run_uuid?: string;  // Changed from runId to run_uuid to match API response
 }
 
 export type setInputValue = (name: string, value: string | string[] | undefined, otherValue: string, type: string) => void;

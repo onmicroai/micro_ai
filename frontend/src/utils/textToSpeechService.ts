@@ -92,14 +92,19 @@ const updateTTSCosts = async (text: string, provider: 'elevenlabs' | 'hume') => 
     const costPerCharacter = provider === 'elevenlabs' ? ELEVENLABS_COST_PER_CHARACTER : HUME_COST_PER_CHARACTER;
     const ttsCost = text.length * costPerCharacter;
 
-    // Update the run with TTS costs
-    await updateRunUtil(
+    // Update the run with TTS costs in the backend
+    const updateResponse = await updateRunUtil(
       currentRun.id,
       {
         cost: (currentRun.cost || 0) + ttsCost,
       },
       user?.id || null
     );
+
+    // If the update was successful and we got data back, update the store
+    if (updateResponse.success && updateResponse.data?.data) {
+      store.updateRun(currentRun.id, updateResponse.data.data);
+    }
   }
 };
 

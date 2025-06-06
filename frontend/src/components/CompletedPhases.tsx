@@ -145,6 +145,15 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                            </div>
                         </div>
                      </div>
+
+                     {/* Add credits display for owners */}
+                     {(isOwner || isAdmin) && (
+                        <div className="flex justify-end mt-2">
+                           <span className="text-xs text-gray-400">
+                              Chat Credits Used: {currentRun?.credits || 0}
+                           </span>
+                        </div>
+                     )}
                   </div>
                );
             }
@@ -168,6 +177,8 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                   userId={null}
                   surveyJson={surveyJson}
                   currentPhaseIndex={pageIndex}
+                  isOwner={isOwner}
+                  isAdmin={isAdmin}
                />
             );
          })}

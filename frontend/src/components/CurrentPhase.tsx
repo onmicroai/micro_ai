@@ -235,6 +235,8 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({ appId, userId, answers, isO
                      userId={userId}
                      surveyJson={surveyJson}
                      currentPhaseIndex={currentPhaseIndex}
+                     isOwner={isOwner}
+                     isAdmin={isAdmin}
                   />
                );
             })}

@@ -83,7 +83,8 @@ const handleAIResponse = async (
       return { 
          success: true, 
          response: promptResponse, 
-         run_passed: responseData.run_passed 
+         run_passed: responseData.run_passed,
+         run_uuid: responseData.run_uuid || responseData.id  // Use run_uuid from response or fallback to id
       };
    } catch (error: any) {
       let errorResponse;
@@ -269,6 +270,7 @@ const {
    //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
    const run = {
       id: crypto.randomUUID(),
+      run_uuid: crypto.randomUUID(),
       aiModel: aiConfig.aiModel,
       cost: 0,
       credits: 0,
