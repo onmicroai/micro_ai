@@ -39,13 +39,17 @@ class RunUsage:
     
     @staticmethod
     def check_for_available_credits(self, user_id, date_joined):
-        from apps.subscriptions.helpers import create_free_subscription, create_free_billing_cycle
+        from apps.subscriptions.helpers import update_or_create_free_subscription, create_free_billing_cycle
         user = CustomUser.objects.get(id=user_id)
         subscription_data = subscription_details(user_id)
         
-        if not subscription_data or subscription_data["status"] == "canceled":
-            #If the user has no subscription or they have canceled a paid plan, create a free one
-            subscription_instance = create_free_subscription(user)
+        if (not subscription_data or 
+            subscription_data["status"] == "canceled" or 
+            (subscription_data["period_end"] and 
+             convert_timestamp_to_datetime(subscription_data["period_end"]) < timezone.now())):
+            # If the user has no subscription, has canceled, or their subscription has expired,
+            # create a free one
+            subscription_instance = update_or_create_free_subscription(user)
             # Get the serialized version of the new subscription
             subscription_data = subscription_details(user_id)
             
@@ -58,10 +62,16 @@ class RunUsage:
             
         if subscription_data["status"] == "active":
             subscription_instance = Subscription.objects.get(id=subscription_data["id"])
-            billing_cycle = BillingCycle.objects.filter(subscription=subscription_instance, status='open').first()
+            # Only look for open billing cycles that are currently active
+            billing_cycle = BillingCycle.objects.filter(
+                subscription=subscription_instance,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
             
             if not billing_cycle:
-                #If the user has no billing cycle, create a free one
+                # If no active billing cycle exists, create a new one
                 create_free_billing_cycle(user, subscription_instance)
                 # Fetch the newly created billing cycle to ensure we have fresh data
                 billing_cycle = BillingCycle.objects.filter(
