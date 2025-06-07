@@ -128,7 +128,6 @@ class MicroAppUsage:
         # If user has an active subscription
         if subscription and subscription["status"] == "active":
             # Get max_apps from subscription configuration
-            #TODO: Avoid hardcoding the max apps limit
             max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT
             
             # Get price_id from subscription

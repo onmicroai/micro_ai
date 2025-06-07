@@ -1130,26 +1130,69 @@ class AIModelRoute:
            return handle_exception(e)
    
 class AIModelConfigurations(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_user_plan(self, user_id):
+        """Get the user's current subscription plan"""
+        try:
+            # Get the user's current billing cycle
+            billing_cycle = BillingCycle.objects.filter(
+                user=user_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+            
+            if billing_cycle and billing_cycle.subscription:
+                # Check the subscription's price_id against known price IDs
+                price_id = billing_cycle.subscription.price_id
+                if price_id == settings.INDIVIDUAL_PLAN_PRICE_ID:
+                    return "individual"
+                elif price_id == settings.ENTERPRISE_PLAN_PRICE_ID:
+                    return "enterprise"
+            
+            # Default to free plan if no active subscription or unknown price_id
+            return "free"
+            
+        except Exception as e:
+            log.error(f"Error getting user plan: {str(e)}")
+            return "free"
 
     @extend_schema(
         responses={200: str},
-        summary="Get available AI models configuration"
+        summary="Get available AI models configuration based on user's subscription plan"
     )
     def get(self, request, format=None):
         try:
+            # Get user's current plan
+            user_plan = self.get_user_plan(request.user.id)
+            
+            # Get models available for this plan
+            available_model_names = AIModelConstants.get_models_for_plan(user_plan)
+            
             models = []
-            for model_name, config in AIModelConstants.AI_MODELS.items():
-                models.append({
-                    "model": model_name,
-                    "friendly_name": config["model"],
-                    "temperature_range": {
-                        "min": config["temperature_min"],
-                        "max": config["temperature_max"]
-                    }
-                })
+            for model_name in available_model_names:
+                config = AIModelConstants.get_configs(model_name)
+                if config:
+                    models.append({
+                        "model": model_name,
+                        "friendly_name": config["model"],
+                        "temperature_range": {
+                            "min": config["temperature_min"],
+                            "max": config["temperature_max"]
+                        },
+                        "supports_image": config.get("supports_image", False),
+                        "family": config.get("family", ""),
+                        "plans": config.get("plans", [])
+                    })
 
-            return Response({"data": models, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            return Response({
+                "data": {
+                    "user_plan": user_plan,
+                    "models": models
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 
