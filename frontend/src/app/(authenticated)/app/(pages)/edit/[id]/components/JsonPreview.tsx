@@ -1,6 +1,6 @@
 "use client";
 
-import { PhaseType, AttachedFile } from '../types';
+import { PhaseType, AttachedFile } from '@/app/(authenticated)/app/types';
 import { ScrollArea } from "./ui/scroll-area";
 
 interface JsonPreviewProps {
@@ -78,6 +78,12 @@ export default function JsonPreview({
           maxMessages: field.maxMessages,
           initialMessage: field.initialMessage,
           chatbotInstructions: field.chatbotInstructions,
+          ttsProvider: field.ttsProvider,
+          selectedVoiceId: field.selectedVoiceId,
+          customVoiceId: field.customVoiceId,
+          enableTts: field.enableTts,
+          voiceInstructions: field.voiceInstructions,
+          avatarUrl: field.avatarUrl,
         } : {}),
         ...(field.type === 'text' || field.type === 'textarea' ? {
           minChars: field.minChars,

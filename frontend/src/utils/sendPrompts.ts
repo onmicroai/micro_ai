@@ -83,7 +83,8 @@ const handleAIResponse = async (
       return { 
          success: true, 
          response: promptResponse, 
-         run_passed: responseData.run_passed 
+         run_passed: responseData.run_passed,
+         run_uuid: responseData.run_uuid
       };
    } catch (error: any) {
       let errorResponse;
@@ -139,7 +140,6 @@ const handleAIResponse = async (
  * @returns A promise that resolves to the updated run data
  */
 export const updateRunUtil = async (
-   sessionId: string,
    runId: string,
    updateData: Record<string, any>,
    userId: number | null
@@ -149,7 +149,7 @@ export const updateRunUtil = async (
    try {
       // Prepare the request payload
       const requestBody = {
-         id: sessionId,
+         id: runId,  // Use the same runId for backend lookup
          ...updateData
       };
       
@@ -168,7 +168,8 @@ export const updateRunUtil = async (
          });
          
          if (!response.ok) {
-            throw new Error(`HTTP error! Status: ${response.status}`);
+            const errorText = await response.text();
+            throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
          }
          
          responseData = await response.json();
@@ -178,11 +179,18 @@ export const updateRunUtil = async (
          responseData = response.data;
       }
       
-      // Update the run in the local store
-      store.updateRun(runId, {
-         ...updateData,
-         updatedAt: Date.now()
-      });
+      // Update the run in the local store using the same runId
+      // Extract only the frontend-relevant fields from the backend response
+      const backendData = responseData.data || responseData;
+      const relevantUpdates = {
+         ...updateData,  // Original updates we sent
+         updatedAt: Date.now(),
+         // Include calculated fields from backend response
+         ...(backendData.cost !== undefined && { cost: backendData.cost }),
+         ...(backendData.credits !== undefined && { credits: backendData.credits }),
+      };
+      
+      store.updateRun(runId, relevantUpdates);
       
       return { 
          success: true, 
@@ -213,6 +221,7 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
+  transcriptionCost?: number;
 }): Promise<SendPromptResponse> => {
 const {
     prompts = null,
@@ -225,7 +234,8 @@ const {
     skipScoredRun = false,
     requestSkip = false,
     set = (s: any) => s,
-    noSubmit = false
+    noSubmit = false,
+    transcriptionCost
   } = options;
 
   let {
@@ -327,7 +337,9 @@ const {
       skipScoredRun,
       hasFixedResponse,
       fixedResponseText,
-      noSubmit
+      noSubmit,
+      transcriptionCost,
+      run.id
    );
 
    return handleAIResponse(requestBody, userId, set);

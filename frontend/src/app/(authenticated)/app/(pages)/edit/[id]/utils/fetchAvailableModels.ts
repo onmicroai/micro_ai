@@ -1,7 +1,7 @@
 // \microai-frontend\app\hooks\etchAvailableModels.ts
 
 import axiosInstance from "@/utils//axiosInstance"
-import { ModelTemperatureRanges } from "../types";
+import { ModelTemperatureRanges } from "@/app/(authenticated)/app/types";
 
  function createErrorResponse(): ModelTemperatureRanges {
     return {
@@ -38,7 +38,8 @@ export const fetchAvailableModelsSingleton = (): () => Promise<ModelTemperatureR
          
          api.get(`/api/microapps/models/configuration/`)
             .then((response:any) => {
-               const availableModels = response?.data?.data;
+               const responseData = response?.data?.data;
+               const availableModels = responseData?.models;
                if (!Array.isArray(availableModels)) {
                   throw new Error("No available models");
                }

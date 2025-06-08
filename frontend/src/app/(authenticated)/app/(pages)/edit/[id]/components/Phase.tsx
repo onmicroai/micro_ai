@@ -1,6 +1,6 @@
 "use client";
 
-import { PhaseType, ChoiceType, ConditionalLogic } from '../types';
+import { PhaseType, ChoiceType, ConditionalLogic } from '@/app/(authenticated)/app/types';
 import Field from './Field';
 import { Droppable } from '@hello-pangea/dnd';
 import { Checkbox } from "./ui/checkbox";
@@ -39,6 +39,11 @@ interface PhaseProps {
   onUpdateFieldMaxMessages: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage: (fieldId: string, initialMessage: string) => void;
   onUpdateChatbotInstructions: (fieldId: string, instructions: string) => void;
+  onUpdateTtsProvider: (fieldId: string, provider: string) => void;
+  onUpdateTtsVoiceId: (fieldId: string, voiceId: string) => void;
+  onUpdateTtsEnabled: (fieldId: string, enabled: boolean) => void;
+  onUpdateVoiceInstructions: (fieldId: string, instructions: string) => void;
+  onUpdateAvatarUrl: (fieldId: string, avatarUrl: string) => void;
   appId: number | null;
 }
 
@@ -65,6 +70,11 @@ export default function Phase({
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
+  onUpdateTtsProvider,
+  onUpdateTtsVoiceId,
+  onUpdateTtsEnabled,
+  onUpdateVoiceInstructions,
+  onUpdateAvatarUrl,
   appId,
 }: PhaseProps) {
 
@@ -100,12 +110,17 @@ export default function Phase({
         onUpdatePromptText={onUpdatePromptText}
         onUpdateRichText={onUpdateRichText}
         onUpdateConditionalLogic={(fieldId, logic) => 
-          onUpdateConditionalLogic(fieldId, logic, false)
+          onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, false)
         }
         onUpdateImageUploadSettings={onUpdateImageUploadSettings}
         onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
         onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
         onUpdateChatbotInstructions={onUpdateChatbotInstructions}
+        onUpdateTtsProvider={onUpdateTtsProvider}
+        onUpdateTtsVoiceId={onUpdateTtsVoiceId}
+        onUpdateTtsEnabled={onUpdateTtsEnabled}
+        onUpdateVoiceInstructions={onUpdateVoiceInstructions}
+        onUpdateAvatarUrl={onUpdateAvatarUrl}
       />
     );
   };
@@ -207,11 +222,15 @@ export default function Phase({
                   onUpdatePromptText={onUpdatePromptText}
                   onUpdateRichText={onUpdateRichText}
                   onUpdateConditionalLogic={(fieldId, logic) => 
-                    onUpdateConditionalLogic(fieldId, logic, true)
+                    onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, true)
                   }
                   onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
                   onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
                   onUpdateChatbotInstructions={onUpdateChatbotInstructions}
+                  onUpdateTtsProvider={onUpdateTtsProvider}
+                  onUpdateTtsVoiceId={onUpdateTtsVoiceId}
+                  onUpdateTtsEnabled={onUpdateTtsEnabled}
+                  onUpdateVoiceInstructions={onUpdateVoiceInstructions}
                 />
               ))}
               {provided.placeholder}

@@ -17,7 +17,7 @@ import { Checkbox } from "./ui/checkbox";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
 import { Input } from "./ui/input";
 import { useSurveyStore } from '../store/editSurveyStore';
-import { PhaseType, FieldType, ChoiceType, ConditionalLogic } from '../types';
+import { PhaseType, Element, Choice, ConditionalLogic } from '@/app/(authenticated)/app/types';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
 import { HelpCircle } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
@@ -239,7 +239,7 @@ export default function FormBuilder() {
 
       const newField = {
         id: `${draggableId}-${Date.now()}`,
-        type: draggableId as FieldType['type'],
+        type: draggableId as Element['type'],
         label: '',
         name: `${draggableId}${existingFieldsCount + 1}`,
         isRequired: false,
@@ -253,7 +253,12 @@ export default function FormBuilder() {
         // Add default values for chat fields
         ...(draggableId === 'chat' && {
           maxMessages: 10,
-          initialMessage: 'Hello! How can I help you today?'
+          initialMessage: 'Hello! How can I help you today?',
+          enableTts: false,
+          ttsProvider: 'openai',
+          selectedVoiceId: '',
+          voiceInstructions: '',
+          avatarUrl: '',
         }),
       };
 
@@ -611,7 +616,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, placeholder } : field
           )
         };
@@ -632,12 +637,12 @@ export default function FormBuilder() {
    * which is essential for creating structured data collection with consistent
    * response categories that can be easily analyzed and processed.
    */
-  const updateFieldChoices = (phaseId: string, fieldId: string, choices: ChoiceType[]) => {
+  const updateFieldChoices = (phaseId: string, fieldId: string, choices: Choice[]) => {
     setPhases(phases.map((phase: PhaseType) => {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, choices } : field
           )
         };
@@ -663,7 +668,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, showOtherItem: showOther } : field
           )
         };
@@ -697,7 +702,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, ...updates } : field
           )
         };
@@ -723,7 +728,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, defaultValue: value } : field
           )
         };
@@ -747,12 +752,12 @@ export default function FormBuilder() {
   const updateFieldText = (fieldId: string, text: string, isPrompt: boolean = false) => {
     setPhases(phases.map((phase: PhaseType) => {
       // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: FieldType) => field.id === fieldId);
+      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
       
       if (fieldExists) {
         return {
           ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: FieldType) =>
+          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
             field.id === fieldId ? { ...field, text } : field
           )
         };
@@ -777,12 +782,12 @@ export default function FormBuilder() {
   const updateFieldRichText = (fieldId: string, html: string, isPrompt: boolean = false) => {
     setPhases(phases.map((phase: PhaseType) => {
       // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: FieldType) => field.id === fieldId);
+      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
       
       if (fieldExists) {
         return {
           ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: FieldType) =>
+          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
             field.id === fieldId ? { ...field, html } : field
           ),
         };
@@ -810,7 +815,7 @@ export default function FormBuilder() {
       if (phase.id !== phaseId) return phase;
 
       const collection = isPrompt ? 'prompts' : 'elements';
-      const items = phase[collection].map((item: FieldType) => {
+      const items = phase[collection].map((item: Element) => {
         if (item.id !== fieldId) return item;
         return {
           ...item,
@@ -883,7 +888,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, maxMessages } : field
           )
         };
@@ -909,7 +914,7 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, initialMessage } : field
           )
         };
@@ -935,9 +940,139 @@ export default function FormBuilder() {
       if (phase.id === phaseId) {
         return {
           ...phase,
-          elements: phase.elements.map((field: FieldType) =>
+          elements: phase.elements.map((field: Element) =>
             field.id === fieldId ? { ...field, chatbotInstructions: instructions } : field
           )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the TTS provider setting for a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param provider - The TTS provider to use (currently 'openai')
+   * 
+   * This method allows form creators to choose between different TTS providers
+   * for audio synthesis in chat interactions, enabling customization of voice
+   * quality and characteristics based on the specific needs of the chat interface.
+   */
+  const updateTtsProvider = (phaseId: string, fieldId: string, provider: string) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { ...field, ttsProvider: provider } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the selected voice ID for TTS in a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param voiceId - The voice ID to use for audio synthesis
+   * 
+   * This method enables form creators to select specific voices when using
+   * a TTS provider that has voice options, allowing for customization of the audio
+   * characteristics and personality of the chatbot's spoken responses.
+   */
+  const updateTtsVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { 
+              ...field, 
+              selectedVoiceId: voiceId,
+              ttsProvider: 'openai' //TODO: Support other TTS providers
+            } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Toggles TTS functionality for a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param enabled - Whether TTS should be enabled (true) or disabled (false)
+   * 
+   * This method allows form creators to enable or disable text-to-speech
+   * functionality for chat interactions, providing control over whether
+   * AI responses should be converted to audio or remain text-only.
+   */
+  const updateTtsEnabled = (phaseId: string, fieldId: string, enabled: boolean) => {
+    setPhases(phases.map((phase: PhaseType) => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map((field: Element) =>
+            field.id === fieldId ? { ...field, enableTts: enabled } : field
+          )
+        };
+      }
+      return phase;
+    }));
+  };
+
+  /**
+   * Updates the voice instructions for custom voice design in a specific chat field.
+   * 
+   * @param phaseId - The ID of the phase containing the chat field
+   * @param fieldId - The ID of the chat field to update
+   * @param instructions - The voice characteristic instructions for AI voice generation
+   * 
+   * This method allows form creators to specify custom voice characteristics when
+   * using the "Design your own Voice" option, enabling personalized voice synthesis
+   * based on detailed descriptions of desired vocal properties.
+   */
+  const updateVoiceInstructions = (phaseId: string, fieldId: string, instructions: string) => {
+    setPhases(phases.map(phase => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map(field => {
+            if (field.id === fieldId) {
+              return {
+                ...field,
+                voiceInstructions: instructions
+              };
+            }
+            return field;
+          })
+        };
+      }
+      return phase;
+    }));
+  };
+
+  const updateAvatarUrl = (phaseId: string, fieldId: string, avatarUrl: string) => {
+    setPhases(phases.map(phase => {
+      if (phase.id === phaseId) {
+        return {
+          ...phase,
+          elements: phase.elements.map(field => {
+            if (field.id === fieldId) {
+              return {
+                ...field,
+                avatarUrl
+              };
+            }
+            return field;
+          })
         };
       }
       return phase;
@@ -1415,6 +1550,21 @@ export default function FormBuilder() {
                     }
                     onUpdateChatbotInstructions={(fieldId, instructions) =>
                       updateChatbotInstructions(phase.id, fieldId, instructions)
+                    }
+                    onUpdateTtsProvider={(fieldId, provider) =>
+                      updateTtsProvider(phase.id, fieldId, provider)
+                    }
+                    onUpdateTtsVoiceId={(fieldId, voiceId) =>
+                      updateTtsVoiceId(phase.id, fieldId, voiceId)
+                    }
+                    onUpdateTtsEnabled={(fieldId, enabled) =>
+                      updateTtsEnabled(phase.id, fieldId, enabled)
+                    }
+                    onUpdateVoiceInstructions={(fieldId, instructions) =>
+                      updateVoiceInstructions(phase.id, fieldId, instructions)
+                    }
+                    onUpdateAvatarUrl={(fieldId, avatarUrl) =>
+                      updateAvatarUrl(phase.id, fieldId, avatarUrl)
                     }
                     appId={appId}
                   />

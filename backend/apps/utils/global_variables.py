@@ -44,6 +44,11 @@ class AIModelFamilyDefaults:
         "api_key": env("OPENAI_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
+
+    OPENAI_TTS = {
+        "family": "openai",
+        "api_key": env("OPENAI_TTS_API_KEY")
+    }
     
     ANTHROPIC = {
         "family": "anthropic",
@@ -78,63 +83,75 @@ class AIModelConstants:
         "gpt-4o-mini": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-4o-mini",
-            "supports_image": True
+            "supports_image": True,
+            "plans": ["free", "individual", "enterprise"]
+        },
+        "gpt-4o-mini-tts": {
+            **AIModelFamilyDefaults.OPENAI_TTS,
+            "model": "openai/gpt-4o-mini-tts",
+            "supports_image": False,
+            "plans": ["tts"]
         },
         "gpt-4o": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-4o",
-            "supports_image": True
+            "supports_image": True,
+            "plans": ["individual", "enterprise"]
         },
         "openai-o3-mini": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o3-mini",
-            "supports_image": False
+            "supports_image": False,
+            "plans": ["individual", "enterprise"]
         },
         "openai-o1": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o1",
-            "supports_image": True
+            "supports_image": True,
+            "plans": ["enterprise"]
         },
         "claude-3-5-haiku": {
             **AIModelFamilyDefaults.ANTHROPIC,
             "model": "anthropic/claude-3-5-haiku-latest",
             "max_tokens": 8192,
-            "supports_image": False
+            "supports_image": False,
+            "plans": ["free", "individual", "enterprise"]
         },
-        "claude-3-5-sonnet": {
+        "claude-4-sonnet": {
             **AIModelFamilyDefaults.ANTHROPIC,
-            "model": "anthropic/claude-3-5-sonnet-latest",
+            "model": "anthropic/claude-4-sonnet-latest",
             "max_tokens": 8192,
-            "supports_image": True
+            "supports_image": True,
+            "plans": ["individual", "enterprise"]
         },
-        "claude-3-opus": {
+        "claude-4-opus": {
             **AIModelFamilyDefaults.ANTHROPIC,
-            "model": "anthropic/claude-3-opus-latest",
+            "model": "anthropic/claude-4-opus-latest",
             "max_tokens": 4096,
-            "supports_image": True
+            "supports_image": True,
+            "plans": ["enterprise"]
         },
-        "gemini-1.5-pro": {
+        "gemini-2.5-pro": {
             **AIModelFamilyDefaults.GEMINI,
-            "model": "gemini/gemini-1.5-pro",
-            "supports_image": True
+            "model": "gemini/gemini-2.5-pro",
+            "supports_image": True,
+            "plans": ["individual", "enterprise"]
         },
-        "gemini-2.0-flash": {
+        "gemini-2.5-flash": {
             **AIModelFamilyDefaults.GEMINI,
-            "model": "gemini/gemini-2.0-flash",
-            "supports_image": True
-        },
-        "gemini-2.0-flash-lite": {
-            **AIModelFamilyDefaults.GEMINI,
-            "model": "gemini/gemini-2.0-flash-lite",
-            "supports_image": True
+            "model": "gemini/gemini-2.5-flash",
+            "supports_image": True,
+            "plans": ["free", "individual", "enterprise"]
         },
         "sonar-pro": {
             **AIModelFamilyDefaults.PERPLEXITY,
-            "model": "perplexity/sonar-pro"
+            "model": "perplexity/sonar-pro",
+            "plans": ["individual", "enterprise"]
         },
         "deepseek-chat": {
             **AIModelFamilyDefaults.DEEPSEEK,
-            "model": "deepseek/deepseek-chat"
+            "model": "deepseek/deepseek-chat",
+            "plans": ["free", "individual", "enterprise"]
         }
     }
 
@@ -172,6 +189,29 @@ class AIModelConstants:
         """Get the AI model family (openai, anthropic, etc)"""
         config = AIModelConstants.AI_MODELS.get(model_name, {})
         return config.get("family", "")
+
+    @staticmethod
+    def is_model_available_for_plan(model_name: str, plan: str) -> bool:
+        """Check if a model is available for a specific plan"""
+        config = AIModelConstants.AI_MODELS.get(model_name, {})
+        available_plans = config.get("plans", [])
+        return plan in available_plans
+
+    @staticmethod
+    def get_models_for_plan(plan: str) -> list:
+        """Get all models available for a specific plan"""
+        available_models = []
+        for model_name, config in AIModelConstants.AI_MODELS.items():
+            available_plans = config.get("plans", [])
+            if plan in available_plans:
+                available_models.append(model_name)
+        return available_models
+
+    @staticmethod
+    def get_model_plans(model_name: str) -> list:
+        """Get all plans that have access to a specific model"""
+        config = AIModelConstants.AI_MODELS.get(model_name, {})
+        return config.get("plans", [])
 
 class UsageVariables:
     # Plan limits in credits

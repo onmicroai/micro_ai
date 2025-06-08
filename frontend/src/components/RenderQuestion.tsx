@@ -30,6 +30,8 @@ interface RenderElementProps {
    userId: number | null;
    surveyJson: any;
    currentPhaseIndex: number;
+   isOwner?: boolean;
+   isAdmin?: boolean;
 }
 
 const RenderQuestion = ({
@@ -45,6 +47,8 @@ const RenderQuestion = ({
    userId,
    surveyJson,
    currentPhaseIndex,
+   isOwner = false,
+   isAdmin = false,
 }: RenderElementProps) => {
    if (!visible || !element) {
       return null;
@@ -162,6 +166,8 @@ const RenderQuestion = ({
                userId={userId}
                surveyJson={surveyJson}
                currentPhaseIndex={currentPhaseIndex}
+               isOwner={isOwner}
+               isAdmin={isAdmin}
             />
          );
 

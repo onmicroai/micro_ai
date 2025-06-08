@@ -28,7 +28,7 @@ from apps.microapps.serializer import (
 )
 from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
-from apps.utils.global_variables import AIModelConstants, MicroappVariables
+from apps.utils.global_variables import AIModelConstants, MicroappVariables, UsageVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.microapps.document_parser import DocumentParser, DocumentProcessor
 from apps.collection.models import Collection, CollectionUserJoin
@@ -50,6 +50,8 @@ from django.conf import settings
 import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
+import requests
+from django.http import HttpResponse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -578,12 +580,9 @@ class RunList(APIView):
             usage = response
             if not (session_id := data.get("session_id")):
                 session_id = uuid.uuid4()
-
+            
             credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
-
-            # Round the cost to 6 decimal places
-            cost = round(float(response["cost"]), 6)
 
             # Ensure max_tokens is set from api_params if not in data
             max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
@@ -611,7 +610,7 @@ class RunList(APIView):
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
                 "credits": credits,
-                "cost": cost,
+                "cost": usage["cost"],
                 "response": usage["ai_response"],
                 "input_tokens": usage["prompt_tokens"],
                 "output_tokens": usage["completion_tokens"],
@@ -622,6 +621,7 @@ class RunList(APIView):
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
+                "run_uuid": data.get("run_uuid")
             }
             return run_data
         except Exception as e:
@@ -712,7 +712,11 @@ class RunList(APIView):
             if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
-            
+            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
+
+            if 'cost' in data:
+                # Round cost to 6 decimal places before serializer
+                data['cost'] = round(float(data['cost']), 6)
             # Check for mandatory keys in the user request payload
             if not self.check_payload(data, request):    
                 return Response(
@@ -745,7 +749,6 @@ class RunList(APIView):
                     )
                 
             # Return model instance based on AI-model name
-            print("data.get('model')", data.get("model"))
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
            
             if not model_router:
@@ -766,6 +769,10 @@ class RunList(APIView):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # Add transcription cost to api_params before get_response
+            api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
+
             # Handle skip phase
             if data.get("request_skip"):
                 response = self.skip_phase()
@@ -861,35 +868,67 @@ class RunList(APIView):
     def patch(self, request):
         try:
             data = request.data
+            
+            if 'cost' in data:
+                # Round cost to 6 decimal places before serializer
+                data['cost'] = round(float(data['cost']), 6)
+            
             if self.checkPatchPayload(data):
                 id_value = data.get("id")
                 del data["id"]
                 
-                # Check if the ID is a UUID (contains hyphens)
-                if isinstance(id_value, str) and '-' in id_value:
-                    # Try to find the Run by session_id
-                    run_object = Run.objects.filter(session_id=id_value).first()
-                    if not run_object:
-                        return Response(
-                            {"error": "Run not found with the provided session ID", "status": status.HTTP_404_NOT_FOUND},
-                            status=status.HTTP_404_NOT_FOUND,
-                        )
-                else:
-                    # Use the ID directly
-                    run_object = Run.objects.get(id=id_value)
+                # Update the run with the matching run_uuid
+                run_object = Run.objects.get(run_uuid=id_value)
                 
-                serializer = RunGetSerializer(run_object, data, partial=True)
+                # If cost or credits are being updated, we need to handle credit deduction
+                if 'cost' in data or 'credits' in data:
+                    # Get the app owner ID
+                    app_owner = MicroAppUserJoin.objects.get(ma_id=run_object.ma_id, role="owner")
+                    app_owner_id = app_owner.user_id.id
+                    
+                    # Calculate the difference in credits
+                    old_credits = run_object.credits
+                    print("OLD CREDITS", old_credits)
+                    
+                    # If only cost is provided, calculate new credits from cost
+                    if 'cost' in data and 'credits' not in data:
+                        # For TTS operations, we can directly calculate credits from cost
+                        # Using the standard credit calculation (1 credit = $0.0001)
+                        new_credits = max(int(float(data['cost']) * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
+                        # Add the new credits to the data that will be saved
+                        data['credits'] = new_credits
+                    else:
+                        new_credits = data.get('credits', old_credits)
+
+                    print("NEW CREDITS", new_credits)
+                    
+                    credits_diff = new_credits - old_credits
+
+                    print("CREDITS DIFF", credits_diff)
+                    
+                    if credits_diff > 0:
+                        # Update the credits field to track the difference
+                        self.credits = credits_diff
+                        # Deduct the additional credits
+                        self.update_user_credits(run_object.id, app_owner_id, request.user.id if request.user.id else None)
+                
+                serializer = RunPatchSerializer(run_object, data=data, partial=True)
                 if serializer.is_valid():
                     serializer.save()
                     return Response(
                         {"data": serializer.data, "status": status.HTTP_200_OK},
                         status=status.HTTP_200_OK,
                     )
+                else:
+                    return Response(
+                        {"error": serializer.errors, "status": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+            else:
                 return Response(
-                    error.validation_error(serializer.errors),
+                    {"error": "Invalid payload", "status": status.HTTP_400_BAD_REQUEST},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            return Response(error.INVALID_PAYLOAD, status = status.HTTP_400_BAD_REQUEST)
         except Run.DoesNotExist:
             return Response(
                 {"error": "Run not found", "status": status.HTTP_404_NOT_FOUND},
@@ -897,7 +936,7 @@ class RunList(APIView):
             )
         except Exception as e:
             return Response(
-                error.SERVER_ERROR,
+                {"error": str(e), "status": status.HTTP_500_INTERNAL_SERVER_ERROR},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
     
@@ -949,6 +988,7 @@ class AnonymousRunList(RunList):
             if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
+            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
             
             try:
                 app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
@@ -1009,6 +1049,9 @@ class AnonymousRunList(RunList):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # Add transcription cost to api_params before get_response
+            api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
 
             # Handle skip phase
             if data.get("request_skip"):
@@ -1089,26 +1132,69 @@ class AIModelRoute:
            return handle_exception(e)
    
 class AIModelConfigurations(APIView):
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
+
+    def get_user_plan(self, user_id):
+        """Get the user's current subscription plan"""
+        try:
+            # Get the user's current billing cycle
+            billing_cycle = BillingCycle.objects.filter(
+                user=user_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+            
+            if billing_cycle and billing_cycle.subscription:
+                # Check the subscription's price_id against known price IDs
+                price_id = billing_cycle.subscription.price_id
+                if price_id == settings.INDIVIDUAL_PLAN_PRICE_ID:
+                    return "individual"
+                elif price_id == settings.ENTERPRISE_PLAN_PRICE_ID:
+                    return "enterprise"
+            
+            # Default to free plan if no active subscription or unknown price_id
+            return "free"
+            
+        except Exception as e:
+            log.error(f"Error getting user plan: {str(e)}")
+            return "free"
 
     @extend_schema(
         responses={200: str},
-        summary="Get available AI models configuration"
+        summary="Get available AI models configuration based on user's subscription plan"
     )
     def get(self, request, format=None):
         try:
+            # Get user's current plan
+            user_plan = self.get_user_plan(request.user.id)
+            
+            # Get models available for this plan
+            available_model_names = AIModelConstants.get_models_for_plan(user_plan)
+            
             models = []
-            for model_name, config in AIModelConstants.AI_MODELS.items():
-                models.append({
-                    "model": model_name,
-                    "friendly_name": config["model"],
-                    "temperature_range": {
-                        "min": config["temperature_min"],
-                        "max": config["temperature_max"]
-                    }
-                })
+            for model_name in available_model_names:
+                config = AIModelConstants.get_configs(model_name)
+                if config:
+                    models.append({
+                        "model": model_name,
+                        "friendly_name": config["model"],
+                        "temperature_range": {
+                            "min": config["temperature_min"],
+                            "max": config["temperature_max"]
+                        },
+                        "supports_image": config.get("supports_image", False),
+                        "family": config.get("family", ""),
+                        "plans": config.get("plans", [])
+                    })
 
-            return Response({"data": models, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            return Response({
+                "data": {
+                    "user_plan": user_plan,
+                    "models": models
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 
@@ -1728,12 +1814,6 @@ class AudioTranscription(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Debug logging
-            log.debug(f"Received file: {audio_file.name}")
-            log.debug(f"File content type: {audio_file.content_type}")
-            log.debug(f"File size: {audio_file.size} bytes")
-            log.debug(f"User ID: {user_id}, IP: {ip}")
-
             # Read the audio file content
             audio_content = audio_file.read()
 
@@ -1826,3 +1906,58 @@ class AnonymousAudioTranscription(AudioTranscription):
             )
         except Exception as e:
             return handle_exception(e)
+
+@extend_schema_view(
+    post=extend_schema(
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'text': {'type': 'string', 'description': 'Text to convert to speech'},
+                    'provider': {'type': 'string', 'description': 'TTS provider (e.g., openai, elevenlabs, hume)'},
+                    'voice': {'type': 'string', 'description': 'Voice ID to use'},
+                    'instructions': {'type': 'string', 'description': 'Optional voice instructions'}
+                }
+            }
+        },
+        responses={200: None},
+        summary="Convert text to speech using specified provider"
+    )
+)
+class TextToSpeech(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format=None):
+        try:
+            text = request.data.get('text')
+            provider = request.data.get('provider', 'openai')
+            voice = request.data.get('voice', 'alloy')
+            instructions = request.data.get('instructions')
+
+            if not text:
+                return Response(
+                    {'error': 'Text is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Initialize LLM interface with appropriate model config
+            # TODO: Remove this once we support more TTS providers
+            model_name = f"non-openai-tts-not-setup-yet" if provider != 'openai' else 'gpt-4o-mini-tts'
+            model_config = AIModelConstants.get_configs(model_name)
+            llm_interface = UnifiedLLMInterface(model_config)
+
+            # Get audio data
+            audio_data = llm_interface.text_to_speech(text, voice, instructions)
+
+            # Return the audio data
+            return HttpResponse(
+                audio_data,
+                content_type='audio/mpeg'
+            )
+
+        except Exception as e:
+            log.error(f"Error in Text to Speech: {str(e)}")
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

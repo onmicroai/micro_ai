@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { SurveyState, SaveState, ModelTemperatureRanges, AttachedFile } from '../types';
+import { SurveyState, SaveState, ModelTemperatureRanges, AttachedFile } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import { toast } from 'react-toastify';
 import debounce from 'lodash/debounce';

@@ -1,4 +1,4 @@
-import { AttachedFile } from '@/app/(authenticated)/app/(pages)/edit/[id]/types';
+import { AttachedFile } from '@/app/(authenticated)/app/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 
@@ -30,6 +30,8 @@ const getPageConfig = (page: SurveyPage | null) => {
  * @param appHashId The app hash ID.
  * @param skipScoredRun Whether to skip the scored run.
  * @param noSubmit Whether to skip the submission.
+ * @param transcriptionCost The transcription cost.
+ * @param run_uuid The run UUID.
  * @returns 
  */
 export const buildRequestBody = async (
@@ -46,7 +48,9 @@ export const buildRequestBody = async (
    skipScoredRun: boolean = false,
    hasFixedResponse: boolean = false,
    fixedResponseText: string = "",
-   noSubmit: boolean = false
+   noSubmit: boolean = false,
+   transcriptionCost?: number,
+   run_uuid?: string
 ) => {
    const store = useConversationStore.getState();
    const currentConversation = store.currentConversation;
@@ -158,6 +162,7 @@ ${file!.content}
       stream: false,
       request_skip: requestSkip,
       no_submission: noSubmit,
+      run_uuid: run_uuid
    };
 
    if (userId !== null) {
@@ -203,6 +208,10 @@ ${file!.content}
       requestBody.no_submission = true;
       requestBody.scored_run = false;
       requestBody.has_fixed_response = true;
+   }
+
+   if (transcriptionCost !== undefined) {
+      requestBody.transcription_cost = transcriptionCost;
    }
 
    const conversationId = store.ensureConversation();

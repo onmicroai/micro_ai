@@ -8,6 +8,8 @@ import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
 import { Send } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
+import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
+import { useConversationStore } from '@/store/conversationStore';
 
 interface ChatQuestionProps {
    element: Element;
@@ -19,12 +21,16 @@ interface ChatQuestionProps {
    userId: number | null;
    surveyJson: any;
    currentPhaseIndex: number;
+   isOwner?: boolean;
+   isAdmin?: boolean;
 }
 
 interface ChatMessage {
   message: string;
   sender: 'user' | 'ai';
   direction: 'incoming' | 'outgoing';
+  wasAudioInput?: boolean;
+  run_id?: string;
 }
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
@@ -37,6 +43,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    userId,
    surveyJson,
    currentPhaseIndex,
+   isOwner = false,
+   isAdmin = false,
 }) => {
    const MESSAGE_LIMIT = element.maxMessages || 10;
    const [messages, setMessages] = useState<ChatMessage[]>([
@@ -46,11 +54,33 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        direction: 'incoming'
      }
    ]);
-   const [isTyping, setIsTyping] = useState(false);
+   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
+   const [isUserTyping, setIsUserTyping] = useState(false);
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
+   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
+   const store = useConversationStore();
+
+   // Load chat history from answers when component mounts
+   useEffect(() => {
+     const chatHistory = answers[element.name]?.value || [];
+     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+       const formattedMessages = chatHistory.map((message: string) => {
+         const [sender, ...rest] = message.split(': ');
+         const fullText = rest.join(': '); // Rejoin in case the message contains colons
+         const [text, run_id] = fullText.split('|');
+         return {
+           message: text,
+           sender: sender as 'user' | 'ai',
+           direction: (sender === 'ai' ? 'incoming' : 'outgoing') as 'incoming' | 'outgoing',
+           run_id: run_id || undefined
+         };
+       });
+       setMessages(formattedMessages);
+     }
+   }, [answers, element.name]);
 
    // Add timeout to stop recording after 30 seconds
    useEffect(() => {
@@ -73,21 +103,21 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    // Auto-scroll to bottom when messages change
    useEffect(() => {
      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-   }, [messages]);
+   }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio]);
 
    const handleRecordingComplete = async (blob: Blob) => {
      try {
-       setIsTyping(true);
-       const transcribedText = await transcribeAudio(blob, userId);
-       await handleSend(transcribedText);
+       setIsUserTyping(true);
+       const { text: transcribedText, cost: transcriptionCost } = await transcribeAudio(blob, userId);
+       await handleSend(transcribedText, true, transcriptionCost);
      } catch (error) {
        console.error('Error transcribing audio:', error);
      } finally {
-       setIsTyping(false);
+       setIsUserTyping(false);
      }
    };
 
-   const handleSend = async (message: string) => {
+   const handleSend = async (message: string, wasAudioInput: boolean = false, transcriptionCost?: number) => {
      if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
        return;
      }
@@ -95,12 +125,14 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      const userMessage: ChatMessage = {
        message,
        sender: 'user',
-       direction: 'outgoing'
+       direction: 'outgoing',
+       wasAudioInput
      };
      
      setMessages(prev => [...prev, userMessage]);
      setInputMessage(''); // Clear input after sending
-     setIsTyping(true);
+     setIsUserTyping(false);
+     setIsAssistantTyping(true);
 
      try {
        const prompts: Prompt[] = [];
@@ -129,26 +161,61 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          pageIndex: currentPhaseIndex,
          userId: userId,
          requestSkip: false,
-         skipScoredRun: true
+         skipScoredRun: true,
+         transcriptionCost: transcriptionCost
        });
 
+       console.log('Response from sendPromptsUtil:', response);  // Debug log
+
        if (response.success && response.response) {
+         const shouldSynthesizeAudio = wasAudioInput && (element.enableTts || false);
+         setIsSynthesizingAudio(shouldSynthesizeAudio);
+
+         let audioData: string | null = null;
+         if (shouldSynthesizeAudio) {
+           try {
+             audioData = await synthesizeSpeech(
+               response.response,
+               element.ttsProvider || 'openai',
+               element.selectedVoiceId || 'alloy',
+               element.voiceInstructions
+             );
+           } catch (error) {
+             console.error('Error synthesizing speech:', error);
+           }
+         }
+
+         console.log('Creating AI message with run_id:', response.run_uuid);  // Debug log
+
          const aiMessage: ChatMessage = {
            message: response.response,
            sender: 'ai',
-           direction: 'incoming'
+           direction: 'incoming',
+           run_id: response.run_uuid
          };
+
+         console.log('Created AI message:', aiMessage);  // Debug log
 
          setMessages(prev => [...prev, aiMessage]);
          
+         if (audioData) {
+           await playAudio(audioData);
+         }
+         
          const chatHistory = [...messages, userMessage, aiMessage]
-           .map(msg => `${msg.sender}: ${msg.message}`);
+           .map(msg => {
+             if (msg.sender === 'ai') {
+               return `${msg.sender}: ${msg.message}${msg.run_id ? `|${msg.run_id}` : ''}`;
+             }
+             return `${msg.sender}: ${msg.message}`;
+           });
          setInputValue(element.name, chatHistory, '', 'chat');
        }
      } catch (error) {
        console.error('Error getting AI response:', error);
      } finally {
-       setIsTyping(false);
+       setIsAssistantTyping(false);
+       setIsSynthesizingAudio(false);
      }
    };
 
@@ -167,6 +234,36 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const errorMessage = getErrorMessage(element.name);
    const hasError = !!errorMessage;
    const remainingMessages = MESSAGE_LIMIT - userMessageCount;
+
+   const totalCredits = messages.reduce((sum, msg) => {
+     if (msg.sender === 'ai' && msg.run_id) {
+       console.log('[ChatQuestion] Processing message for credits', { 
+         message: msg.message, 
+         run_id: msg.run_id 
+       });
+       const run = store.currentConversation?.runs.find(r => r.id === msg.run_id);
+       console.log('[ChatQuestion] Found run', run);
+       return sum + (run?.credits || 0);
+     }
+     return sum;
+   }, 0);
+
+   console.log('[ChatQuestion] Total credits calculation', {
+     totalCredits,
+     messages: messages.map(m => ({ 
+       sender: m.sender, 
+       run_id: m.run_id,
+       message: m.message 
+     })),
+     runs: store.currentConversation?.runs.map(r => ({
+       id: r.id,
+       credits: r.credits,
+       cost: r.cost
+     }))
+   });
+
+   console.log('Current conversation:', store.currentConversation);
+   console.log('Total credits:', totalCredits);
 
    return (
      <div className={`mb-6 ${
@@ -203,29 +300,55 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                {messages.map((message, i) => (
                  <div
                    key={i}
-                   className={`flex ${message.direction === 'outgoing' ? 'justify-end' : 'justify-start'}`}
+                   className={`flex ${message.direction === 'outgoing' ? 'justify-end' : 'justify-start'} items-start gap-1`}
                  >
+                   {message.sender === 'ai' && element.avatarUrl && (
+                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
+                       <img
+                         src={element.avatarUrl}
+                         alt="Assistant avatar"
+                         className="w-full h-full object-cover"
+                       />
+                     </div>
+                   )}
                    <div
-                     className={`max-w-[80%] rounded-lg px-4 py-2 ${
+                     className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm ${
                        message.direction === 'outgoing'
-                         ? 'bg-[#5C5EF1] text-white'
-                         : 'bg-[#f0f2f5] text-gray-900'
+                         ? 'bg-[#5C5EF1] text-white rounded-tr-none'
+                         : 'bg-[#f0f2f5] text-gray-900 rounded-tl-none'
                      }`}
                    >
-                     <div className="text-xs font-medium mb-1">
-                       {message.sender === 'ai' ? 'Assistant' : 'You'}
-                     </div>
                      <div className="text-sm whitespace-pre-wrap">{message.message}</div>
                    </div>
                  </div>
                ))}
-               {isTyping && (
-                 <div className="flex justify-start">
-                   <div className="bg-[#f0f2f5] rounded-lg px-4 py-2">
+               {(isAssistantTyping || isSynthesizingAudio) && (
+                 <div className="flex justify-start items-start gap-1">
+                   {element.avatarUrl && (
+                     <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
+                       <img
+                         src={element.avatarUrl}
+                         alt="Assistant avatar"
+                         className="w-full h-full object-cover"
+                       />
+                     </div>
+                   )}
+                   <div className="bg-[#f0f2f5] rounded-2xl px-4 py-2.5 shadow-sm rounded-tl-none">
                      <div className="flex space-x-2">
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-200" />
+                     </div>
+                   </div>
+                 </div>
+               )}
+               {isUserTyping && (
+                 <div className="flex justify-end items-start gap-1">
+                   <div className="bg-[#5C5EF1] rounded-2xl px-4 py-2.5 shadow-sm rounded-tr-none">
+                     <div className="flex space-x-2">
+                       <div className="w-2 h-2 bg-white animate-bounce" />
+                       <div className="w-2 h-2 bg-white animate-bounce delay-100" />
+                       <div className="w-2 h-2 bg-white animate-bounce delay-200" />
                      </div>
                    </div>
                  </div>
@@ -284,19 +407,21 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                      </button>
                    )}
                  </div>
-                 <div className={`flex-shrink-0 ${recorder.isRecording ? '[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto' : ''}`}>
-                   <VoiceRecorder
-                     onRecordingComplete={handleRecordingComplete}
-                     recorderControls={recorder}
-                     downloadFileExtension="webm"
-                     showVisualizer={false}
-                     classes={{
-                       AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
-                       AudioRecorderPauseResumeClass: '!p-2',
-                       AudioRecorderDiscardClass: '!p-2',
-                     }}
-                   />
-                 </div>
+                 {element.enableTts && userMessageCount < MESSAGE_LIMIT && (
+                   <div className={`flex-shrink-0 ${recorder.isRecording ? '[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto' : ''}`}>
+                     <VoiceRecorder
+                       onRecordingComplete={handleRecordingComplete}
+                       recorderControls={recorder}
+                       downloadFileExtension="webm"
+                       showVisualizer={false}
+                       classes={{
+                         AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
+                         AudioRecorderPauseResumeClass: '!p-2',
+                         AudioRecorderDiscardClass: '!p-2',
+                       }}
+                     />
+                   </div>
+                 )}
                </div>
              </div>
            </div>
@@ -304,6 +429,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        ) : (
          <div className="mt-2 p-4 bg-gray-50 rounded-md border">
            <p className="text-sm text-gray-600">Chat ended. History saved.</p>
+         </div>
+       )}
+
+       {/* Add credits display outside chatbox */}
+       {(isOwner || isAdmin) && (
+         <div className="flex justify-end mt-2">
+           <span className="text-xs text-gray-400">
+             Chat Credits Used: {totalCredits}
+           </span>
          </div>
        )}
      </div>

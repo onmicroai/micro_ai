@@ -484,11 +484,28 @@ def cancel_active_schedule(subscription):
             )
 
 
-def create_free_subscription(user):
+def update_or_create_free_subscription(user):
     """
-    Creates a free subscription for a new user.
+    Creates or updates a free subscription for a user.
+    If a free subscription already exists, updates its dates instead of creating a new one.
     """
     now = timezone.now()
+    # Check for existing free subscription
+    existing_subscription = Subscription.objects.filter(
+        user=user,
+        source='internal',
+        price_id="id_free"
+    ).first()
+
+    if existing_subscription:
+        # Update the existing free subscription
+        existing_subscription.period_start = int(now.timestamp())
+        existing_subscription.period_end = int((now + timedelta(days=30)).timestamp())
+        existing_subscription.status = 'active'
+        existing_subscription.save()
+        return existing_subscription
+
+    # Create new free subscription if none exists
     subscription = Subscription.objects.create(
         user=user,
         customer=None,

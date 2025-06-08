@@ -1,12 +1,16 @@
 "use client";
 
-import { ChoiceType, FieldType } from "../types";
+import { Choice, Element } from "@/app/(authenticated)/app/types";
 import {
   GripVertical,
   Trash2,
   ChevronDown,
   ChevronUp,
   Settings,
+  Play,
+  
+  Repeat2,
+  User,
 } from "lucide-react";
 import { Input } from "./ui/input";
 import { Textarea } from "./ui/textarea";
@@ -34,6 +38,9 @@ import {
 } from "./ui/dialog";
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
+import { createImageUploader } from "@/utils/imageUpload";
+import { synthesizeSpeech } from '@/utils/textToSpeechService';
+import { Loader2 } from 'lucide-react';
 
 interface ConditionalLogic {
   sourceFieldId: string;
@@ -41,11 +48,46 @@ interface ConditionalLogic {
   value?: string | number | boolean;
 }
 
+interface VoiceOption {
+  id: string;
+  name: string;
+  description: string;
+  avatarUrl: string;
+}
+
+const VOICE_OPTIONS: VoiceOption[] = [
+   {
+      id: 'shimmer',
+      name: 'Shimmer',
+      description: 'A bright, energetic voice perfect for engaging users',
+      avatarUrl: '/img/voices/shimmer.png'
+    },   
+  {
+    id: 'ash',
+    name: 'Ash',
+    description: 'A warm, friendly voice with a natural conversational tone',
+    avatarUrl: '/img/voices/ash.png'
+  },
+
+  {
+    id: 'onyx',
+    name: 'Onyx',
+    description: 'Deep, smooth, masculine',
+    avatarUrl: '/img/voices/onyx.png'
+  },
+  {
+    id: 'nova',
+    name: 'Nova',
+    description: 'Youthful, clear, gender-neutral',
+    avatarUrl: '/img/voices/nova.png'
+  }
+];
+
 interface FieldProps {
-  field: FieldType;
+  field: Element;
   index: number;
-  phaseFields: FieldType[];
-  appFields: FieldType[];
+  phaseFields: Element[];
+  appFields: Element[];
   appId: number | null;
   onUpdateFieldLabel: (
     fieldId: string,
@@ -80,7 +122,7 @@ interface FieldProps {
     defaultValue: string | string[] | number | boolean
   ) => void;
   onUpdateFieldPlaceholder: (fieldId: string, placeholder: string) => void;
-  onUpdateFieldChoices: (fieldId: string, choices: ChoiceType[]) => void;
+  onUpdateFieldChoices: (fieldId: string, choices: Choice[]) => void;
   onUpdateFieldShowOther: (fieldId: string, showOther: boolean) => void;
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
   onUpdateFieldSliderProps: (
@@ -114,6 +156,11 @@ interface FieldProps {
     fieldId: string,
     chatbotInstructions: string
   ) => void;
+  onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
+  onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
+  onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
+  onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
+  onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
 }
 
 export default function Field({
@@ -141,9 +188,13 @@ export default function Field({
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
+  onUpdateTtsVoiceId,
+  onUpdateTtsEnabled,
+  onUpdateVoiceInstructions,
+  onUpdateAvatarUrl,
 }: FieldProps) {
   const [isValidationExpanded, setValidationExpanded] = useState(false);
-  const [choices, setChoices] = useState<ChoiceType[]>(field.choices || []);
+  const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
   const [otherCheckboxValue, setOtherCheckboxValue] = useState("");
   const [sliderMin, setSliderMin] = useState(0);
@@ -161,6 +212,19 @@ export default function Field({
     string | number | boolean
   >(field.conditionalLogic?.value || "");
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  
+  // Voice sample caching
+  const [cachedVoiceSamples, setCachedVoiceSamples] = useState<Record<string, string>>({});
+  const [isGeneratingSample, setIsGeneratingSample] = useState(false);
+
+  // Create a cache key for the current voice configuration
+  const getVoiceCacheKey = () => {
+    const sampleText = field.initialMessage || "Hello! This is a sample of my voice. I hope you like it!";
+    return `${field.selectedVoiceId || 'ash'}-${field.ttsProvider || 'openai'}-${field.voiceInstructions || ''}-${sampleText}`;
+  };
+
+  const currentCacheKey = getVoiceCacheKey();
+  const hasCachedSample = !!cachedVoiceSamples[currentCacheKey];
 
   useEffect(() => {
     if (field.conditionalLogic) {
@@ -169,6 +233,7 @@ export default function Field({
       setConditionValue(field.conditionalLogic.value || "");
     }
   }, [field.conditionalLogic]);
+
 
   const handleAddOption = () => {
     const newChoices = [
@@ -204,11 +269,11 @@ export default function Field({
     );
   };
 
-  const getOperatorsForFieldType = (fieldType: string) => {
+  const getOperatorsForElement = (Element: string) => {
     const operators = [];
 
     // Basic equality operators shared by most types
-    switch (fieldType) {
+    switch (Element) {
       case "text":
       case "textarea":
       case "radio":
@@ -222,7 +287,7 @@ export default function Field({
     }
 
     // Additional operators for text fields
-    switch (fieldType) {
+    switch (Element) {
       case "text":
       case "textarea":
       case "radio":
@@ -253,7 +318,39 @@ export default function Field({
     return !["is_empty", "is_not_empty"].includes(operator);
   };
 
+  const handleAvatarUpload = async (file: File) => {
+    if (!appId) return;
+    
+    try {
+      const imageUploader = createImageUploader(appId.toString());
+      const result = await imageUploader.uploadFile(file);
+      if (result.url && onUpdateAvatarUrl) {
+        onUpdateAvatarUrl(field.id, result.url);
+        console.log("Avatar uploaded:", result.url);
+      }
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+    }
+  };
+
   const renderField = () => {
+    // Handle prompt-related types separately
+    if (field.type === "prompt" || field.type === "aiInstructions" || field.type === "fixedResponse") {
+      return (
+        <PromptField
+          field={{
+            id: field.id,
+            name: field.name,
+            type: field.type,
+            text: field.text
+          }}
+          fields={appFields}
+          onChange={onUpdatePromptText}
+        />
+      );
+    }
+
+    // Handle all other field types
     switch (field.type) {
       case "text":
         return (
@@ -660,16 +757,6 @@ export default function Field({
             <Label htmlFor="boolean-switch">Yes/No</Label>
           </div>
         );
-      case "prompt":
-      case "aiInstructions":
-      case "fixedResponse":
-        return (
-          <PromptField
-            field={field}
-            fields={appFields}
-            onChange={onUpdatePromptText}
-          />
-        );
       case "richText":
         return (
           <RichText
@@ -762,54 +849,236 @@ export default function Field({
       case "chat":
         return (
           <div className="space-y-4">
+            {/* Avatar Upload Section */}
+            <div className="flex gap-4 items-start">
+              <div className="space-y-2 flex-shrink-0">
+                <label className="text-sm font-medium">Avatar</label>
+                <div className="relative">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleAvatarUpload(file);
+                    }}
+                    className="hidden"
+                    id={`avatar-upload-${field.id}`}
+                  />
+                  <label
+                    htmlFor={`avatar-upload-${field.id}`}
+                    className="block w-24 h-24 rounded-full overflow-hidden cursor-pointer group relative"
+                  >
+                    {field.avatarUrl ? (
+                      <>
+                        <img
+                          src={field.avatarUrl}
+                          alt="Chat avatar"
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+                          <Repeat2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                      </>
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors duration-200">
+                        <div className="text-gray-400 group-hover:text-gray-500 transition-colors duration-200">
+                          <User className="w-10 h-10" />
+                        </div>
+                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
+                          <Repeat2 className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+                        </div>
+                      </div>
+                    )}
+                  </label>
+                </div>
+              </div>
+
+              {/* Rest of chat fields */}
+              <div className="space-y-2 flex-grow">
+                <label className="text-sm font-medium">
+                  Chatbot Instructions
+                </label>
+                <textarea
+                  value={field.chatbotInstructions || ""}
+                  onChange={(e) => {
+                    if (onUpdateChatbotInstructions) {
+                      onUpdateChatbotInstructions(field.id, e.target.value);
+                    }
+                  }}
+                  className="w-full min-h-[100px] rounded-md border border-gray-300 
+                    px-3 py-2 text-gray-900 focus:border-primary 
+                    focus:ring-primary resize-y"
+                  placeholder="Enter instructions for how the chatbot should behave..."
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Initial Message</label>
+              <textarea
+                value={field.initialMessage || ''}
+                onChange={(e) => onUpdateFieldInitialMessage?.(field.id, e.target.value)}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
+                placeholder="Enter initial message..."
+              />
+            </div>
             <div className="space-y-2">
               <label className="text-sm font-medium">Max Messages</label>
               <Input
                 type="number"
                 min="1"
                 value={field.maxMessages || 10}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (onUpdateFieldMaxMessages && !isNaN(value)) {
                     onUpdateFieldMaxMessages(field.id, value);
                   }
                 }}
-                className="w-full"
               />
             </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Initial Assistant Message
-              </label>
-              <textarea
-                value={field.initialMessage || ""}
-                onChange={(e) => {
-                  if (onUpdateFieldInitialMessage) {
-                    onUpdateFieldInitialMessage(field.id, e.target.value);
-                  }
-                }}
-                className="w-full min-h-[100px] rounded-md border border-gray-300 
-                  px-3 py-2 text-gray-900 focus:border-primary 
-                  focus:ring-primary resize-y"
-                placeholder="Enter the first message the assistant should say..."
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Chatbot Instructions
-              </label>
-              <textarea
-                value={field.chatbotInstructions || ""}
-                onChange={(e) => {
-                  if (onUpdateChatbotInstructions) {
-                    onUpdateChatbotInstructions(field.id, e.target.value);
-                  }
-                }}
-                className="w-full min-h-[100px] rounded-md border border-gray-300 
-                  px-3 py-2 text-gray-900 focus:border-primary 
-                  focus:ring-primary resize-y"
-                placeholder="Enter instructions for how the chatbot should behave..."
-              />
+
+            
+            {/* TTS Configuration Section */}
+            <div className="border-t pt-4 space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch
+                  checked={field.enableTts || false}
+                  onCheckedChange={(checked) => {
+                    if (onUpdateTtsEnabled) {
+                      onUpdateTtsEnabled(field.id, checked);
+                    }
+                  }}
+                />
+                <div>
+                  <label className="text-sm font-medium">Enable Voice Conversations</label>
+                  <p className="text-xs text-gray-500 mt-1">Allow users to speak with the chatbot and hear responses out loud</p>
+                </div>
+              </div>
+              
+              {field.enableTts && (
+                <div className="space-y-4">
+                  <RadioGroup
+                    value={field.selectedVoiceId || ''}
+                    onValueChange={(value: string) => {
+                      if (onUpdateTtsVoiceId) {
+                        onUpdateTtsVoiceId(field.id, value);
+                      }
+                    }}
+                  >
+                    <div className="grid grid-cols-2 gap-4">
+                      {VOICE_OPTIONS.map((voice) => (
+                        <div
+                          key={voice.id}
+                          onClick={() => {
+                            if (onUpdateTtsVoiceId) {
+                              onUpdateTtsVoiceId(field.id, voice.id);
+                            }
+                          }}
+                          className={`relative border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
+                            field.selectedVoiceId === voice.id
+                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="flex items-start space-x-3">
+                            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
+                              <img
+                                src={voice.avatarUrl}
+                                alt={voice.name}
+                                className="w-10 h-10 rounded-full object-cover"
+                              />
+                            </div>
+                            <div className="flex-1">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-medium">{voice.name}</h4>
+                                <RadioGroupItem
+                                  value={voice.id}
+                                  id={`voice-${voice.id}`}
+                                  className="ml-2 pointer-events-none"
+                                />
+                              </div>
+                              <p className="text-sm text-gray-500 mt-1">{voice.description}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </RadioGroup>
+
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium">Voice Instructions</label>
+                    <p className="text-xs text-gray-500">
+                      Add specific instructions for how the voice should sound (e.g., "Speak with enthusiasm" or "Use a calm, soothing tone")
+                    </p>
+                    <Textarea
+                      value={field.voiceInstructions || ''}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
+                        if (onUpdateVoiceInstructions) {
+                          onUpdateVoiceInstructions(field.id, e.target.value);
+                        }
+                      }}
+                      placeholder="Enter voice instructions..."
+                      className="min-h-[100px]"
+                    />
+                  </div>
+
+                  <div className="flex justify-end">
+                    <Button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          if (hasCachedSample && !isGeneratingSample) {
+                            // Play cached sample
+                            const audio = new Audio(cachedVoiceSamples[currentCacheKey]);
+                            audio.play();
+                          } else {
+                            // Generate new sample
+                            setIsGeneratingSample(true);
+                            const sampleText = field.initialMessage || "Hello! This is a sample of my voice. I hope you like it!";
+                            const audioUrl = await synthesizeSpeech(
+                              sampleText,
+                              'openai',
+                              field.selectedVoiceId || 'ash',
+                              field.voiceInstructions
+                            );
+                            
+                            // Cache the sample
+                            setCachedVoiceSamples(prev => ({
+                              ...prev,
+                              [currentCacheKey]: audioUrl
+                            }));
+                            
+                            // Play the sample
+                            const audio = new Audio(audioUrl);
+                            audio.play();
+                          }
+                        } catch (error) {
+                          console.error('Error playing voice sample:', error);
+                        } finally {
+                          setIsGeneratingSample(false);
+                        }
+                      }}
+                      disabled={!field.selectedVoiceId || isGeneratingSample}
+                      className="flex items-center space-x-2"
+                    >
+                      {isGeneratingSample ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                      <span>
+                        {isGeneratingSample 
+                          ? "Generating..." 
+                          : hasCachedSample 
+                            ? "Play Sample" 
+                            : "Generate Sample"
+                        }
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -1109,7 +1378,7 @@ export default function Field({
                             <SelectValue placeholder="Select condition" />
                           </SelectTrigger>
                           <SelectContent>
-                            {getOperatorsForFieldType(
+                            {getOperatorsForElement(
                               phaseFields.find((f) => f.id === selectedSourceField)
                                 ?.type || ""
                             ).map((op) => (
