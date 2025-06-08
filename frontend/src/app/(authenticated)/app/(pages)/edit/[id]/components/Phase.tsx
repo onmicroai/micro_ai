@@ -41,7 +41,6 @@ interface PhaseProps {
   onUpdateChatbotInstructions: (fieldId: string, instructions: string) => void;
   onUpdateTtsProvider: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId: (fieldId: string, voiceId: string) => void;
-  onUpdateCustomVoiceId: (fieldId: string, voiceId: string) => void;
   onUpdateTtsEnabled: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl: (fieldId: string, avatarUrl: string) => void;
@@ -73,7 +72,6 @@ export default function Phase({
   onUpdateChatbotInstructions,
   onUpdateTtsProvider,
   onUpdateTtsVoiceId,
-  onUpdateCustomVoiceId,
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
@@ -120,7 +118,6 @@ export default function Phase({
         onUpdateChatbotInstructions={onUpdateChatbotInstructions}
         onUpdateTtsProvider={onUpdateTtsProvider}
         onUpdateTtsVoiceId={onUpdateTtsVoiceId}
-        onUpdateCustomVoiceId={onUpdateCustomVoiceId}
         onUpdateTtsEnabled={onUpdateTtsEnabled}
         onUpdateVoiceInstructions={onUpdateVoiceInstructions}
         onUpdateAvatarUrl={onUpdateAvatarUrl}
@@ -232,7 +229,6 @@ export default function Phase({
                   onUpdateChatbotInstructions={onUpdateChatbotInstructions}
                   onUpdateTtsProvider={onUpdateTtsProvider}
                   onUpdateTtsVoiceId={onUpdateTtsVoiceId}
-                  onUpdateCustomVoiceId={onUpdateCustomVoiceId}
                   onUpdateTtsEnabled={onUpdateTtsEnabled}
                   onUpdateVoiceInstructions={onUpdateVoiceInstructions}
                 />

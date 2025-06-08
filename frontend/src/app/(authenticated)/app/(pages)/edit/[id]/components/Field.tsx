@@ -8,7 +8,7 @@ import {
   ChevronUp,
   Settings,
   Play,
-  Pause,
+  
   Repeat2,
   User,
 } from "lucide-react";
@@ -38,7 +38,6 @@ import {
 } from "./ui/dialog";
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
-import { VoicePreview } from '@/utils/textToSpeechService';
 import { createImageUploader } from "@/utils/imageUpload";
 import { synthesizeSpeech } from '@/utils/textToSpeechService';
 import { Loader2 } from 'lucide-react';
@@ -193,8 +192,6 @@ export default function Field({
   onUpdateTtsVoiceId,
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
-  onUpdateCustomVoiceId,
-  onUpdateTtsProvider,
   onUpdateAvatarUrl,
 }: FieldProps) {
   const [isValidationExpanded, setValidationExpanded] = useState(false);

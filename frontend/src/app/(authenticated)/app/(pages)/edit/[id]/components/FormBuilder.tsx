@@ -1557,9 +1557,6 @@ export default function FormBuilder() {
                     onUpdateTtsVoiceId={(fieldId, voiceId) =>
                       updateTtsVoiceId(phase.id, fieldId, voiceId)
                     }
-                    onUpdateCustomVoiceId={(fieldId, voiceId) =>
-                      updateCustomVoiceId(phase.id, fieldId, voiceId)
-                    }
                     onUpdateTtsEnabled={(fieldId, enabled) =>
                       updateTtsEnabled(phase.id, fieldId, enabled)
                     }
