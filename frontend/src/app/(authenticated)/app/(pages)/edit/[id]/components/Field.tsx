@@ -160,7 +160,6 @@ interface FieldProps {
   onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
-  onUpdateCustomVoiceId?: (fieldId: string, voiceId: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
 }
 
