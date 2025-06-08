@@ -1009,7 +1009,7 @@ export default function Field({
                   <div className="space-y-2">
                     <label className="text-sm font-medium">Voice Instructions</label>
                     <p className="text-xs text-gray-500">
-                      Add specific instructions for how the voice should sound (e.g., "Speak with enthusiasm" or "Use a calm, soothing tone")
+                      Add specific instructions for how the voice should sound (e.g., &quot;Speak with enthusiasm&quot; or &quot;Use a calm, soothing tone&quot;)
                     </p>
                     <Textarea
                       value={field.voiceInstructions || ''}
