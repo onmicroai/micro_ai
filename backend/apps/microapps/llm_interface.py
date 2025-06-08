@@ -6,6 +6,8 @@ from apps.utils.global_variables import UsageVariables, AIModelConstants
 import re
 import tempfile
 import os
+from pathlib import Path
+from litellm import speech
 
 log = logging.getLogger(__name__)
 
@@ -27,9 +29,8 @@ class UnifiedLLMInterface:
                 - stream: Whether to stream the response
         """
         self.model_config = model_config
-        # Find the model key name from the full path
-        self.model_name = next((key for key, config in AIModelConstants.AI_MODELS.items() 
-                              if config.get("model") == model_config.get("model")), model_config.get("model"))
+        self.model_name = model_config.get('model', '')
+        self.model_family = AIModelConstants.get_model_family(self.model_name)
         
         # Set the API key for the model provider
         litellm.api_key = model_config.get("api_key")
@@ -295,3 +296,42 @@ class UnifiedLLMInterface:
                     os.unlink(temp_file.name)
                 except Exception as e:
                     log.error(f"Error cleaning up temporary file: {str(e)}")
+
+    def text_to_speech(self, text: str, voice: str = 'alloy', instructions: Optional[str] = None) -> bytes:
+        """
+        Convert text to speech using OpenAI's TTS model
+        
+        Args:
+            text (str): The text to convert to speech
+            voice (str): The voice to use (default: 'alloy')
+            instructions (Optional[str]): Optional voice instructions
+            
+        Returns:
+            bytes: The audio data in MP3 format
+        """
+        try:
+            # Get model config
+            model_config = AIModelConstants.get_configs('gpt-4o-mini-tts')
+            
+            # Set API key from config
+            os.environ["OPENAI_API_KEY"] = model_config.get('api_key', '')
+            
+            # Make the TTS request
+            response = speech(
+                model="openai/gpt-4o-mini-tts",
+                voice=voice,
+                input=text,
+                instructions=instructions
+            )
+            
+            # Get the audio data
+            print("RESPONSE", response)
+            print("HIDDEN PARAMS", response._hidden_params)
+
+            audio_data = response.content
+            
+            return audio_data
+            
+        except Exception as e:
+            log.error(f"Error in text_to_speech: {str(e)}")
+            raise e

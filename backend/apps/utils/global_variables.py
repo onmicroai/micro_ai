@@ -44,6 +44,11 @@ class AIModelFamilyDefaults:
         "api_key": env("OPENAI_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
+
+    OPENAI_TTS = {
+        "family": "openai",
+        "api_key": env("OPENAI_TTS_API_KEY")
+    }
     
     ANTHROPIC = {
         "family": "anthropic",
@@ -80,6 +85,12 @@ class AIModelConstants:
             "model": "openai/gpt-4o-mini",
             "supports_image": True,
             "plans": ["free", "individual", "enterprise"]
+        },
+        "gpt-4o-mini-tts": {
+            **AIModelFamilyDefaults.OPENAI_TTS,
+            "model": "openai/gpt-4o-mini-tts",
+            "supports_image": False,
+            "plans": ["tts"]
         },
         "gpt-4o": {
             **AIModelFamilyDefaults.OPENAI,

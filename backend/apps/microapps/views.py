@@ -50,6 +50,8 @@ from django.conf import settings
 import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
+import requests
+from django.http import HttpResponse
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -1904,3 +1906,58 @@ class AnonymousAudioTranscription(AudioTranscription):
             )
         except Exception as e:
             return handle_exception(e)
+
+@extend_schema_view(
+    post=extend_schema(
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'text': {'type': 'string', 'description': 'Text to convert to speech'},
+                    'provider': {'type': 'string', 'description': 'TTS provider (e.g., openai, elevenlabs, hume)'},
+                    'voice': {'type': 'string', 'description': 'Voice ID to use'},
+                    'instructions': {'type': 'string', 'description': 'Optional voice instructions'}
+                }
+            }
+        },
+        responses={200: None},
+        summary="Convert text to speech using specified provider"
+    )
+)
+class TextToSpeech(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, format=None):
+        try:
+            text = request.data.get('text')
+            provider = request.data.get('provider', 'openai')
+            voice = request.data.get('voice', 'alloy')
+            instructions = request.data.get('instructions')
+
+            if not text:
+                return Response(
+                    {'error': 'Text is required'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Initialize LLM interface with appropriate model config
+            # TODO: Remove this once we support more TTS providers
+            model_name = f"non-openai-tts-not-setup-yet" if provider != 'openai' else 'gpt-4o-mini-tts'
+            model_config = AIModelConstants.get_configs(model_name)
+            llm_interface = UnifiedLLMInterface(model_config)
+
+            # Get audio data
+            audio_data = llm_interface.text_to_speech(text, voice, instructions)
+
+            # Return the audio data
+            return HttpResponse(
+                audio_data,
+                content_type='audio/mpeg'
+            )
+
+        except Exception as e:
+            log.error(f"Error in Text to Speech: {str(e)}")
+            return Response(
+                {'error': 'Internal server error'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

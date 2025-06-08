@@ -176,8 +176,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
            try {
              audioData = await synthesizeSpeech(
                response.response,
-               element.ttsProvider || 'elevenlabs',
-               element.selectedVoiceId === 'custom' ? element.customVoiceId! : element.selectedVoiceId!
+               element.ttsProvider || 'openai',
+               element.selectedVoiceId || 'alloy',
+               element.voiceInstructions
              );
            } catch (error) {
              console.error('Error synthesizing speech:', error);

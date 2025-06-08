@@ -255,7 +255,7 @@ export default function FormBuilder() {
           maxMessages: 10,
           initialMessage: 'Hello! How can I help you today?',
           enableTts: false,
-          ttsProvider: 'elevenlabs',
+          ttsProvider: 'openai',
           selectedVoiceId: '',
           voiceInstructions: '',
           avatarUrl: '',
@@ -954,7 +954,7 @@ export default function FormBuilder() {
    * 
    * @param phaseId - The ID of the phase containing the chat field
    * @param fieldId - The ID of the chat field to update
-   * @param provider - The TTS provider to use (currently 'elevenlabs')
+   * @param provider - The TTS provider to use (currently 'openai')
    * 
    * This method allows form creators to choose between different TTS providers
    * for audio synthesis in chat interactions, enabling customization of voice
@@ -975,14 +975,14 @@ export default function FormBuilder() {
   };
 
   /**
-   * Updates the selected voice ID for ElevenLabs TTS in a specific chat field.
+   * Updates the selected voice ID for TTS in a specific chat field.
    * 
    * @param phaseId - The ID of the phase containing the chat field
    * @param fieldId - The ID of the chat field to update
-   * @param voiceId - The ElevenLabs voice ID to use for audio synthesis
+   * @param voiceId - The voice ID to use for audio synthesis
    * 
    * This method enables form creators to select specific voices when using
-   * ElevenLabs as the TTS provider, allowing for customization of the audio
+   * a TTS provider that has voice options, allowing for customization of the audio
    * characteristics and personality of the chatbot's spoken responses.
    */
   const updateTtsVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
@@ -994,53 +994,10 @@ export default function FormBuilder() {
             field.id === fieldId ? { 
               ...field, 
               selectedVoiceId: voiceId,
-              ttsProvider: voiceId === 'custom' ? 'hume' : 'elevenlabs'  // Set both values in one update
+              ttsProvider: 'openai' //TODO: Support other TTS providers
             } : field
           )
         };
-      }
-      return phase;
-    }));
-  };
-
-  /**
-   * Updates the custom voice ID for generated custom voices in a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param voiceId - The generated custom voice ID to use for audio synthesis
-   * 
-   * This method stores the ID of the generated custom voice when using the
-   * "Design your own Voice" option, allowing the system to use the correct
-   * voice ID for audio synthesis while maintaining the 'custom' selection state.
-   */
-  const updateCustomVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
-    console.log("Updating custom voice ID:", { phaseId, fieldId, voiceId });
-    console.log("VoiceId type:", typeof voiceId);
-    console.log("VoiceId length:", voiceId.length);
-    console.log("Current phases:", phases);
-    
-    if (typeof voiceId !== 'string') {
-      console.error("Invalid voiceId type:", typeof voiceId);
-      return;
-    }
-    
-    setPhases(phases.map((phase: PhaseType) => {
-      console.log("Checking phase:", { phaseId: phase.id, hasField: phase.elements.some(e => e.id === fieldId) });
-      if (phase.id === phaseId) {
-        const updatedPhase = {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { 
-              ...field, 
-              customVoiceId: voiceId,
-              ttsProvider: 'hume'  // Set both values in one update
-            } : field
-          )
-        };
-        console.log("Updated phase:", updatedPhase);
-        console.log("Updated field:", updatedPhase.elements.find(e => e.id === fieldId));
-        return updatedPhase;
       }
       return phase;
     }));

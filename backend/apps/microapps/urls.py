@@ -29,4 +29,5 @@ urlpatterns = [
     path('<int:pk>/upload-file/', views.MicroAppFileUpload.as_view(), name='microapp-upload-file'),
     path('transcribe/', views.AudioTranscription.as_view(), name='audio-transcription'),
     path('transcribe/anonymous/', views.AnonymousAudioTranscription.as_view(), name='anonymous-audio-transcription'),
+    path('tts/', views.TextToSpeech.as_view(), name='text-to-speech'),
 ]
