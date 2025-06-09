@@ -98,8 +98,6 @@ export default function FormBuilder() {
     try {
       setIsUploading(true);
       const result = await fileUploader.uploadFile(file);
-
-      console.log('File upload result:', result);
       
       // Extract filename from original_file path
       const original_filename = result.original_file?.split('/').pop();
@@ -188,15 +186,6 @@ export default function FormBuilder() {
       setUploadedFiles([]);
     }
   }, [attachedFiles]);
-
-  // Add initial render debug log
-  useEffect(() => {
-    console.log('FormBuilder initial render:', {
-      attachedFiles,
-      uploadedFiles,
-      appId
-    });
-  }, []);
 
   // Load collections on mount
   useEffect(() => {
@@ -1081,8 +1070,7 @@ export default function FormBuilder() {
 
   const updateFileDescription = (index: number, description: string) => {
     const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-    console.log('Updating description:', { index, description: truncatedDescription });
-    
+
     setUploadedFiles(prev => prev.map((file, i) => 
       i === index ? { ...file, description: truncatedDescription } : file
     ));
@@ -1090,17 +1078,11 @@ export default function FormBuilder() {
     // Update description in store
     const file = uploadedFiles[index];
     if (file) {
-      console.log('File to update:', file);
       const updatedFiles = attachedFiles.map(attachedFile => {
-        console.log('Comparing:', {
-          attached: attachedFile.original_filename,
-          current: file.original_filename
-        });
         return attachedFile.original_filename === file.original_filename
           ? { ...attachedFile, description: truncatedDescription }
           : attachedFile;
       });
-      console.log('Updated files:', updatedFiles);
       setAttachedFiles(updatedFiles);
     }
   };

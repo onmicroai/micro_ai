@@ -326,7 +326,6 @@ export default function Field({
       const result = await imageUploader.uploadFile(file);
       if (result.url && onUpdateAvatarUrl) {
         onUpdateAvatarUrl(field.id, result.url);
-        console.log("Avatar uploaded:", result.url);
       }
     } catch (error) {
       console.error('Error uploading avatar:', error);

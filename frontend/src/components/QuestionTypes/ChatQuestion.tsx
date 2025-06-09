@@ -163,9 +163,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          requestSkip: false,
          skipScoredRun: true,
          transcriptionCost: transcriptionCost
-       });
-
-       console.log('Response from sendPromptsUtil:', response);  // Debug log
+       });// Debug log
 
        if (response.success && response.response) {
          const shouldSynthesizeAudio = wasAudioInput && (element.enableTts || false);
@@ -185,16 +183,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
            }
          }
 
-         console.log('Creating AI message with run_id:', response.run_uuid);  // Debug log
-
          const aiMessage: ChatMessage = {
            message: response.response,
            sender: 'ai',
            direction: 'incoming',
            run_id: response.run_uuid
          };
-
-         console.log('Created AI message:', aiMessage);  // Debug log
 
          setMessages(prev => [...prev, aiMessage]);
          
@@ -237,33 +231,11 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
    const totalCredits = messages.reduce((sum, msg) => {
      if (msg.sender === 'ai' && msg.run_id) {
-       console.log('[ChatQuestion] Processing message for credits', { 
-         message: msg.message, 
-         run_id: msg.run_id 
-       });
        const run = store.currentConversation?.runs.find(r => r.id === msg.run_id);
-       console.log('[ChatQuestion] Found run', run);
        return sum + (run?.credits || 0);
      }
      return sum;
    }, 0);
-
-   console.log('[ChatQuestion] Total credits calculation', {
-     totalCredits,
-     messages: messages.map(m => ({ 
-       sender: m.sender, 
-       run_id: m.run_id,
-       message: m.message 
-     })),
-     runs: store.currentConversation?.runs.map(r => ({
-       id: r.id,
-       credits: r.credits,
-       cost: r.cost
-     }))
-   });
-
-   console.log('Current conversation:', store.currentConversation);
-   console.log('Total credits:', totalCredits);
 
    return (
      <div className={`mb-6 ${
