@@ -6,7 +6,7 @@ import evaluateVisibility from "@/utils/evaluateVisibility";
 import { sendPromptsUtil } from "@/utils/sendPrompts";
 import { LiveAudioVisualizer } from 'react-audio-visualize';
 import { AudioRecorder as VoiceRecorder, useAudioRecorder } from 'react-audio-voice-recorder';
-import { Send } from 'lucide-react';
+import { Send, Play } from 'lucide-react';
 import { transcribeAudio } from '@/utils/audioTranscriptionService';
 import { synthesizeSpeech, playAudio } from '@/utils/textToSpeechService';
 import { useConversationStore } from '@/store/conversationStore';
@@ -59,6 +59,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+   const [hasPlayedMessage, setHasPlayedMessage] = useState(false);
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
    const store = useConversationStore();
@@ -237,6 +238,32 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      return sum;
    }, 0);
 
+   const handlePlayMessage = async () => {
+     if (!element.enableTts) return;
+     
+     try {
+       setIsSynthesizingAudio(true);
+       // Find the most recent AI message
+       const lastAiMessage = [...messages].reverse().find(msg => msg.sender === 'ai');
+       if (!lastAiMessage) return;
+
+       const audioUrl = await synthesizeSpeech(
+         lastAiMessage.message,
+         element.ttsProvider || 'openai',
+         element.selectedVoiceId || 'alloy',
+         element.voiceInstructions
+       );
+       
+       const audio = new Audio(audioUrl);
+       await audio.play();
+       setHasPlayedMessage(true);
+     } catch (error) {
+       console.error('Error playing message:', error);
+     } finally {
+       setIsSynthesizingAudio(false);
+     }
+   };
+
    return (
      <div className={`mb-6 ${
        evaluateVisibility(element.conditionalLogic || {} as ConditionalLogic, answers)
@@ -381,17 +408,27 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                  </div>
                  {element.enableTts && userMessageCount < MESSAGE_LIMIT && (
                    <div className={`flex-shrink-0 ${recorder.isRecording ? '[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto' : ''}`}>
-                     <VoiceRecorder
-                       onRecordingComplete={handleRecordingComplete}
-                       recorderControls={recorder}
-                       downloadFileExtension="webm"
-                       showVisualizer={false}
-                       classes={{
-                         AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
-                         AudioRecorderPauseResumeClass: '!p-2',
-                         AudioRecorderDiscardClass: '!p-2',
-                       }}
-                     />
+                     {!hasPlayedMessage ? (
+                       <button
+                         onClick={handlePlayMessage}
+                         disabled={isSynthesizingAudio}
+                         className="p-2 text-[#5C5EF1] hover:bg-gray-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
+                       >
+                         <Play className="w-5 h-5" />
+                       </button>
+                     ) : (
+                       <VoiceRecorder
+                         onRecordingComplete={handleRecordingComplete}
+                         recorderControls={recorder}
+                         downloadFileExtension="webm"
+                         showVisualizer={false}
+                         classes={{
+                           AudioRecorderClass: '!p-0 !bg-transparent !shadow-none hover:!bg-gray-100',
+                           AudioRecorderPauseResumeClass: '!p-2',
+                           AudioRecorderDiscardClass: '!p-2',
+                         }}
+                       />
+                     )}
                    </div>
                  )}
                </div>
