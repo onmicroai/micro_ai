@@ -10,6 +10,8 @@ static_root/
 node_modules/
 openapitools.json
 media/
+apps/lti/private.key
+apps/lti/public.key
 docs/_build
 _dist/
 .env
