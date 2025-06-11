@@ -251,7 +251,7 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, altText, onAltTextChange, onI
                         Image uploaded successfully!
                       </p>
                       <p className="text-sm text-green-700">
-                        Add alt text below and click "Save Image" to insert.
+                        Add alt text below and click &quot;Save Image&quot; to insert.
                       </p>
                     </div>
                   </div>
