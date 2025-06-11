@@ -188,12 +188,22 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         let accessToken = getCookieAccessToken();
 
-        //Checking app page is public or page can work without access token
-        if (!accessToken || isPublic) {
+        // If route is public, skip auth handling entirely
+        if (isPublic) {
           return config;
         }
 
-        // Normal token handling for non-public or unknown pages
+        /*
+         * If there is no access token in the JS-readable cookie **but** a refresh_token
+         * cookie exists (HttpOnly, so we cannot read it) we still want to try a silent
+         * refresh.  We achieve this by calling getAccessToken(); if the refresh cookie is
+         * absent or expired the call will throw and forceLogout will be triggered later.
+         */
+        if (!accessToken) {
+          accessToken = await getAccessToken();
+        }
+
+        // Normal token expiry check
         const expirationTime = getAccessTokenExpiration();
 
         if (isTokenExpired(expirationTime)) {
@@ -202,9 +212,10 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         if (accessToken) {
           config.headers.Authorization = `Bearer ${accessToken}`;
-          config.withCredentials = true;
+          config.withCredentials = true; // ensure refresh cookie is sent
         } else {
-          config.withCredentials = false;
+          // still send cookies so that refresh attempts in other interceptors can work
+          config.withCredentials = true;
         }
 
         return config;
@@ -242,9 +253,14 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
             try {
               let accessToken = getCookieAccessToken();
 
+              // If we lost the access token cookie, attempt to refresh before logging out
               if (!accessToken) {
-                forceLogout(error, isPublic);
-                return Promise.reject(error);
+                try {
+                  accessToken = await getAccessToken();
+                } catch (e) {
+                  forceLogout(error, isPublic);
+                  return Promise.reject(error);
+                }
               }
 
               // Normal token handling for non-public or unknown pages
