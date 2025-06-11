@@ -27,7 +27,8 @@ const SurveyDisplay = ({ params }: PageParams) => {
    const searchParams = useSearchParams();
    const launchId = searchParams.get('lid');
    const [showThankYouMessage, setShowThankYouMessage] = useState(false);
-   const [showRemixBanner, setShowRemixBanner] = useState(true);
+   const [showRemixBanner, setShowRemixBanner] = useState(false);
+   const [bannerDismissed, setBannerDismissed] = useState(false);
    const { user } = useUserStore();
    const { isAuthenticated } = useAuth();
    const userId = user?.id ?? null;
@@ -58,6 +59,7 @@ const SurveyDisplay = ({ params }: PageParams) => {
       isOwner: false,
       isAdmin: false
    });
+   const [rolesLoaded, setRolesLoaded] = useState(false);
 
    // Use ref instead of state to track previous values without triggering re-renders
    useEffect(() => {
@@ -166,23 +168,59 @@ const SurveyDisplay = ({ params }: PageParams) => {
       const signal = abortController.signal;
 
       const checkRoles = async () => {
-         if (isAuthenticated && hashId) {
-            try {
-               const roleResult = await checkRole(hashId, userId, signal);
-               setRoles({
-                  isOwner: roleResult.roles.includes('owner'),
-                  isAdmin: roleResult.roles.includes('admin')
-               });
-            } catch (error) {
-               console.error("Error checking roles:", error);
-            }
+         if (!isAuthenticated || !hashId) {
+            return;
+         }
+
+         try {
+           const roleResult = await checkRole(hashId, userId, signal);
+           if (!roleResult.error) {
+             const lowerRoles = roleResult.roles.map((r: string) => r.toLowerCase());
+             setRoles({
+                isOwner: lowerRoles.includes('owner'),
+                isAdmin: lowerRoles.includes('admin')
+             });
+             setRolesLoaded(true);
+           } else {
+             console.warn('Role check returned error; banner suppressed until retry');
+           }
+         } catch (error) {
+           console.error("Error checking roles:", error);
          }
       };
-      
+
       checkRoles();
 
       return () => abortController.abort();
    }, [userId, hashId, isAuthenticated]);
+
+   /* ------------------------------------------------------------------
+    * Decide when the Remix ("Like this app?") banner should be visible.
+    * ------------------------------------------------------------------
+    * Rules:
+    *  1. Unauthenticated visitors → show banner.
+    *  2. Authenticated visitors → show banner only if NOT owner/admin.
+    *  3. If the banner has been manually dismissed this session, keep it
+    *     hidden for the rest of the page-view.
+    *  4. The banner starts hidden (useState(false)).
+    * ------------------------------------------------------------------
+    */
+   useEffect(() => {
+      // Do nothing if the user has already dismissed it.
+      if (bannerDismissed) return;
+
+      // Show for guests immediately.
+      if (!isAuthenticated) {
+         setShowRemixBanner(true);
+         return;
+      }
+
+      // For authenticated users, wait until role check completes.
+      if (rolesLoaded) {
+         const shouldShow = !roles.isOwner && !roles.isAdmin;
+         setShowRemixBanner(shouldShow);
+      }
+   }, [isAuthenticated, rolesLoaded, roles.isOwner, roles.isAdmin, bannerDismissed]);
 
    return (
       <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
@@ -271,9 +309,13 @@ const SurveyDisplay = ({ params }: PageParams) => {
 
          </div>
          </div>
-         {!roles.isOwner && !roles.isAdmin && showRemixBanner && appId && (
+         {/* Remix banner – displayed according to the rules in the effect above */}
+         {!bannerDismissed && showRemixBanner && appId && (
             <RemixBanner 
-               onDismiss={() => setShowRemixBanner(false)}
+               onDismiss={() => {
+                  setBannerDismissed(true);
+                  setShowRemixBanner(false);
+               }}
                appId={appId}
                copyAllowed={!!surveyJson?.copyAllowed}
             />
