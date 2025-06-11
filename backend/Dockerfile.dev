@@ -10,8 +10,15 @@ RUN \
   apt-get update && \
   apt-get install -yqq nodejs
 
-# install gettext for translations
-RUN apt-get -yqq install gettext
+# install Tesseract OCR and other dependencies
+RUN apt-get update \
+  && apt-get install -y \
+  curl \
+  libpq-dev \
+  gettext \
+  tesseract-ocr \
+  && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
+  && rm -rf /var/lib/apt/lists/*
 
 # create code directory
 RUN mkdir /code

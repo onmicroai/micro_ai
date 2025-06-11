@@ -38,6 +38,7 @@ RUN apt-get update \
   curl \
   libpq-dev \
   gettext \
+  tesseract-ocr \
   && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
   && rm -rf /var/lib/apt/lists/*
 
