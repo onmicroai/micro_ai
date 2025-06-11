@@ -1199,7 +1199,7 @@ class AIModelConfigurations(APIView):
             return handle_exception(e)
 
 @extend_schema_view(
-    get=extend_schema(responses={200: MicroAppSerializer}, summary="Get microapp by hash_id"),
+    get=extend_schema(responses={200: MicroAppSerializer(many=True)}, summary="Get microapp by hash_id"),
 )
 class MicroAppDetailsByHash(APIView):
     permission_classes = [IsAuthenticated]
@@ -1961,3 +1961,76 @@ class TextToSpeech(APIView):
                 {'error': 'Internal server error'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
+
+# ---------------------------------------------
+#  New: ParseFile – extract text from an uploaded file
+# ---------------------------------------------
+
+
+@extend_schema_view(
+    post=extend_schema(
+        request=FileUploadSerializer,
+        responses={200: dict},
+        summary="Parse an uploaded file and return its plain-text content (max 20 000 chars)"
+    )
+)
+class ParseFile(APIView):
+    """Return raw text from an uploaded document without persisting it anywhere."""
+
+    permission_classes = [IsAuthenticated]
+
+    MAX_CHARS = 20_000
+
+    def post(self, request, format=None):
+        # Validate basic fields using the existing serializer
+        serializer = FileUploadSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
+
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Write the upload to a temp file so our DocumentProcessor can read it
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(filename)[1]) as temp_file:
+                for chunk in uploaded_file.chunks():
+                    temp_file.write(chunk)
+                temp_file.flush()
+
+                try:
+                    processor = DocumentProcessor()
+                    parsed_content = processor.extract_text(temp_file.name)
+
+                    # Enforce 20 000-character cap
+                    if len(parsed_content) > self.MAX_CHARS:
+                        return Response(
+                            {
+                                "error": f"Parsed content exceeds {self.MAX_CHARS:,} character limit.",
+                                "status": status.HTTP_400_BAD_REQUEST,
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+
+                    # Basic word count (re-using helper logic)
+                    word_count = len(parsed_content.split())
+
+                    return Response(
+                        {
+                            "data": {
+                                "text": parsed_content,
+                                "word_count": word_count,
+                                "filename": filename,
+                            }
+                        },
+                        status=status.HTTP_200_OK,
+                    )
+
+                finally:
+                    # Always clean up the temp file
+                    os.unlink(temp_file.name)
+
+        except Exception as e:
+            return handle_exception(e)
