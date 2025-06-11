@@ -138,6 +138,14 @@ interface ImageDialogProps {
    */
   onImageUrlChange: (url: string) => void;
   /**
+   * Current alt text value
+   */
+  altText: string;
+  /**
+   * Handler for alt text changes
+   */
+  onAltTextChange: (altText: string) => void;
+  /**
    * Handler for image URL submission
    */
   onImageUrlSubmit: () => void;
@@ -146,6 +154,10 @@ interface ImageDialogProps {
    */
   onImageUpload: (file: File) => void;
   /**
+   * Handler for saving the image with alt text
+   */
+  onSaveImage: () => void;
+  /**
    * Handler to close the dialog
    */
   onClose: () => void;
@@ -153,12 +165,20 @@ interface ImageDialogProps {
    * Loading state for upload
    */
   isUploading: boolean;
+  /**
+   * Whether an image has been uploaded and is ready to save
+   */
+  hasUploadedImage: boolean;
+  /**
+   * Whether we're editing an existing image
+   */
+  isEditing: boolean;
 }
 
 /**
  * Component for inserting images into the rich text editor
  */
-const ImageDialog = ({ imageUrl, onImageUrlChange, onImageUrlSubmit, onImageUpload, onClose, isUploading }: ImageDialogProps) => {
+const ImageDialog = ({ imageUrl, onImageUrlChange, altText, onAltTextChange, onImageUrlSubmit, onImageUpload, onSaveImage, onClose, isUploading, hasUploadedImage, isEditing }: ImageDialogProps) => {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
       if (acceptedFiles?.[0]) {
@@ -170,7 +190,7 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, onImageUrlSubmit, onImageUplo
     },
     maxSize: MAX_FILE_SIZE,
     multiple: false,
-    disabled: isUploading
+    disabled: isUploading || hasUploadedImage
   });
 
   return (
@@ -187,7 +207,9 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, onImageUrlSubmit, onImageUplo
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg/6 font-medium text-gray-900">Insert Image</h3>
+          <h3 className="text-lg/6 font-medium text-gray-900">
+            {isEditing ? 'Edit Image' : 'Insert Image'}
+          </h3>
           <button
             onClick={onClose}
             className="p-1 hover:bg-gray-100 rounded transition-colors"
@@ -197,64 +219,108 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, onImageUrlSubmit, onImageUplo
         </div>
         
         <div className="space-y-6">
-          <div>
-            <label className="block text-sm/6 font-medium text-gray-900 mb-1">
-              Image URL
-            </label>
-            <input
-              type="text"
-              value={imageUrl}
-              onChange={(e) => onImageUrlChange(e.target.value)}
-              placeholder="https://example.com/image.jpg"
-              className="block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6 
-                placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600
-                transition duration-150 ease-in-out"
-            />
-            <button
-              onClick={onImageUrlSubmit}
-              disabled={!imageUrl}
-              className="mt-2 w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 
-                focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 
-                disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Add Image from URL
-            </button>
-          </div>
+          {!hasUploadedImage && (
+            <div>
+              <label className="block text-sm/6 font-medium text-gray-900 mb-1">
+                Image URL
+              </label>
+              <input
+                type="text"
+                value={imageUrl}
+                onChange={(e) => onImageUrlChange(e.target.value)}
+                placeholder="https://example.com/image.jpg"
+                className="block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6 
+                  placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600
+                  transition duration-150 ease-in-out"
+              />
+            </div>
+          )}
           
-          <div className="border-t border-gray-200 pt-6">
-            <label className="block text-sm/6 font-medium text-gray-900 mb-1">
-              Upload Image
-            </label>
-            <div
-              {...getRootProps()}
-              className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md relative cursor-pointer
-                ${isDragActive ? 'border-primary-400 bg-primary-50' : isUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-600'}
-                ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
-                transition-colors duration-150 ease-in-out`}
-            >
-              <input {...getInputProps()} />
-              <div className="space-y-1 text-center">
-                <ImageIcon className={`mx-auto h-12 w-12 ${isDragActive || isUploading ? 'text-primary-400' : 'text-gray-400'}`} />
-                <div className="flex text-sm text-gray-600">
-                  <span className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-700">
-                    {isDragActive ? "Drop the image here" : "Upload a file"}
-                  </span>
-                  {!isDragActive && <p className="pl-1">or drag and drop</p>}
-                </div>
-                <p className="text-xs text-gray-500">
-                  PNG, JPG, GIF up to 10MB
-                </p>
-              </div>
-              {isUploading && (
-                <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
-                  <div className="flex items-center space-x-2">
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
-                    <span className="text-sm text-gray-600">Uploading...</span>
+          {(hasUploadedImage || imageUrl || isEditing) && (
+            <>
+              {hasUploadedImage && (
+                <div className="bg-green-50 border border-green-200 rounded-md p-3">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-medium text-green-800">
+                        Image uploaded successfully!
+                      </p>
+                      <p className="text-sm text-green-700">
+                        Add alt text below and click "Save Image" to insert.
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}
+
+              <div>
+                <label className="block text-sm/6 font-medium text-gray-900 mb-1">
+                  Alt Text (Alternative text for accessibility)
+                </label>
+                <input
+                  type="text"
+                  value={altText}
+                  onChange={(e) => onAltTextChange(e.target.value)}
+                  placeholder="Describe the image for screen readers"
+                  className="block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6 
+                    placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600
+                    transition duration-150 ease-in-out"
+                />
+              </div>
+              
+              <button
+                onClick={hasUploadedImage ? onSaveImage : onImageUrlSubmit}
+                disabled={(!imageUrl && !hasUploadedImage)}
+                className="w-full px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 
+                  focus:outline-none focus:ring-2 focus:ring-primary-600 focus:ring-offset-2 
+                  disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isEditing ? 'Update Image' : hasUploadedImage ? 'Save Image' : 'Add Image from URL'}
+              </button>
+            </>
+          )}
+          
+          {!hasUploadedImage && !isEditing && (
+            <div className="border-t border-gray-200 pt-6">
+              <label className="block text-sm/6 font-medium text-gray-900 mb-1">
+                Upload Image
+              </label>
+              <div
+                {...getRootProps()}
+                className={`mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-dashed rounded-md relative cursor-pointer
+                  ${isDragActive ? 'border-primary-400 bg-primary-50' : isUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-600'}
+                  ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
+                  transition-colors duration-150 ease-in-out`}
+              >
+                <input {...getInputProps()} />
+                <div className="space-y-1 text-center">
+                  <ImageIcon className={`mx-auto h-12 w-12 ${isDragActive || isUploading ? 'text-primary-400' : 'text-gray-400'}`} />
+                  <div className="flex text-sm text-gray-600">
+                    <span className="relative cursor-pointer bg-white rounded-md font-medium text-primary-600 hover:text-primary-700">
+                      {isDragActive ? "Drop the image here" : "Upload a file"}
+                    </span>
+                    {!isDragActive && <p className="pl-1">or drag and drop</p>}
+                  </div>
+                  <p className="text-xs text-gray-500">
+                    PNG, JPG, GIF up to 10MB
+                  </p>
+                </div>
+                {isUploading && (
+                  <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center">
+                    <div className="flex items-center space-x-2">
+                      <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary-600"></div>
+                      <span className="text-sm text-gray-600">Uploading...</span>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
@@ -272,8 +338,13 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
   const [imageUrl, setImageUrl] = useState('');
+  const [altText, setAltText] = useState('');
   const [customColor, setCustomColor] = useState('#000000');
   const [isUploading, setIsUploading] = useState(false);
+  const [hasUploadedImage, setHasUploadedImage] = useState(false);
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [selectedImageNode, setSelectedImageNode] = useState<any>(null);
+  const [floatingButtonPosition, setFloatingButtonPosition] = useState<{ top: number; left: number } | null>(null);
   const imageUploader = createImageUploader(microappId);
   
 
@@ -294,7 +365,68 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         class: 'prose max-w-none p-4 focus:outline-none bg-white h-full min-h-[400px] overflow-y-auto',
       },
     },
+    onSelectionUpdate: ({ editor }) => {
+      // Check if an image is selected
+      const { state } = editor;
+      const { selection } = state;
+      const { $from } = selection;
+      
+      // Check if the current node is an image
+      if ($from.parent.type.name === 'paragraph' && $from.parent.content.size === 1) {
+        const node = $from.parent.content.firstChild;
+        if (node && node.type.name === 'image') {
+          setSelectedImageNode(node);
+          updateFloatingButtonPosition(editor, selection.from);
+          return;
+        }
+      }
+      
+      // Check if we're selecting an image node directly
+      const node = state.doc.nodeAt(selection.from);
+      if (node && node.type.name === 'image') {
+        setSelectedImageNode(node);
+        updateFloatingButtonPosition(editor, selection.from);
+        return;
+      }
+      
+      setSelectedImageNode(null);
+      setFloatingButtonPosition(null);
+    },
   });
+
+  /**
+   * Updates the position of the floating edit button based on the selected image
+   */
+  const updateFloatingButtonPosition = (editor: any, pos: number) => {
+    try {
+      // Find the selected image element
+      const selectedNode = editor.view.state.doc.nodeAt(pos);
+      if (!selectedNode || selectedNode.type.name !== 'image') {
+        setFloatingButtonPosition(null);
+        return;
+      }
+
+      // Find the image element in the DOM
+      const editorElement = editor.view.dom;
+      const imageElement = editorElement.querySelector(`img[src="${selectedNode.attrs.src}"]`);
+      if (!imageElement) {
+        setFloatingButtonPosition(null);
+        return;
+      }
+
+      const editorRect = editorElement.getBoundingClientRect();
+      const imageRect = imageElement.getBoundingClientRect();
+      
+      // Position the button in the top-left corner of the image
+      const top = imageRect.top - editorRect.top + 69;
+      const left = imageRect.left - editorRect.left + 17;
+      
+      setFloatingButtonPosition({ top, left });
+    } catch (error) {
+      // If positioning fails, hide the button
+      setFloatingButtonPosition(null);
+    }
+  };
 
   /**
    * Handles ESC key press to close all modal dialogs
@@ -307,6 +439,11 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         setShowImageDialog(false);
         setLinkUrl('');
         setImageUrl('');
+        setAltText('');
+        setHasUploadedImage(false);
+        setIsEditingImage(false);
+        setSelectedImageNode(null);
+        setFloatingButtonPosition(null);
       }
     };
 
@@ -315,7 +452,36 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
   }, []);
 
   /**
-   * Handles image file uploads, validates size and converts to data URL
+   * Handles double-click on images to edit them
+   */
+  useEffect(() => {
+    if (!editor) return;
+
+    const handleDoubleClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'IMG') {
+        const src = target.getAttribute('src');
+        const alt = target.getAttribute('alt');
+        
+        if (src) {
+          setImageUrl(src);
+          setAltText(alt || '');
+          setIsEditingImage(true);
+          setShowImageDialog(true);
+        }
+      }
+    };
+
+    const editorElement = editor.view.dom;
+    editorElement.addEventListener('dblclick', handleDoubleClick);
+
+    return () => {
+      editorElement.removeEventListener('dblclick', handleDoubleClick);
+    };
+  }, [editor]);
+
+  /**
+   * Handles image file uploads, validates size and gets URL
    * @param {File} file - The image file to upload
    */
   const handleImageUpload = useCallback(async (file: File) => {
@@ -328,8 +494,12 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
       setIsUploading(true);
       const result = await imageUploader.uploadFile(file);
       if (result.url) {
-        editor?.chain().focus().setImage({ src: result.url }).run();
-        setShowImageDialog(false);
+        setImageUrl(result.url);
+        setHasUploadedImage(true);
+        // Set default alt text to filename if not already set
+        if (!altText) {
+          setAltText(file.name.replace(/\.[^/.]+$/, ''));
+        }
       }
     } catch (error) {
       console.error('Error uploading image:', error);
@@ -337,18 +507,70 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
     } finally {
       setIsUploading(false);
     }
-  }, [editor, imageUploader, microappId]);
+  }, [imageUploader, altText]);
+
+  /**
+   * Handles saving the image with alt text to the editor
+   */
+  const handleSaveImage = useCallback(() => {
+    if (imageUrl) {
+      if (isEditingImage && selectedImageNode && editor) {
+        // Update existing image
+        const { state } = editor.view;
+        const { dispatch } = editor.view;
+        
+        // Find the position of the selected image
+        let imagePos = -1;
+        state.doc.descendants((node: any, pos: number) => {
+          if (node.type.name === 'image' && node.attrs.src === selectedImageNode.attrs.src) {
+            imagePos = pos;
+            return false;
+          }
+        });
+        
+        if (imagePos !== -1) {
+          const tr = state.tr.setNodeMarkup(imagePos, null, {
+            src: imageUrl,
+            alt: altText || 'Image'
+          });
+          dispatch(tr);
+        }
+      } else {
+        // Insert new image
+        editor?.chain().focus().setImage({ 
+          src: imageUrl,
+          alt: altText || 'Image'
+        }).run();
+      }
+      
+      // Reset state
+      setImageUrl('');
+      setAltText('');
+      setHasUploadedImage(false);
+      setIsEditingImage(false);
+      setSelectedImageNode(null);
+      setShowImageDialog(false);
+    }
+  }, [editor, imageUrl, altText, isEditingImage, selectedImageNode]);
 
   /**
    * Handles submission of image URLs to insert into the editor
    */
   const handleImageUrlSubmit = () => {
-    if (imageUrl) {
-      editor?.chain().focus().setImage({ src: imageUrl }).run();
-      setImageUrl('');
-      setShowImageDialog(false);
-    }
+    handleSaveImage();
   };
+
+  /**
+   * Opens the image dialog for editing the selected image
+   */
+  const handleEditSelectedImage = useCallback(() => {
+    if (selectedImageNode) {
+      setImageUrl(selectedImageNode.attrs.src || '');
+      setAltText(selectedImageNode.attrs.alt || '');
+      setIsEditingImage(true);
+      setShowImageDialog(true);
+    }
+  }, [selectedImageNode]);
 
   /**
    * Handles color changes in the text color picker
@@ -362,7 +584,7 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
   if (!editor) return null;
 
   return (
-    <div className="border border-gray-200 overflow-hidden flex flex-col h-full">
+    <div className="border border-gray-200 overflow-hidden flex flex-col h-full relative">
       <div className="border-b border-gray-200 p-2 flex flex-wrap gap-2 bg-white">
         <button
           onClick={() => editor.chain().focus().toggleBold().run()}
@@ -442,6 +664,22 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         </div>
       </div>
 
+      {/* Floating edit button for selected images */}
+      {floatingButtonPosition && (
+        <button
+          onClick={handleEditSelectedImage}
+          className="absolute z-10 bg-primary text-primary-foreground rounded-md px-3 py-2 shadow-lg hover:bg-primary-600 transition-colors flex items-center gap-2"
+          style={{
+            top: `${floatingButtonPosition.top}px`,
+            left: `${floatingButtonPosition.left}px`,
+          }}
+          title="Edit image properties (or double-click)"
+        >
+          <ImageIcon size={16} />
+          <span className="text-sm font-medium">Properties</span>
+        </button>
+      )}
+
       {showLinkInput && (
         <LinkInput
           linkUrl={linkUrl}
@@ -464,13 +702,23 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         <ImageDialog
           imageUrl={imageUrl}
           onImageUrlChange={setImageUrl}
+          altText={altText}
+          onAltTextChange={setAltText}
           onImageUrlSubmit={handleImageUrlSubmit}
           onImageUpload={handleImageUpload}
+          onSaveImage={handleSaveImage}
           onClose={() => {
             setShowImageDialog(false);
             setImageUrl('');
+            setAltText('');
+            setHasUploadedImage(false);
+            setIsEditingImage(false);
+            setSelectedImageNode(null);
+            setFloatingButtonPosition(null);
           }}
           isUploading={isUploading}
+          hasUploadedImage={hasUploadedImage}
+          isEditing={isEditingImage}
         />
       )}
 
