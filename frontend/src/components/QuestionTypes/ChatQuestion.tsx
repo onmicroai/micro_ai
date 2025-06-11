@@ -62,6 +62,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
    const store = useConversationStore();
+   const hasInteractedRef = useRef(false);
 
    // Load chat history from answers when component mounts
    useEffect(() => {
@@ -100,8 +101,11 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    // Count only user messages
    const userMessageCount = messages.filter(msg => msg.sender === 'user').length;
 
-   // Auto-scroll to bottom when messages change
+   // Auto-scroll to the bottom *after* the user has interacted with the chat.
+   // This prevents the initial page load from jumping to the bottom while still
+   // retaining the desired behaviour for new messages and typing indicators.
    useEffect(() => {
+     if (!hasInteractedRef.current) return;
      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
    }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio]);
 
@@ -133,6 +137,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      setInputMessage(''); // Clear input after sending
      setIsUserTyping(false);
      setIsAssistantTyping(true);
+
+     // Mark that the user has interacted so that future updates will trigger auto-scroll.
+     hasInteractedRef.current = true;
 
      try {
        const prompts: Prompt[] = [];
