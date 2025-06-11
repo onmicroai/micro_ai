@@ -119,14 +119,14 @@ class AIModelConstants:
         },
         "claude-4-sonnet": {
             **AIModelFamilyDefaults.ANTHROPIC,
-            "model": "anthropic/claude-4-sonnet-latest",
+            "model": "anthropic/claude-sonnet-4-20250514",
             "max_tokens": 8192,
             "supports_image": True,
             "plans": ["individual", "enterprise"]
         },
         "claude-4-opus": {
             **AIModelFamilyDefaults.ANTHROPIC,
-            "model": "anthropic/claude-4-opus-latest",
+            "model": "anthropic/claude-opus-4-20250514",
             "max_tokens": 4096,
             "supports_image": True,
             "plans": ["enterprise"]
