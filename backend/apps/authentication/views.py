@@ -20,6 +20,8 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.utils.translation import gettext_lazy as _
 import logging
 from .serializers import CustomPasswordChangeSerializer
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import OutstandingToken, BlacklistedToken
 
 logger = logging.getLogger(__name__)
 
@@ -263,7 +265,36 @@ class CustomPasswordChangeView(PasswordChangeView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
-            return Response({'detail': _('New password has been saved.')})
+
+            # ----- Refresh-token hygiene after password change -----
+            # 1) Blacklist all outstanding refresh tokens for this user so other
+            #    devices or stolen cookies can no longer mint access tokens.
+            for token in OutstandingToken.objects.filter(user=request.user):
+                BlacklistedToken.objects.get_or_create(token=token)
+
+            # 2) Mint a brand-new refresh token for the current session so this
+            #    browser can stay signed in without interruption.
+            refresh = RefreshToken.for_user(request.user)
+
+            response = Response({'detail': _('New password has been saved.')})
+
+            # Mirror the cookie settings used elsewhere in the project.
+            import os
+            from django.conf import settings
+
+            is_production = os.getenv('PRODUCTION', 'False') == 'True'
+            samesite = 'None' if is_production else 'Lax'
+
+            response.set_cookie(
+                'refresh_token',
+                str(refresh),
+                max_age=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'].total_seconds(),
+                httponly=True,
+                secure=is_production,
+                samesite=samesite,
+            )
+
+            return response
         except serializers.ValidationError as e:
             logger.info(f"Password change validation error: {e.detail}")
             return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
