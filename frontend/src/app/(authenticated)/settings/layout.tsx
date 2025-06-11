@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { User, Lock, CreditCard } from 'lucide-react';
-import PrivateNavbar from '@/components/layout/navbar/privateNavbar';
+import NavBarClientSwitch from '@/components/layout/navbar/NavBarClientSwitch';
 import { ToastContainer } from 'react-toastify';
 
 const menuItems = [
@@ -34,7 +34,7 @@ export default function SettingsLayout({
   return (
     <>
       <ToastContainer />
-      <PrivateNavbar />
+      <NavBarClientSwitch />
       <div className="min-h-screen dark:bg-black-dark">
         <div className="container max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8 dark:bg-black-dark">
           <div className="space-y-6">

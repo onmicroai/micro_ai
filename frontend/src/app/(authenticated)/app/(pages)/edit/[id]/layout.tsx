@@ -1,5 +1,5 @@
 "use client";
-import PrivateNavbar from "@/components/layout/navbar/privateNavbar";
+import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from 'react-toastify';
 
 export default function EditLayout({
@@ -15,7 +15,7 @@ export default function EditLayout({
         position="bottom-left"
         hideProgressBar={true}
       />
-      <PrivateNavbar />
+      <NavBarClientSwitch />
       {children}
     </>
   );

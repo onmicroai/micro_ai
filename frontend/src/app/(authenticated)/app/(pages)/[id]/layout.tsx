@@ -1,6 +1,6 @@
 "use client";
 
-import PrivateNavbar from "@/components/layout/navbar/privateNavbar";
+import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from 'react-toastify';
 import { useEffect, useState } from "react";
 import { checkIsAdmin, checkIsOwner } from "@/utils//checkRoles";
@@ -81,7 +81,7 @@ export default function RootLayout({
       return (
         <>
           <ToastContainer />
-          <PrivateNavbar />
+          <NavBarClientSwitch />
           <SkeletonLoader variant="app" />
         </>
       );
@@ -91,7 +91,7 @@ export default function RootLayout({
       return (
          <>
             <ToastContainer />
-            <PrivateNavbar />
+            <NavBarClientSwitch />
             <AccessDenied />
          </>
       );
@@ -101,7 +101,7 @@ export default function RootLayout({
       return (
         <>
           <ToastContainer />
-          <PrivateNavbar />
+          <NavBarClientSwitch />
           {children ? children : <div></div>}
         </>
       );
@@ -112,7 +112,7 @@ export default function RootLayout({
       return (
         <>
           <ToastContainer />
-          <PrivateNavbar />
+          <NavBarClientSwitch />
           <AccessDenied />
         </>
       );
@@ -121,7 +121,7 @@ export default function RootLayout({
    return (
       <>
          <ToastContainer />
-         <PrivateNavbar />
+         <NavBarClientSwitch />
          {children ? children : <div></div>}
       </>
    );

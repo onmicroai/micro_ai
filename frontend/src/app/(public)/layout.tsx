@@ -1,9 +1,8 @@
-import type { Metadata } from "next";
 import Footer from "@/components/layout/footer/footer";
-import PublicNavbar from "@/components/layout/navbar/publicNavbar";
+import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from 'react-toastify';
 
-export const metadata: Metadata = {
+export const metadata = {
    title: "Micro AI",
    description: "Build AI-Powered, Instructor-Guided Apps for Education",
 };
@@ -16,7 +15,8 @@ export default function RootLayout({
    return (
       <>
          <ToastContainer />
-         <PublicNavbar/>
+         {/* Initial render will show PublicNavbar; client component will switch when auth state loads */}
+         <NavBarClientSwitch />
          {children ? children : <div></div>}
          <Footer />
       </>

@@ -1,7 +1,7 @@
 "use client";
 
 import Footer from "@/components/layout/footer/footer";
-import PrivateNavbar from "@/components/layout/navbar/privateNavbar";
+import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from 'react-toastify';
 import WaitlistMessage from "@/components/waitlist-message";
 import { useUserStore } from "@/store/userStore";
@@ -17,7 +17,7 @@ export default function DashboardLayout({
   return (
     <>
          <ToastContainer />
-         <PrivateNavbar showCreateApp={enableWaitlist ? user?.isBetaTester : true}/>
+         <NavBarClientSwitch showCreateApp={enableWaitlist ? user?.isBetaTester : true} />
       {userIsLoading ? (
         <div className="flex justify-center items-center min-h-screen">
           <div className="text-gray-500">Loading...</div>
