@@ -160,7 +160,8 @@ class GuestUsage:
         date = datetime.now().strftime("%Y-%m-%d")
         filters = {
                 "timestamp__date__gte": date,
-                "user_ip": ip
+                "user_ip": ip,
+                "user_id": None
             }
         sessions = Run.objects.filter(**filters).count()
         sessions = Run.objects.filter(**filters).distinct("session_id").count()
