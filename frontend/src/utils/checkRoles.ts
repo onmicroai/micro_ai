@@ -15,7 +15,20 @@ interface CheckRoleResult {
   error: string | null;
 }
 
-
+// Cache for storing the last request result
+interface RoleCache {
+   hashId: string | null;
+   userId: number | null;
+   result: CheckRoleResult | null;
+ }
+ 
+ // Initialize cache with null values
+ const roleCache: RoleCache = {
+   hashId: null,
+   userId: null,
+   result: null
+ };
+ 
 // Map to track pending requests by hashId and userId
 const pendingRequests: Map<string, Promise<CheckRoleResult>> = new Map();
 
@@ -37,8 +50,11 @@ const makeRequest = async (hashId: string, userId: number, signal: AbortSignal):
       roles,
       error: null
     };
-    
-    // Previously cached result removed – we now rely on fresh fetches.
+
+    // Cache the result
+    roleCache.hashId = hashId;
+    roleCache.userId = userId;
+    roleCache.result = result;
     
     return result;
   } catch (error: any) {
@@ -52,7 +68,10 @@ const makeRequest = async (hashId: string, userId: number, signal: AbortSignal):
       error: 'Failed to check roles'
     };
     
-    // Do not cache error result to allow retry on next call.
+    // Cache the error result as well
+    roleCache.hashId = hashId;
+    roleCache.userId = userId;
+    roleCache.result = result;
     
     return result;
   }
@@ -66,12 +85,22 @@ const makeRequest = async (hashId: string, userId: number, signal: AbortSignal):
  * @returns The roles of the user or an error
  */
 export const checkRole = async (hashId: string, userId: number | null, signal: AbortSignal): Promise<CheckRoleResult> => {
+// Check if we have a cached result for the same hashId and userId
+  if (roleCache.hashId === hashId && roleCache.userId === userId && roleCache.result !== null) {
+   return roleCache.result;
+ }
+
+
   if (userId === null) {
     const result = {
       roles: [],
       error: 'User ID is null'
     };
-    // No-op: result not cached.
+    
+    // Cache the result
+    roleCache.hashId = hashId;
+    roleCache.userId = userId;
+    roleCache.result = result;
     return result;
   }
 
