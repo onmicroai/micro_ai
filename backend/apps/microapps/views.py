@@ -798,7 +798,7 @@ class RunList(APIView):
                     "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
                 })
                 response.update({
-                    "cost": response["cost"] + score_response["cost"],
+                    "cost": round(response["cost"] + score_response["cost"], 6),
                 })
                 response.update({
                     "credits": response["credits"] + score_response["credits"],
@@ -1078,7 +1078,7 @@ class AnonymousRunList(RunList):
                     "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
                 })
                 response.update({
-                    "cost": response["cost"] + score_response["cost"],
+                    "cost": round(response["cost"] + score_response["cost"], 6),
                 })
                 response.update({
                     "credits": response["credits"] + score_response["credits"],
