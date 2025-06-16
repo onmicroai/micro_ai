@@ -221,7 +221,7 @@ class UsageVariables:
 
     FREE_PLAN_MICROAPP_LIMIT = int(env("FREE_PLAN_MICROAPP_LIMIT"))
     # Guest Users
-    GUEST_USER_SESSION_LIMIT = 10
+    GUEST_USER_SESSION_LIMIT = int(env("GUEST_USER_SESSION_LIMIT"))
 
     # The number of credits per penny of cost.
     # E.g. Multiplier of 10000 means 1 credit per $0.0001 of cost.
