@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkBreaks from 'remark-breaks';
 import { FaRegCopy, FaCopy, FaThumbsUp, FaThumbsDown } from 'react-icons/fa6';
 import { Run } from '@/store/conversationStore';
 import { proseClasses } from '@/styles/proseClasses';
@@ -80,7 +81,7 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
    return (
       <div className="mt-6 bg-gradient-to-b from-white to-gray-50/50 border border-gray-200/80 rounded-sm p-6 shadow-sm backdrop-blur-sm">
          <div className={proseClasses}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
                {assistantMessage.content || ''}
             </ReactMarkdown>
          </div>
