@@ -1962,6 +1962,45 @@ class TextToSpeech(APIView):
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
 
+@extend_schema_view(
+    post=extend_schema(
+        request={
+            'application/json': {
+                'type': 'object',
+                'properties': {
+                    'text': {'type': 'string', 'description': 'Text to convert to speech'},
+                    'provider': {'type': 'string', 'description': 'TTS provider (e.g., openai, elevenlabs, hume)'},
+                    'voice': {'type': 'string', 'description': 'Voice ID to use'},
+                    'instructions': {'type': 'string', 'description': 'Optional voice instructions'}
+                }
+            }
+        },
+        responses={200: None},
+        summary="Convert text to speech using specified provider (anonymous)"
+    )
+)
+class AnonymousTextToSpeech(TextToSpeech):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+
+    def post(self, request, format=None):
+        try:
+            # For anonymous users, check IP-based rate limiting
+            ip = get_user_ip(request)
+            
+            # Use the same guest usage check as AnonymousRunList
+            if not GuestUsage.check_usage_limit(self, ip):
+                return Response(
+                    error.RUN_USAGE_LIMIT_EXCEED, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            # Call the parent class method
+            return super().post(request, format)
+
+        except Exception as e:
+            return handle_exception(e)
+
 # ---------------------------------------------
 #  New: ParseFile – extract text from an uploaded file
 # ---------------------------------------------

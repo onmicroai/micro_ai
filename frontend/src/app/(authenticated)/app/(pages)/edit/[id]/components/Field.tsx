@@ -41,6 +41,7 @@ import PromptField from "./fields/PromptField";
 import { createImageUploader } from "@/utils/imageUpload";
 import { synthesizeSpeech } from '@/utils/textToSpeechService';
 import { Loader2 } from 'lucide-react';
+import { useUserStore } from '@/store/userStore';
 
 interface ConditionalLogic {
   sourceFieldId: string;
@@ -193,6 +194,7 @@ export default function Field({
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
 }: FieldProps) {
+  const { user } = useUserStore();
   const [isValidationExpanded, setValidationExpanded] = useState(false);
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
@@ -1039,7 +1041,8 @@ export default function Field({
                               sampleText,
                               'openai',
                               field.selectedVoiceId || 'ash',
-                              field.voiceInstructions
+                              field.voiceInstructions,
+                              user?.id || null
                             );
                             
                             // Cache the sample

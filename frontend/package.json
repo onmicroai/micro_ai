@@ -95,7 +95,8 @@
     "xlsx": "^0.18.5",
     "yup": "^1.4.0",
     "zod": "^3.24.1",
-    "zustand": "^5.0.0-rc.2"
+    "zustand": "^5.0.0-rc.2",
+    "dompurify": "^3.0.7"
   },
   "devDependencies": {
     "@iconify/react": "^5.2.0",
@@ -115,6 +116,7 @@
     "nodemon": "^3.1.4",
     "sass": "^1.77.1",
     "tsc-files": "^1.1.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "@types/dompurify": "^3.0.4"
   }
 }

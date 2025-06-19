@@ -183,7 +183,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                response.response,
                element.ttsProvider || 'openai',
                element.selectedVoiceId || 'alloy',
-               element.voiceInstructions
+               element.voiceInstructions,
+               userId
              );
            } catch (error) {
              console.error('Error synthesizing speech:', error);
@@ -206,7 +207,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          const chatHistory = [...messages, userMessage, aiMessage]
            .map(msg => {
              if (msg.sender === 'ai') {
-               return `${msg.sender}: ${msg.message}${msg.run_id ? `|${msg.run_id}` : ''}`;
+               return `${msg.sender}: ${msg.message}`;
              }
              return `${msg.sender}: ${msg.message}`;
            });

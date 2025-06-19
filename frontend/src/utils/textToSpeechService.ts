@@ -56,24 +56,53 @@ export const synthesizeSpeech = async (
   text: string,
   provider: string,
   voiceId: string = 'alloy',
-  instructions?: string
+  instructions?: string,
+  userId?: number | null
 ): Promise<string> => {
   try {
-    const api = axiosInstance();
-    const response = await api.post('/api/microapps/tts/', {
-      text,
-      provider: provider,
-      voice: voiceId,
-      instructions
-    }, {
-      responseType: 'blob'  // Important: This tells axios to handle the response as a blob
-    });
+    let response;
+    
+    if (userId) {
+      // Authenticated request using axiosInstance
+      const api = axiosInstance();
+      response = await api.post('/api/microapps/tts/', {
+        text,
+        provider: provider,
+        voice: voiceId,
+        instructions
+      }, {
+        responseType: 'blob'  // Important: This tells axios to handle the response as a blob
+      });
+    } else {
+      // Anonymous request using fetch to the anonymous endpoint
+      response = await fetch('/api/microapps/tts/anonymous/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+          provider: provider,
+          voice: voiceId,
+          instructions
+        }),
+      });
+      
+      if (!response.ok) {
+        throw new Error('TTS request failed');
+      }
+      
+      // Convert fetch response to blob
+      response = { data: await response.blob() };
+    }
 
     const audioBlob = new Blob([response.data], { type: 'audio/mpeg' });
     const audioUrl = URL.createObjectURL(audioBlob);
 
-    // Update costs
-    await updateTTSCosts(text, 'openai');
+    // Update costs only for authenticated users
+    if (userId) {
+      await updateTTSCosts(text, 'openai');
+    }
 
     return audioUrl;
   } catch (error) {
