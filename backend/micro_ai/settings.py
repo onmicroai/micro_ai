@@ -310,9 +310,9 @@ FORMS_URLFIELD_ASSUME_HTTPS = True
 # EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
-EMAIL_PORT = 587  # or 25, 2587
-EMAIL_USE_TLS = True  # STARTTLS
+EMAIL_HOST = env("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
 EMAIL_HOST_USER = env("EMAIL_HOST_USER")
 EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
 DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
@@ -399,7 +399,7 @@ PROJECT_METADATA = {
     "DESCRIPTION": gettext_lazy("Build Micro Apps with No Code"),
     "IMAGE": "/static/images/web/favicon.png",
     "KEYWORDS": "SaaS, django",
-    "CONTACT_EMAIL": ["yibrahim@knysys.com", "john@curricu.me"],
+    "CONTACT_EMAIL": env.list("CONTACT_EMAIL", default=["contact@example.com", "contact2@example.com"]),
 }
 
 # set this to True in production to have URLs generated with https instead of http
