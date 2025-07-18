@@ -39,6 +39,10 @@ export default function SubscriptionPage() {
     "subscription" | "credits" | null
   >(null);
   const [appQuota, setAppQuota] = useState<null | { limit: number; used: number; remaining: number; can_create: boolean }>(null);
+  const [couponCode, setCouponCode] = useState<string>("");
+  const [couponLoading, setCouponLoading] = useState<boolean>(false);
+  const [couponError, setCouponError] = useState<string>("");
+  const [couponSuccess, setCouponSuccess] = useState<string>("");
   const api = axiosInstance();
   const router = useRouter();
 
@@ -167,6 +171,56 @@ export default function SubscriptionPage() {
       setSubscription(userRes.data.subscription || userRes.data);
     } catch (error: any) {
       toast.error("Failed to cancel downgrade: " + error.message);
+    }
+  };
+
+  const handleRedeemCoupon = async () => {
+    if (!couponCode.trim()) {
+      setCouponError("Please enter a coupon code");
+      return;
+    }
+
+    setCouponLoading(true);
+    setCouponError("");
+    setCouponSuccess("");
+
+    try {
+      const response = await api.post("/api/subscriptions/redeem-coupon/", {
+        coupon_code: couponCode.trim()
+      });
+
+      if (response.data.success) {
+        setCouponSuccess(response.data.message);
+        setCouponCode("");
+        
+        // Refresh the page data to show updated values
+        const [userRes, quotaRes] = await Promise.all([
+          api.get("/api/auth/user/"),
+          api.get("/api/microapps/quota/"),
+          fetchCredits()
+        ]);
+        
+        const userData = userRes.data;
+        setUserData(userData);
+        setSubscription(userData.subscription);
+        if (userData.plan) {
+          setSelectedPlan(userData.plan);
+        }
+        
+        if (quotaRes.data && quotaRes.data.data) {
+          setAppQuota(quotaRes.data.data);
+        }
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setCouponSuccess(""), 5000);
+      } else {
+        setCouponError(response.data.error || "Failed to redeem coupon");
+      }
+    } catch (error: any) {
+      const errorMessage = error.response?.data?.error || error.message || "Failed to redeem coupon";
+      setCouponError(errorMessage);
+    } finally {
+      setCouponLoading(false);
     }
   };
 
@@ -320,6 +374,64 @@ export default function SubscriptionPage() {
             currentPlan={selectedPlan} 
             onPlanSelect={handlePlanSelection}
           />
+
+          {/* Coupon Redemption Section */}
+          <div className="mt-8">
+            <div className="rounded-lg bg-background border">
+              <div className="px-6 py-4 border-b">
+                <h3 className="text-lg font-semibold text-gray-900">Redeem Coupon</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  Have a coupon code? Enter it below to unlock additional benefits.
+                </p>
+              </div>
+              
+              <div className="px-6 py-4">
+                <div className="flex gap-3 max-sm:flex-col">
+                  <div className="flex-1">
+                    <input
+                      type="text"
+                      value={couponCode}
+                      onChange={(e) => setCouponCode(e.target.value)}
+                      placeholder="Enter coupon code"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                      disabled={couponLoading}
+                    />
+                  </div>
+                  <button
+                    onClick={handleRedeemCoupon}
+                    disabled={couponLoading || !couponCode.trim()}
+                    className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  >
+                    {couponLoading ? "Redeeming..." : "Redeem"}
+                  </button>
+                </div>
+                
+                {/* Error Message */}
+                {couponError && (
+                  <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-red-700">{couponError}</span>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Success Message */}
+                {couponSuccess && (
+                  <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
+                    <div className="flex items-center">
+                      <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      <span className="text-sm text-green-700">{couponSuccess}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
 
           <div className="mt-8">
 

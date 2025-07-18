@@ -9,6 +9,7 @@ from .views.api_views import (
     ReportUsageAPI,
     ListUsageRecordsAPI,
     SubscriptionConfigurationAPI,
+    RedeemCouponAPI,
 )
 
 app_name = "subscriptions_api"
@@ -28,4 +29,5 @@ urlpatterns = [
     path('report-usage/', ReportUsageAPI.as_view(), name='report-usage'),
     path('usage-records/', ListUsageRecordsAPI.as_view(), name='usage-records'),
     path('subscription-configuration/', SubscriptionConfigurationAPI.as_view(), name='subscription-configuration'),
+    path('redeem-coupon/', RedeemCouponAPI.as_view(), name='redeem-coupon'),
 ] 

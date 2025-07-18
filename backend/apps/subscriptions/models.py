@@ -303,3 +303,45 @@ class UsageEvent(models.Model):
     run_id = models.ForeignKey(Run, on_delete=models.CASCADE)
     credits_charged = models.FloatField()
     timestamp = models.DateTimeField(auto_now_add=True)
+
+class Coupon(models.Model):
+    ACTION_CHOICES = [
+        ('increase_max_apps', 'Increase Max Apps'),
+        ('increase_max_apps_and_credits', 'Increase Max Apps and Credits'),
+        # Future actions can be added here:
+        # ('add_credits', 'Add Credits'),
+        # ('upgrade_plan', 'Upgrade Plan'),
+        # ('unlock_feature', 'Unlock Feature'),
+    ]
+    
+    code = models.CharField(max_length=50, unique=True)
+    action = models.CharField(max_length=50, choices=ACTION_CHOICES)
+    additional_data = models.JSONField(default=dict, help_text="JSON data for the action (e.g., {'max_apps': 10, 'credits': 100000})")
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Coupon {self.code} ({self.action})"
+
+    def can_be_used_by(self, user):
+        """Check if this coupon can be used by the given user"""
+        return (
+            self.is_active and 
+            not CouponUsage.objects.filter(coupon=self, user=user).exists()
+        )
+
+    def get_action_value(self, key):
+        """Helper method to get a specific value from additional_data"""
+        return self.additional_data.get(key)
+
+class CouponUsage(models.Model):
+    coupon = models.ForeignKey(Coupon, on_delete=models.CASCADE, related_name='usages')
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    used_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('coupon', 'user')
+
+    def __str__(self):
+        return f"{self.user.email} used {self.coupon.code} at {self.used_at}"

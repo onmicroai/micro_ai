@@ -8,7 +8,7 @@ from drf_spectacular.utils import extend_schema, inline_serializer
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
-from apps.subscriptions.models import BillingCycle, StripeCustomer, TopUpToSubscription, SubscriptionConfiguration, Subscription
+from apps.subscriptions.models import BillingCycle, StripeCustomer, TopUpToSubscription, SubscriptionConfiguration, Subscription, Coupon, CouponUsage
 from django.db.models import F
 
 from apps.api.permissions import IsAuthenticatedOrHasUserAPIKey
@@ -25,7 +25,8 @@ from ..helpers import (
     is_downgrade,
 )
 from apps.utils.billing import get_stripe_module
-from apps.subscriptions.serializers import SubscriptionConfigurationSerializer
+from apps.subscriptions.serializers import SubscriptionConfigurationSerializer, CouponSerializer, CouponUsageSerializer
+from apps.subscriptions.services import CouponActionService
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -467,5 +468,60 @@ class SubscriptionConfigurationAPI(APIView):
             config = serializer.save()
             return Response(self.serializer_class(config).data)
         return Response(serializer.errors, status=400)
+
+@extend_schema(tags=["subscriptions"])
+class RedeemCouponAPI(APIView):
+    permission_classes = [IsAuthenticatedOrHasUserAPIKey]
+
+    @extend_schema(
+        request=inline_serializer(
+            "RedeemCoupon",
+            fields={
+                "coupon_code": serializers.CharField(),
+            }
+        ),
+        responses={200: inline_serializer(
+            "RedeemCouponResponse",
+            fields={
+                "success": serializers.BooleanField(),
+                "message": serializers.CharField(),
+                "action": serializers.CharField(),
+                "additional_data": serializers.DictField(),
+            }
+        )}
+    )
+    def post(self, request):
+        code = request.data.get('coupon_code')
+        if not code:
+            return Response({'error': 'Coupon code required'}, status=400)
+        
+        try:
+            coupon = Coupon.objects.get(code=code, is_active=True)
+        except Coupon.DoesNotExist:
+            return Response({'error': 'Invalid or inactive coupon code'}, status=400)
+        
+        # Check if user has already used this coupon
+        if not coupon.can_be_used_by(request.user):
+            return Response({'error': 'You have already used this coupon'}, status=400)
+        
+        # Execute the coupon action
+        result = CouponActionService.execute_action(coupon, request.user)
+        
+        if result['success']:
+            # Record the usage
+            CouponUsage.objects.create(coupon=coupon, user=request.user)
+            
+            return Response({
+                'success': True,
+                'message': result['message'],
+                'action': coupon.action,
+                'additional_data': coupon.additional_data,
+                **result  # Include any additional data from the action result
+            })
+        else:
+            return Response({
+                'success': False,
+                'error': result['message']
+            }, status=400)
 
 __all__ = ['ProductsListAPI', 'CreateCheckoutSession', 'CreatePortalSession', 'ReportUsageAPI', 'ListUsageRecordsAPI', 'UpdateSubscription', 'SpendCredits', 'CancelDowngrade']

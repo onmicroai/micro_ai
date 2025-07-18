@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UsageEvent, BillingCycle, SubscriptionConfiguration
+from .models import UsageEvent, BillingCycle, SubscriptionConfiguration, Coupon, CouponUsage
 from apps.subscriptions.models import Subscription as CustomSubscription
 
 class SpendCreditsSerializer(serializers.Serializer):
@@ -45,3 +45,13 @@ class SubscriptionConfigurationSerializer(serializers.ModelSerializer):
         instance.max_apps = validated_data.get('max_apps', instance.max_apps)
         instance.save()
         return instance
+
+class CouponSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Coupon
+        fields = ['id', 'code', 'action', 'additional_data', 'is_active', 'created_at', 'updated_at']
+
+class CouponUsageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CouponUsage
+        fields = ['id', 'coupon', 'user', 'used_at']

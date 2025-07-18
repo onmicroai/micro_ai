@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from django.contrib import admin
 from django.conf import settings
-from .models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription, UsageEvent, SubscriptionConfiguration
+from .models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription, UsageEvent, SubscriptionConfiguration, Coupon, CouponUsage
 from django.contrib.admin.sites import site
 
 @admin.register(TopUpToSubscription)
@@ -108,3 +108,37 @@ class SubscriptionConfigurationAdmin(admin.ModelAdmin):
         return obj.subscription.subscription_id if obj.subscription else '-'
     get_subscription_id.short_description = 'Subscription ID'
     get_subscription_id.admin_order_field = 'subscription__subscription_id'
+
+@admin.register(Coupon)
+class CouponAdmin(admin.ModelAdmin):
+    list_display = ('code', 'action', 'is_active', 'created_at', 'usage_count')
+    list_filter = ('action', 'is_active', 'created_at')
+    search_fields = ('code',)
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('code', 'action', 'is_active')
+        }),
+        ('Action Data', {
+            'fields': ('additional_data',),
+            'description': 'Enter JSON data for the action. For increase_max_apps, use: {"max_apps": 10}. For increase_max_apps_and_credits, use: {"max_apps": 10, "credits": 100000}'
+        }),
+        ('Timestamps', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+
+    def usage_count(self, obj):
+        return obj.usages.count()
+    usage_count.short_description = 'Times Used'
+
+@admin.register(CouponUsage)
+class CouponUsageAdmin(admin.ModelAdmin):
+    list_display = ('coupon', 'user', 'used_at')
+    list_filter = ('used_at', 'coupon__action')
+    search_fields = ('coupon__code', 'user__email')
+    ordering = ('-used_at',)
+    readonly_fields = ('used_at',)
