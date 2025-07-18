@@ -8,6 +8,7 @@ from .views.api_views import (
     SpendCredits,
     ReportUsageAPI,
     ListUsageRecordsAPI,
+    SubscriptionConfigurationAPI,
 )
 
 app_name = "subscriptions_api"
@@ -26,4 +27,5 @@ urlpatterns = [
     # Usage
     path('report-usage/', ReportUsageAPI.as_view(), name='report-usage'),
     path('usage-records/', ListUsageRecordsAPI.as_view(), name='usage-records'),
+    path('subscription-configuration/', SubscriptionConfigurationAPI.as_view(), name='subscription-configuration'),
 ] 

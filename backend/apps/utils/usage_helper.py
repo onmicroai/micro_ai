@@ -3,7 +3,7 @@ from datetime import datetime
 from django.db.models import Count
 from django.utils import timezone
 from apps.microapps.models import Run, MicroAppUserJoin
-from apps.subscriptions.models import Subscription, BillingCycle, TopUpToSubscription
+from apps.subscriptions.models import Subscription, BillingCycle, TopUpToSubscription, SubscriptionConfiguration
 from apps.subscriptions.serializers import CustomSubscriptionSerializer
 from apps.users.models import CustomUser
 from apps.utils.global_variables import UsageVariables
@@ -127,8 +127,16 @@ class MicroAppUsage:
 
         # If user has an active subscription
         if subscription and subscription["status"] == "active":
-            # Get max_apps from subscription configuration
-            max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT
+            # Try to get max_apps from SubscriptionConfiguration
+            try:
+                subscription_instance = Subscription.objects.get(id=subscription["id"])
+                config = SubscriptionConfiguration.objects.filter(subscription=subscription_instance).first()
+                if config and config.max_apps is not None:
+                    max_apps = config.max_apps
+                else:
+                    max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT
+            except Exception:
+                max_apps = UsageVariables.FREE_PLAN_MICROAPP_LIMIT
             
             # Get price_id from subscription
             from apps.subscriptions.constants import PRICE_IDS
@@ -138,11 +146,14 @@ class MicroAppUsage:
             # Check if plan is enterprise or individual by comparing price_id
             is_paid_plan = (price_id == PRICE_IDS["individual"] or 
                            price_id == PRICE_IDS["enterprise"])
+
+            if is_paid_plan:
+                max_apps = 9999
             
             # For enterprise or individual plans, can_create is always true
             # For free plan, can_create depends on the current app count vs limit
             return {
-                "can_create": is_paid_plan or current_app_count < max_apps,
+                "can_create": current_app_count < max_apps,
                 "limit": max_apps,
                 "current_count": current_app_count
             }

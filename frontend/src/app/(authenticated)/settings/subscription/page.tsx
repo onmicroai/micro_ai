@@ -38,6 +38,7 @@ export default function SubscriptionPage() {
   const [pollingType, setPollingType] = useState<
     "subscription" | "credits" | null
   >(null);
+  const [appQuota, setAppQuota] = useState<null | { limit: number; used: number; remaining: number; can_create: boolean }>(null);
   const api = axiosInstance();
   const router = useRouter();
 
@@ -79,6 +80,11 @@ export default function SubscriptionPage() {
         setSubscription(userData.subscription);
         if (userData.plan) {
           setSelectedPlan(userData.plan);
+        }
+        // Fetch app quota after user is loaded
+        const quotaRes = await api.get("/api/microapps/quota/");
+        if (quotaRes.data && quotaRes.data.data) {
+          setAppQuota(quotaRes.data.data);
         }
       } catch (error: any) {
         toast.error("Failed to load subscription data: " + error.message);
@@ -222,6 +228,26 @@ export default function SubscriptionPage() {
                       <span className="font-medium text-sm text-gray-700">Subscription status</span>
                       <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-green-100 text-green-950">
                         {userData.subscription?.cancel_at_period_end ? "Canceling" : "Active"}
+                      </div>
+                    </div>
+
+                    {/* Max Apps */}
+                    <div className="flex gap-4 px-6 py-4 items-center justify-between">
+                      <span className="font-medium text-sm text-gray-700">Max Apps</span>
+                      <div
+                        className={`inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium ${
+                          appQuota
+                            ? appQuota.can_create
+                              ? "bg-green-100 text-green-950"
+                              : "bg-red-100 text-red-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {appQuota
+                          ? appQuota.limit >= 9999
+                            ? `${appQuota.used} / Unlimited`
+                            : `${appQuota.used} / ${appQuota.limit}`
+                          : "-"}
                       </div>
                     </div>
 
