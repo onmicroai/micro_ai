@@ -7,6 +7,7 @@ import injectValuesIntoPrompt from "@/utils//injectValuesIntoPrompt";
 import { useConversationStore } from '@/store/conversationStore';
 import delay from "./delay";
 import { buildRequestBody, getPageConfig } from '@/utils/buildRequestBody';
+import { streamRun } from "@/utils/streamRun";
 
 const handleAIResponse = async (
    requestBody: any,
@@ -14,6 +15,78 @@ const handleAIResponse = async (
    setState: (state: any) => void,
 ): Promise<SendPromptResponse> => {
    const store = useConversationStore.getState();
+
+   // NEW: if caller requested streaming, use streamRun utility
+   if (requestBody.stream === true) {
+      try {
+         let accumulated = "";
+         // mark current run as running (was pending)
+         const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
+         if (runId) {
+            store.updateRun(runId, { status: "running" });
+         }
+
+         await streamRun(
+            requestBody,
+            userId,
+            {
+               onChunk: (chunk) => {
+                  accumulated += chunk;
+
+                  // Update run message incrementally
+                  if (runId) {
+                     const run = useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId);
+                     if (run) {
+                        let msgs = [...run.messages];
+                        const idx = msgs.findIndex(m => m.role === 'assistant');
+                        if (idx === -1) {
+                           msgs.push({ role: 'assistant', content: chunk, timestamp: Date.now() } as any);
+                        } else {
+                           msgs[idx] = { ...msgs[idx], content: msgs[idx].content + chunk, timestamp: Date.now() } as any;
+                        }
+                        store.updateRun(runId, { messages: msgs });
+                     }
+                  }
+
+                  // Update UI state incrementally
+                  setState((state: any) => ({
+                     ...state,
+                     promptResponse: accumulated,
+                  }));
+               },
+               onDone: () => {
+                  // Finalize run
+                  if (runId) {
+                     store.updateRun(runId, { status: "completed" });
+                     // Add final assistant message
+                     store.addMessage("assistant", accumulated);
+                  }
+                  setState((state: any) => ({
+                     ...state,
+                     promptResponse: accumulated,
+                     promptLoading: false,
+                  }));
+               },
+               onError: (err) => {
+                  console.error(err);
+                  if (runId) {
+                     store.updateRun(runId, { status: "failed" });
+                  }
+                  setState((state: any) => ({
+                     ...state,
+                     sendPromptError: String(err),
+                     promptLoading: false,
+                  }));
+               },
+            },
+         );
+
+         return { success: true, response: accumulated } as SendPromptResponse;
+      } catch (e: any) {
+         return { success: false, error: String(e) };
+      }
+   }
+
    try {
       const endpoint = !userId ? '/api/microapps/run/anonymous' : '/api/microapps/run';
       
