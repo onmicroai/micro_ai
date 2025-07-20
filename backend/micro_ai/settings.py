@@ -370,6 +370,8 @@ REST_AUTH = {
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
+CSRF_COOKIE_SECURE = is_production
+CSRF_COOKIE_SAMESITE = 'None'
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "OnMicro.AI",
@@ -467,4 +469,4 @@ SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_PATH = '/admin/'  # Only set session cookie for admin paths
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = is_production
-SESSION_COOKIE_SAMESITE = 'Lax'  # More restrictive for admin
+SESSION_COOKIE_SAMESITE = 'None'  # More restrictive for admin
