@@ -14,6 +14,7 @@ import { checkIsPublic } from '@/utils/checkAppPrivacy';
 import axiosInstance from '@/utils/axiosInstance';
 import { useSearchParams } from 'next/navigation';
 import ContinuationInterface from '@/components/ContinuationInterface';
+import { RotateCcw, MessageCircle } from 'lucide-react';
 
 type PageParams = {
    params: {
@@ -45,6 +46,11 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       setElements,
       softReset: softResetSurveyStore,
    } = useSurveyStore();
+   
+   // Check if there are existing continuation messages for auto-expansion
+   const existingMessages = answers.continuation_chat?.value || [];
+   const hasExistingMessages = Array.isArray(existingMessages) && existingMessages.length > 0;
+   const [isContinuationExpanded, setIsContinuationExpanded] = useState(hasExistingMessages);
    const {
       currentConversation,
       conversations,
@@ -226,24 +232,36 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                      answers={answers}
                      isOwner={isOwner}
                      isAdmin={isAdmin}
+                     isExpanded={isContinuationExpanded}
+                     onToggleExpanded={() => setIsContinuationExpanded(!isContinuationExpanded)}
                   />
                </div>
             )}
 
-            <div className="mt-4">
-               <a 
-                  href="#" 
-                  onClick={(e) => {
-                     e.preventDefault();
+            <div className="mt-4 flex justify-between items-center">
+               <button 
+                  onClick={() => {
                      resetConversations();
                      softResetSurveyStore();
                      setShowThankYouMessage(false);
-                     toast.success("App state cleared successfully");
+                     setIsContinuationExpanded(false);
+                     toast.success("App restarted successfully");
                   }}
-                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
+                  className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
                >
-                  Clear State
-               </a>
+                  <RotateCcw className="w-4 h-4" />
+                  Restart
+               </button>
+               
+               {!isContinuationExpanded && (
+                  <button
+                     onClick={() => setIsContinuationExpanded(true)}
+                     className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                  >
+                     <MessageCircle className="w-4 h-4" />
+                     Continue the conversation
+                  </button>
+               )}
             </div>
 
             {(isOwner || isAdmin) && (
