@@ -54,9 +54,25 @@ const SurveyDisplay = ({ params }: PageParams) => {
    } = useSurveyStore();
    
    // Check if there are existing continuation messages for auto-expansion
-   const existingMessages = answers.continuation_chat?.value || [];
-   const hasExistingMessages = Array.isArray(existingMessages) && existingMessages.length > 0;
-   const [isContinuationExpanded, setIsContinuationExpanded] = useState(hasExistingMessages);
+   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
+   
+   // Update expansion state when answers change (e.g., on page refresh)
+   useEffect(() => {
+      const existingMessages = answers.continuation_chat?.value || [];
+      const hasExistingMessages = Array.isArray(existingMessages) && existingMessages.length > 0;
+      
+      console.log('Auto-expansion check:', {
+         existingMessages,
+         hasExistingMessages,
+         isContinuationExpanded,
+         willExpand: hasExistingMessages && !isContinuationExpanded
+      });
+      
+      if (hasExistingMessages && !isContinuationExpanded) {
+         console.log('Auto-expanding continuation interface');
+         setIsContinuationExpanded(true);
+      }
+   }, [answers.continuation_chat?.value, isContinuationExpanded]);
    const {
       currentConversation,
       conversations,
@@ -120,13 +136,16 @@ const SurveyDisplay = ({ params }: PageParams) => {
       const appId = Number(surveyJson.id) || null;
       const newElements = newCurrentPhase?.elements || [];
       
+      // Always set appId when surveyJson is available
+      if (appId !== undefined) {
+         console.log('Setting appId:', appId);
+         setAppId(appId);
+      }
+      
+      // Only set phase-related state if we're not in completion state
       if ((newCurrentPhase && completedPhases.includes(currentPhaseIndex)) ||
           (completedPhases.length === surveyJson.phases.length)) {
          return;
-      }
-      
-      if (appId !== undefined) {
-         setAppId(appId);
       }
       
       if (newCurrentPhase !== null) {
@@ -296,34 +315,34 @@ const SurveyDisplay = ({ params }: PageParams) => {
                         isExpanded={isContinuationExpanded}
                         onToggleExpanded={() => setIsContinuationExpanded(!isContinuationExpanded)}
                      />
+                     
+                     <div className="mt-4 flex justify-between items-center">
+                        <button 
+                           onClick={() => {
+                              resetConversations();
+                              softResetSurveyStore();
+                              setShowThankYouMessage(false);
+                              setIsContinuationExpanded(false);
+                              toast.success("App restarted successfully");
+                           }}
+                           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                           <RotateCcw className="w-4 h-4" />
+                           Restart
+                        </button>
+                        
+                        {!isContinuationExpanded && (
+                           <button
+                              onClick={() => setIsContinuationExpanded(true)}
+                              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                           >
+                              <MessageCircle className="w-4 h-4" />
+                              Continue the conversation
+                           </button>
+                        )}
+                     </div>
                   </div>
                )}
-
-            <div className="mt-4 flex justify-between items-center">
-               <button 
-                  onClick={() => {
-                     resetConversations();
-                     softResetSurveyStore();
-                     setShowThankYouMessage(false);
-                     setIsContinuationExpanded(false);
-                     toast.success("App restarted successfully");
-                  }}
-                  className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-               >
-                  <RotateCcw className="w-4 h-4" />
-                  Restart
-               </button>
-               
-               {!isContinuationExpanded && (
-                  <button
-                     onClick={() => setIsContinuationExpanded(true)}
-                     className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-                  >
-                     <MessageCircle className="w-4 h-4" />
-                     Continue the conversation
-                  </button>
-               )}
-            </div>
 
             {(roles.isOwner || roles.isAdmin) && (
                <DebugInformation
