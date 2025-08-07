@@ -142,6 +142,91 @@ class UnifiedLLMInterface:
             log.error(f"Error getting response from {self.model_name}: {str(e)}")
             return {"status": False, "message": str(e)}
 
+    def stream_response(self, params: Dict[str, Any]):
+        """
+        A generator that yields model response chunks as soon as they arrive.
+
+        This does **not** replace `get_response`.  Callers that want a streamed
+        result should explicitly call `stream_response` instead of
+        `get_response` and MUST pass `stream=True` in the `params` dict.
+
+        On completion, the following instance attributes are set so that the
+        caller can log usage / billing information once the stream is closed:
+
+        * `self.last_usage`   – the final Usage object returned by LiteLLM (if
+          available)
+        * `self.last_cost`    – total cost (USD) including optional
+          `transcription_cost`
+        * `self.last_credits` – integer credits calculated from the cost
+        * `self.full_content` – the concatenated text of all chunks
+        """
+        # Ensure downstream code can inspect these even if an error occurs
+        self.last_usage = None
+        self.last_cost = 0.0
+        self.last_credits = 0
+        self.full_content = ""
+
+        try:
+            # Force streaming=True – caller is responsible for setting it but
+            # we double-check so we don’t accidentally yield nothing.
+            params = params.copy()
+            params["stream"] = True
+
+            # Initiate streaming completion
+            response_stream = litellm.completion(
+                model=params["model"],
+                messages=params["messages"],
+                temperature=params["temperature"],
+                top_p=params["top_p"],
+                max_tokens=params["max_tokens"],
+                presence_penalty=params["presence_penalty"],
+                frequency_penalty=params["frequency_penalty"],
+                stream=True,  # hard-code True here
+                drop_params=True,
+            )
+
+            # Iterate over the streaming chunks
+            for chunk in response_stream:
+                # LiteLLM normalises chunk objects to have .choices[..].delta.content
+                content = ""
+                try:
+                    content = chunk.choices[0].delta.content or ""
+                except Exception:
+                    # Fallback to dict access just in case
+                    content = (
+                        chunk.get("choices", [{}])[0]
+                        .get("delta", {})
+                        .get("content", "")
+                    )
+
+                if content:
+                    self.full_content += content
+                    yield content  # send chunk upstream immediately
+
+                # Detect if this chunk carries full usage stats (varies by provider)
+                if hasattr(chunk, "usage") and chunk.usage:
+                    self.last_usage = chunk.usage
+
+            # If we never saw usage in a chunk, try to pull it from the iterator
+            # object (some providers expose it as attribute on the generator)
+            if self.last_usage is None and hasattr(response_stream, "usage"):
+                self.last_usage = response_stream.usage
+
+            # Calculate cost & credits once we have usage information
+            if self.last_usage is not None:
+                llm_cost = getattr(response_stream, "_hidden_params", {}).get(
+                    "response_cost", 0
+                )
+                transcription_cost = float(params.get("transcription_cost", 0))
+                self.last_cost = round(float(llm_cost) + transcription_cost, 6)
+                self.last_credits = self.calculate_credits(self.last_cost)
+
+        except Exception as e:
+            log.error(f"Error streaming response from {self.model_name}: {str(e)}")
+            # Propagate the exception to the caller – they can handle it just like
+            # they would with get_response.
+            raise e
+
     def calculate_credits(self, cost: float) -> int:
         """Calculate credits from cost (1 credit = $0.0001)"""
         credits = max(int(cost * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
