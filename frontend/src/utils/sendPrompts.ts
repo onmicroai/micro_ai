@@ -342,5 +342,6 @@ const {
       run.id
    );
 
-   return handleAIResponse(requestBody, userId, set);
+   const result = await handleAIResponse(requestBody, userId, set);
+   return { ...result, runId: run.id };
 };
