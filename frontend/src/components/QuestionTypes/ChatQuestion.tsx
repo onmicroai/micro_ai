@@ -59,6 +59,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
+   const [streamingMessage, setStreamingMessage] = useState('');
    const messagesEndRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
    const store = useConversationStore();
@@ -169,8 +170,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          userId: userId,
          requestSkip: false,
          skipScoredRun: true,
-         transcriptionCost: transcriptionCost
-       });// Debug log
+         transcriptionCost: transcriptionCost,
+         set: (state: any) => {
+           if (state.promptResponse) {
+             setStreamingMessage(state.promptResponse);
+           }
+         }
+       });
 
        if (response.success && response.response) {
          const shouldSynthesizeAudio = wasAudioInput && (element.enableTts || false);
@@ -218,6 +224,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      } finally {
        setIsAssistantTyping(false);
        setIsSynthesizingAudio(false);
+       setStreamingMessage(''); // Clear streaming message
      }
    };
 
@@ -314,11 +321,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                      </div>
                    )}
                    <div className="bg-[#f0f2f5] rounded-2xl px-4 py-2.5 shadow-sm rounded-tl-none">
-                     <div className="flex space-x-2">
-                       <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
-                       <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
-                       <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-200" />
-                     </div>
+                     {streamingMessage ? (
+                       <div className="text-sm whitespace-pre-wrap">{streamingMessage}</div>
+                     ) : (
+                       <div className="flex space-x-2">
+                         <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
+                         <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
+                         <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-200" />
+                       </div>
+                     )}
                    </div>
                  </div>
                )}

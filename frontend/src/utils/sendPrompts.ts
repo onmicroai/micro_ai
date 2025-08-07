@@ -49,10 +49,9 @@ const handleAIResponse = async (
                   }
 
                   // Update UI state incrementally
-                  setState((state: any) => ({
-                     ...state,
+                  setState({
                      promptResponse: accumulated,
-                  }));
+                  });
                },
                onDone: () => {
                   // Finalize run
