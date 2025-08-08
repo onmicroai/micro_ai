@@ -80,7 +80,7 @@ function handleEvent(
   // Split by newline, strip leading prefixes
   const lines = raw.split(/\n/);
   let eventType = "message";
-  let dataLines: string[] = [];
+  const dataLines: string[] = [];
 
   for (const l of lines) {
     if (l.startsWith("event:")) {
@@ -97,6 +97,14 @@ function handleEvent(
     onDone?.(data);
   } else if (eventType === "message" || eventType === "") {
     // Regular data chunk
-    if (data !== "") onChunk(data);
+    if (data !== "") {
+      try {
+        const decodedChunk = JSON.parse(data);
+        onChunk(decodedChunk);
+      } catch (e) {
+        // Fallback for non-JSON data
+        onChunk(data);
+      }
+    }
   }
 } 

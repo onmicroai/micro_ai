@@ -1,4 +1,5 @@
 from typing import Generator
+import json
 from .llm_interface import UnifiedLLMInterface
 
 
@@ -32,7 +33,7 @@ data: ok\n\n
     try:
         for chunk in iface.stream_response(params):
             # SSE requires \n\n after each event block.
-            yield f"data: {chunk}\n\n"
+            yield f"data:{json.dumps(chunk)}\n\n"
 
         # Signal end of stream
         yield "event: done\n" "data: ok\n\n"

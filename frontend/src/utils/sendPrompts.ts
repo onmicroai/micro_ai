@@ -37,7 +37,7 @@ const handleAIResponse = async (
                   if (runId) {
                      const run = useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId);
                      if (run) {
-                        let msgs = [...run.messages];
+                        const msgs = [...run.messages];
                         const idx = msgs.findIndex(m => m.role === 'assistant');
                         if (idx === -1) {
                            msgs.push({ role: 'assistant', content: chunk, timestamp: Date.now() } as any);
