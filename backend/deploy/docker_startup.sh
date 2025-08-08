@@ -16,4 +16,4 @@ python manage.py collectstatic --noinput --settings=micro_ai.settings_production
 
 # Start Gunicorn server
 echo "Starting Gunicorn..."
-exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 micro_ai.wsgi:application
+exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 --no-buffer micro_ai.wsgi:application
