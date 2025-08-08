@@ -3,9 +3,13 @@
 import { Button } from '@/components/Button'
 import { Container } from '@/components/Container'
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
-
+import { useState } from 'react'
+import VideoModal from './VideoModal'
 
 export function Hero() {
+  const [isVideoModalOpen, setIsVideoModalOpen] = useState(false);
+  const videoUrl = "https://d1jscdodpm97w5.cloudfront.net/OnMicro_Promo_Optimized.mp4";
+
   return (
     <div className="relative h-screen">
       <div className="absolute inset-0 overflow-hidden">
@@ -38,9 +42,8 @@ export function Hero() {
             </p>
             <div className="mt-10 flex justify-center gap-x-6">
               <Button href="/accounts/signup">Build your first apps free</Button>
-              { /* Temporarily hidden video button
               <Button
-                href="https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+                onClick={() => setIsVideoModalOpen(true)}
                 variant="outline"
               >
                 <svg
@@ -51,11 +54,17 @@ export function Hero() {
                 </svg>
                 <span className="ml-3">Watch video</span>
               </Button>
-              */}
             </div>
           </div>
         </div>
       </Container>
+
+      <VideoModal
+        isOpen={isVideoModalOpen}
+        onClose={() => setIsVideoModalOpen(false)}
+        videoUrl={videoUrl}
+        title="OnMicro Promo Video"
+      />
     </div>
   )
 }

@@ -162,14 +162,17 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
             ...ltiConfig,
             microapp_id: app.id,
             id: hasExistingConfig ? ltiConfig.id : undefined,
-            deployment_id: ltiConfig.deployment_ids?.[0] || ''
+            deployment_id: ltiConfig.deployment_ids?.[0] || '',
+            // Remove deployment_ids from the payload since API expects deployment_id
+            deployment_ids: undefined
          });
          
          if (response.status === 200) {
-            // Ensure deployment_ids is properly set from the response
+            // Normalize the response data to use deployment_ids array internally
             const updatedConfig = {
                ...response.data,
-               deployment_ids: response.data.deployment_ids || [response.data.deployment_id].filter(Boolean)
+               deployment_ids: response.data.deployment_ids || 
+                             (response.data.deployment_id ? [response.data.deployment_id] : [])
             };
             setLtiConfig(updatedConfig);
             setHasExistingConfig(true);
@@ -191,9 +194,15 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                const api = axiosInstance();
                const response = await api.get(`/lti/api/config/${app.id}/`);
                if (response.status === 200) {
-                  setLtiConfig(response.data);
+                  // Normalize the response to handle both deployment_id and deployment_ids
+                  const normalizedData = {
+                     ...response.data,
+                     deployment_ids: response.data.deployment_ids || 
+                                   (response.data.deployment_id ? [response.data.deployment_id] : [])
+                  };
+                  setLtiConfig(normalizedData);
                   setHasExistingConfig(true);
-                  initialConfigRef.current = response.data;
+                  initialConfigRef.current = normalizedData;
                   setHasChanges(false);
                }
             } catch (error: any) {

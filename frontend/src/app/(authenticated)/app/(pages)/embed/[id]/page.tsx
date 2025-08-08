@@ -201,12 +201,6 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                })}
             </div>
 
-            {promptLoading && (
-               <div className="flex justify-center py-8">
-                  <SkeletonLoader />
-               </div>
-            )}
-
             {currentPhase !== null && appId !== null && (
                <div className="mt-6">
                   <CurrentPhase
