@@ -17,4 +17,4 @@ python manage.py collectstatic --noinput --settings=micro_ai.settings
 # Start Gunicorn server
 echo "Starting Gunicorn..."
 export DJANGO_SETTINGS_MODULE=micro_ai.settings
-exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 --access-logfile - --error-logfile - micro_ai.wsgi:application
+exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --worker-class uvicorn.workers.UvicornWorker --timeout 0 --access-logfile - --error-logfile - micro_ai.asgi:application

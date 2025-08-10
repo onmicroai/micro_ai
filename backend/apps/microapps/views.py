@@ -30,27 +30,23 @@ from apps.users.serializers import UserSerializer
 from apps.utils.usage_helper import RunUsage, MicroAppUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import AIModelConstants, MicroappVariables, UsageVariables
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
-from apps.microapps.document_parser import DocumentParser, DocumentProcessor
+from apps.microapps.document_parser import DocumentProcessor
 from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from rest_framework.exceptions import PermissionDenied
-from rest_framework import generics
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField
 
 from django.db.models.functions import Round
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import UsageEventSerializer, BillingDetailsSerializer
 from django.utils import timezone
-import stripe
 import boto3
 from botocore.config import Config
 from rest_framework import serializers
-from rest_framework.decorators import action
 from django.conf import settings
 import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
-import requests
 from django.http import HttpResponse
 from django.http import StreamingHttpResponse
 from .streaming import litellm_sse_generator
@@ -708,13 +704,20 @@ class RunList(APIView):
         try:
             data = request.data
             #If field exists, convert to float:
-            if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
-            if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
-            if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
-            if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
-            if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
-            if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
-            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
+            if data.get("temperature"):
+                data["temperature"] = float(data.get("temperature"))
+            if data.get("frequency_penalty"):
+                data["frequency_penalty"] = float(data.get("frequency_penalty"))
+            if data.get("presence_penalty"):
+                data["presence_penalty"] = float(data.get("presence_penalty"))
+            if data.get("top_p"):
+                data["top_p"] = float(data.get("top_p"))
+            if data.get("minimum_score"):
+                data["minimum_score"] = float(data.get("minimum_score"))
+            if data.get("max_tokens"):
+                data["max_tokens"] = int(data.get("max_tokens"))
+            if data.get("transcription_cost"):
+                data["transcription_cost"] = float(data.get("transcription_cost"))
 
             if 'cost' in data:
                 # Round cost to 6 decimal places before serializer
@@ -984,13 +987,20 @@ class AnonymousRunList(RunList):
         try:
             data = request.data
             # Convert numeric fields to appropriate types
-            if data.get("temperature"): data["temperature"] = float(data.get("temperature"))
-            if data.get("frequency_penalty"): data["frequency_penalty"] = float(data.get("frequency_penalty"))
-            if data.get("presence_penalty"): data["presence_penalty"] = float(data.get("presence_penalty"))
-            if data.get("top_p"): data["top_p"] = float(data.get("top_p"))
-            if data.get("minimum_score"): data["minimum_score"] = float(data.get("minimum_score"))
-            if data.get("max_tokens"): data["max_tokens"] = int(data.get("max_tokens"))
-            if data.get("transcription_cost"): data["transcription_cost"] = float(data.get("transcription_cost"))
+            if data.get("temperature"):
+                data["temperature"] = float(data.get("temperature"))
+            if data.get("frequency_penalty"):
+                data["frequency_penalty"] = float(data.get("frequency_penalty"))
+            if data.get("presence_penalty"):
+                data["presence_penalty"] = float(data.get("presence_penalty"))
+            if data.get("top_p"):
+                data["top_p"] = float(data.get("top_p"))
+            if data.get("minimum_score"):
+                data["minimum_score"] = float(data.get("minimum_score"))
+            if data.get("max_tokens"):
+                data["max_tokens"] = int(data.get("max_tokens"))
+            if data.get("transcription_cost"):
+                data["transcription_cost"] = float(data.get("transcription_cost"))
             
             try:
                 app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
@@ -1649,7 +1659,6 @@ class MicroAppImageUpload(APIView):
                 {'Content-Type': content_type}
             ]
 
-            expiration = datetime.datetime.utcnow() + datetime.timedelta(minutes=5)
             
             response = s3_client.generate_presigned_post(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
@@ -1944,7 +1953,7 @@ class TextToSpeech(APIView):
 
             # Initialize LLM interface with appropriate model config
             # TODO: Remove this once we support more TTS providers
-            model_name = f"non-openai-tts-not-setup-yet" if provider != 'openai' else 'gpt-4o-mini-tts'
+            model_name = "non-openai-tts-not-setup-yet" if provider != 'openai' else 'gpt-4o-mini-tts'
             model_config = AIModelConstants.get_configs(model_name)
             llm_interface = UnifiedLLMInterface(model_config)
 
@@ -2120,7 +2129,10 @@ class RunListStream(APIView):
             api_params["stream"] = True
 
             generator = litellm_sse_generator(iface, api_params)
-            return StreamingHttpResponse(generator, content_type="text/event-stream")
+            response = StreamingHttpResponse(generator, content_type="text/event-stream")
+            response['X-Accel-Buffering'] = 'no'
+            response['Cache-Control'] = 'no-cache'
+            return response
 
         except Exception as e:
             return handle_exception(e)

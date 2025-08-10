@@ -10,3 +10,22 @@ packaging==24.0
     # via
     #   -c /code/requirements/requirements.txt
     #   gunicorn
+uvicorn[standard]==0.30.6
+    # via -r requirements/prod-requirements.in
+    # via uvicorn
+click==8.1.7
+    # via uvicorn
+h11==0.14.0
+    # via uvicorn
+httptools==0.6.1
+    # via uvicorn
+python-dotenv==1.0.1
+    # via uvicorn
+pyyaml==6.0.2
+    # via uvicorn
+uvloop==0.20.0
+    # via uvicorn
+watchfiles==0.24.0
+    # via uvicorn
+websockets==13.1
+    # via uvicorn
