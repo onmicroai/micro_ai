@@ -98,7 +98,7 @@ export default function SubscriptionPage() {
     };
 
     fetchData();
-  }, [api]);
+  }, [api, fetchCredits]);
 
   const handleManageSubscription = async () => {
     try {

@@ -144,7 +144,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
             clearTimeout(timeoutId);
          }
       };
-   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage, launchId]);
+   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage, launchId, submitLTIScore]);
 
    useEffect(() => {
       const abortController = new AbortController();

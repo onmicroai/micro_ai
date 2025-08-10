@@ -8,12 +8,13 @@ PORT=${PORT:-8000}
 
 # Run database migrations
 echo "Running Django migrations..."
-python manage.py migrate --noinput --settings=micro_ai.settings_production
+python manage.py migrate --noinput --settings=micro_ai.settings
 
 # Collect static files
 echo "Collecting static files..."
-python manage.py collectstatic --noinput --settings=micro_ai.settings_production
+python manage.py collectstatic --noinput --settings=micro_ai.settings
 
 # Start Gunicorn server
 echo "Starting Gunicorn..."
-exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 --no-buffer micro_ai.wsgi:application
+export DJANGO_SETTINGS_MODULE=micro_ai.settings
+exec gunicorn --bind 0.0.0.0:$PORT --workers 1 --threads 8 --timeout 0 --access-logfile - --error-logfile - micro_ai.wsgi:application

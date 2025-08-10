@@ -1,6 +1,7 @@
 "use client";
 
 import { Choice, Element } from "@/app/(authenticated)/app/types";
+import Image from "next/image";
 import {
   GripVertical,
   Trash2,
@@ -871,7 +872,7 @@ export default function Field({
                   >
                     {field.avatarUrl ? (
                       <>
-                        <img
+                        <Image
                           src={field.avatarUrl}
                           alt="Chat avatar"
                           className="w-full h-full object-cover"
@@ -984,7 +985,7 @@ export default function Field({
                         >
                           <div className="flex items-start space-x-3">
                             <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center">
-                              <img
+                              <Image
                                 src={voice.avatarUrl}
                                 alt={voice.name}
                                 className="w-10 h-10 rounded-full object-cover"
