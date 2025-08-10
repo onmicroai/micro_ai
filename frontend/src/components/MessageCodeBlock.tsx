@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { materialDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+const PrismHighlighter = SyntaxHighlighter as any;
 
 interface CodeBlockProps {
   node?: any;
@@ -49,7 +50,7 @@ export default function CodeBlock({ node: _node, inline, className, children, ..
         </div>
       </div>
       
-      <SyntaxHighlighter 
+      <PrismHighlighter 
         style={materialDark} 
         customStyle={{
           fontSize: "0.875rem",
@@ -60,7 +61,7 @@ export default function CodeBlock({ node: _node, inline, className, children, ..
         {...props}
       >
         {String(children || '').replace(/\n$/, '')}
-      </SyntaxHighlighter>
+      </PrismHighlighter>
     </div>
   ) : (
     <code className={`${className} bg-gray-100 px-1 py-0.5 rounded text-sm font-mono`} {...props}>
