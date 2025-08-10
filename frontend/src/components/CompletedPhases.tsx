@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import Image from "next/image";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import RenderQuestion from '@/components/RenderQuestion';
 import { useSurveyStore } from '../store/runtimeSurveyStore';
@@ -116,7 +117,7 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                                     >
                                        {sender === 'ai' && element.avatarUrl && (
                                           <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
-                                             <img
+                                             <Image
                                                 src={element.avatarUrl}
                                                 alt="Assistant avatar"
                                                 className="w-full h-full object-cover"

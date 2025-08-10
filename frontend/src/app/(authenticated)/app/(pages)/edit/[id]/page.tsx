@@ -143,6 +143,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setClonable, 
       setCompletedHtml, 
       setAIConfig, 
+      setAttachedFiles,
       setCollectionId,
       setIsInitialLoad,
       setLoading,

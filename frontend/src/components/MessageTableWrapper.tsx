@@ -5,7 +5,7 @@ interface TableWrapperProps {
   [key: string]: any;
 }
 
-export default function TableWrapper({ node, ...props }: TableWrapperProps) {
+export default function TableWrapper({ node: _node, ...props }: TableWrapperProps) {
   return (
     <div className="overflow-x-auto my-4">
       <table 

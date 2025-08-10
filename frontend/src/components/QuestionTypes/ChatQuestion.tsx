@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from 'react';
+import Image from "next/image";
 import { Element, ErrorObject, Answers, setInputValue, ConditionalLogic, Prompt } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { sendPromptsUtil } from "@/utils/sendPrompts";
@@ -101,7 +102,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          clearTimeout(timeoutId);
        }
      };
-   }, [recorder.isRecording]);
+   }, [recorder]);
 
    // Count only user messages
    const userMessageCount = messages.filter(msg => msg.sender === 'user').length;
@@ -295,7 +296,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                  >
                    {message.sender === 'ai' && element.avatarUrl && (
                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
-                       <img
+                       <Image
                          src={element.avatarUrl}
                          alt="Assistant avatar"
                          className="w-full h-full object-cover"
@@ -333,7 +334,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                  <div className="flex justify-start items-start gap-1">
                    {element.avatarUrl && (
                      <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
-                       <img
+                       <Image
                          src={element.avatarUrl}
                          alt="Assistant avatar"
                          className="w-full h-full object-cover"

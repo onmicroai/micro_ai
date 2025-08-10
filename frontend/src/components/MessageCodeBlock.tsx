@@ -10,7 +10,7 @@ interface CodeBlockProps {
   [key: string]: any;
 }
 
-export default function CodeBlock({ node, inline, className, children, ...props }: CodeBlockProps) {
+export default function CodeBlock({ node: _node, inline, className, children, ...props }: CodeBlockProps) {
   const [copyStatus, setCopyStatus] = useState('Copy');
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : '';
