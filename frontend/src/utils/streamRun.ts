@@ -18,14 +18,14 @@ export interface StreamCallbacks {
 
 // Decide endpoint once, can be extended to anonymous later
 function getEndpoint(userId: number | null) {
-  return userId ? "/api/microapps/run/stream" : "/api/microapps/run/stream";
+  return userId ? "/api/microapps/run" : "/api/microapps/run";
 }
 
 export async function streamRun(
   payload: Record<string, unknown>,
   userId: number | null,
   { onChunk, onDone, onError }: StreamCallbacks
-) {
+): Promise<Response | null> {
   try {
     const endpoint = getEndpoint(userId);
 
@@ -38,8 +38,18 @@ export async function streamRun(
       body: JSON.stringify(payload),
     });
 
-    if (!response.ok || !response.body) {
-      throw new Error(`Stream request failed (${response.status})`);
+    if (!response.ok) {
+      throw new Error(`Request failed (${response.status})`);
+    }
+
+    // Check if response is streaming (SSE) or JSON
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.includes('text/event-stream')) {
+      return response;
+    }
+
+    if (!response.body) {
+      throw new Error(`Stream response missing body`);
     }
 
     const reader = response.body.getReader();
@@ -66,9 +76,11 @@ export async function streamRun(
     }
 
     onDone?.();
+    return null;
   } catch (err) {
     console.error("streamRun error", err);
     onError?.(err);
+    return null;
   }
 }
 

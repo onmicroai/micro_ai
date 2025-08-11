@@ -16,17 +16,16 @@ const handleAIResponse = async (
 ): Promise<SendPromptResponse> => {
    const store = useConversationStore.getState();
 
-   // NEW: if caller requested streaming, use streamRun utility
-   if (requestBody.stream === true) {
-      try {
-         let accumulated = "";
-         // mark current run as running (was pending)
-         const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
-         if (runId) {
-            store.updateRun(runId, { status: "running" });
-         }
+      // Always try unified endpoint first - backend decides streaming based on model
+   try {
+      let accumulated = "";
+      // mark current run as running (was pending)
+      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
+      if (runId) {
+         store.updateRun(runId, { status: "running" });
+      }
 
-         await streamRun(
+      const response = await streamRun(
             requestBody,
             userId,
             {
@@ -80,12 +79,51 @@ const handleAIResponse = async (
             },
          );
 
-         return { success: true, response: accumulated } as SendPromptResponse;
-      } catch (e: any) {
-         return { success: false, error: String(e) };
-      }
+         // If response is not null, it means backend returned JSON (non-streaming)
+         if (response) {
+            const data = await response.json();
+            const responseData = data.data;
+            const promptResponse = responseData.response;
+
+            // Update the current run with all response data
+            if (runId) {
+               store.updateRun(runId, {
+                  status: 'completed',
+                  run_passed: responseData.run_passed,
+                  run_score: responseData.run_score,
+                  no_submission: responseData.no_submission,
+                  cost: responseData.cost,
+                  credits: responseData.credits,
+                  session_id: responseData.session_id
+               });
+            }
+
+            // Add the response message
+            store.addMessage('assistant', promptResponse);
+            
+            await delay(1000);
+            
+            setState((state: any) => ({
+               ...state,
+               promptResponse,
+               promptLoading: false,
+               responses: [...(state.responses || []), promptResponse],
+            }));
+
+            return { 
+               success: true, 
+               response: promptResponse, 
+               run_passed: responseData.run_passed,
+               run_uuid: responseData.run_uuid
+            };
+         }
+
+      return { success: true, response: accumulated } as SendPromptResponse;
+   } catch (streamError: any) {
+      console.log("Streaming attempt failed, falling back to standard request:", streamError);
    }
 
+   // Fallback to non-streaming request (for anonymous users or if streaming failed)
    try {
       const endpoint = !userId ? '/api/microapps/run/anonymous' : '/api/microapps/run';
       

@@ -48,8 +48,6 @@ import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
 from django.http import HttpResponse
-from django.http import StreamingHttpResponse
-from .streaming import litellm_sse_generator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -811,7 +809,24 @@ class RunList(APIView):
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
-                response = model.get_response(api_params)
+                # Check if model supports streaming
+                model_config = model_router["config"]
+                if model_config.get("stream", True):
+                    # Return streaming response
+                    from .streaming import litellm_sse_generator
+                    from django.http import StreamingHttpResponse
+                    
+                    # Ensure stream flag is set
+                    api_params["stream"] = True
+                    
+                    generator = litellm_sse_generator(model, api_params)
+                    response = StreamingHttpResponse(generator, content_type="text/event-stream")
+                    response['X-Accel-Buffering'] = 'no'
+                    response['Cache-Control'] = 'no-cache'
+                    return response
+                else:
+                    # Use non-streaming response
+                    response = model.get_response(api_params)
                 if not response["status"]:
                     return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
                 response = response["data"]
@@ -2085,54 +2100,3 @@ class ParseFile(APIView):
         except Exception as e:
             return handle_exception(e)
 
-class RunListStream(APIView):
-    """Streaming version of `RunList`.
-
-    It accepts the same payload as the normal `/run` endpoint but instead of
-    waiting for the full LLM answer it returns a Server-Sent Events stream.  No
-    database writes or credit deductions are performed yet – those will be
-    added in a later step.
-    """
-
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        try:
-            data = request.data.dict() if hasattr(request.data, "dict") else request.data
-
-            # Normalise basic numeric fields so they are of correct type for get_default_params
-            for fld, cast in (
-                ("temperature", float),
-                ("frequency_penalty", float),
-                ("presence_penalty", float),
-                ("top_p", float),
-                ("max_tokens", int),
-            ):
-                if fld in data and data.get(fld) is not None and data.get(fld) != "":
-                    try:
-                        data[fld] = cast(data[fld])
-                    except (TypeError, ValueError):
-                        pass  # let validation handle it later
-
-            # Route to correct model
-            model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
-            if not model_router:
-                return Response(
-                    {"error": "Unsupported AI model", "status": status.HTTP_400_BAD_REQUEST},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            iface = model_router["model"]
-
-            # Build params (forces stream flag inside helper)
-            api_params = iface.get_default_params(data)
-            api_params["stream"] = True
-
-            generator = litellm_sse_generator(iface, api_params)
-            response = StreamingHttpResponse(generator, content_type="text/event-stream")
-            response['X-Accel-Buffering'] = 'no'
-            response['Cache-Control'] = 'no-cache'
-            return response
-
-        except Exception as e:
-            return handle_exception(e)

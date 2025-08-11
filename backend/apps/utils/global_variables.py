@@ -34,7 +34,7 @@ class AIModelDefaults:
         "top_p_min": 0.0,
         "top_p_max": 1.0,
         "supports_image": False,
-        "stream": False,# Default empty list for messages
+        "stream": True,  # Default streaming capability
     }
 
 class AIModelFamilyDefaults:
@@ -108,6 +108,7 @@ class AIModelConstants:
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o1",
             "supports_image": True,
+            "stream": False,  # O1 models don't support streaming
             "plans": ["enterprise"]
         },
         "claude-3-5-haiku": {

@@ -159,7 +159,7 @@ ${file!.content}
          ),
       ],
       ma_id: Number(appId),
-      stream: true,
+
       request_skip: requestSkip,
       no_submission: noSubmit,
       run_uuid: run_uuid
