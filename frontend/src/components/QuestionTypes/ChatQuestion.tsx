@@ -66,9 +66,11 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
    const [streamingMessage, setStreamingMessage] = useState('');
    const messagesEndRef = useRef<HTMLDivElement>(null);
+   const messagesContainerRef = useRef<HTMLDivElement>(null);
    const recorder = useAudioRecorder();
    const store = useConversationStore();
    const hasInteractedRef = useRef(false);
+   const shouldAutoScrollRef = useRef(true);
 
    // Load chat history from answers when component mounts
    useEffect(() => {
@@ -107,14 +109,67 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    // Count only user messages
    const userMessageCount = messages.filter(msg => msg.sender === 'user').length;
 
-   // Auto-scroll to the bottom *after* the user has interacted with the chat.
-   // This prevents the initial page load from jumping to the bottom while still
-   // retaining the desired behaviour for new messages and typing indicators.
-   useEffect(() => {
-     if (!hasInteractedRef.current) return;
-     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-   }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio]);
+   /**
+    * Check if user is near the bottom of the chat.
+    * @returns boolean
+    */
+   const isNearBottom = () => {
+     const container = messagesContainerRef.current;
+     if (!container) return true;
+     
+     const threshold = 50; // pixels from bottom
+     const { scrollTop, scrollHeight, clientHeight } = container;
+     return scrollTop + clientHeight >= scrollHeight - threshold;
+   };
 
+   /**
+    * Scroll to bottom of the chat.
+    * @param smooth - Whether to scroll smoothly or instantly.
+    */
+   const scrollToBottom = (smooth = true) => {
+     messagesEndRef.current?.scrollIntoView({ 
+       behavior: smooth ? 'smooth' : 'instant' 
+     });
+   };
+
+   // Scroll to bottom when chat history is loaded (initial load)
+   useEffect(() => {
+     const chatHistory = answers[element.name]?.value || [];
+     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+       // Use timeout to ensure DOM is updated
+       setTimeout(() => {
+         scrollToBottom(false); // Instant scroll on initial load
+       }, 0);
+     }
+   }, [answers, element.name]);
+
+   // Auto-scroll logic for new messages and updates
+   useEffect(() => {
+     if (!hasInteractedRef.current) {
+       scrollToBottom(false);
+       return;
+     }
+
+     if (shouldAutoScrollRef.current && isNearBottom()) {
+       scrollToBottom(true);
+     }
+   }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio, streamingMessage]);
+
+   /**
+    * Handle scroll events to detect if user is manually scrolling up
+    * @returns void
+    */
+   const handleScroll = () => {
+     if (!hasInteractedRef.current) return;
+     
+     const nearBottom = isNearBottom();
+     shouldAutoScrollRef.current = nearBottom;
+   };
+
+   /**
+    * Handle the completion of a recording.
+    * @param blob - The blob of the recording.
+    */
    const handleRecordingComplete = async (blob: Blob) => {
      try {
        setIsUserTyping(true);
@@ -288,7 +343,11 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px', position: 'relative' }}>
            <div className="flex flex-col h-full">
              {/* Messages Container */}
-             <div className="flex-1 overflow-y-auto p-4 space-y-4">
+             <div 
+               ref={messagesContainerRef}
+               className="flex-1 overflow-y-auto p-4 space-y-4"
+               onScroll={handleScroll}
+             >
                {messages.map((message, i) => (
                  <div
                    key={i}
