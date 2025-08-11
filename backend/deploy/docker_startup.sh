@@ -8,11 +8,11 @@ PORT=${PORT:-8000}
 
 # Run database migrations
 echo "Running Django migrations..."
-python manage.py migrate --noinput --settings=micro_ai.settings
+python manage.py migrate --noinput --settings=micro_ai.settings_production
 
 # Collect static files
 echo "Collecting static files..."
-python manage.py collectstatic --noinput --settings=micro_ai.settings
+python manage.py collectstatic --noinput --settings=micro_ai.settings_production
 
 # Start Gunicorn server
 echo "Starting Gunicorn..."

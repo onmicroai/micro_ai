@@ -1,13 +1,13 @@
-from typing import Generator
+from typing import AsyncGenerator
 import json
+import asyncio
 from .llm_interface import UnifiedLLMInterface
 
-
-def litellm_sse_generator(
+async def litellm_sse_generator(
     iface: UnifiedLLMInterface,
     params: dict,
-) -> Generator[str, None, None]:
-    """Wrap :pymeth:`UnifiedLLMInterface.stream_response` output in
+) -> AsyncGenerator[str, None]:
+    """Async wrapper for :pymeth:`UnifiedLLMInterface.stream_response` output in
     Server-Sent Events (SSE) lines.
 
     Usage::
@@ -34,9 +34,9 @@ data: ok\n\n
         for chunk in iface.stream_response(params):
             # SSE requires \n\n after each event block.
             yield f"data:{json.dumps(chunk)}\n\n"
+            await asyncio.sleep(0)
 
         # Signal end of stream
         yield "event: done\n" "data: ok\n\n"
-    finally:
-        # Nothing special, but could be used for cleanup/logging.
-        pass 
+    except Exception:
+        raise 
