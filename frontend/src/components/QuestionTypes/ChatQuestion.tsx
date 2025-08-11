@@ -117,9 +117,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      const container = messagesContainerRef.current;
      if (!container) return true;
      
-     const threshold = 50; // pixels from bottom
+     const threshold = 100; // Increased threshold to be more strict
      const { scrollTop, scrollHeight, clientHeight } = container;
-     return scrollTop + clientHeight >= scrollHeight - threshold;
+     const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
+     return distanceFromBottom <= threshold;
    };
 
    /**
@@ -132,38 +133,40 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      });
    };
 
-   // Scroll to bottom when chat history is loaded (initial load)
+   // Scroll to bottom when chat history is loaded (initial load ONLY)
    useEffect(() => {
      const chatHistory = answers[element.name]?.value || [];
      if (Array.isArray(chatHistory) && chatHistory.length > 0) {
-       // Use timeout to ensure DOM is updated
        setTimeout(() => {
-         scrollToBottom(false); // Instant scroll on initial load
+         scrollToBottom(false);
+         shouldAutoScrollRef.current = true;
        }, 0);
      }
-   }, [answers, element.name]);
+   }, [element.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-   // Auto-scroll logic for new messages and updates
-   useEffect(() => {
-     if (!hasInteractedRef.current) {
-       scrollToBottom(false);
-       return;
-     }
+     useEffect(() => {
+       if (!hasInteractedRef.current) {
+         scrollToBottom(false);
+         return;
+       }
 
-     if (shouldAutoScrollRef.current && isNearBottom()) {
-       scrollToBottom(true);
-     }
-   }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio, streamingMessage]);
+       if (shouldAutoScrollRef.current) {
+         scrollToBottom(true);
+       }
+     }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio, streamingMessage]);
 
    /**
     * Handle scroll events to detect if user is manually scrolling up
     * @returns void
     */
    const handleScroll = () => {
-     if (!hasInteractedRef.current) return;
-     
      const nearBottom = isNearBottom();
-     shouldAutoScrollRef.current = nearBottom;
+     
+     if (shouldAutoScrollRef.current && !nearBottom) {
+       shouldAutoScrollRef.current = false;
+     } else if (!shouldAutoScrollRef.current && nearBottom) {
+       shouldAutoScrollRef.current = true;
+     }
    };
 
    /**
@@ -201,6 +204,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
      // Mark that the user has interacted so that future updates will trigger auto-scroll.
      hasInteractedRef.current = true;
+     
+     // Update auto-scroll preference based on current position when sending
+     shouldAutoScrollRef.current = isNearBottom();
 
      try {
        const prompts: Prompt[] = [];
