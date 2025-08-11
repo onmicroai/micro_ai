@@ -3,6 +3,8 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { FaRegCopy, FaCopy, FaThumbsUp, FaThumbsDown } from 'react-icons/fa6';
+import CodeBlock from '@/components/MessageCodeBlock';
+import TableWrapper from '@/components/MessageTableWrapper';
 import { Run } from '@/store/conversationStore';
 import { proseClasses } from '@/styles/proseClasses';
 import { updateRunUtil } from '@/utils/sendPrompts';
@@ -81,7 +83,13 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
    return (
       <div className="mt-6 bg-gradient-to-b from-white to-gray-50/50 border border-gray-200/80 rounded-sm p-6 shadow-sm backdrop-blur-sm">
          <div className={proseClasses}>
-            <ReactMarkdown remarkPlugins={[remarkGfm, remarkBreaks]}>
+            <ReactMarkdown 
+               remarkPlugins={[remarkGfm, remarkBreaks]}
+               components={{
+                  code: CodeBlock,
+                  table: TableWrapper 
+               }}
+            >
                {assistantMessage.content || ''}
             </ReactMarkdown>
          </div>

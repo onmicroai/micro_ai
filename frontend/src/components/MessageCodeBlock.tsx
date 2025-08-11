@@ -21,10 +21,8 @@ export default function CodeBlock({ node: _node, inline, className, children, ..
     setCopyStatus('Copied!');
     navigator.clipboard.writeText(String(children || '').replace(/\n$/, ''))
       .then(() => {
-        // Clipboard successfully set
         setTimeout(() => setCopyStatus('Copy'), 2000);
       }, (error) => {
-        // Clipboard write failed
         setCopyStatus('Error: ' + error);
         setTimeout(() => setCopyStatus('Copy'), 3000);
       });
