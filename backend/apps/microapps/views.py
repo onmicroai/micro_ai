@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from rest_framework.permissions import IsAuthenticated, AllowAny 
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import (
     IsAdminOrOwner,
@@ -47,7 +47,8 @@ from django.conf import settings
 import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
-from django.http import HttpResponse
+from django.http import HttpResponse, StreamingHttpResponse
+from .streaming import litellm_sse_generator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -366,29 +367,6 @@ class UserMicroApps(APIView):
         except Exception as e:
             return handle_exception(e)
 
-    # def get_objects(self, uid, aid):
-    #     try:
-    #         return MicroAppUserJoin.objects.filter(user_id=uid, ma_id=aid)
-    #     except Exception as e:
-    #         return handle_exception(e)
-
-    # def get(self, request, app_id, user_id=None):
-    #     try:
-    #         if user_id:
-    #             user_role = self.get_objects(user_id, app_id)
-    #             if user_role:
-    #                 serializer = MicroappUserSerializer(user_role, many=True)
-    #                 return Response(
-    #                     {"data": serializer.data, "status": status.HTTP_200_OK},
-    #                     status=status.HTTP_200_OK,
-    #                 )
-    #             return Response(
-    #                 error.USER_NOT_EXIST,
-    #                 status=status.HTTP_400_BAD_REQUEST,
-    #             )
-    #     except Exception as e:
-    #         return handle_exception(e)
-
     def delete(self, request, app_id, user_id, format=None):
         try:
             self.permission_classes = [IsOwner]
@@ -464,20 +442,6 @@ class UserMicroAppsDetails(APIView):
         except Exception as e:
             return handle_exception(e)
 
-# @extend_schema_view(
-#     get=extend_schema(responses={200: MicroappUserSerializer(many=True)}, summary="Get all users role for a microapp"),
-# )
-# class UserMicroAppList(generics.ListAPIView):
-#     serializer_class = MicroappUserSerializer
-#     permission_classes = [IsAuthenticated]
-
-#     def get_queryset(self):
-#         try:
-#             app_id = self.kwargs['app_id']
-#             return MicroAppUserJoin.objects.filter(ma_id=app_id)
-#         except Exception as e:
-#             return handle_exception(e)
-            
 @extend_schema_view(
     get=extend_schema(responses={200: MicroAppSerializer(many=True)}),
 )
@@ -698,6 +662,30 @@ class RunList(APIView):
             log.error(e)
             return False
 
+    def save_streaming_run_data_sync(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
+        """Save streaming run data to database after stream completion (sync version)"""
+        try:
+            self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+            run_data = self.route_api_response(
+                response_data, data, api_params, model, app_owner_id, ip)
+
+            serializer = RunGetSerializer(data=run_data)
+            if serializer.is_valid():
+                serialize = serializer.save()
+                self.update_user_credits(serialize.id, app_owner_id, user_id)
+            else:
+               log.error(f"Streaming run serialization failed: {serializer.errors}")
+               raise ValueError(f"Invalid run data: {serializer.errors}")
+        except Exception as e:
+            log.error(f"Error saving streaming run data: {e}")
+            raise
+
+    async def save_streaming_run_data(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
+        """Async wrapper that calls sync database operations in a thread"""
+        from asgiref.sync import sync_to_async
+        sync_func = sync_to_async(self.save_streaming_run_data_sync)
+        await sync_func(response_data, data, api_params, model, app_owner_id, ip, user_id)
+
     def post(self, request, format=None):
         try:
             data = request.data
@@ -752,7 +740,8 @@ class RunList(APIView):
                     )
                 
             # Return model instance based on AI-model name
-            model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
+            requested_model = data.get("model", env("DEFAULT_AI_MODEL"))
+            model_router = AIModelRoute().get_ai_model(requested_model)
            
             if not model_router:
                 return Response({"error": error.UNSUPPORTED_AI_MODEL, "status": status.HTTP_400_BAD_REQUEST},
@@ -812,14 +801,16 @@ class RunList(APIView):
                 # Check if model supports streaming
                 model_config = model_router["config"]
                 if model_config.get("stream", True):
-                    # Return streaming response
-                    from .streaming import litellm_sse_generator
-                    from django.http import StreamingHttpResponse
-                    
-                    # Ensure stream flag is set
                     api_params["stream"] = True
                     
-                    generator = litellm_sse_generator(model, api_params)
+                    async def save_streaming_run(response_data):
+                        try:
+                            result = await self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                            return result
+                        except Exception:
+                            raise
+                    
+                    generator = litellm_sse_generator(model, api_params, on_completion_callback=save_streaming_run)
                     response = StreamingHttpResponse(generator, content_type="text/event-stream")
                     response['X-Accel-Buffering'] = 'no'
                     response['Cache-Control'] = 'no-cache'
@@ -827,11 +818,11 @@ class RunList(APIView):
                 else:
                     # Use non-streaming response
                     response = model.get_response(api_params)
-                if not response["status"]:
-                    return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
-                response = response["data"]
-                
-                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+                    if not response["status"]:
+                        return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+                    response = response["data"]
+                    
+                    self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Create response data
             run_data = self.route_api_response(response, data, api_params, model, app_owner_id, ip)
             
