@@ -341,6 +341,9 @@ REST_FRAMEWORK = {
 is_production = os.getenv('PRODUCTION', 'False') == 'True'
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
+# SameSite cookie configuration for production vs development
+SAMESITE_SETTING = 'None' if is_production else 'Lax'
+
 # Get token lifetime settings from environment with fallbacks
 ACCESS_TOKEN_LIFETIME_MINUTES = env.float("ACCESS_TOKEN_LIFETIME_MINUTES", default=60.0)
 REFRESH_TOKEN_LIFETIME_DAYS = env.float("REFRESH_TOKEN_LIFETIME_DAYS", default=7.0)
@@ -357,7 +360,7 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_SECURE": is_production,      
     "AUTH_COOKIE_HTTP_ONLY": True,   
     "AUTH_COOKIE_PATH": "/",         
-    "AUTH_COOKIE_SAMESITE": "None",
+    "AUTH_COOKIE_SAMESITE": SAMESITE_SETTING,
 }
 
 REST_AUTH = {
@@ -371,7 +374,7 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS")
 CSRF_TRUSTED_ORIGINS = env.list("CSRF_TRUSTED_ORIGINS")
 CSRF_COOKIE_SECURE = is_production
-CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SAMESITE = SAMESITE_SETTING
 
 SPECTACULAR_SETTINGS = {
     "TITLE": "OnMicro.AI",
@@ -469,4 +472,4 @@ SESSION_COOKIE_NAME = 'sessionid'
 SESSION_COOKIE_PATH = '/admin/'  # Only set session cookie for admin paths
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SECURE = is_production
-SESSION_COOKIE_SAMESITE = 'None'  # More restrictive for admin
+SESSION_COOKIE_SAMESITE = SAMESITE_SETTING  # Dynamic: None in prod, Lax in dev
