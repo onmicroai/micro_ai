@@ -48,7 +48,7 @@ import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
 from django.http import HttpResponse, StreamingHttpResponse
-from .streaming import litellm_sse_generator
+from .streaming import get_streaming_generator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -210,21 +210,6 @@ class MicroAppDetails(APIView):
             return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
         except Exception as e:
             return handle_exception(e)
-
-    # def delete(self, request, app_id, format=None):
-    #     try:
-    #         self.permission_classes = [IsOwner]
-    #         self.check_permissions(request)
-    #         micro_apps = self.get_object(app_id)
-    #         if micro_apps:
-    #             micro_apps.delete()
-    #             return Response(status=status.HTTP_200_OK)
-    #         return Response(error.MICROAPP_NOT_EXIST, status=status.HTTP_400_BAD_REQUEST)
-        
-    #     except PermissionDenied:
-    #         return Response(error.OPERATION_NOT_ALLOWED, status=status.HTTP_403_FORBIDDEN)
-    #     except Exception as e:
-    #         return handle_exception(e)
 
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary= "API doesn't delete the microapp, it just archives it"),
@@ -662,7 +647,7 @@ class RunList(APIView):
             log.error(e)
             return False
 
-    def save_streaming_run_data_sync(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
+    def save_streaming_run_data(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
         """Save streaming run data to database after stream completion (sync version)"""
         try:
             self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
@@ -679,12 +664,6 @@ class RunList(APIView):
         except Exception as e:
             log.error(f"Error saving streaming run data: {e}")
             raise
-
-    async def save_streaming_run_data(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
-        """Async wrapper that calls sync database operations in a thread"""
-        from asgiref.sync import sync_to_async
-        sync_func = sync_to_async(self.save_streaming_run_data_sync)
-        await sync_func(response_data, data, api_params, model, app_owner_id, ip, user_id)
 
     def post(self, request, format=None):
         try:
@@ -803,14 +782,17 @@ class RunList(APIView):
                 if model_config.get("stream", True):
                     api_params["stream"] = True
                     
-                    async def save_streaming_run(response_data):
+                    def save_streaming_run(response_data):
+                        """Callback that works for both sync and async generators"""
                         try:
-                            result = await self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
-                            return result
-                        except Exception:
+                            self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                        except Exception as e:
+                            log.error(f"Error in streaming callback: {e}")
                             raise
                     
-                    generator = litellm_sse_generator(model, api_params, on_completion_callback=save_streaming_run)
+                    # Get appropriate generator based on environment (sync for dev, async for prod)
+                    streaming_generator_func = get_streaming_generator()
+                    generator = streaming_generator_func(model, api_params, on_completion_callback=save_streaming_run)
                     response = StreamingHttpResponse(generator, content_type="text/event-stream")
                     response['X-Accel-Buffering'] = 'no'
                     response['Cache-Control'] = 'no-cache'
