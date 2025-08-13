@@ -69,12 +69,16 @@ const AIPromptQuestion: React.FC<AIPromptQuestionProps> = ({
             <Image
                src={eyeIconClosed}
                alt="hide"
+               width={14}
+               height={14}
                className="w-3.5 h-3.5 text-gray-400"
             />
          ) : (
             <Image
                src={eyeIconOpen}
                alt="show"
+               width={14}
+               height={14}
                className="w-3.5 h-3.5 text-gray-400"
             />
          )}

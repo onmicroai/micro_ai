@@ -30,6 +30,8 @@ export default function ShowPasswordButton({
       <Image
         src={passwordShown ? HidePasswordIcon : ShowPasswordIcon}
         alt="password-eye"
+        width={16}
+        height={16}
       />
     </button>
   );

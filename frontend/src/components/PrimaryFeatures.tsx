@@ -66,6 +66,7 @@ export function PrimaryFeatures() {
           className="h-full w-full object-cover"
           src={home_bg}
           alt=""
+          fill
           priority
           quality={90}
         />

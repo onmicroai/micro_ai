@@ -875,6 +875,8 @@ export default function Field({
                         <Image
                           src={field.avatarUrl}
                           alt="Chat avatar"
+                          width={96}
+                          height={96}
                           className="w-full h-full object-cover"
                         />
                         <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition-all duration-200 flex items-center justify-center">
@@ -988,6 +990,8 @@ export default function Field({
                               <Image
                                 src={voice.avatarUrl}
                                 alt={voice.name}
+                                width={40}
+                                height={40}
                                 className="w-10 h-10 rounded-full object-cover"
                               />
                             </div>

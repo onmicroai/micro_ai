@@ -364,6 +364,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                        <Image
                          src={element.avatarUrl}
                          alt="Assistant avatar"
+                         width={40}
+                         height={40}
                          className="w-full h-full object-cover"
                        />
                      </div>
@@ -402,6 +404,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                        <Image
                          src={element.avatarUrl}
                          alt="Assistant avatar"
+                         width={40}
+                         height={40}
                          className="w-full h-full object-cover"
                        />
                      </div>

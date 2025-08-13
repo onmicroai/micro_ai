@@ -42,7 +42,7 @@ export default function PricingCard({
         {benefits.map((benefit, index) => (
           <li key={index} className="flex items-center gap-3">
             <div className="flex-shrink-0">
-              <Image src={Checkmark} alt="checkmark" className="w-5 h-5" />
+              <Image src={Checkmark} alt="checkmark" width={20} height={20} className="w-5 h-5" />
             </div>
             <span className="text-gray-700">{benefit}</span>
           </li>
