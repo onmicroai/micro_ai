@@ -64,13 +64,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    const [isActive] = useState(true);
    const [inputMessage, setInputMessage] = useState('');
    const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
-   const [streamingMessage, setStreamingMessage] = useState('');
-   const messagesEndRef = useRef<HTMLDivElement>(null);
-   const messagesContainerRef = useRef<HTMLDivElement>(null);
-   const recorder = useAudioRecorder();
-   const store = useConversationStore();
-   const hasInteractedRef = useRef(false);
-   const shouldAutoScrollRef = useRef(true);
+     const [streamingMessage, setStreamingMessage] = useState('');
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const recorder = useAudioRecorder();
+  const store = useConversationStore();
+  const hasInteractedRef = useRef(false);
+  const shouldAutoScrollRef = useRef(true);
 
    // Load chat history from answers when component mounts
    useEffect(() => {
@@ -117,7 +117,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      const container = messagesContainerRef.current;
      if (!container) return true;
      
-     const threshold = 100; // Increased threshold to be more strict
+     const threshold = 200; 
      const { scrollTop, scrollHeight, clientHeight } = container;
      const distanceFromBottom = scrollHeight - (scrollTop + clientHeight);
      return distanceFromBottom <= threshold;
@@ -144,16 +144,51 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
      }
    }, [element.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-     useEffect(() => {
-       if (!hasInteractedRef.current) {
-         scrollToBottom(false);
-         return;
-       }
+   // Scrolling for streaming messages
+    useEffect(() => {
+      const container = messagesContainerRef.current;
+      if (!container) return;
 
-       if (shouldAutoScrollRef.current) {
-         scrollToBottom(true);
-       }
-     }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio, streamingMessage]);
+      // For initial load
+      if (!hasInteractedRef.current) {
+        scrollToBottom(false);
+        return;
+      }
+
+      if (!shouldAutoScrollRef.current) return;
+
+      if (streamingMessage) {
+        requestAnimationFrame(() => {
+          container.scrollTop = container.scrollHeight;
+        });
+      } else {
+        // For regular messages, use smooth scrolling
+        scrollToBottom(true);
+      }
+    }, [messages, isUserTyping, isAssistantTyping, isSynthesizingAudio, streamingMessage]);
+
+    // Use MutationObserver for smoother handling of DOM changes during streaming
+    useEffect(() => {
+      const container = messagesContainerRef.current;
+      if (!container || !streamingMessage) return;
+
+      const observer = new MutationObserver(() => {
+        if (shouldAutoScrollRef.current) {
+          requestAnimationFrame(() => {
+            container.scrollTop = container.scrollHeight;
+          });
+        }
+      });
+
+      // Observe changes to the container's children
+      observer.observe(container, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+      });
+
+      return () => observer.disconnect();
+    }, [streamingMessage]);
 
    /**
     * Handle scroll events to detect if user is manually scrolling up
@@ -348,12 +383,17 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
        {isActive ? (
          <div className="border rounded-lg overflow-hidden shadow-sm" style={{ height: '500px', position: 'relative' }}>
            <div className="flex flex-col h-full">
-             {/* Messages Container */}
-             <div 
-               ref={messagesContainerRef}
-               className="flex-1 overflow-y-auto p-4 space-y-4"
-               onScroll={handleScroll}
-             >
+                         {/* Messages Container */}
+            <div 
+              ref={messagesContainerRef}
+              className="flex-1 overflow-y-auto p-4 space-y-4"
+              onScroll={handleScroll}
+              style={{
+                transform: 'translateZ(0)',
+                willChange: 'scroll-position',
+                scrollBehavior: streamingMessage ? 'auto' : 'smooth'
+              }}
+            >
                {messages.map((message, i) => (
                  <div
                    key={i}
