@@ -5,3 +5,4 @@ pip-tools
 pre-commit
 ruff
 debugpy==1.8.5
+uvicorn[standard]==0.30.6

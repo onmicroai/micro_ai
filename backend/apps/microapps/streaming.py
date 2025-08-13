@@ -1,81 +1,16 @@
-from typing import AsyncGenerator, Generator
+from typing import AsyncGenerator
 import json
 import asyncio
-import os
 from .llm_interface import UnifiedLLMInterface
 import logging as log
 from asgiref.sync import sync_to_async
 
-def litellm_sse_generator_sync(
-    iface: UnifiedLLMInterface,
-    params: dict,
-    on_completion_callback=None,
-) -> Generator[str, None, None]:
-    """Synchronous SSE generator for development/WSGI mode
-    
-    Args:
-        iface (UnifiedLLMInterface): The LLM interface instance that handles API calls
-        params (dict): Parameters for the LLM API call containing:
-            - model (str): The model identifier (e.g., "gpt-4", "claude-3")
-            - messages (list): List of message objects with 'role' and 'content'
-            - temperature (float, optional): Sampling temperature (0.0-2.0)
-            - max_tokens (int, optional): Maximum tokens to generate
-            - stream (bool): Will be set to True automatically for streaming
-        on_completion_callback (callable, optional): Function to call when streaming completes.
-            Should accept a single parameter (response_data dict) containing:
-            - ai_response (str): Complete AI response text
-            - prompt_tokens (int): Number of input tokens used
-            - completion_tokens (int): Number of output tokens generated
-            - total_tokens (int): Total tokens used
-            - cost (float): Cost in USD for the API call
-            - credits (int): Credits consumed for the run
-    
-    Yields:
-        str: Server-Sent Event formatted strings in the format:
-            - "data:{json_chunk}\\n\\n" for each content chunk
-            - "event: done\\ndata: ok\\n\\n" when streaming completes
-    
-    Raises:
-        Exception: Re-raises any exceptions from the LLM interface or callback
-    """
-    # Ensure stream flag is on so our iface yields something.
-    params = params.copy()
-    params["stream"] = True
-
-    try:
-        for chunk in iface.stream_response(params):
-            # SSE requires \n\n after each event block.
-            yield f"data:{json.dumps(chunk)}\n\n"
-
-        # Signal end of stream
-        yield "event: done\n" "data: ok\n\n"
-        
-        # Call completion callback with usage data if provided
-        if on_completion_callback:
-            try:
-                # Create response data structure matching get_response format
-                response_data = {
-                    "ai_response": getattr(iface, 'full_content', ''),
-                    "prompt_tokens": iface.last_usage.prompt_tokens if iface.last_usage else 0,
-                    "completion_tokens": iface.last_usage.completion_tokens if iface.last_usage else 0,
-                    "total_tokens": iface.last_usage.total_tokens if iface.last_usage else 0,
-                    "cost": iface.last_cost if hasattr(iface, 'last_cost') else 0,
-                    "credits": iface.last_credits if hasattr(iface, 'last_credits') else 0,
-                }
-                on_completion_callback(response_data)
-            except Exception as e:
-                log.error(f"Error in streaming callback: {e}")
-                
-    except Exception as e:
-        log.error(f"Error in streaming: {e}")
-        raise
-
-async def litellm_sse_generator_async(
+async def litellm_sse_generator(
     iface: UnifiedLLMInterface,
     params: dict,
     on_completion_callback=None,
 ) -> AsyncGenerator[str, None]:
-    """Asynchronous SSE generator for production/ASGI mode
+    """Asynchronous SSE generator for both development and production
     
     Args:
         iface (UnifiedLLMInterface): The LLM interface instance that handles API calls
@@ -103,7 +38,7 @@ async def litellm_sse_generator_async(
         Exception: Re-raises any exceptions from the LLM interface or callback
         
     Usage::
-        generator = litellm_sse_generator_async(iface, params)
+        generator = litellm_sse_generator(iface, params)
         return StreamingHttpResponse(generator, content_type="text/event-stream")
     
     Note:
@@ -145,20 +80,3 @@ async def litellm_sse_generator_async(
     except Exception as e:
         log.error(f"Error in streaming: {e}")
         raise
-
-def get_streaming_generator():
-    """Return appropriate streaming generator based on environment
-    
-    Returns:
-        callable: The appropriate streaming generator function
-            - litellm_sse_generator_sync for development (WSGI mode)
-            - litellm_sse_generator_async for production (ASGI mode)
-    
-    Note:
-        Uses PRODUCTION environment variable to determine mode:
-        - PRODUCTION=True -> ASGI mode (async generator)
-        - PRODUCTION=False -> WSGI mode (sync generator)
-    """
-    # Use PRODUCTION flag from .env to determine environment
-    is_production = os.getenv('PRODUCTION', 'False') == 'True'
-    return litellm_sse_generator_async if is_production else litellm_sse_generator_sync 

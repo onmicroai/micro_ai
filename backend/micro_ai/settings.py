@@ -143,6 +143,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "micro_ai.wsgi.application"
+ASGI_APPLICATION = "micro_ai.asgi.application"
 
 FORM_RENDERER = "django.forms.renderers.TemplatesSetting"
 

@@ -24,7 +24,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && uvicorn micro_ai.asgi:application --host 0.0.0.0 --port 8000 --reload --reload-dir /code"
     volumes:
       - ./backend:/code
       - media_data:/code/media

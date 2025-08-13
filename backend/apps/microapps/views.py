@@ -48,7 +48,7 @@ import json
 from .llm_interface import UnifiedLLMInterface
 import tempfile
 from django.http import HttpResponse, StreamingHttpResponse
-from .streaming import get_streaming_generator
+from .streaming import litellm_sse_generator
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
@@ -790,9 +790,8 @@ class RunList(APIView):
                             log.error(f"Error in streaming callback: {e}")
                             raise
                     
-                    # Get appropriate generator based on environment (sync for dev, async for prod)
-                    streaming_generator_func = get_streaming_generator()
-                    generator = streaming_generator_func(model, api_params, on_completion_callback=save_streaming_run)
+                    # Use async generator for both development and production
+                    generator = litellm_sse_generator(model, api_params, on_completion_callback=save_streaming_run)
                     response = StreamingHttpResponse(generator, content_type="text/event-stream")
                     response['X-Accel-Buffering'] = 'no'
                     response['Cache-Control'] = 'no-cache'
