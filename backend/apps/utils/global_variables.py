@@ -98,6 +98,24 @@ class AIModelConstants:
             "supports_image": True,
             "plans": ["individual", "enterprise"]
         },
+        "gpt-5": {
+            **AIModelFamilyDefaults.OPENAI,
+            "model": "openai/gpt-5",
+            "supports_image": True,
+            "plans": ["free","individual", "enterprise"]
+        },
+        "gpt-5-mini": {
+            **AIModelFamilyDefaults.OPENAI,
+            "model": "openai/gpt-5-mini",
+            "supports_image": True,
+            "plans": ["free","individual", "enterprise"]
+        },
+        "gpt-5-nano": {
+            **AIModelFamilyDefaults.OPENAI,
+            "model": "openai/gpt-5-nano",
+            "supports_image": True,
+            "plans": ["free","individual", "enterprise"]
+        },
         "openai-o3-mini": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o3-mini",

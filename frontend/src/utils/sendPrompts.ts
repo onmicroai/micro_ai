@@ -451,6 +451,6 @@ const {
       transcriptionCost,
       run.id
    );
-
-   return handleAIResponse(requestBody, userId, set);
+   const result = await handleAIResponse(requestBody, userId, set);
+   return { ...result, run_uuid: run.id };
 };

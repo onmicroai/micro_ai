@@ -107,7 +107,9 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                            {/* Messages Container */}
                            <div className="flex-1 overflow-y-auto p-4 space-y-4">
                               {Array.isArray(chatHistory) ? chatHistory.map((message: string, i: number) => {
-                                 const [sender, text] = message.split(': ');
+                                 const [sender, ...rest] = message.split(': ');
+                                 const fullText = rest.join(': '); // Rejoin in case the message contains colons
+                                 const [text] = fullText.split('|');
                                  const direction = sender === 'ai' ? 'incoming' : 'outgoing';
                                  
                                  return (
@@ -153,7 +155,20 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({
                      {(isOwner || isAdmin) && (
                         <div className="flex justify-end mt-2">
                            <span className="text-xs text-gray-400">
-                              Chat Credits Used: {currentRun?.credits || 0}
+                              Chat Credits Used: {(() => {
+                                 const totalCredits = (Array.isArray(chatHistory) ? chatHistory : []).reduce((sum: number, message: string) => {
+                                    const [sender, ...rest] = message.split(': ');
+                                    const fullText = rest.join(': ');
+                                    const [, run_id] = fullText.split('|');
+                                    
+                                    if (sender === 'ai' && run_id) {
+                                       const run = currentConversation?.runs.find(r => r.id === run_id);
+                                       return sum + (run?.credits || 0);
+                                    }
+                                    return sum;
+                                 }, 0);
+                                 return totalCredits;
+                              })()}
                            </span>
                         </div>
                      )}

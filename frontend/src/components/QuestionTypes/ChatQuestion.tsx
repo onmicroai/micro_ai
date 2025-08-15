@@ -314,7 +314,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
          const chatHistory = [...messages, userMessage, aiMessage]
            .map(msg => {
              if (msg.sender === 'ai') {
-               return `${msg.sender}: ${msg.message}`;
+               return `${msg.sender}: ${msg.message}|${msg.run_id || ''}`;
              }
              return `${msg.sender}: ${msg.message}`;
            });

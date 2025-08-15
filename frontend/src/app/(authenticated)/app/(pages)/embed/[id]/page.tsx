@@ -13,6 +13,8 @@ import { checkIsOwner, checkIsAdmin } from '@/utils/checkRoles';
 import { checkIsPublic } from '@/utils/checkAppPrivacy';
 import axiosInstance from '@/utils/axiosInstance';
 import { useSearchParams } from 'next/navigation';
+import ContinuationInterface from '@/components/ContinuationInterface';
+import { RotateCcw, MessageCircle } from 'lucide-react';
 
 type PageParams = {
    params: {
@@ -44,6 +46,19 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       setElements,
       softReset: softResetSurveyStore,
    } = useSurveyStore();
+   
+   // Check if there are existing continuation messages for auto-expansion
+   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
+   
+   // Update expansion state when answers change (e.g., on page refresh)
+   useEffect(() => {
+      const existingMessages = answers.continuation_chat?.value || [];
+      const hasExistingMessages = Array.isArray(existingMessages) && existingMessages.length > 0;
+      
+      if (hasExistingMessages && !isContinuationExpanded) {
+         setIsContinuationExpanded(true);
+      }
+   }, [answers.continuation_chat?.value, isContinuationExpanded]);
    const {
       currentConversation,
       conversations,
@@ -216,24 +231,46 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                   <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
                      <div className="text-sm/6  max-w-none text-green-800" dangerouslySetInnerHTML={{ __html: surveyJson?.completedHtml || "" }} />
                   </div>
+                  
+                  {/* Chat Continuation Interface */}
+                  <ContinuationInterface 
+                     appId={appId}
+                     userId={userId}
+                     surveyJson={surveyJson}
+                     answers={answers}
+                     isOwner={isOwner}
+                     isAdmin={isAdmin}
+                     isExpanded={isContinuationExpanded}
+                     onToggleExpanded={() => setIsContinuationExpanded(!isContinuationExpanded)}
+                  />
+                  
+                  <div className="mt-4 flex justify-between items-center">
+                     <button 
+                        onClick={() => {
+                           resetConversations();
+                           softResetSurveyStore();
+                           setShowThankYouMessage(false);
+                           setIsContinuationExpanded(false);
+                           toast.success("App restarted successfully");
+                        }}
+                        className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                     >
+                        <RotateCcw className="w-4 h-4" />
+                        Restart
+                     </button>
+                     
+                     {!isContinuationExpanded && (
+                        <button
+                           onClick={() => setIsContinuationExpanded(true)}
+                           className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                        >
+                           <MessageCircle className="w-4 h-4" />
+                           Continue the conversation
+                        </button>
+                     )}
+                  </div>
                </div>
             )}
-
-            <div className="mt-4">
-               <a 
-                  href="#" 
-                  onClick={(e) => {
-                     e.preventDefault();
-                     resetConversations();
-                     softResetSurveyStore();
-                     setShowThankYouMessage(false);
-                     toast.success("App state cleared successfully");
-                  }}
-                  className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
-               >
-                  Clear State
-               </a>
-            </div>
 
             {(isOwner || isAdmin) && (
                <DebugInformation

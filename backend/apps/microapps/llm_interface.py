@@ -112,6 +112,8 @@ class UnifiedLLMInterface:
                 presence_penalty=params["presence_penalty"],
                 frequency_penalty=params["frequency_penalty"],
                 stream=params["stream"],
+                reasoning_effort="minimal",
+                allowed_openai_params=["reasoning_effort", "verbosity"],
                 drop_params=True
             )
 
