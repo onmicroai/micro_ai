@@ -7,6 +7,13 @@ import tempfile
 import os
 from litellm import speech
 
+# Import LiteLLM utilities for accurate cost calculation
+try:
+    from litellm import completion_cost, stream_chunk_builder
+except ImportError:
+    completion_cost = None
+    stream_chunk_builder = None
+
 log = logging.getLogger(__name__)
 
 class UnifiedLLMInterface:
@@ -163,6 +170,9 @@ class UnifiedLLMInterface:
         self.last_cost = 0.0
         self.last_credits = 0
         self.full_content = ""
+        
+        # Collect chunks for LiteLLM cost calculation
+        collected_chunks = []
 
         try:
             # Force streaming=True – caller is responsible for setting it but
@@ -185,6 +195,9 @@ class UnifiedLLMInterface:
 
             # Iterate over the streaming chunks
             for chunk in response_stream:
+                # Collect chunk for cost calculation
+                collected_chunks.append(chunk)
+                
                 # LiteLLM normalises chunk objects to have .choices[..].delta.content
                 content = ""
                 try:
@@ -210,12 +223,47 @@ class UnifiedLLMInterface:
             if self.last_usage is None and hasattr(response_stream, "usage"):
                 self.last_usage = response_stream.usage
 
-            # Calculate cost & credits once we have usage information
-            if self.last_usage is not None:
-                llm_cost = getattr(response_stream, "_hidden_params", {}).get(
-                    "response_cost", 0
-                )
-                transcription_cost = float(params.get("transcription_cost", 0))
+            # Calculate cost using official LiteLLM approach
+            transcription_cost = float(params.get("transcription_cost", 0))
+            llm_cost = 0
+            
+            # Method 1: Use LiteLLM completion_cost utility (most accurate)
+            if completion_cost is not None and collected_chunks:
+                try:
+                    # Rebuild completion text from chunks
+                    if stream_chunk_builder is not None:
+                        completion_text = stream_chunk_builder(collected_chunks, messages=params["messages"])
+                    else:
+                        completion_text = self.full_content
+                    
+                    # Calculate cost using LiteLLM utility
+                    llm_cost = completion_cost(
+                        model=params["model"],
+                        prompt=params["messages"],
+                        completion=completion_text
+                    )
+                    
+                    if llm_cost and llm_cost > 0:
+                        self.last_cost = round(float(llm_cost) + transcription_cost, 6)
+                        self.last_credits = self.calculate_credits(self.last_cost)
+                except Exception as e:
+                    log.error(f"LiteLLM completion_cost failed: {e}")
+                    llm_cost = 0
+            
+            # Method 2: Fallback to hidden params
+            if llm_cost == 0:
+                llm_cost = getattr(response_stream, "_hidden_params", {}).get("response_cost", 0)
+            
+            # Method 3: Token-based calculation fallback
+            if (llm_cost == 0 or llm_cost is None) and self.last_usage is not None:
+                # Calculate cost from tokens for gpt-4o-mini: $0.15/1M input, $0.6/1M output
+                if self.model_name and "gpt-4o-mini" in self.model_name:
+                    input_cost = (self.last_usage.prompt_tokens / 1_000_000) * 0.15
+                    output_cost = (self.last_usage.completion_tokens / 1_000_000) * 0.6
+                    llm_cost = input_cost + output_cost
+            
+            # Set final cost and credits
+            if llm_cost > 0:
                 self.last_cost = round(float(llm_cost) + transcription_cost, 6)
                 self.last_credits = self.calculate_credits(self.last_cost)
 
