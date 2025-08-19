@@ -797,7 +797,9 @@ class RunList(APIView):
                                 "run_passed": self.score_result,
                                 "minimum_score": data.get("minimum_score"),
                                 "rubric": data.get("rubric"),
-                                "scored_run": True
+                                "scored_run": True,
+                                "cost": float(combined_data["cost"]),
+                                "credits": combined_data["credits"]
                             }
                         except Exception as e:
                             log.error(f"Error in streaming scored run callback: {e}")
