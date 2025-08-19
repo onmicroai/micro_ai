@@ -134,7 +134,8 @@ const handleAIResponse = async (
             };
          }
 
-      return { success: true, response: accumulated } as SendPromptResponse;
+      const latestRun = runId ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId) : undefined;
+      return { success: true, response: accumulated, run_passed: latestRun?.run_passed } as SendPromptResponse;
    } catch (streamError: any) {
       console.log("Streaming attempt failed, falling back to standard request:", streamError);
    }
