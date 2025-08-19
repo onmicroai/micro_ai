@@ -702,19 +702,19 @@ class RunList(APIView):
                     status = status.HTTP_400_BAD_REQUEST,
                 )
             ip = get_user_ip(request)
+            
+            # Always resolve microapp owner and app hash for billing/statistics
+            app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            ma_data = Microapp.objects.get(id=data.get("ma_id"))
+            self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
+            
             # Handle guest users usage
             if not request.user.id:
                 if not GuestUsage.check_usage_limit(self, ip):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
-                app_owner_id = None
             # Handle logged-in users usage
             else:
-                # Get microapp owner id
-                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
-                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
-                # Get ma hash_id
-                ma_data = Microapp.objects.get(id=data.get("ma_id"))
-                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
@@ -1061,16 +1061,17 @@ class AnonymousRunList(RunList):
 
             ip = get_user_ip(request)
             
+            # Always resolve microapp owner and app hash for billing/statistics
+            app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            ma_data = Microapp.objects.get(id=data.get("ma_id"))
+            self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
+            
             # Handle guest users usage
-            if not GuestUsage.check_usage_limit(self, ip):
-                return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
+            if not request.user.id:
+                if not GuestUsage.check_usage_limit(self, ip):
+                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
             else:
-                # Get microapp owner id
-                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
-                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
-                # Get ma hash_id
-                ma_data = Microapp.objects.get(id=data.get("ma_id"))
-                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
