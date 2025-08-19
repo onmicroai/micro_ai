@@ -23,6 +23,9 @@ export interface ScoreData {
   minimum_score: number;
   rubric: string;
   scored_run: boolean;
+  run_uuid?: string;
+  credits?: number;
+  cost?: number;
 }
 
 // Decide endpoint once, can be extended to anonymous later

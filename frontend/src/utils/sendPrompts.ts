@@ -61,11 +61,14 @@ const handleAIResponse = async (
 
                   if (runId) {
                      const store = useConversationStore.getState();
-                     store.updateRun(runId, { 
+                     const updates: any = { 
                         scoreData: scoreData,
                         run_passed: scoreData.run_passed,
                         run_score: scoreData.run_score
-                     });
+                     };
+                     if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
+                     if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
+                     store.updateRun(runId, updates);
                   }
                },
                onDone: () => {

@@ -658,6 +658,14 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 self.update_user_credits(serialize.id, app_owner_id, user_id)
+                
+                return {
+                    "run_uuid": run_data.get("run_uuid"),
+                    "credits": run_data.get("credits", 0),
+                    "cost": float(run_data.get("cost", 0)),
+                    "run_score": self.ai_score,
+                    "run_passed": self.score_result,
+                }
             else:
                log.error(f"Streaming run serialization failed: {serializer.errors}")
                raise ValueError(f"Invalid run data: {serializer.errors}")
@@ -833,7 +841,7 @@ class RunList(APIView):
                     def save_streaming_run(response_data):
                         """Callback that works for both sync and async generators"""
                         try:
-                            self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                            return self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
                         except Exception as e:
                             log.error(f"Error in streaming callback: {e}")
                             raise
