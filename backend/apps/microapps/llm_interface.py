@@ -1,12 +1,10 @@
 from typing import Dict, Any, Optional
 import litellm
-from django.conf import settings
 import logging
 from apps.utils.global_variables import UsageVariables, AIModelConstants
 import re
 import tempfile
 import os
-from pathlib import Path
 from litellm import speech
 
 log = logging.getLogger(__name__)
@@ -249,6 +247,10 @@ class UnifiedLLMInterface:
                 - score_result: Boolean indicating if score meets minimum
         """
         try:
+            # Force non-streaming for score_response since it needs complete response
+            api_params = api_params.copy()
+            api_params["stream"] = False
+            
             response = litellm.completion(
                 model=api_params["model"],
                 messages=api_params["messages"],
