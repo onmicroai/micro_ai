@@ -52,6 +52,22 @@ const handleAIResponse = async (
                      promptResponse: accumulated,
                   });
                },
+               onScore: (scoreData) => {
+                  setState((state: any) => ({
+                     ...state,
+                     scoreData: scoreData,
+                     showScoreResults: true,
+                  }));
+
+                  if (runId) {
+                     const store = useConversationStore.getState();
+                     store.updateRun(runId, { 
+                        scoreData: scoreData,
+                        run_passed: scoreData.run_passed,
+                        run_score: scoreData.run_score
+                     });
+                  }
+               },
                onDone: () => {
                   // Finalize run
                   if (runId) {

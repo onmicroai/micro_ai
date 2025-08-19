@@ -14,6 +14,15 @@ export interface StreamCallbacks {
   onChunk: (text: string) => void;
   onDone?: (meta?: unknown) => void;
   onError?: (err: unknown) => void;
+  onScore?: (scoreData: ScoreData) => void;
+}
+
+export interface ScoreData {
+  run_score: string;
+  run_passed: boolean;
+  minimum_score: number;
+  rubric: string;
+  scored_run: boolean;
 }
 
 // Decide endpoint once, can be extended to anonymous later
@@ -24,7 +33,7 @@ function getEndpoint(userId: number | null) {
 export async function streamRun(
   payload: Record<string, unknown>,
   userId: number | null,
-  { onChunk, onDone, onError }: StreamCallbacks
+  { onChunk, onDone, onError, onScore }: StreamCallbacks
 ): Promise<Response | null> {
   try {
     const endpoint = getEndpoint(userId);
@@ -66,13 +75,13 @@ export async function streamRun(
       while ((idx = buffer.indexOf("\n\n")) !== -1) {
         const rawEvent = buffer.slice(0, idx); // keep exact spacing
         buffer = buffer.slice(idx + 2); // remove delimiter but keep rest
-        handleEvent(rawEvent, onChunk, onDone);
+        handleEvent(rawEvent, onChunk, onDone, onScore);
       }
     }
 
     // Drain any remaining buffered event (rare)
     if (buffer.trim()) {
-      handleEvent(buffer.trim(), onChunk, onDone);
+      handleEvent(buffer.trim(), onChunk, onDone, onScore);
     }
 
     onDone?.();
@@ -87,7 +96,8 @@ export async function streamRun(
 function handleEvent(
   raw: string,
   onChunk: (t: string) => void,
-  onDone?: (meta?: unknown) => void
+  onDone?: (meta?: unknown) => void,
+  onScore?: (scoreData: ScoreData) => void
 ) {
   // Split by newline, strip leading prefixes
   const lines = raw.split(/\n/);
@@ -107,6 +117,15 @@ function handleEvent(
 
   if (eventType === "done") {
     onDone?.(data);
+  } else if (eventType === "score") {
+    if (data !== "") {
+      try {
+        const scoreData = JSON.parse(data) as ScoreData;
+        onScore?.(scoreData);
+      } catch (e) {
+        console.error("Failed to parse score data:", e);
+      }
+    }
   } else if (eventType === "message" || eventType === "") {
     // Regular data chunk
     if (data !== "") {

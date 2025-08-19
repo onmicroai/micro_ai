@@ -55,10 +55,8 @@ async def litellm_sse_generator(
             yield f"data:{json.dumps(chunk)}\n\n"
             await asyncio.sleep(0)
 
-        # Signal end of stream
-        yield "event: done\n" "data: ok\n\n"
-        
         # Call completion callback with usage data if provided
+        score_data = None
         if on_completion_callback:
             try:
                 # Create response data structure matching get_response format
@@ -72,10 +70,15 @@ async def litellm_sse_generator(
                 }
                 # Sync callback with Django ORM needs to run in a thread
                 # (save_streaming_run is always sync)
-                await sync_to_async(on_completion_callback)(response_data)
+                score_data = await sync_to_async(on_completion_callback)(response_data)
             except Exception as e:
                 log.error(f"Error in streaming callback: {e}")
                 raise
+        
+        if score_data:
+            yield f"event: score\ndata: {json.dumps(score_data)}\n\n"
+        
+        yield "event: done\ndata: ok\n\n"
                 
     except Exception as e:
         log.error(f"Error in streaming: {e}")

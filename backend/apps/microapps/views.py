@@ -783,6 +783,14 @@ class RunList(APIView):
                             })
                             
                             self.save_streaming_run_data(combined_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                            
+                            return {
+                                "run_score": self.ai_score,
+                                "run_passed": self.score_result,
+                                "minimum_score": data.get("minimum_score"),
+                                "rubric": data.get("rubric"),
+                                "scored_run": True
+                            }
                         except Exception as e:
                             log.error(f"Error in streaming scored run callback: {e}")
                             raise

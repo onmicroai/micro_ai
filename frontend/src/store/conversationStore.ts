@@ -23,6 +23,13 @@ export interface Run {
     satisfaction?: 1 | -1 | null;
     phaseIndex: number;
     session_id: string;
+    scoreData?: {
+        run_score: string;
+        run_passed: boolean;
+        minimum_score: number;
+        rubric: string;
+        scored_run: boolean;
+    };
 }
 
 // Define the conversation structure
