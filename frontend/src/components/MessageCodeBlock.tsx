@@ -37,6 +37,7 @@ export default function CodeBlock({ node: _node, inline, className, children, ..
         <div>
           {copyStatus === 'Copy' ? (
             <button 
+              type="button"
               onClick={copyCodeToClipboard}
               className="text-gray-300 hover:text-white transition-colors"
             >

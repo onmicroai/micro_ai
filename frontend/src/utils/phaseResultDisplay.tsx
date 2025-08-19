@@ -96,6 +96,7 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
          <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
             <div className="flex space-x-3">
                <button
+                  type="button"
                   onClick={() => handleCopy(assistantMessage.content)}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
                   title={copied ? "Copied!" : "Copy to clipboard"}
@@ -103,6 +104,7 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
                   {copied ? <FaCopy /> : <FaRegCopy />}
                </button>
                <button
+                  type="button"
                   onClick={handleLike}
                   className={`${liked ? 'text-green-500' : 'text-gray-500 hover:text-gray-700'}`}
                   title="Like"
@@ -110,6 +112,7 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
                   <FaThumbsUp />
                </button>
                <button
+                  type="button"
                   onClick={handleDislike}
                   className={`${disliked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}
                   title="Dislike"
