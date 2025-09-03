@@ -658,6 +658,14 @@ class RunList(APIView):
             if serializer.is_valid():
                 serialize = serializer.save()
                 self.update_user_credits(serialize.id, app_owner_id, user_id)
+                
+                return {
+                    "run_uuid": run_data.get("run_uuid"),
+                    "credits": run_data.get("credits", 0),
+                    "cost": float(run_data.get("cost", 0)),
+                    "run_score": self.ai_score,
+                    "run_passed": self.score_result,
+                }
             else:
                log.error(f"Streaming run serialization failed: {serializer.errors}")
                raise ValueError(f"Invalid run data: {serializer.errors}")
@@ -694,19 +702,19 @@ class RunList(APIView):
                     status = status.HTTP_400_BAD_REQUEST,
                 )
             ip = get_user_ip(request)
+            
+            # Always resolve microapp owner and app hash for billing/statistics
+            app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            ma_data = Microapp.objects.get(id=data.get("ma_id"))
+            self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
+            
             # Handle guest users usage
             if not request.user.id:
                 if not GuestUsage.check_usage_limit(self, ip):
                     return Response(error.RUN_USAGE_LIMIT_EXCEED, status = status.HTTP_400_BAD_REQUEST)
-                app_owner_id = None
             # Handle logged-in users usage
             else:
-                # Get microapp owner id
-                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
-                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
-                # Get ma hash_id
-                ma_data = Microapp.objects.get(id=data.get("ma_id"))
-                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]
@@ -758,22 +766,72 @@ class RunList(APIView):
                self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             # Handle score phase
             elif data.get("scored_run"):
-                response = model.get_response(api_params)
-                response = response["data"]
-                api_params["messages"] = model.build_instruction(data, api_params["messages"])
-                score_response = model.score_response(api_params, data.get("minimum_score"))
-                self.ai_score = score_response["ai_score"]
-                self.score_result = score_response["score_result"]
-                response.update({
-                    "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
-                    "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
-                })
-                response.update({
-                    "cost": round(response["cost"] + score_response["cost"], 6),
-                })
-                response.update({
-                    "credits": response["credits"] + score_response["credits"],
-                })
+                # Check if model supports streaming
+                model_config = model_router["config"]
+                if model_config.get("stream", True):
+                    api_params["stream"] = True
+                    
+                    def save_streaming_scored_run(response_data):
+                        """Callback for streaming scored runs"""
+                        try:
+                            # Get scoring for the completed response
+                            api_params["messages"] = model.build_instruction(data, api_params["messages"])
+                            api_params["stream"] = False  # Force non-streaming for scoring
+                            score_response = model.score_response(api_params, data.get("minimum_score"))
+                            self.ai_score = score_response["ai_score"]
+                            self.score_result = score_response["score_result"]
+                            
+                            # Combine response and score data
+                            combined_data = response_data.copy()
+                            combined_data.update({
+                                "prompt_tokens": response_data["prompt_tokens"] + score_response["prompt_tokens"],
+                                "completion_tokens": response_data["completion_tokens"] + score_response["completion_tokens"],
+                                "cost": round(response_data["cost"] + score_response["cost"], 6),
+                                "credits": response_data["credits"] + score_response["credits"],
+                            })
+                            
+                            self.save_streaming_run_data(combined_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                            
+                            return {
+                                "run_score": self.ai_score,
+                                "run_passed": self.score_result,
+                                "minimum_score": data.get("minimum_score"),
+                                "rubric": data.get("rubric"),
+                                "scored_run": True,
+                                "cost": float(combined_data["cost"]),
+                                "credits": combined_data["credits"]
+                            }
+                        except Exception as e:
+                            log.error(f"Error in streaming scored run callback: {e}")
+                            raise
+                    
+                    # Use streaming for scored runs
+                    generator = litellm_sse_generator(model, api_params, on_completion_callback=save_streaming_scored_run)
+                    response = StreamingHttpResponse(generator, content_type="text/event-stream")
+                    response['X-Accel-Buffering'] = 'no'
+                    response['Cache-Control'] = 'no-cache'
+                    return response
+                else:
+                    # Use non-streaming for scored runs
+                    api_params["stream"] = False
+                    response = model.get_response(api_params)
+                    if not response["status"]:
+                        return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+                    response = response["data"]
+                    api_params["messages"] = model.build_instruction(data, api_params["messages"])
+                    score_response = model.score_response(api_params, data.get("minimum_score"))
+                    self.ai_score = score_response["ai_score"]
+                    self.score_result = score_response["score_result"]
+                    response.update({
+                        "prompt_tokens": response["prompt_tokens"] + score_response["prompt_tokens"],
+                        "completion_tokens": response["completion_tokens"] + score_response["completion_tokens"],
+                    })
+                    response.update({
+                        "cost": round(response["cost"] + score_response["cost"], 6),
+                    })
+                    response.update({
+                        "credits": response["credits"] + score_response["credits"],
+                    })
                 self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
@@ -785,7 +843,7 @@ class RunList(APIView):
                     def save_streaming_run(response_data):
                         """Callback that works for both sync and async generators"""
                         try:
-                            self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
+                            return self.save_streaming_run_data(response_data, data, api_params, model, app_owner_id, ip, request.user.id if request.user.id else None)
                         except Exception as e:
                             log.error(f"Error in streaming callback: {e}")
                             raise
@@ -1005,16 +1063,17 @@ class AnonymousRunList(RunList):
 
             ip = get_user_ip(request)
             
+            # Always resolve microapp owner and app hash for billing/statistics
+            app_owner = MicroAppUserJoin.objects.get(ma_id=data.get("ma_id"), role="owner")
+            app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
+            ma_data = Microapp.objects.get(id=data.get("ma_id"))
+            self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
+            
             # Handle guest users usage
-            if not GuestUsage.check_usage_limit(self, ip):
-                return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
+            if not request.user.id:
+                if not GuestUsage.check_usage_limit(self, ip):
+                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
             else:
-                # Get microapp owner id
-                app_owner = MicroAppUserJoin.objects.get(ma_id = data.get("ma_id"),role = "owner")
-                app_owner_id = MicroappUserSerializer(app_owner).data["user_id"]
-                # Get ma hash_id
-                ma_data = Microapp.objects.get(id=data.get("ma_id"))
-                self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
                 # Get owner details
                 users = CustomUser.objects.get(id = app_owner_id)
                 user_date_joined = UserSerializer(users).data["date_joined"]

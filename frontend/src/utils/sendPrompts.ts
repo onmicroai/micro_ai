@@ -52,6 +52,25 @@ const handleAIResponse = async (
                      promptResponse: accumulated,
                   });
                },
+               onScore: (scoreData) => {
+                  setState((state: any) => ({
+                     ...state,
+                     scoreData: scoreData,
+                     showScoreResults: true,
+                  }));
+
+                  if (runId) {
+                     const store = useConversationStore.getState();
+                     const updates: any = { 
+                        scoreData: scoreData,
+                        run_passed: scoreData.run_passed,
+                        run_score: scoreData.run_score
+                     };
+                     if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
+                     if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
+                     store.updateRun(runId, updates);
+                  }
+               },
                onDone: () => {
                   // Finalize run
                   if (runId) {
@@ -118,7 +137,8 @@ const handleAIResponse = async (
             };
          }
 
-      return { success: true, response: accumulated } as SendPromptResponse;
+      const latestRun = runId ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId) : undefined;
+      return { success: true, response: accumulated, run_passed: latestRun?.run_passed } as SendPromptResponse;
    } catch (streamError: any) {
       console.log("Streaming attempt failed, falling back to standard request:", streamError);
    }
