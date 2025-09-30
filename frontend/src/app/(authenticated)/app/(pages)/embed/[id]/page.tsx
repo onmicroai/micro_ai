@@ -285,7 +285,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                />
             )}
          </div>
-      </div>
+      
    );
 };
 
