@@ -298,11 +298,13 @@ const SurveyDisplay = ({ params }: PageParams) => {
                   </div>
                )}
                
-               {showThankYouMessage && (
+               
                   <div>
-                     <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                        <div className="text-sm/6  max-w-none text-green-800" dangerouslySetInnerHTML={{ __html: surveyJson?.completedHtml || "" }} />
-                     </div>
+                     {showThankYouMessage && (
+                        <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                           <div className="text-sm/6  max-w-none text-green-800" dangerouslySetInnerHTML={{ __html: surveyJson?.completedHtml || "" }} />
+                        </div>
+                     )}
                      
                      {/* Chat Continuation Interface */}
                      <ContinuationInterface 
@@ -331,7 +333,7 @@ const SurveyDisplay = ({ params }: PageParams) => {
                            Restart
                         </button>
                         
-                        {!isContinuationExpanded && (
+                        {showThankYouMessage && !isContinuationExpanded && (
                            <button
                               onClick={() => setIsContinuationExpanded(true)}
                               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
@@ -342,7 +344,7 @@ const SurveyDisplay = ({ params }: PageParams) => {
                         )}
                      </div>
                   </div>
-               )}
+               
 
             {(roles.isOwner || roles.isAdmin) && (
                <DebugInformation

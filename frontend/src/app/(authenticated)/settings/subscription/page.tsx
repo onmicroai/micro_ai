@@ -112,14 +112,6 @@ export default function SubscriptionPage() {
       }
     };
 
-    // Add timeout to prevent infinite loading
-    timeoutId = setTimeout(() => {
-      if (isMounted) {
-        setLoading(false);
-        toast.error("Request timeout. Please refresh the page.");
-      }
-    }, 30000); // 30 second timeout
-
     fetchData();
 
     return () => {
