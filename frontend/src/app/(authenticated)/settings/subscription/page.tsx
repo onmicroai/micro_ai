@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import axiosInstance from "@/utils/axiosInstance";
 import { toast } from "react-toastify";
 import BillingUpdatePolling from "./billing-update-polling";
@@ -61,7 +61,7 @@ export default function SubscriptionPage() {
     }
   }, []);
 
-  const fetchCredits = async () => {
+  const fetchCredits = useCallback(async () => {
     try {
       const response = await api.get(`/api/microapps/user/billing`);
       const currentBillingCycle = response.data.billing_details[0];
@@ -70,15 +70,26 @@ export default function SubscriptionPage() {
     } catch (error: any) {
       console.error('Error fetching credits:', error);
     }
-  };
+  }, [api]);
 
   useEffect(() => {
+    let isMounted = true;
+    const timeoutId: NodeJS.Timeout = setTimeout(() => {
+      if (isMounted) {
+        setLoading(false);
+        toast.error("Request timeout. Please refresh the page.");
+      }
+    }, 30000); // 30 second timeout
+
     const fetchData = async () => {
       try {
         const [userRes] = await Promise.all([
           api.get("/api/auth/user/"),
           fetchCredits()
         ]);
+        
+        if (!isMounted) return;
+        
         const userData = userRes.data;
         setUserData(userData);
         setSubscription(userData.subscription);
@@ -91,13 +102,22 @@ export default function SubscriptionPage() {
           setAppQuota(quotaRes.data.data);
         }
       } catch (error: any) {
-        toast.error("Failed to load subscription data: " + error.message);
+        if (isMounted) {
+          toast.error("Failed to load subscription data: " + error.message);
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     fetchData();
+
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
   }, [api, fetchCredits]);
 
   const handleManageSubscription = async () => {
@@ -178,6 +198,10 @@ export default function SubscriptionPage() {
     if (!couponCode.trim()) {
       setCouponError("Please enter a coupon code");
       return;
+    }
+
+    if (couponLoading) {
+      return; // Prevent multiple simultaneous requests
     }
 
     setCouponLoading(true);

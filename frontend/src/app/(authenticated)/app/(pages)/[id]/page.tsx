@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { toast } from 'react-toastify';
 import CompletedPhase from '@/components/CompletedPhases';
@@ -154,7 +154,7 @@ const SurveyDisplay = ({ params }: PageParams) => {
       }
    }, [surveyJson, currentPhaseIndex, setCurrentPhase, setElements, completedPhases]);
 
-   const submitLTIScore = async () => {
+   const submitLTIScore = useCallback(async () => {
       if (!launchId) return;
       
       try {
@@ -163,7 +163,7 @@ const SurveyDisplay = ({ params }: PageParams) => {
       } catch (error) {
          console.error('Error submitting LTI score:', error);
       }
-   };
+   }, [launchId]);
 
    useEffect(() => {
       const phasesLength = surveyJson?.phases?.length;
