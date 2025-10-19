@@ -32,10 +32,11 @@ export const getAccessTokenExpiration = (): string | null => {
 export const setAccessToken = (token: string, expiration: string): void => {
   // Parse the expiration date to determine cookie expiry
   const expirationDate = new Date(expiration);
+  const isProduction = process.env.NODE_ENV === 'production';
   const options = {
     expires: expirationDate,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict' as const
+    secure: isProduction, // Required when sameSite is 'none'
+    sameSite: (isProduction ? 'none' : 'lax') as 'none' | 'lax'
   };
 
   Cookies.set(ACCESS_TOKEN_COOKIE, token, options);
