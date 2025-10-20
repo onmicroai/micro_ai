@@ -92,7 +92,7 @@ def login(request):
     oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
     target_link_uri = get_launch_url(request)
     return oidc_login\
-        .enable_check_cookies()\
+        .disable_check_cookies()\
         .redirect(target_link_uri)
 
 @csrf_exempt
