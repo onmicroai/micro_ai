@@ -1,6 +1,7 @@
 import datetime
 import os
 import pprint
+import jwt as pyjwt
 
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
@@ -36,6 +37,54 @@ class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
         return secrets.token_hex(32)
 
 class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
+    """
+    Extended LTI Message Launch with clock skew tolerance.
+    Adds 60 seconds of leeway to JWT validation to handle time differences
+    between the LTI consumer and this tool.
+    """
+    
+    def __init__(self, request, tool_config, launch_data_storage=None):
+        """
+        Initialize with clock skew tolerance for JWT validation.
+        """
+        # Set JWT leeway before calling parent __init__
+        self._jwt_leeway = 60  # 60 seconds of clock skew tolerance
+        super().__init__(request, tool_config, launch_data_storage=launch_data_storage)
+    
+    def _get_jwt(self, jwt_str):
+        """
+        Override JWT decoding to add leeway for clock skew tolerance.
+        This method adds a 60-second tolerance window for 'iat', 'nbf', and 'exp' claims.
+        """
+        # Get the public key for verification
+        jwt_parts = jwt_str.split('.')
+        if len(jwt_parts) != 3:
+            raise Exception('Invalid JWT format')
+        
+        # Decode header to get key id
+        header = pyjwt.get_unverified_header(jwt_str)
+        
+        # Get issuer from unverified claims to fetch the right public key
+        unverified_claims = pyjwt.decode(jwt_str, options={"verify_signature": False})
+        iss = unverified_claims.get('iss')
+        aud = unverified_claims.get('aud')
+        
+        # Get public key from tool config
+        public_key = self._tool_config.get_public_key(iss, client_id=aud)
+        
+        # Decode with leeway for clock skew tolerance
+        try:
+            decoded = pyjwt.decode(
+                jwt_str,
+                public_key,
+                algorithms=['RS256'],
+                audience=aud,
+                leeway=self._jwt_leeway  # Add 60 seconds of clock skew tolerance
+            )
+            return decoded
+        except Exception as e:
+            # If custom decode fails, fall back to parent implementation
+            return super()._get_jwt(jwt_str)
 
     def validate_nonce(self):
         iss = self.get_iss()
