@@ -102,6 +102,7 @@ MIDDLEWARE = [
     "allauth.account.middleware.AccountMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    'micro_ai.middleware.LTIFrameMiddleware',
     'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
