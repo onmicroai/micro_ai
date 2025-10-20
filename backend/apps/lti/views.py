@@ -43,13 +43,14 @@ class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
     between the LTI consumer and this tool.
     """
     
-    def __init__(self, request, tool_config, launch_data_storage=None):
+    def __init__(self, request, tool_config, launch_data_storage=None, **kwargs):
         """
         Initialize with clock skew tolerance for JWT validation.
+        Accepts all parent class arguments including session_service, cookie_service, etc.
         """
         # Set JWT leeway before calling parent __init__
         self._jwt_leeway = 60  # 60 seconds of clock skew tolerance
-        super().__init__(request, tool_config, launch_data_storage=launch_data_storage)
+        super().__init__(request, tool_config, launch_data_storage=launch_data_storage, **kwargs)
     
     def _get_jwt(self, jwt_str):
         """

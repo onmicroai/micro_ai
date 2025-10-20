@@ -13,8 +13,8 @@ class LTIFrameMiddleware(MiddlewareMixin):
     """
     
     def process_response(self, request, response):
-        # Only process API requests
-        if not request.path.startswith('/api/'):
+        # Only process API and LTI requests
+        if not (request.path.startswith('/api/') or request.path.startswith('/lti/')):
             return response
         
         # Check if this is an LTI context
@@ -37,10 +37,15 @@ class LTIFrameMiddleware(MiddlewareMixin):
         Determines if the request is in an LTI context.
         Checks for:
         1. 'lid' parameter in GET or POST data
-        2. '/app/embed/' or '/lti/launch' in the HTTP_REFERER
+        2. 'lti1p3-launch-' in the URL path (for LTI API endpoints)
+        3. '/app/embed/' or '/lti/launch' in the HTTP_REFERER
         """
         # Check for 'lid' parameter in GET or POST
         if request.GET.get('lid') or request.POST.get('lid'):
+            return True
+        
+        # Check for LTI launch ID in the URL path (e.g., /lti/api/score/lti1p3-launch-xxx/...)
+        if 'lti1p3-launch-' in request.path:
             return True
         
         # Check HTTP_REFERER for LTI-related paths
