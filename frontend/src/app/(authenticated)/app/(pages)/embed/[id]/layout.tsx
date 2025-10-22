@@ -7,6 +7,7 @@ import { checkIsPublic } from "@/utils/checkAppPrivacy";
 import AccessDenied from "@/components/access-denied";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { useUserStore } from "@/store/userStore";
+import { useAuth } from "@/context/AuthContext";
 
 export default function EmbedLayout({
    children,
@@ -15,25 +16,33 @@ export default function EmbedLayout({
    children: React.ReactNode;
    params: { id: string };
 }) {
-   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+   const { isAuthenticated } = useAuth();
+   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
    const [isLoading, setIsLoading] = useState(true);
-   const { user } = useUserStore();
-   const userId = Number(user?.id);
+   const { user, isLoading: userIsLoading } = useUserStore();
+   const userId = user?.id ?? null;
    const hashId = params.id;
 
    useEffect(() => {
       const abortController = new AbortController();
       const signal = abortController.signal;
 
-      const checkAuthorization = async () => {
+      /**
+       * Check if the app is public or if the user is authorized to access it
+       * @param signal - The abort signal for the request
+       * @returns void
+       */
+      const checkAuthorization = async (signal: AbortSignal) => {
          try {
             const { isPublic, error } = await checkIsPublic(hashId, signal);
+            
             if (error) {
                const errorName = error?.name;
                if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
                   console.error('Error checking public status:', error);
                   setIsAuthorized(false);
                }
+               
                return;
             }
 
@@ -42,13 +51,15 @@ export default function EmbedLayout({
                return;
             }
 
-            if (userId && hashId) {
+            // If app is private, check user permissions
+            if (userId !== null) {
                const [ownerResult, adminResult] = await Promise.all([
                   checkIsOwner(hashId, userId, signal),
                   checkIsAdmin(hashId, userId, signal)
                ]);
+
                setIsAuthorized(ownerResult.isOwner || adminResult.isAdmin);
-            } 
+            }
          } catch (error: any) {
             const errorName = error?.name;
             if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
@@ -59,16 +70,37 @@ export default function EmbedLayout({
          }
       };
 
-      checkAuthorization();
+      checkAuthorization(signal);
 
       return () => abortController.abort();
    }, [userId, hashId]);
 
-   if (isLoading) {
+   // Show loading state while waiting for user data
+   if (userIsLoading || isLoading) {
       return (
          <div className="flex justify-center items-center h-screen">
             <SkeletonLoader />
          </div>
+      );
+   }
+
+   if (!isAuthorized && isAuthenticated) {
+      return (
+         <>
+            <ToastContainer />
+            <AccessDenied />
+         </>
+      );
+   }
+
+   if (isAuthorized && isAuthenticated) {
+      return (
+         <>
+            <ToastContainer />
+            <div className="bg-white">
+               {children ? children : <div></div>}
+            </div>
+         </>
       );
    }
 
