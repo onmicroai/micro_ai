@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import DashboardLayout from "./dashboard-layout";
 import { ToastContainer } from 'react-toastify';
+import DashboardLayoutClient from "./dashboard-layout-client";
+
 export const metadata: Metadata = {
   title: "Micro AI - Home",
   description: "Build AI-Powered, Instructor-Guided Apps for Education",
@@ -11,12 +12,12 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-   return (
-      <>
-         <ToastContainer />
-         <DashboardLayout>
-            {children}
-         </DashboardLayout>
-      </>
-   );
+  return (
+    <>
+      <ToastContainer />
+      <DashboardLayoutClient>
+        {children}
+      </DashboardLayoutClient>
+    </>
+  );
 }

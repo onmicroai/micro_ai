@@ -1,12 +1,10 @@
 "use client";
 
 import Footer from "@/components/layout/footer/footer";
-import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
-import { ToastContainer } from 'react-toastify';
 import WaitlistMessage from "@/components/waitlist-message";
 import { useUserStore } from "@/store/userStore";
 
-export default function DashboardLayout({
+export default function DashboardLayoutClient({
   children,
 }: {
   children: React.ReactNode;
@@ -16,18 +14,18 @@ export default function DashboardLayout({
 
   return (
     <>
-         <ToastContainer />
-         <NavBarClientSwitch showCreateApp={enableWaitlist ? user?.isBetaTester : true} />
+      {/* Navbar removed - using sidebar navigation instead */}
       {userIsLoading ? (
         <div className="flex justify-center items-center min-h-screen">
           <div className="text-gray-500">Loading...</div>
         </div>
-         ) : (enableWaitlist && !user?.isBetaTester) ? (
+      ) : (enableWaitlist && !user?.isBetaTester) ? (
         <WaitlistMessage />
       ) : (
         children
       )}
-      <Footer />
+
     </>
   );
 }
+

@@ -5,12 +5,9 @@ import { toast } from 'react-toastify';
 interface DashboardStore {
    // State
    collections: Collection[];
-   collection: Collection | null;
    collectionCount: number;
-   collectionLoading: boolean;
    pageLoading: boolean;
    appCounts: { [key: string]: number };
-   tabTypes: { label: string, value: string }[];
    apps: AppSerialized[];
    appsCount: number;
    appLoading: boolean;
@@ -37,9 +34,7 @@ const sortCollectionsById = (collections: Collection[]): Collection[] => {
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
    // Initial state
    collections: [],
-   collection: null,
    collectionCount: 0,
-   collectionLoading: false,
    pageLoading: true,
    appCounts: {
       "all": 0,
@@ -47,12 +42,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       "private": 0,
       "restricted": 0
    },
-   tabTypes: [
-      { label: "All", value: "all" },
-      { label: "Public", value: "public" },
-      { label: "Private", value: "private" },
-      { label: "Restricted", value: "restricted" },
-   ],
    apps: [],
    appsCount: 0,
    appLoading: false,
@@ -77,10 +66,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             });
 
             if (data.length > 0) {
-               const collection = data[0];
                set({
-                  collection,
-                  activeCollectionId: collection.id
+                  activeCollectionId: data[0].id
                });
             }
          } else {
@@ -101,7 +88,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     */
    createCollection: async () => {
       const api = axiosInstance();
-      set({ collectionLoading: true });
       const nextCollectionNumber = get().collectionCount + 1;
       const nextCollectionName = "Collection " + nextCollectionNumber;
 
@@ -123,8 +109,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       } catch (error: any) {
          const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
          toast.error("Failed to create collection: " + errorMessage, { theme: "colored" });
-      } finally {
-         set({ collectionLoading: false });
       }
    },
 
@@ -141,7 +125,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
          });
          if (response.data) {
             set((state) => ({
-               collection: state.collection ? { ...state.collection, name: newName } : null,
                collections: state.collections.map(col => 
                   col.id === collectionId ? { ...col, name: newName } : col
                )
@@ -356,10 +339,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     * @param {number} collectionId - The ID of the collection to set as active.
     */
    setActiveCollectionId: (collectionId: number) => {
-      const collection = get().collections.find((c: any) => c.id === collectionId);
       set({ 
-         activeCollectionId: collectionId,
-         collection: collection || null,
+         activeCollectionId: collectionId
       });
    },
 
@@ -374,9 +355,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    reset: () => {
       set({
          collections: [],
-         collection: null,
          collectionCount: 0,
-         collectionLoading: false,
          pageLoading: true,
          appCounts: {
             "all": 0,
