@@ -18,11 +18,12 @@ interface DashboardStore {
    updateCollectionName: (collectionId: number, newName: string) => Promise<void>;
    countAppPrivacyTypes: (apps: AppSerialized[]) => void;
    fetchApps: (collectionId: number, signal?: AbortSignal) => Promise<void>;
+   fetchAllApps: (signal?: AbortSignal) => Promise<void>;
    createApp: (collectionId: number) => Promise<string | null>;
    cloneApp: (appId: number, collectionId?: number) => Promise<void>;
    deleteApp: (appId: number) => void;
    appSerializer: (app: AppRaw | AppRaw[]) => AppSerialized | AppSerialized[];
-   setActiveCollectionId: (collectionId: number) => void;
+   setActiveCollectionId: (collectionId: number | null) => void;
    handleCreateApp: (collectionId: number) => Promise<string | null>;
    reset: () => void;
 }
@@ -64,12 +65,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
                collections: sortedCollections,
                collectionCount: data.length,
             });
-
-            if (data.length > 0) {
-               set({
-                  activeCollectionId: data[0].id
-               });
-            }
+            // Don't automatically set activeCollectionId - let it remain null to show all apps
          } else {
             toast.error("Failed to fetch collections", { theme: "colored" });
          }
@@ -238,6 +234,38 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    },
 
    /**
+    * Fetches all apps for the current user across all collections.
+    * @param {AbortSignal} signal - The abort signal for the request.
+    */
+   fetchAllApps: async (signal?: AbortSignal) => {
+      try {
+         const api = axiosInstance();
+         set({ appLoading: true });
+         const response = await api.get("/api/microapps/apps", { signal });
+         const data = response?.data?.data;
+         
+         if (data !== undefined) {
+            const serializedData = get().appSerializer(data);
+            if (Array.isArray(serializedData)) {
+               set({ 
+                  apps: serializedData,
+                  appsCount: data.length 
+               });
+               get().countAppPrivacyTypes(serializedData);
+            }
+         }
+      } catch (error: any) {
+         // Ignore CanceledError from AbortController
+         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {  
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+            toast.error("Failed to fetch apps: " + errorMessage, { theme: "colored" });
+         }
+      } finally {
+         set({ appLoading: false });
+      }
+   },
+
+   /**
     * Creates a new app in the specified collection.
     * @param {number} collectionId - The ID of the collection to create the app in.
     * @returns {Promise<string | null>} - The hash ID of the new app or null if creation fails.
@@ -336,9 +364,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
 
    /**
     * Sets the active collection in the state.
-    * @param {number} collectionId - The ID of the collection to set as active.
+    * @param {number | null} collectionId - The ID of the collection to set as active, or null for all collections.
     */
-   setActiveCollectionId: (collectionId: number) => {
+   setActiveCollectionId: (collectionId: number | null) => {
       set({ 
          activeCollectionId: collectionId
       });

@@ -1,11 +1,15 @@
 "use client"
 
 import { useEffect, useState } from 'react';
-import { useDashboardStore } from './[tab]/store/dashboardStore';
-import DashboardSidebar from './[tab]/components/DashboardSidebar';
-import AppTable from './[tab]/components/AppTable';
+import { useParams } from 'next/navigation';
+import { useDashboardStore } from './store/dashboardStore';
+import DashboardSidebar from './components/DashboardSidebar';
+import AppTable from './components/AppTable';
 
-const DashboardPage = () => {
+const DashboardTabPage = () => {
+   const params = useParams() ?? {};
+   const activeTab = (params.tab as string) || 'all';
+   
    const {
       pageLoading,
       appCounts,
@@ -33,8 +37,10 @@ const DashboardPage = () => {
             await fetchCollections(controller.signal);
          }
          
-         // Fetch all apps
-         await fetchAllApps(controller.signal);
+         // Fetch all apps if activeCollectionId is null, otherwise fetch for specific collection
+         if (state.activeCollectionId === null) {
+            await fetchAllApps(controller.signal);
+         }
       };
       
       initializeData();
@@ -45,7 +51,7 @@ const DashboardPage = () => {
    }, [fetchCollections, fetchAllApps]);
 
    const onCreateApp = async () => {
-      // When creating an app from /dashboard, use the first collection or active collection
+      // When creating an app, use the active collection or first collection
       const collectionId = activeCollectionId || collections[0]?.id;
       
       if (collectionId && !isCreatingApp) {
@@ -81,7 +87,7 @@ const DashboardPage = () => {
       <DashboardSidebar
          collections={collections}
          activeCollectionId={activeCollectionId}
-         activeTab="all"
+         activeTab={activeTab}
          appCounts={appCounts}
          onCreateApp={onCreateApp}
          onCreateCollection={onCreateCollection}
@@ -91,10 +97,11 @@ const DashboardPage = () => {
       >
          <AppTable
             activeCollectionId={activeCollectionId}
-            activeTab="all"
+            activeTab={activeTab}
          />
       </DashboardSidebar>
    );
 };
 
-export default DashboardPage;
+export default DashboardTabPage;
+

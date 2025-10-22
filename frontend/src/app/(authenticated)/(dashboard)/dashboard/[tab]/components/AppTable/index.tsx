@@ -26,7 +26,7 @@ const AppTable: React.FC<AppTableProps> = ({
   activeCollectionId, 
   activeTab
 }) => {
-  const { apps, appLoading, fetchApps, cloneApp, deleteApp } = useDashboardStore();
+  const { apps, appLoading, fetchApps, fetchAllApps, cloneApp, deleteApp } = useDashboardStore();
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppSerialized | null>(null);
@@ -34,14 +34,21 @@ const AppTable: React.FC<AppTableProps> = ({
 
   // Fetch apps when collection changes
   useEffect(() => {
-    if (activeCollectionId) {
-      const controller = new AbortController();
+    const controller = new AbortController();
+    
+    if (activeCollectionId === null) {
+      // Fetch all apps when no specific collection is selected
+      fetchAllApps(controller.signal);
+    } else {
+      // Fetch apps for specific collection
       fetchApps(activeCollectionId, controller.signal);
-      return () => controller.abort();
     }
-  }, [activeCollectionId, fetchApps]);
+    
+    return () => controller.abort();
+  }, [activeCollectionId, fetchApps, fetchAllApps]);
 
-  // Filter apps based on privacy tab
+  // Filter apps based on privacy tab only
+  // Collection filtering happens at the fetch level (fetchApps vs fetchAllApps)
   const filteredApps = apps
     .filter(app => activeTab === "all" || app?.privacy?.toLowerCase() === activeTab)
     .sort((a, b) => a.id - b.id);

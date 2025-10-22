@@ -11,6 +11,7 @@ import {
   GlobeAltIcon,
   ShieldCheckIcon,
   PlusIcon,
+  RectangleStackIcon,
 } from '@heroicons/react/24/outline';
 import { FaPenToSquare } from 'react-icons/fa6';
 import Link from 'next/link';
@@ -19,6 +20,7 @@ import { cn } from '@/utils/cn';
 import Logo from '@/img/logos/onMicroAI_logo_horiz_color-cropped.svg';
 import { Collection } from '@/app/(authenticated)/(dashboard)/types';
 import UserMenuDropdown from '@/components/modules/user-menu-dropdown/UserMenuDropdown';
+import { useDashboardStore } from '../../store/dashboardStore';
 
 interface DashboardSidebarProps {
   children: React.ReactNode;
@@ -55,14 +57,12 @@ export default function DashboardSidebar({
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCollectionId, setEditingCollectionId] = useState<number | null>(null);
   const [editedName, setEditedName] = useState("");
+  const { setActiveCollectionId } = useDashboardStore();
 
   /**
    * Gets the URL for a privacy tab
    */
-  const getTabUrl = (tabValue: string, collectionId?: number | null) => {
-    if (collectionId) {
-      return `/dashboard/${tabValue}/${collectionId}`;
-    }
+  const getTabUrl = (tabValue: string) => {
     return `/dashboard/${tabValue}`;
   };
 
@@ -154,11 +154,13 @@ export default function DashboardSidebar({
               {privacyNavigation.map((item) => {
                 const isActive = activeTab === item.value;
                 const count = appCounts[item.value] || 0;
+                // Use /dashboard for "all", /dashboard/[tab] for others
+                const href = item.value === 'all' ? '/dashboard' : getTabUrl(item.value);
                 
                 return (
                   <li key={item.value}>
                     <Link
-                      href={getTabUrl(item.value, activeCollectionId)}
+                      href={href}
                       className={cn(
                         isActive
                           ? 'bg-gray-50 text-primary dark:bg-white/5 dark:text-white'
@@ -211,6 +213,31 @@ export default function DashboardSidebar({
               </button>
             </div>
             <ul role="list" className="-mx-2 mt-2 space-y-1">
+              {/* All Collections Option */}
+              <li>
+                <button
+                  onClick={() => setActiveCollectionId(null)}
+                  className={cn(
+                    activeCollectionId === null
+                      ? 'bg-gray-50 text-primary dark:bg-white/5 dark:text-white'
+                      : 'text-gray-700 hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
+                    'group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 w-full',
+                  )}
+                >
+                  <span
+                    className={cn(
+                      activeCollectionId === null
+                        ? 'border-primary text-primary dark:border-white/20 dark:text-white'
+                        : 'border-gray-200 text-gray-400 group-hover:border-primary group-hover:text-primary dark:border-white/10 dark:group-hover:border-white/20 dark:group-hover:text-white',
+                      'flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border bg-white text-[0.625rem] font-medium dark:bg-white/5',
+                    )}
+                  >
+                    <RectangleStackIcon className="h-4 w-4" />
+                  </span>
+                  <span className="flex-1 truncate text-left">All Collections</span>
+                </button>
+              </li>
+              
               {collections.map((collection) => {
                 const isActive = activeCollectionId === collection.id;
                 const isEditing = editingCollectionId === collection.id;
@@ -238,13 +265,13 @@ export default function DashboardSidebar({
                         />
                       </div>
                     ) : (
-                      <Link
-                        href={getTabUrl(activeTab, collection.id)}
+                      <button
+                        onClick={() => setActiveCollectionId(collection.id)}
                         className={cn(
                           isActive
                             ? 'bg-gray-50 text-primary dark:bg-white/5 dark:text-white'
                             : 'text-gray-700 hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white',
-                          'group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6',
+                          'group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6 w-full',
                         )}
                       >
                         <span
@@ -257,7 +284,7 @@ export default function DashboardSidebar({
                         >
                           <FolderIcon className="h-4 w-4" />
                         </span>
-                        <span className="flex-1 truncate">{collection.name}</span>
+                        <span className="flex-1 truncate text-left">{collection.name}</span>
                         <button
                           onClick={(e) => startEditingCollection(collection, e)}
                           className="opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
@@ -265,7 +292,7 @@ export default function DashboardSidebar({
                         >
                           <FaPenToSquare className="h-3 w-3" />
                         </button>
-                      </Link>
+                      </button>
                     )}
                   </li>
                 );
