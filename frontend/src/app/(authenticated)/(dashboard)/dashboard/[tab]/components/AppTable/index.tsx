@@ -87,8 +87,8 @@ const AppTable: React.FC<AppTableProps> = ({
    * Handle clone app action
    */
   const handleCloneClick = async (app: AppSerialized) => {
-    if (app.copyAllowed && activeCollectionId) {
-      await cloneApp(app.id, activeCollectionId);
+    if (app.copyAllowed) {
+      await cloneApp(app.id);
     }
   };
 

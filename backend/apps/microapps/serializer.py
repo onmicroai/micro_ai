@@ -57,4 +57,12 @@ class RunPatchSerializer(serializers.ModelSerializer):
 class FileUploadSerializer(serializers.Serializer):
     filename = serializers.CharField()
     content_type = serializers.CharField()
-    file_type = serializers.CharField(required=False, default='general')  # To distinguish different types of files    
+    file_type = serializers.CharField(required=False, default='general')  # To distinguish different types of files
+
+class ImageUploadSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    content_type = serializers.CharField()
+
+class PresignedUrlResponse(serializers.Serializer):
+    url = serializers.CharField()
+    fields = serializers.DictField()
