@@ -122,7 +122,6 @@ class RunList(APIView, UsageTrackingMixin):
                 "ai_model": api_params["model"],
                 "temperature": float(api_params["temperature"]),
                 "max_tokens": max_tokens,
-                "top_p": api_params["top_p"],
                 "scored_run": data.get("scored_run", False),
                 "run_score": self.ai_score,
                 "minimum_score": data.get("minimum_score", 0.0),
@@ -259,8 +258,6 @@ class RunList(APIView, UsageTrackingMixin):
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
-            if data.get("top_p"):
-                data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"):
                 data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"):
@@ -617,8 +614,6 @@ class AnonymousRunList(RunList):
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
-            if data.get("top_p"):
-                data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"):
                 data["minimum_score"] = float(data.get("minimum_score"))
             if data.get("max_tokens"):

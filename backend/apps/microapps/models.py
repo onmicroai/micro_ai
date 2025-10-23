@@ -63,10 +63,6 @@ class Microapp(models.Model):
     # This can be overridden by the paramater on each prompt field. 
     ai_model = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_AI_MODEL)
     
-    # The app-wide default cumulative probability cutoff for token selection
-    # Top_p is a parameter that controls the randomness of the output. 
-    # This can be overridden by the paramater on each prompt field. 
-    top_p = models.FloatField(default = 1)
     
     
     # Indicates whether this microapp can be cloned (copied) by other users.
@@ -217,12 +213,6 @@ class Run(models.Model):
     # Smaller values result in shorter outputs, while larger values allow for longer outputs.   
     max_tokens = models.IntegerField()
 
-    # The top_p value sent for the run. 
-    # Top_p is a parameter that controls the randomness of the output. 
-    # It is used to determine the probability distribution from which tokens are selected for the output. 
-    # A value of 0.5 means that the AI model will select tokens with a probability of 50%, while a value of 1.0 means that the AI model will select tokens with a probability of 100%. 
-    # Lower values make the output more deterministic, while higher values make the output more random. 
-    top_p = models.FloatField()
 
 
     # The number of input tokens used for the run. This data is returned from the AI model. 
