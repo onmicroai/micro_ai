@@ -68,19 +68,6 @@ class Microapp(models.Model):
     # This can be overridden by the paramater on each prompt field. 
     top_p = models.FloatField(default = 1)
     
-    # The app-wide default frequency penalty for repeating the same line verbatim (0.0 to 2.0)
-    # Frequency penalty is a parameter that controls the likelihood of the model repeating the same line verbatim. 
-    # A high frequency penalty reduces redundancy by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
-    # A low frequency penalty (or a value of zero) increases the likelihood of redundancy because the model isn't discouraged from repeating words or phrases it has already used.
-    # This can be overridden by the paramater on each prompt field. 
-    frequency_penalty = models.FloatField(default = 0)
-    
-    # The app-wide default presence penalty for increasing the model's likelihood to talk about new topics (0.0 to 2.0)
-    # Presence penalty is a parameter that controls the likelihood of the model talking about new topics. 
-    # A high presence penalty reduces the likelihood of the model talking about new topics by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
-    # A low presence penalty (or a value of zero) increases the likelihood of the model talking about new topics because the model isn't discouraged from repeating words or phrases it has already used.
-    # This can be overridden by the paramater on each prompt field. 
-    presence_penalty = models.FloatField(default = 0)
     
     # Indicates whether this microapp can be cloned (copied) by other users.
     copy_allowed = models.BooleanField(default = True)
@@ -237,17 +224,6 @@ class Run(models.Model):
     # Lower values make the output more deterministic, while higher values make the output more random. 
     top_p = models.FloatField()
 
-    # The frequency_penalty value sent for the run.     
-    # Frequency penalty is a parameter that controls the likelihood of the model repeating the same line verbatim. 
-    # A high frequency penalty reduces redundancy by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
-    # A low frequency penalty (or a value of zero) increases the likelihood of redundancy because the model isn't discouraged from repeating words or phrases it has already used.
-    frequency_penalty = models.FloatField()
-
-    # The presence_penalty value sent for the run. 
-    # Presence penalty is a parameter that controls the likelihood of the model talking about new topics. 
-    # A high presence penalty reduces the likelihood of the model talking about new topics by making the AI less likely to repeat the same words or phrases. This encourages more variety in the generated output.
-    # A low presence penalty (or a value of zero) increases the likelihood of the model talking about new topics because the model isn't discouraged from repeating words or phrases it has already used.
-    presence_penalty = models.FloatField()
 
     # The number of input tokens used for the run. This data is returned from the AI model. 
     # Input tokens are the tokens in the input prompt that the AI model uses to generate the output. 

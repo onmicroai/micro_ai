@@ -131,8 +131,6 @@ class UnifiedLLMInterface:
                 "messages": params["messages"],
                 "temperature": params["temperature"],
                 "max_tokens": params["max_tokens"],
-                "presence_penalty": params["presence_penalty"],
-                "frequency_penalty": params["frequency_penalty"],
                 "stream": stream
             }
             

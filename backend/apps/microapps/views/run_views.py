@@ -123,8 +123,6 @@ class RunList(APIView, UsageTrackingMixin):
                 "temperature": float(api_params["temperature"]),
                 "max_tokens": max_tokens,
                 "top_p": api_params["top_p"],
-                "frequency_penalty": api_params["frequency_penalty"],
-                "presence_penalty": api_params["presence_penalty"],
                 "scored_run": data.get("scored_run", False),
                 "run_score": self.ai_score,
                 "minimum_score": data.get("minimum_score", 0.0),
@@ -261,10 +259,6 @@ class RunList(APIView, UsageTrackingMixin):
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
-            if data.get("frequency_penalty"):
-                data["frequency_penalty"] = float(data.get("frequency_penalty"))
-            if data.get("presence_penalty"):
-                data["presence_penalty"] = float(data.get("presence_penalty"))
             if data.get("top_p"):
                 data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"):
@@ -623,10 +617,6 @@ class AnonymousRunList(RunList):
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
-            if data.get("frequency_penalty"):
-                data["frequency_penalty"] = float(data.get("frequency_penalty"))
-            if data.get("presence_penalty"):
-                data["presence_penalty"] = float(data.get("presence_penalty"))
             if data.get("top_p"):
                 data["top_p"] = float(data.get("top_p"))
             if data.get("minimum_score"):

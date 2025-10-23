@@ -23,14 +23,8 @@ class AIModelDefaults:
         "temperature": 1.0,
         "top_p": 1.0,
         "max_tokens": 5000,
-        "presence_penalty": 0.0,
-        "frequency_penalty": 0.0,
         "temperature_min": 0.0,
         "temperature_max": 2.0,
-        "presence_penalty_min": -2.0,
-        "presence_penalty_max": 2.0,
-        "frequency_penalty_min": -2.0,
-        "frequency_penalty_max": 2.0,
         "top_p_min": 0.0,
         "top_p_max": 1.0,
         "supports_image": False,
@@ -65,7 +59,6 @@ class AIModelFamilyDefaults:
     
     PERPLEXITY = {
         "family": "perplexity",
-        "frequency_penalty_min": 0,  # Perplexity has different penalty ranges
         "api_key": env("PERPLEXITY_API_KEY"),
         **AIModelDefaults.BASE_DEFAULTS
     }
