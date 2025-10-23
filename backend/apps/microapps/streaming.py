@@ -58,13 +58,23 @@ async def litellm_sse_generator(
         # Call completion callback with usage data if provided
         score_data = None
         if on_completion_callback:
-            try:
+            try:                
                 # Create response data structure matching get_response format
+                # Handle both dict and object formats for last_usage
+                if isinstance(iface.last_usage, dict):
+                    prompt_tokens = iface.last_usage.get("prompt_tokens", 0)
+                    completion_tokens = iface.last_usage.get("completion_tokens", 0)
+                    total_tokens = iface.last_usage.get("total_tokens", 0)
+                else:
+                    prompt_tokens = getattr(iface.last_usage, "prompt_tokens", 0) if iface.last_usage else 0
+                    completion_tokens = getattr(iface.last_usage, "completion_tokens", 0) if iface.last_usage else 0
+                    total_tokens = getattr(iface.last_usage, "total_tokens", 0) if iface.last_usage else 0
+                
                 response_data = {
                     "ai_response": getattr(iface, 'full_content', ''),
-                    "prompt_tokens": iface.last_usage.prompt_tokens if iface.last_usage else 0,
-                    "completion_tokens": iface.last_usage.completion_tokens if iface.last_usage else 0,
-                    "total_tokens": iface.last_usage.total_tokens if iface.last_usage else 0,
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "total_tokens": total_tokens,
                     "cost": iface.last_cost if hasattr(iface, 'last_cost') else 0,
                     "credits": iface.last_credits if hasattr(iface, 'last_credits') else 0,
                 }

@@ -9,13 +9,13 @@ from litellm import speech
 import requests
 import json
 from django.conf import settings
+from .token_counter import token_counter
 
-# Import LiteLLM utilities for accurate cost calculation
+# Import LiteLLM utilities for cost calculation
 try:
-    from litellm import completion_cost, stream_chunk_builder
+    from litellm import cost_per_token
 except ImportError:
-    completion_cost = None
-    stream_chunk_builder = None
+    cost_per_token = None
 
 log = logging.getLogger(__name__)
 
@@ -130,7 +130,6 @@ class UnifiedLLMInterface:
                 "model": params["model"],
                 "messages": params["messages"],
                 "temperature": params["temperature"],
-                "top_p": params["top_p"],
                 "max_tokens": params["max_tokens"],
                 "presence_penalty": params["presence_penalty"],
                 "frequency_penalty": params["frequency_penalty"],
@@ -173,32 +172,19 @@ class UnifiedLLMInterface:
             # Make the API call using litellm proxy
             response_data = self._make_proxy_request(params, stream=False)
 
+            # Store response ID
+            self.response_id = response_data.get("id")
+
             # Extract usage information
             usage = response_data.get("usage", {})
             
-            # Calculate costs using LiteLLM completion_cost utility
-            llm_cost = 0
-            if completion_cost is not None:
-                try:
-                    llm_cost = completion_cost(
-                        model=params["model"],
-                        prompt=params["messages"],
-                        completion=response_data["choices"][0]["message"]["content"]
-                    )
-                except Exception as e:
-                    log.error(f"LiteLLM completion_cost failed: {e}")
-                    # Fallback to token-based calculation
-                    if usage:
-                        if self.model_name and "gpt-4o-mini" in self.model_name:
-                            input_cost = (usage.get("prompt_tokens", 0) / 1_000_000) * 0.15
-                            output_cost = (usage.get("completion_tokens", 0) / 1_000_000) * 0.6
-                            llm_cost = input_cost + output_cost
-            
+            # Calculate cost using standalone function
             transcription_cost = float(params.get("transcription_cost", 0))
-            total_cost = round(llm_cost + transcription_cost, 6)
-            
-            # Calculate credits (assuming 1 credit = $0.0001)
-            credits = self.calculate_credits(total_cost)
+            total_cost, credits = self.calculate_cost_from_usage(
+                usage_data=usage,
+                model=params["model"],
+                transcription_cost=transcription_cost
+            )
             
             return {
                 "status": True,
@@ -209,6 +195,7 @@ class UnifiedLLMInterface:
                     "total_tokens": usage.get("total_tokens", 0),
                     "cost": total_cost,
                     "credits": credits,
+                    "response_id": self.response_id,
                 }
             }
             
@@ -239,6 +226,7 @@ class UnifiedLLMInterface:
         self.last_cost = 0.0
         self.last_credits = 0
         self.full_content = ""
+        self.response_id = None
         
         # Collect chunks for LiteLLM cost calculation
         collected_chunks = []
@@ -257,6 +245,10 @@ class UnifiedLLMInterface:
                 # Collect chunk for cost calculation
                 collected_chunks.append(chunk)
                 
+                # Store response ID from first chunk
+                if chunk_count == 1 and chunk.get("id"):
+                    self.response_id = chunk["id"]
+                
                 # Process chunk from proxy response
                 content = ""
                 try:
@@ -272,48 +264,24 @@ class UnifiedLLMInterface:
                 if chunk.get("usage"):
                     self.last_usage = chunk["usage"]
 
-            # If we never saw usage in a chunk, we'll calculate it from the collected chunks
+            # If we never saw usage in a chunk, estimate it using token counting
             if self.last_usage is None:
-                # Create a mock usage object from the collected content
-                self.last_usage = type('Usage', (), {
-                    'prompt_tokens': 0,
-                    'completion_tokens': len(self.full_content.split()) if self.full_content else 0,
-                    'total_tokens': 0
-                })()
+                # Use token counter to estimate usage
+                # IMPORTANT: Usage and costs with streaming and thinking models are not precise yet. It is an important path to keep track of improvments that will make our calculations more precise and fast. 
+                self.last_usage = token_counter.estimate_usage_for_streaming(
+                    messages=params.get("messages", []),
+                    full_content=self.full_content,
+                    model_name=params.get("model", "")
+                )
 
-            # Calculate cost using official LiteLLM approach
+            # Calculate cost using standalone function
             transcription_cost = float(params.get("transcription_cost", 0))
-            llm_cost = 0
+            self.last_cost, self.last_credits = self.calculate_cost_from_usage(
+                usage_data=self.last_usage,
+                model=params["model"],
+                transcription_cost=transcription_cost
+            )
             
-            # Method 1: Use LiteLLM completion_cost utility (most accurate)
-            if completion_cost is not None and self.full_content:
-                try:
-                    # Calculate cost using LiteLLM utility
-                    llm_cost = completion_cost(
-                        model=params["model"],
-                        prompt=params["messages"],
-                        completion=self.full_content
-                    )
-                    
-                    if llm_cost and llm_cost > 0:
-                        self.last_cost = round(float(llm_cost) + transcription_cost, 6)
-                        self.last_credits = self.calculate_credits(self.last_cost)
-                except Exception as e:
-                    log.error(f"LiteLLM completion_cost failed: {e}")
-                    llm_cost = 0
-            
-            # Method 3: Token-based calculation fallback
-            if (llm_cost == 0 or llm_cost is None) and self.last_usage is not None:
-                # Calculate cost from tokens for gpt-4o-mini: $0.15/1M input, $0.6/1M output
-                if self.model_name and "gpt-4o-mini" in self.model_name:
-                    input_cost = (self.last_usage.prompt_tokens / 1_000_000) * 0.15
-                    output_cost = (self.last_usage.completion_tokens / 1_000_000) * 0.6
-                    llm_cost = input_cost + output_cost
-            
-            # Set final cost and credits
-            if llm_cost > 0:
-                self.last_cost = round(float(llm_cost) + transcription_cost, 6)
-                self.last_credits = self.calculate_credits(self.last_cost)
 
         except Exception as e:
             log.error(f"Error streaming response from {self.model_name}: {str(e)}")
@@ -325,6 +293,48 @@ class UnifiedLLMInterface:
         """Calculate credits from cost (1 credit = $0.0001)"""
         credits = max(int(cost * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
         return credits
+
+    def calculate_cost_from_usage(self, usage_data: dict, model: str, transcription_cost: float = 0.0) -> tuple[float, int]:
+        """
+        Calculate cost and credits from usage data using LiteLLM's cost_per_token method.
+        
+        Args:
+            usage_data: Dictionary containing token usage information
+            model: The model identifier for cost calculation
+            transcription_cost: Additional transcription cost to include
+            
+        Returns:
+            Tuple of (total_cost, credits)
+        """
+        if cost_per_token is None or not usage_data:
+            return 0.0, 0
+        
+        try:
+            # Extract token counts
+            if isinstance(usage_data, dict):
+                prompt_tokens = usage_data.get("prompt_tokens", 0)
+                completion_tokens = usage_data.get("completion_tokens", 0)
+            else:
+                prompt_tokens = getattr(usage_data, "prompt_tokens", 0)
+                completion_tokens = getattr(usage_data, "completion_tokens", 0)
+
+            
+            # Calculate cost using LiteLLM's cost_per_token method
+            prompt_cost, completion_cost_result = cost_per_token(
+                model=model,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens
+            )
+            
+            llm_cost = prompt_cost + completion_cost_result
+            total_cost = round(float(llm_cost) + transcription_cost, 6)
+            credits = self.calculate_credits(total_cost)
+            
+            return total_cost, credits
+            
+        except Exception as e:
+            log.error(f"Cost calculation failed: {e}")
+            return 0.0, 0
 
     def score_response(self, api_params: Dict[str, Any], minimum_score: float) -> Dict[str, Any]:
         """
@@ -349,28 +359,17 @@ class UnifiedLLMInterface:
             
             response_data = self._make_proxy_request(api_params, stream=False)
             
+            # Store response ID
+            self.response_id = response_data.get("id")
+            
             usage = response_data.get("usage", {})
             
-            # Calculate costs using LiteLLM completion_cost utility
-            llm_cost = 0
-            if completion_cost is not None:
-                try:
-                    llm_cost = completion_cost(
-                        model=api_params["model"],
-                        prompt=api_params["messages"],
-                        completion=response_data["choices"][0]["message"]["content"]
-                    )
-                except Exception as e:
-                    log.error(f"LiteLLM completion_cost failed: {e}")
-                    # Fallback to token-based calculation
-                    if usage:
-                        if self.model_name and "gpt-4o-mini" in self.model_name:
-                            input_cost = (usage.get("prompt_tokens", 0) / 1_000_000) * 0.15
-                            output_cost = (usage.get("completion_tokens", 0) / 1_000_000) * 0.6
-                            llm_cost = input_cost + output_cost
-            
-            total_cost = llm_cost
-            credits = self.calculate_credits(total_cost)
+            # Calculate cost using standalone function
+            total_cost, credits = self.calculate_cost_from_usage(
+                usage_data=usage,
+                model=api_params["model"],
+                transcription_cost=0.0  # No transcription cost for scoring
+            )
             ai_score = response_data["choices"][0]["message"]["content"]
             score_result = False
             
@@ -384,13 +383,15 @@ class UnifiedLLMInterface:
                 "cost": total_cost,
                 "credits": credits,
                 "ai_score": ai_score,
-                "score_result": score_result
+                "score_result": score_result,
+                "response_id": self.response_id
             }
             
         except Exception as e:
             log.error(f"Error getting scored response: {str(e)}")
             return {"status": False, "message": str(e)}
 
+    
     def extract_score(self, response: str) -> int:
         """
         Extract the total score from a JSON-formatted response string.
@@ -515,10 +516,6 @@ class UnifiedLLMInterface:
                 input=text,
                 instructions=instructions
             )
-            
-            # Get the audio data
-            print("RESPONSE", response)
-            print("HIDDEN PARAMS", response._hidden_params)
 
             audio_data = response.content
             
