@@ -19,6 +19,21 @@ services:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 5s
       retries: 20
+
+  # LiteLLM for local
+  om-litellm:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: om-litellm
+    ports:
+      - '8008:4000'
+    env_file:
+      - .env
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml
+
+    command: [ "--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000" ]
+    init: true
+
   web:
     container_name: web
     build:
