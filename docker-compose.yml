@@ -30,7 +30,8 @@ services:
       - .env
     volumes:
       - ./litellm/config.yaml:/app/config.yaml
-
+    networks:
+      - microaiNetwork
     command: [ "--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000" ]
     init: true
 
@@ -53,6 +54,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      om-litellm:
+        condition: service_started
     healthcheck:
       test: ["CMD", "python", "-c", "import socket; socket.create_connection(('localhost', 8000), timeout=1)"]
       interval: 10s
