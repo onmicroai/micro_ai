@@ -143,7 +143,8 @@ class RunList(APIView, UsageTrackingMixin):
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
-                "run_uuid": data.get("run_uuid")
+                "run_uuid": data.get("run_uuid"),
+                "litellm_response_id": usage.get("litellm_response_id")
             }
             return run_data
         except Exception as e:

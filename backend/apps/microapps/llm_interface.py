@@ -173,7 +173,7 @@ class UnifiedLLMInterface:
             response_data = self._make_proxy_request(params, stream=False)
 
             # Store response ID
-            self.response_id = response_data.get("id")
+            self.litellm_response_id = response_data.get("id")
 
             # Extract usage information
             usage = response_data.get("usage", {})
@@ -195,7 +195,7 @@ class UnifiedLLMInterface:
                     "total_tokens": usage.get("total_tokens", 0),
                     "cost": total_cost,
                     "credits": credits,
-                    "response_id": self.response_id,
+                    "litellm_response_id": self.litellm_response_id,
                 }
             }
             
@@ -226,7 +226,7 @@ class UnifiedLLMInterface:
         self.last_cost = 0.0
         self.last_credits = 0
         self.full_content = ""
-        self.response_id = None
+        self.litellm_response_id = None
         
         # Collect chunks for LiteLLM cost calculation
         collected_chunks = []
@@ -245,9 +245,8 @@ class UnifiedLLMInterface:
                 # Collect chunk for cost calculation
                 collected_chunks.append(chunk)
                 
-                # Store response ID from first chunk
-                if chunk_count == 1 and chunk.get("id"):
-                    self.response_id = chunk["id"]
+                # Store LiteLLM response ID
+                self.litellm_response_id = chunk["id"]
                 
                 # Process chunk from proxy response
                 content = ""
@@ -360,7 +359,7 @@ class UnifiedLLMInterface:
             response_data = self._make_proxy_request(api_params, stream=False)
             
             # Store response ID
-            self.response_id = response_data.get("id")
+            self.litellm_response_id = response_data.get("id")
             
             usage = response_data.get("usage", {})
             
@@ -384,7 +383,7 @@ class UnifiedLLMInterface:
                 "credits": credits,
                 "ai_score": ai_score,
                 "score_result": score_result,
-                "response_id": self.response_id
+                "litellm_response_id": self.litellm_response_id
             }
             
         except Exception as e:

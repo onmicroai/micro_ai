@@ -77,6 +77,7 @@ async def litellm_sse_generator(
                     "total_tokens": total_tokens,
                     "cost": iface.last_cost if hasattr(iface, 'last_cost') else 0,
                     "credits": iface.last_credits if hasattr(iface, 'last_credits') else 0,
+                    "litellm_response_id": getattr(iface, 'litellm_response_id', None),
                 }
                 # Sync callback with Django ORM needs to run in a thread
                 # (save_streaming_run is always sync)

@@ -296,6 +296,9 @@ class Run(models.Model):
 
     app_hash_id = models.CharField(max_length=50, blank=True)
     
+    # The LiteLLM response ID for tracking API calls
+    litellm_response_id = models.CharField(max_length=255, blank=True, null=True)
+    
     response_type = models.CharField(max_length = 20, default = MicroappVariables.DEFAULT_RESPONSE_TYPE, choices = RESPONSE_TYPE)
 
     def __str__(self):
