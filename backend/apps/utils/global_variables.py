@@ -143,6 +143,27 @@ class AIModelConstants:
             "supports_image": True,
             "plans": ["pro", "enterprise"]
         },
+        "claude-sonnet-4-5-20250929": {
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-sonnet-4-5-20250929",
+            "max_tokens": 8192,
+            "supports_image": True,
+            "plans": ["pro", "enterprise"]
+        },
+        "claude-haiku-4-5-20251001": {
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-haiku-4-5-20251001",
+            "max_tokens": 8192,
+            "supports_image": True,
+            "plans": ["pro", "enterprise"]
+        },
+        "claude-opus-4-1-20250805": {
+            **AIModelFamilyDefaults.ANTHROPIC,
+            "model": "anthropic/claude-opus-4-1-20250805",
+            "max_tokens": 8192,
+            "supports_image": True,
+            "plans": ["pro", "enterprise"]
+        },
         "claude-4-opus": {
             **AIModelFamilyDefaults.ANTHROPIC,
             "model": "anthropic/claude-opus-4-20250514",
