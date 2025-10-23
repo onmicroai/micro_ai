@@ -84,7 +84,7 @@ class AIModelConstants:
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-4o-mini",
             "supports_image": True,
-            "plans": ["free", "individual", "enterprise"]
+            "plans": ["free", "pro", "enterprise"]
         },
         "gpt-4o-mini-tts": {
             **AIModelFamilyDefaults.OPENAI_TTS,
@@ -96,31 +96,31 @@ class AIModelConstants:
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-4o",
             "supports_image": True,
-            "plans": ["individual", "enterprise"]
+            "plans": ["pro", "enterprise"]
         },
         "gpt-5": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-5",
             "supports_image": True,
-            "plans": ["free","individual", "enterprise"]
+            "plans": ["free","pro", "enterprise"]
         },
         "gpt-5-mini": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-5-mini",
             "supports_image": True,
-            "plans": ["free","individual", "enterprise"]
+            "plans": ["free","pro", "enterprise"]
         },
         "gpt-5-nano": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/gpt-5-nano",
             "supports_image": True,
-            "plans": ["free","individual", "enterprise"]
+            "plans": ["free","pro", "enterprise"]
         },
         "openai-o3-mini": {
             **AIModelFamilyDefaults.OPENAI,
             "model": "openai/o3-mini",
             "supports_image": False,
-            "plans": ["individual", "enterprise"]
+            "plans": ["pro", "enterprise"]
         },
         "openai-o1": {
             **AIModelFamilyDefaults.OPENAI,
@@ -134,14 +134,14 @@ class AIModelConstants:
             "model": "anthropic/claude-3-5-haiku-latest",
             "max_tokens": 8192,
             "supports_image": False,
-            "plans": ["free", "individual", "enterprise"]
+            "plans": ["free", "pro", "enterprise"]
         },
         "claude-4-sonnet": {
             **AIModelFamilyDefaults.ANTHROPIC,
             "model": "anthropic/claude-sonnet-4-20250514",
             "max_tokens": 8192,
             "supports_image": True,
-            "plans": ["individual", "enterprise"]
+            "plans": ["pro", "enterprise"]
         },
         "claude-4-opus": {
             **AIModelFamilyDefaults.ANTHROPIC,
@@ -154,23 +154,23 @@ class AIModelConstants:
             **AIModelFamilyDefaults.GEMINI,
             "model": "gemini/gemini-2.5-pro",
             "supports_image": True,
-            "plans": ["individual", "enterprise"]
+            "plans": ["pro", "enterprise"]
         },
         "gemini-2.5-flash": {
             **AIModelFamilyDefaults.GEMINI,
             "model": "gemini/gemini-2.5-flash",
             "supports_image": True,
-            "plans": ["free", "individual", "enterprise"]
+            "plans": ["free", "pro", "enterprise"]
         },
         "sonar-pro": {
             **AIModelFamilyDefaults.PERPLEXITY,
             "model": "perplexity/sonar-pro",
-            "plans": ["individual", "enterprise"]
+            "plans": ["pro", "enterprise"]
         },
         "deepseek-chat": {
             **AIModelFamilyDefaults.DEEPSEEK,
             "model": "deepseek/deepseek-chat",
-            "plans": ["free", "individual", "enterprise"]
+            "plans": ["free", "pro", "enterprise"]
         }
     }
 
@@ -235,7 +235,7 @@ class AIModelConstants:
 class UsageVariables:
     # Plan limits in credits
     FREE_PLAN_CREDIT_LIMIT = 10000
-    INDIVIDUAL_PLAN_CREDIT_LIMIT = 100000
+    PRO_PLAN_CREDIT_LIMIT = 100000
     ENTERPRISE_PLAN_CREDIT_LIMIT = 400000
 
     FREE_PLAN_MICROAPP_LIMIT = int(env("FREE_PLAN_MICROAPP_LIMIT"))

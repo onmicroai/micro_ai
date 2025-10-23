@@ -1206,8 +1206,8 @@ class AIModelConfigurations(APIView):
             if billing_cycle and billing_cycle.subscription:
                 # Check the subscription's price_id against known price IDs
                 price_id = billing_cycle.subscription.price_id
-                if price_id == settings.INDIVIDUAL_PLAN_PRICE_ID:
-                    return "individual"
+                if price_id == settings.PRO_PLAN_PRICE_ID:
+                    return "pro"
                 elif price_id == settings.ENTERPRISE_PLAN_PRICE_ID:
                     return "enterprise"
             

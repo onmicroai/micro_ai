@@ -143,14 +143,14 @@ class MicroAppUsage:
             
             price_id = subscription["price_id"]
             
-            # Check if plan is enterprise or individual by comparing price_id
-            is_paid_plan = (price_id == PRICE_IDS["individual"] or 
+            # Check if plan is enterprise or pro by comparing price_id
+            is_paid_plan = (price_id == PRICE_IDS["pro"] or 
                            price_id == PRICE_IDS["enterprise"])
 
             if is_paid_plan:
                 max_apps = 9999
             
-            # For enterprise or individual plans, can_create is always true
+            # For enterprise or pro plans, can_create is always true
             # For free plan, can_create depends on the current app count vs limit
             return {
                 "can_create": current_app_count < max_apps,

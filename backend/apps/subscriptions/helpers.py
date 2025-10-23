@@ -345,11 +345,11 @@ def get_plan_name(price_id: str | None) -> str:
     """
     Returns the plan name based on the provided price_id.
 
-    If the price_id matches the individual or enterprise plan, 
+    If the price_id matches the pro or enterprise plan, 
     it returns the corresponding plan name. Otherwise, it defaults to the Free plan.
     """
-    if price_id == PRICE_IDS.get("individual"):
-        return PLANS["individual"]
+    if price_id == PRICE_IDS.get("pro"):
+        return PLANS["pro"]
     elif price_id == PRICE_IDS.get("enterprise"):
         return PLANS["enterprise"]
     elif price_id == PRICE_IDS.get("top_up"):
@@ -364,7 +364,7 @@ def get_price_id_from_plan(plan_name: str) -> str | None:
     """
     plan_price_mapping = {
         "Free": None,  # Free plan does not require a price ID
-        "Pro": PRICE_IDS["individual"],
+        "Pro": PRICE_IDS["pro"],
         "Enterprise": PRICE_IDS["enterprise"],
         "TopUp": PRICE_IDS["top_up"]
     }
@@ -380,7 +380,7 @@ def get_default_credits_from_plan(plan_name: str) -> int:
     """
     plan_credits_mapping = {
         PLANS["free"]: 10_000,
-        PLANS["individual"]: 100_000,
+        PLANS["pro"]: 100_000,
         PLANS["enterprise"]: 400_000,
     }
 
@@ -403,7 +403,7 @@ def is_downgrade(current_plan: str, new_plan: str) -> bool:
     """
     PLAN_ORDER = [
         PLANS["free"],
-        PLANS["individual"],
+        PLANS["pro"],
         PLANS["enterprise"],
     ]
 
