@@ -21,7 +21,8 @@ from .run_views import (
     RunList,
     AnonymousRunList,
     AIModelRoute,
-    AIModelConfigurations
+    AIModelConfigurations,
+    LiteLLMModelConfigurations
 )
 
 from .analytics_views import (
@@ -67,6 +68,7 @@ __all__ = [
     'AnonymousRunList',
     'AIModelRoute',
     'AIModelConfigurations',
+    'LiteLLMModelConfigurations',
     
     # Analytics views
     'AppStatistics',

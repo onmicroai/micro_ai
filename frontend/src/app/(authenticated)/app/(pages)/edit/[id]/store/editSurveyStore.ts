@@ -5,6 +5,7 @@ import { toast } from 'react-toastify';
 import debounce from 'lodash/debounce';
 import { fetchUserCollectionsSingleton } from '../utils/fetchCollectionsList';
 import { fetchAvailableModelsSingleton } from '../utils/fetchAvailableModels';
+import { fetchLiteLLMModelsSingleton } from '../utils/fetchLiteLLMModels';
 import { updateMicroappCollection } from '../utils/updateMicroappCollection';
 
 const initialState = {
@@ -124,6 +125,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
   // Create singleton instances
   const fetchCollectionsInitial = fetchUserCollectionsSingleton();
   const fetchModelsInitial = fetchAvailableModelsSingleton();
+  const fetchLiteLLMModelsInitial = fetchLiteLLMModelsSingleton();
 
   return {
     ...initialState,
@@ -395,6 +397,23 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         set({ availableModels: models, isLoadingModels: false });
       } catch (error) {
         console.error('Failed to fetch models:', error);
+        set({ isLoadingModels: false });
+      }
+    },
+
+    /**
+     * Fetches the models from LiteLLM
+     */
+    fetchLiteLLMModels: async () => {
+      set({ isLoadingModels: true });
+      try {
+        let models = await fetchLiteLLMModelsInitial();
+        if (models === null) {
+          models = {} as ModelTemperatureRanges;
+        }
+        set({ availableModels: models, isLoadingModels: false });
+      } catch (error) {
+        console.error('Failed to fetch LiteLLM models:', error);
         set({ isLoadingModels: false });
       }
     },

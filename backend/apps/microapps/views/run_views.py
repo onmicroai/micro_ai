@@ -849,3 +849,130 @@ class AIModelConfigurations(APIView):
             }, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
+
+
+class LiteLLMModelConfigurations(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_user_plan(self, user_id):
+        """Get the user's current subscription plan"""
+        try:
+            # Get the user's current billing cycle
+            billing_cycle = BillingCycle.objects.filter(
+                user=user_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+            
+            if billing_cycle and billing_cycle.subscription:
+                # Check the subscription's price_id against known price IDs
+                price_id = billing_cycle.subscription.price_id
+                if price_id == settings.PRO_PLAN_PRICE_ID:
+                    return "pro"
+                elif price_id == settings.ENTERPRISE_PLAN_PRICE_ID:
+                    return "enterprise"
+            
+            # Default to free plan if no active subscription or unknown price_id
+            return "free"
+            
+        except Exception as e:
+            log.error(f"Error getting user plan: {str(e)}")
+            return "free"
+
+    @extend_schema(
+        responses={200: str},
+        summary="Get available AI models from LiteLLM based on user's subscription plan"
+    )
+    def get(self, request, format=None):
+        """Get available AI models from LiteLLM for user's plan."""
+        try:
+            import requests
+            from django.conf import settings
+            
+            # Get user's current plan
+            user_plan = self.get_user_plan(request.user.id)
+            access_group = user_plan
+            
+            # Query LiteLLM for available models
+            litellm_url = f"{settings.LITELLM_BASE_URL}/v1/model/info"
+            headers = {
+                'accept': 'application/json',
+                'x-litellm-api-key': settings.LITELLM_API_KEY
+            }
+            
+            log.info(f"Attempting to connect to LiteLLM at: {litellm_url}")
+            response = requests.get(litellm_url, headers=headers, timeout=10)
+            response.raise_for_status()
+            log.info(f"Successfully connected to LiteLLM, received {len(response.json().get('data', []))} models")
+            
+            litellm_data = response.json()
+            available_models = litellm_data.get('data', [])
+            
+            # Filter models based on user's access group
+            filtered_models = []
+            for model in available_models:
+                model_info = model.get('model_info', {})
+                access_groups = model_info.get('access_groups', [])
+                
+                if access_group in access_groups:
+                    # Extract temperature range from model info
+                    # LiteLLM doesn't provide explicit temperature ranges, so we'll use defaults
+                    temperature_range = {
+                        "min": 0.0,
+                        "max": 2.0
+                    }
+                    
+                    # Check if model has specific temperature constraints
+                    if 'temperature' in model_info:
+                        temp_config = model_info['temperature']
+                        if isinstance(temp_config, dict):
+                            temperature_range = {
+                                "min": temp_config.get('min', 0.0),
+                                "max": temp_config.get('max', 2.0)
+                            }
+                    
+                    filtered_models.append({
+                        "model": model.get('model_name'),
+                        "friendly_name": model_info.get('litellm_provider', '') + '/' + model.get('model_name'),
+                        "temperature_range": temperature_range,
+                        "supports_image": model_info.get('supports_vision', False),
+                        "supports_function_calling": model_info.get('supports_function_calling', False),
+                        "supports_tool_choice": model_info.get('supports_tool_choice', False),
+                        "supports_audio_input": model_info.get('supports_audio_input', False),
+                        "supports_audio_output": model_info.get('supports_audio_output', False),
+                        "supports_pdf_input": model_info.get('supports_pdf_input', False),
+                        "supports_reasoning": model_info.get('supports_reasoning', False),
+                        "max_tokens": model_info.get('max_tokens'),
+                        "max_input_tokens": model_info.get('max_input_tokens'),
+                        "max_output_tokens": model_info.get('max_output_tokens'),
+                        "input_cost_per_token": model_info.get('input_cost_per_token'),
+                        "output_cost_per_token": model_info.get('output_cost_per_token'),
+                        "litellm_provider": model_info.get('litellm_provider'),
+                        "access_groups": access_groups
+                    })
+
+            return Response({
+                "data": {
+                    "user_plan": user_plan,
+                    "access_group": access_group,
+                    "models": filtered_models
+                }, 
+                "status": status.HTTP_200_OK
+            }, status=status.HTTP_200_OK)
+            
+        except requests.exceptions.RequestException as e:
+            log.error(f"LiteLLM API request failed: {str(e)}")
+            # Fallback to empty models list instead of error
+            return Response({
+                "data": {
+                    "user_plan": self.get_user_plan(request.user.id),
+                    "access_group": self.get_user_plan(request.user.id),
+                    "models": []
+                }, 
+                "status": status.HTTP_200_OK,
+                "warning": "LiteLLM service unavailable, returning empty model list"
+            }, status=status.HTTP_200_OK)
+        except Exception as e:
+            log.error(f"Error in LiteLLMModelConfigurations: {str(e)}")
+            return handle_exception(e)

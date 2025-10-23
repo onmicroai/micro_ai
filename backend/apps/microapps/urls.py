@@ -21,6 +21,7 @@ from .views import (
     RunList,
     AnonymousRunList,
     AIModelConfigurations,
+    LiteLLMModelConfigurations,
     
     # Analytics views
     AppStatistics,
@@ -63,6 +64,7 @@ urlpatterns = [
     path('run', RunList.as_view(), name="run_model"),
     path('run/anonymous', AnonymousRunList.as_view(), name="anonymous_run_model"),
     path('models/configuration/', AIModelConfigurations.as_view(), name="models_configuration"),
+    path('models/litellm-configuration/', LiteLLMModelConfigurations.as_view(), name="litellm_models_configuration"),
     
     # Analytics & Statistics
     path('stats/run', AppStatistics.as_view(), name="app_stats"),

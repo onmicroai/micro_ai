@@ -82,7 +82,7 @@ export default function FormBuilder() {
     addAttachedFile,
     removeAttachedFile,
     fetchCollections,
-    fetchModels,
+    fetchLiteLLMModels,
     appId,
     setAttachedFiles,
   } = useSurveyStore();
@@ -192,10 +192,10 @@ export default function FormBuilder() {
     fetchCollections();
   }, [fetchCollections]);
 
-  //Load models on mount
+  //Load models on mount - using LiteLLM by default
   useEffect(() => {
-    fetchModels();
-  }, [fetchModels]);
+    fetchLiteLLMModels();
+  }, [fetchLiteLLMModels]);
 
   /**
    * Handles the completion of a drag-and-drop operation within the form builder.

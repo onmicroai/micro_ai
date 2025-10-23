@@ -292,6 +292,7 @@ export interface SurveyState {
    isLoadingModels: boolean;
    fetchCollections: () => Promise<void>;
    fetchModels: () => Promise<void>;
+   fetchLiteLLMModels: () => Promise<void>;
    setAttachedFiles: (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
    addAttachedFile: (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
    removeAttachedFile: (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
