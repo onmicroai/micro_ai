@@ -6,6 +6,9 @@ import re
 import tempfile
 import os
 from litellm import speech
+import requests
+import json
+from django.conf import settings
 
 # Import LiteLLM utilities for accurate cost calculation
 try:
@@ -104,29 +107,93 @@ class UnifiedLLMInterface:
             log.error(e)
             return []
 
+    def _make_proxy_request(self, params: Dict[str, Any], stream: bool = False) -> Any:
+        """
+        Make a request to the litellm proxy
+        
+        Args:
+            params: Dictionary containing API parameters
+            stream: Whether to stream the response
+            
+        Returns:
+            Response object or generator for streaming
+        """
+        try:
+            url = f"{settings.LITELLM_BASE_URL}/chat/completions"
+            headers = {
+                'Content-Type': 'application/json',
+                'Authorization': f'Bearer {settings.LITELLM_API_KEY}'
+            }
+            
+            # Prepare the request payload
+            payload = {
+                "model": params["model"],
+                "messages": params["messages"],
+                "temperature": params["temperature"],
+                "top_p": params["top_p"],
+                "max_tokens": params["max_tokens"],
+                "presence_penalty": params["presence_penalty"],
+                "frequency_penalty": params["frequency_penalty"],
+                "stream": stream
+            }
+            
+            if stream:
+                # For streaming, return a generator
+                response = requests.post(url, headers=headers, json=payload, stream=True)
+                response.raise_for_status()
+                
+                def stream_generator():
+                    for line in response.iter_lines():
+                        if line:
+                            line_str = line.decode('utf-8')
+                            if line_str.startswith('data: '):
+                                data_str = line_str[6:]  # Remove 'data: ' prefix
+                                if data_str.strip() == '[DONE]':
+                                    break
+                                try:
+                                    chunk_data = json.loads(data_str)
+                                    yield chunk_data
+                                except json.JSONDecodeError:
+                                    continue
+                
+                return stream_generator()
+            else:
+                # For non-streaming, return the response
+                response = requests.post(url, headers=headers, json=payload)
+                response.raise_for_status()
+                return response.json()
+                
+        except Exception as e:
+            log.error(f"Error making proxy request: {str(e)}")
+            raise e
+
     def get_response(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get response from the model"""
         try:
-            # Make the API call using litellm
-            response = litellm.completion(
-                model=params["model"],
-                messages=params["messages"],
-                temperature=params["temperature"],
-                top_p=params["top_p"],
-                max_tokens=params["max_tokens"],
-                presence_penalty=params["presence_penalty"],
-                frequency_penalty=params["frequency_penalty"],
-                stream=params["stream"],
-                reasoning_effort="minimal",
-                allowed_openai_params=["reasoning_effort", "verbosity"],
-                drop_params=True
-            )
+            # Make the API call using litellm proxy
+            response_data = self._make_proxy_request(params, stream=False)
 
             # Extract usage information
-            usage = response.usage
+            usage = response_data.get("usage", {})
             
-            # Calculate costs
-            llm_cost = response._hidden_params["response_cost"]
+            # Calculate costs using LiteLLM completion_cost utility
+            llm_cost = 0
+            if completion_cost is not None:
+                try:
+                    llm_cost = completion_cost(
+                        model=params["model"],
+                        prompt=params["messages"],
+                        completion=response_data["choices"][0]["message"]["content"]
+                    )
+                except Exception as e:
+                    log.error(f"LiteLLM completion_cost failed: {e}")
+                    # Fallback to token-based calculation
+                    if usage:
+                        if self.model_name and "gpt-4o-mini" in self.model_name:
+                            input_cost = (usage.get("prompt_tokens", 0) / 1_000_000) * 0.15
+                            output_cost = (usage.get("completion_tokens", 0) / 1_000_000) * 0.6
+                            llm_cost = input_cost + output_cost
+            
             transcription_cost = float(params.get("transcription_cost", 0))
             total_cost = round(llm_cost + transcription_cost, 6)
             
@@ -136,10 +203,10 @@ class UnifiedLLMInterface:
             return {
                 "status": True,
                 "data": {
-                    "ai_response": response.choices[0].message.content,
-                    "prompt_tokens": usage.prompt_tokens,
-                    "completion_tokens": usage.completion_tokens,
-                    "total_tokens": usage.total_tokens,
+                    "ai_response": response_data["choices"][0]["message"]["content"],
+                    "prompt_tokens": usage.get("prompt_tokens", 0),
+                    "completion_tokens": usage.get("completion_tokens", 0),
+                    "total_tokens": usage.get("total_tokens", 0),
                     "cost": total_cost,
                     "credits": credits,
                 }
@@ -182,67 +249,50 @@ class UnifiedLLMInterface:
             params = params.copy()
             params["stream"] = True
 
-            # Initiate streaming completion
-            response_stream = litellm.completion(
-                model=params["model"],
-                messages=params["messages"],
-                temperature=params["temperature"],
-                top_p=params["top_p"],
-                max_tokens=params["max_tokens"],
-                presence_penalty=params["presence_penalty"],
-                frequency_penalty=params["frequency_penalty"],
-                stream=True,  # hard-code True here
-                drop_params=True,
-            )
+            # Initiate streaming completion using proxy
+            response_stream = self._make_proxy_request(params, stream=True)
 
             # Iterate over the streaming chunks
             for chunk in response_stream:
                 # Collect chunk for cost calculation
                 collected_chunks.append(chunk)
                 
-                # LiteLLM normalises chunk objects to have .choices[..].delta.content
+                # Process chunk from proxy response
                 content = ""
                 try:
-                    content = chunk.choices[0].delta.content or ""
+                    content = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
                 except Exception:
-                    # Fallback to dict access just in case
-                    content = (
-                        chunk.get("choices", [{}])[0]
-                        .get("delta", {})
-                        .get("content", "")
-                    )
+                    content = ""
 
                 if content:
                     self.full_content += content
                     yield content  # send chunk upstream immediately
 
                 # Detect if this chunk carries full usage stats (varies by provider)
-                if hasattr(chunk, "usage") and chunk.usage:
-                    self.last_usage = chunk.usage
+                if chunk.get("usage"):
+                    self.last_usage = chunk["usage"]
 
-            # If we never saw usage in a chunk, try to pull it from the iterator
-            # object (some providers expose it as attribute on the generator)
-            if self.last_usage is None and hasattr(response_stream, "usage"):
-                self.last_usage = response_stream.usage
+            # If we never saw usage in a chunk, we'll calculate it from the collected chunks
+            if self.last_usage is None:
+                # Create a mock usage object from the collected content
+                self.last_usage = type('Usage', (), {
+                    'prompt_tokens': 0,
+                    'completion_tokens': len(self.full_content.split()) if self.full_content else 0,
+                    'total_tokens': 0
+                })()
 
             # Calculate cost using official LiteLLM approach
             transcription_cost = float(params.get("transcription_cost", 0))
             llm_cost = 0
             
             # Method 1: Use LiteLLM completion_cost utility (most accurate)
-            if completion_cost is not None and collected_chunks:
+            if completion_cost is not None and self.full_content:
                 try:
-                    # Rebuild completion text from chunks
-                    if stream_chunk_builder is not None:
-                        completion_text = stream_chunk_builder(collected_chunks, messages=params["messages"])
-                    else:
-                        completion_text = self.full_content
-                    
                     # Calculate cost using LiteLLM utility
                     llm_cost = completion_cost(
                         model=params["model"],
                         prompt=params["messages"],
-                        completion=completion_text
+                        completion=self.full_content
                     )
                     
                     if llm_cost and llm_cost > 0:
@@ -251,10 +301,6 @@ class UnifiedLLMInterface:
                 except Exception as e:
                     log.error(f"LiteLLM completion_cost failed: {e}")
                     llm_cost = 0
-            
-            # Method 2: Fallback to hidden params
-            if llm_cost == 0:
-                llm_cost = getattr(response_stream, "_hidden_params", {}).get("response_cost", 0)
             
             # Method 3: Token-based calculation fallback
             if (llm_cost == 0 or llm_cost is None) and self.last_usage is not None:
@@ -301,31 +347,40 @@ class UnifiedLLMInterface:
             api_params = api_params.copy()
             api_params["stream"] = False
             
-            response = litellm.completion(
-                model=api_params["model"],
-                messages=api_params["messages"],
-                temperature=api_params["temperature"],
-                top_p=api_params["top_p"],
-                max_tokens=api_params["max_tokens"],
-                presence_penalty=api_params["presence_penalty"],
-                frequency_penalty=api_params["frequency_penalty"],
-                stream=api_params["stream"],
-                drop_params=True
-            )
+            response_data = self._make_proxy_request(api_params, stream=False)
             
-            usage = response.usage
-            total_cost = response._hidden_params["response_cost"]
+            usage = response_data.get("usage", {})
+            
+            # Calculate costs using LiteLLM completion_cost utility
+            llm_cost = 0
+            if completion_cost is not None:
+                try:
+                    llm_cost = completion_cost(
+                        model=api_params["model"],
+                        prompt=api_params["messages"],
+                        completion=response_data["choices"][0]["message"]["content"]
+                    )
+                except Exception as e:
+                    log.error(f"LiteLLM completion_cost failed: {e}")
+                    # Fallback to token-based calculation
+                    if usage:
+                        if self.model_name and "gpt-4o-mini" in self.model_name:
+                            input_cost = (usage.get("prompt_tokens", 0) / 1_000_000) * 0.15
+                            output_cost = (usage.get("completion_tokens", 0) / 1_000_000) * 0.6
+                            llm_cost = input_cost + output_cost
+            
+            total_cost = llm_cost
             credits = self.calculate_credits(total_cost)
-            ai_score = response.choices[0].message.content
+            ai_score = response_data["choices"][0]["message"]["content"]
             score_result = False
             
             if self.extract_score(ai_score) >= minimum_score:
                 score_result = True
                 
             return {
-                "prompt_tokens": usage.prompt_tokens,
-                "completion_tokens": usage.completion_tokens,
-                "total_tokens": usage.total_tokens,
+                "prompt_tokens": usage.get("prompt_tokens", 0),
+                "completion_tokens": usage.get("completion_tokens", 0),
+                "total_tokens": usage.get("total_tokens", 0),
                 "cost": total_cost,
                 "credits": credits,
                 "ai_score": ai_score,
