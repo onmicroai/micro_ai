@@ -129,10 +129,21 @@ class UnifiedLLMInterface:
             payload = {
                 "model": params["model"],
                 "messages": params["messages"],
-                "temperature": params["temperature"],
+                #"temperature": params["temperature"],
                 "max_tokens": params["max_tokens"],
                 "stream": stream
             }
+
+            
+            # Add model-specific parameters based on model name if model is provided
+            if "model" in params and params["model"]:
+                model_name_lower = params["model"].lower()
+                if "anthropic" in model_name_lower or "claude" in model_name_lower:
+                    payload["thinking"] = {"type": "disabled"}
+                elif "openai" in model_name_lower or "gpt" in model_name_lower:
+                    payload["reasoning_effort"] = "minimal"
+                elif "google" in model_name_lower or "gemini" in model_name_lower:
+                    payload["reasoning_effort"] = "disable"
             
             if stream:
                 # For streaming, return a generator
