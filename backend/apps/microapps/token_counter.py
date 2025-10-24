@@ -107,6 +107,18 @@ class TokenCounter:
                 role = message.get('role', '')
                 content = message.get('content', '')
                 
+                # Debug logging for multimodal content
+                if isinstance(content, list):
+                    log.debug(f"Multimodal content detected: {content}")
+                    # Handle multimodal content (list of content blocks)
+                    content_text = ""
+                    for block in content:
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            content_text += block.get('text', '')
+                        elif isinstance(block, str):
+                            content_text += block
+                    content = content_text
+                
                 # Add tokens for role and content
                 role_tokens = len(encoding.encode(role))
                 content_tokens = len(encoding.encode(content))
@@ -117,11 +129,19 @@ class TokenCounter:
             return total_tokens
         except Exception as e:
             log.error(f"Error counting message tokens: {e}")
-            # Fallback to word count
+            # Fallback to word count with multimodal support
             total_words = 0
             for message in messages:
                 content = message.get('content', '')
-                total_words += len(content.split())
+                if isinstance(content, list):
+                    # Handle multimodal content (list of content blocks)
+                    for block in content:
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            total_words += len(block.get('text', '').split())
+                        elif isinstance(block, str):
+                            total_words += len(block.split())
+                elif isinstance(content, str):
+                    total_words += len(content.split())
             return total_words
     
     def estimate_usage_for_streaming(self, 
@@ -155,8 +175,24 @@ class TokenCounter:
             }
         except Exception as e:
             log.error(f"Error estimating usage: {e}")
-            # Fallback to simple word count
-            prompt_words = sum(len(msg.get('content', '').split()) for msg in messages)
+            # Debug logging for multimodal messages
+            log.error(f"Messages structure: {[msg.get('content', '') for msg in messages]}")
+            log.error(f"Message types: {[type(msg.get('content', '')) for msg in messages]}")
+            
+            # Fallback to simple word count with multimodal support
+            prompt_words = 0
+            for msg in messages:
+                content = msg.get('content', '')
+                if isinstance(content, list):
+                    # Handle multimodal content (list of content blocks)
+                    for block in content:
+                        if isinstance(block, dict) and block.get('type') == 'text':
+                            prompt_words += len(block.get('text', '').split())
+                        elif isinstance(block, str):
+                            prompt_words += len(block.split())
+                elif isinstance(content, str):
+                    prompt_words += len(content.split())
+            
             completion_words = len(full_content.split())
             
             return {
