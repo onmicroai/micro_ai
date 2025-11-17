@@ -1,7 +1,8 @@
 from typing import Dict, Any, Optional
 import litellm
 import logging
-from apps.utils.global_variables import UsageVariables, AIModelConstants
+from apps.utils.global_variables import UsageVariables
+from .dynamic_model_service import DynamicModelService
 import re
 import tempfile
 import os
@@ -38,13 +39,13 @@ class UnifiedLLMInterface:
         """
         self.model_config = model_config
         self.model_name = model_config.get('model', '')
-        self.model_family = AIModelConstants.get_model_family(self.model_name)
+        self.model_family = DynamicModelService.get_model_family(self.model_name)
         
         # Set the API key for the model provider
         litellm.api_key = model_config.get("api_key")
         
-        # Use our new inheritance logic to get all defaults and overrides
-        self.default_params = AIModelConstants.get_configs(self.model_name)
+        # Use dynamic model service to get configuration
+        self.default_params = DynamicModelService.get_model_config(self.model_name)
         # Ensure the model path is set correctly for API calls
         self.default_params["model"] = model_config.get("model")
 
@@ -52,11 +53,11 @@ class UnifiedLLMInterface:
         """Validate the parameters for the model"""
         try:
             
-            # Validate temperature
+            # Validate temperature (removed hard-coded limits, let models use their own defaults)
             if "temperature" in data:
                 temp = float(data["temperature"])
-                if temp < self.model_config.get("temperature_min", 0) or temp > self.model_config.get("temperature_max", 2):
-                    return {"status": False, "message": f"Temperature must be between {self.model_config.get('temperature_min', 0)} and {self.model_config.get('temperature_max', 2)}"}
+                if temp < 0 or temp > 2:
+                    return {"status": False, "message": "Temperature must be between 0 and 2"}
 
             return {"status": True, "message": "Parameters validated successfully"}
         except ValueError as e:
@@ -78,9 +79,9 @@ class UnifiedLLMInterface:
         # Add required parameters that may not be in defaults
         params["messages"] = data.get("messages", [])
         
-        # If a model is specified in data, get its full path from AIModelConstants
+        # If a model is specified in data, get its full path from dynamic service
         if "model" in data:
-            model_config = AIModelConstants.get_configs(data["model"])
+            model_config = DynamicModelService.get_model_config(data["model"])
             params["model"] = model_config.get("model", self.default_params["model"])
         
         # Override with any user-provided values that exist in our params
@@ -141,7 +142,10 @@ class UnifiedLLMInterface:
                 if "anthropic" in model_name_lower or "claude" in model_name_lower:
                     payload["thinking"] = {"type": "disabled"}
                 elif "openai" in model_name_lower or "gpt" in model_name_lower:
-                    payload["reasoning_effort"] = "minimal"
+                    if "gpt-5.1" in model_name_lower:
+                        payload["reasoning_effort"] = "none"
+                    else:
+                        payload["reasoning_effort"] = "minimal"
                 elif "google" in model_name_lower or "gemini" in model_name_lower:
                     payload["reasoning_effort"] = "disable"
             
@@ -512,7 +516,7 @@ class UnifiedLLMInterface:
         """
         try:
             # Get model config
-            model_config = AIModelConstants.get_configs('gpt-4o-mini-tts')
+            model_config = DynamicModelService.get_model_config('gpt-4o-mini-tts')
             
             # Set API key from config
             os.environ["OPENAI_API_KEY"] = model_config.get('api_key', '')

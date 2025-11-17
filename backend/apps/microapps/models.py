@@ -205,7 +205,7 @@ class Run(models.Model):
     
     # The temperature of the run. 
     # Temperature is a parameter that controls the randomness of the output. 
-    temperature = models.FloatField()
+    temperature = models.FloatField(null=True, blank=True)
 
     # The max_tokens value sent for the run. 
     # Max tokens is a parameter that controls the maximum number of tokens allowed in the output. 

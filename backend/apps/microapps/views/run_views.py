@@ -15,7 +15,8 @@ from django.http import StreamingHttpResponse
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import RunUsage, GuestUsage, get_user_ip
-from apps.utils.global_variables import AIModelConstants, MicroappVariables, UsageVariables
+from apps.utils.global_variables import MicroappVariables, UsageVariables
+from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.microapps.serializer import (
     MicroAppSerializer,
@@ -117,15 +118,15 @@ class RunList(APIView, UsageTrackingMixin):
                 "updated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
                 "satisfaction": 0,
-                "prompt": api_params["messages"],
+                "prompt": api_params.get("messages", []),
                 "no_submission": data.get("no_submission", False),
-                "ai_model": api_params["model"],
-                "temperature": float(api_params["temperature"]),
+                "ai_model": api_params.get("model", ""),
+                "temperature": float(api_params.get("temperature")) if api_params.get("temperature") is not None else None,
                 "max_tokens": max_tokens,
                 "scored_run": data.get("scored_run", False),
                 "run_score": self.ai_score,
                 "minimum_score": data.get("minimum_score", 0.0),
-                "rubric": str(data.get("rubric")),
+                "rubric": str(data.get("rubric", "none")),
                 "run_passed": self.score_result,
                 "request_skip": data.get("request_skip", False),
                 "credits": credits,
@@ -756,7 +757,7 @@ class AIModelRoute:
     def get_ai_model(model_name):
         """Get AI model configuration and interface."""
         try:
-            model_config = AIModelConstants.get_configs(model_name)
+            model_config = DynamicModelService.get_model_config(model_name)
             if not model_config:
                 return False
             

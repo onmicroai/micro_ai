@@ -17,7 +17,7 @@ from django.conf import settings
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import GuestUsage, get_user_ip
-from apps.utils.global_variables import AIModelConstants
+from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.models import Microapp
 from apps.microapps.document_parser import DocumentProcessor
 from apps.microapps.serializer import ImageUploadSerializer, FileUploadSerializer, PresignedUrlResponse
@@ -240,7 +240,7 @@ class AudioTranscription(APIView):
             audio_content = audio_file.read()
 
             # Initialize the LLM interface with OpenAI configuration
-            model_config = AIModelConstants.get_configs("gpt-4o-mini")  # Using OpenAI config for Whisper
+            model_config = DynamicModelService.get_model_config("gpt-4o-mini")  # Using OpenAI config for Whisper
             model = UnifiedLLMInterface(model_config)
 
             # Transcribe the audio
@@ -372,7 +372,7 @@ class TextToSpeech(APIView):
             # Initialize LLM interface with appropriate model config
             # TODO: Remove this once we support more TTS providers
             model_name = "non-openai-tts-not-setup-yet" if provider != 'openai' else 'gpt-4o-mini-tts'
-            model_config = AIModelConstants.get_configs(model_name)
+            model_config = DynamicModelService.get_model_config(model_name)
             llm_interface = UnifiedLLMInterface(model_config)
 
             # Get audio data
