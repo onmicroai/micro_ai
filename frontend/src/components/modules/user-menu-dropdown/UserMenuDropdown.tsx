@@ -26,7 +26,7 @@ interface UserMenuDropdownProps {
  * Can be used in both sidebar and navbar contexts
  */
 export default function UserMenuDropdown({ mode = 'sidebar', className }: UserMenuDropdownProps) {
-  const { user, totalCredits, routes, handleLogout, navigateTo } = useUserMenu();
+  const { user, totalCredits, routes, navigateTo } = useUserMenu();
   const pathname = usePathname();
 
   const getIcon = (routeName: string) => {
@@ -137,75 +137,90 @@ export default function UserMenuDropdown({ mode = 'sidebar', className }: UserMe
     );
   }
 
-  // Navbar mode (existing userButton style)
+  // Navbar mode - separate Menu components for desktop and mobile since each needs its own MenuItems
+  const renderNavbarMenuItems = () => (
+    <>
+      {routes.map((route) => {
+        const isActive = pathname === route.path;
+        const isDivider = route.name === 'Logout';
+
+        return (
+          <div key={route.name}>
+            {isDivider && (
+              <hr className="border-t border-gray-200 my-2" />
+            )}
+            <MenuItem>
+              {({ focus }) => (
+                <button
+                  onClick={async () => {
+                    if (route.action) {
+                      await route.action();
+                    } else {
+                      navigateTo(route.path);
+                    }
+                  }}
+                  className={cn(
+                    'block w-full px-4 py-2 text-sm text-left',
+                    focus || isActive
+                      ? 'bg-gray-100 text-gray-900'
+                      : 'text-gray-700',
+                  )}
+                >
+                  {route.name}
+                </button>
+              )}
+            </MenuItem>
+          </div>
+        );
+      })}
+      <hr className="border-t border-gray-200 my-2" />
+      <div className="px-4 py-2">
+        <span className="block text-sm text-gray-900 font-semibold">
+          Credits: {totalCredits ?? '-'}
+        </span>
+      </div>
+    </>
+  );
+
   return (
     <div className={cn("relative inline-block text-left", className)}>
-      <Menu as="div" className="relative">
-        <div className="hidden md:flex items-center">
-          <MenuButton className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200">
-            <Image
-              src={user?.profilePic || "/profile-pic.png"}
-              width={24}
-              height={24}
-              alt="Profile picture"
-              className="rounded-full object-cover"
-              style={{ width: '100%', height: '100%' }}
-            />
-          </MenuButton>
-        </div>
-
-        <div className="md:hidden">
-          <MenuButton className="flex flex-col justify-center items-center w-8 h-8 space-y-1.5">
-            <div className="w-5 h-0.5 bg-gray-600"></div>
-            <div className="w-5 h-0.5 bg-gray-600"></div>
-            <div className="w-5 h-0.5 bg-gray-600"></div>
-          </MenuButton>
-        </div>
+      {/* Desktop Menu */}
+      <Menu as="div" className="hidden md:block relative">
+        <MenuButton className="flex items-center justify-center w-8 h-8 rounded-full overflow-hidden hover:ring-2 hover:ring-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-200">
+          <Image
+            src={user?.profilePic || "/profile-pic.png"}
+            width={24}
+            height={24}
+            alt="Profile picture"
+            className="rounded-full object-cover"
+            style={{ width: '100%', height: '100%' }}
+          />
+        </MenuButton>
 
         <MenuItems
           transition
-          className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 focus:outline-none transition duration-200 ease-in-out data-[closed]:scale-95 data-[closed]:opacity-0"
+          className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[100] focus:outline-none transition duration-200 ease-in-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800 dark:ring-white/10"
         >
           <div className="py-1">
-            {routes.map((route) => {
-              const isActive = pathname === route.path;
-              const isDivider = route.name === 'Logout';
+            {renderNavbarMenuItems()}
+          </div>
+        </MenuItems>
+      </Menu>
 
-              return (
-                <div key={route.name}>
-                  {isDivider && (
-                    <hr className="border-t border-gray-200 my-2" />
-                  )}
-                  <MenuItem>
-                    {({ focus }) => (
-                      <button
-                        onClick={async () => {
-                          if (route.action) {
-                            await route.action();
-                          } else {
-                            navigateTo(route.path);
-                          }
-                        }}
-                        className={cn(
-                          'block w-full px-4 py-2 text-sm text-left',
-                          focus || isActive
-                            ? 'bg-gray-100 text-gray-900'
-                            : 'text-gray-700',
-                        )}
-                      >
-                        {route.name}
-                      </button>
-                    )}
-                  </MenuItem>
-                </div>
-              );
-            })}
-            <hr className="border-t border-gray-200 my-2" />
-            <div className="px-4 py-2">
-              <span className="block text-sm text-gray-900 font-semibold">
-                Credits: {totalCredits ?? '-'}
-              </span>
-            </div>
+      {/* Mobile Menu */}
+      <Menu as="div" className="md:hidden relative">
+        <MenuButton className="flex flex-col justify-center items-center w-8 h-8 space-y-1.5">
+          <div className="w-5 h-0.5 bg-gray-600"></div>
+          <div className="w-5 h-0.5 bg-gray-600"></div>
+          <div className="w-5 h-0.5 bg-gray-600"></div>
+        </MenuButton>
+
+        <MenuItems
+          transition
+          className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-[100] focus:outline-none transition duration-200 ease-in-out data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800 dark:ring-white/10"
+        >
+          <div className="py-1">
+            {renderNavbarMenuItems()}
           </div>
         </MenuItems>
       </Menu>
