@@ -50,6 +50,22 @@ services:
       retries: 20
       start_period: 15s
 
+  # LiteLLM
+  litellm:
+    image: ghcr.io/berriai/litellm-database:main-stable
+    container_name: litellm
+    ports:
+      - "4000:4000"
+    env_file:
+      - ./.env
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.14
+    command: [ "--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000" ]
+    init: true
+
   web:
     container_name: web
     image: web:latest
