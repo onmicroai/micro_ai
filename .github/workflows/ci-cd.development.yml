@@ -34,8 +34,8 @@ jobs:
             # Copy .env file before building to ensure Next.js has access to public env vars at build time
             cp -f /opt/secrets/.env /home/ubuntu/micro_ai/.env
 
-  build:
-    name: Build
+  build-frontend:
+    name: Build Frontend
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: prepare
@@ -52,6 +52,13 @@ jobs:
             cd /home/ubuntu/micro_ai
             docker-compose -p frontend -f docker-compose.dev.yml build frontend
 
+  build-web:
+    name: Build Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prepare
+
+    steps:
       - name: Build Web
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -67,7 +74,7 @@ jobs:
     name: Deploy
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    needs: build
+    needs: [build-frontend, build-web]
 
     steps:
     - name: Stop Containers
