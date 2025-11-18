@@ -4,6 +4,7 @@ general_settings:
     store_prompts_in_spend_logs: true
   
 model_list:
+
   - model_name: gpt-4o-mini
     litellm_params:
       model: openai/gpt-4o-mini
@@ -67,18 +68,53 @@ model_list:
     model_info:
       access_groups: ["free", "pro", "enterprise"]
 
+##LEGACY MODELS
+# These models are kept for legacy apps that still use them.
+# The legacy apps can use these models, but they cannot be used by new apps. 
+# If the legacy API ever leaves support, then it will fall back to the fallback model if it is in the router_settings.
+# Make sure all legacy models have fallbacks.
+
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: gpt-5
+    litellm_params:
+      model: openai/gpt-5
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: bad_model_name
+    litellm_params:
+      model: openai/bad_model_name
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
 
 litellm_settings:
     drop_params: true
     set_verbose: false
-    fallbacks: [
+    ## Nov 17 2025: So far, I have only found that fallback works if the requested model is in the model_list. In other words requesting "my_fake_model" will not fall back. The LiteLLM docs make me think this SHOULD work, but I haven't gotten it to do so.
+    default_fallbacks: ["openai/gpt-5-mini"]
+
+router_settings:
+    fallbacks: [  
       {"openai/gpt-4o-mini": ["openai/gpt-5-mini"]},
-      {"openai/gpt-5": ["openai/gpt-5.1"]},
       {"openai/gpt-5.1": ["openai/gpt-5-mini"]},
+      {"openai/gpt-5-mini": ["anthropic/claude-haiku-4-5-20251001"]},
       {"anthropic/claude-sonnet-4-5-20250929": ["openai/gpt-5-mini"]},
       {"anthropic/claude-haiku-4-5-20251001": ["openai/gpt-5-mini"]},
       {"anthropic/claude-opus-4-1-20250805": ["openai/gpt-5-mini"]},
       {"gemini/gemini-2.5-pro": ["openai/gpt-5-mini"]},
       {"gemini/gemini-2.5-flash": ["openai/gpt-5-mini"]},
-      {"perplexity/sonar-pro": ["openai/gpt-5-mini"]}
+## LEGACY MODELS
+      {"bad_model_name": ["openai/gpt-5-mini"]},
+      {"gpt-4o": ["openai/gpt-5-mini"]},
+      {"gpt-5": ["openai/gpt-5.1"]},
+
     ]
