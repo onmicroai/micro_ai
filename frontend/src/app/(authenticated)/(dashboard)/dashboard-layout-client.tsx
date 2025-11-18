@@ -1,6 +1,5 @@
 "use client";
 
-import Footer from "@/components/layout/footer/footer";
 import WaitlistMessage from "@/components/waitlist-message";
 import { useUserStore } from "@/store/userStore";
 
