@@ -42,9 +42,3 @@ USE_HTTPS_IN_ABSOLUTE_URLS = True
 #     "MAILGUN_API_KEY": env("MAILGUN_API_KEY", default=None),
 #     "MAILGUN_SENDER_DOMAIN": env("MAILGUN_SENDER_DOMAIN", default=None),
 # }
-
-SERVER_EMAIL = "noreply@localhost:8000"
-DEFAULT_FROM_EMAIL = "yibrahim@knysys.com"
-ADMINS = [
-    ("Your Name", "yibrahim@knysys.com"),
-]
