@@ -96,7 +96,11 @@ services:
 
 volumes:
   postgres_data:
+    external: true
+    name: micro_ai_postgres_data
   media_data:
+    external: true
+    name: backend_media_data
 
 networks:
   micronet:
