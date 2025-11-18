@@ -80,6 +80,7 @@ jobs:
         script: |
           if [ -d "/docker/volumes/micro_ai" ]; then
             cd /docker/volumes/micro_ai
+            docker-compose -f docker-compose.dev.yml down litellm
             docker-compose -p backend -f docker-compose.dev.yml down web
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
           else
@@ -101,7 +102,7 @@ jobs:
           cd /docker/volumes/micro_ai
           cp -f /opt/secrets/.env .env
 
-    - name: Deploy Backend & Frontend
+    - name: Deploy LitellM & Backend & Frontend
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SERVER_IP_DEV }}
@@ -110,6 +111,7 @@ jobs:
         port: 22
         script: |          
           cd /docker/volumes/micro_ai
+          docker-compose -f docker-compose.dev.yml up -d litellm
           docker compose -p backend -f docker-compose.dev.yml up -d web
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
