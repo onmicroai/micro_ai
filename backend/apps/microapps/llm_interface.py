@@ -147,7 +147,10 @@ class UnifiedLLMInterface:
                     else:
                         payload["reasoning_effort"] = "minimal"
                 elif "google" in model_name_lower or "gemini" in model_name_lower:
-                    payload["reasoning_effort"] = "disable"
+                    if "gemini-2.5-pro" in model_name_lower:
+                        payload["reasoning_effort"] = "low"
+                    else:
+                        payload["reasoning_effort"] = "disable"
             
             if stream:
                 # For streaming, return a generator
