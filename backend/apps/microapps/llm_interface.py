@@ -182,6 +182,91 @@ class UnifiedLLMInterface:
             log.error(f"Error making proxy request: {str(e)}")
             raise e
 
+    def _make_proxy_transcribe(self, params: Dict[str, Any]) -> Any:
+        """
+        Make a transcription request to the LiteLLM proxy
+
+        Args:
+            params: Dictionary containing transcription parameters
+
+        Returns:
+            Transcription response JSON
+        """
+        try:
+            url = f"{settings.LITELLM_BASE_URL}/v1/audio/transcriptions"
+
+            headers = {
+                "Authorization": f"Bearer {settings.LITELLM_API_KEY}",
+            }
+
+            files = {
+                "file": params["file"],
+            }
+
+            data = {
+                "model": params["model"],
+            }
+
+            # Optional parameters
+            for key in ("language", "prompt", "response_format", "temperature"):
+                if key in params and params[key] is not None:
+                    data[key] = params[key]
+
+            response = requests.post(
+                url,
+                headers=headers,
+                files=files,
+                data=data,
+                # TODO: Adjust timeout as needed
+                timeout=60,
+            )
+
+            response.raise_for_status()
+            return response.json()
+
+        except Exception as e:
+            log.error(f"Error making proxy transcription request: {str(e)}")
+            raise
+   
+    def _make_proxy_tts(self, params: Dict[str, Any]) -> bytes:
+       """
+       Make a text-to-speech request via LiteLLM proxy
+
+       Returns:
+            Raw audio bytes
+       """
+       try:
+           url = f"{settings.LITELLM_BASE_URL}/v1/audio/speech"
+
+           headers = {
+               "Authorization": f"Bearer {settings.LITELLM_API_KEY}",
+               "Content-Type": "application/json",
+           }
+
+           payload = {
+               "model": params["model"],
+               "input": params["input"],
+               "voice": params["voice"]
+           }
+
+           if params.get("instructions"):
+               payload["instructions"] = params["instructions"]
+
+           response = requests.post(
+               url,
+               headers=headers,
+               json=payload,
+               # TODO: Adjust timeout as needed
+               timeout=60,
+           )
+
+           response.raise_for_status()
+           return response.content
+
+       except Exception as e:
+           log.error(f"Error making proxy TTS request: {str(e)}")
+           raise
+
     def get_response(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get response from the model"""
         try:
@@ -474,23 +559,31 @@ class UnifiedLLMInterface:
                 
                 # Open the file in binary read mode for the API call
                 with open(temp_file.name, 'rb') as file:
-                    # Make the API call using litellm with the file object
-                    response = litellm.transcription(
-                        model="whisper-1",
-                        file=file
-                    )
+                    # Make the API call to litellm with the file object
+                    params: Dict[str, Any] = {
+                        "model": "whisper-1",
+                        "file": file,
+                    }
+
+                    response = self._make_proxy_transcribe(params)
 
                     # Debug logging
                     log.debug(f"LiteLLM response: {response}")
 
                     # Extract usage information and cost
-                    total_cost = response._hidden_params["response_cost"]
+                    usage = response.get("usage", {})
+                    seconds = usage.get("seconds")
+
+                    # TODO: Use LiteLLM's cost_per_token equivalent for Whisper if available
+                    cost = None
+                    if seconds is not None:
+                       cost = (seconds / 60) * 0.006  # Whisper pricing
                     
                     return {
                         "status": True,
                         "data": {
-                            "text": response.text,
-                            "cost": total_cost
+                            "text": response["text"],
+                            "cost": cost
                         }
                     }
             
@@ -518,23 +611,17 @@ class UnifiedLLMInterface:
             bytes: The audio data in MP3 format
         """
         try:
-            # Get model config
-            model_config = DynamicModelService.get_model_config('gpt-4o-mini-tts')
-            
-            # Set API key from config
-            os.environ["OPENAI_API_KEY"] = model_config.get('api_key', '')
-            
-            # Make the TTS request
-            response = speech(
-                model="openai/gpt-4o-mini-tts",
-                voice=voice,
-                input=text,
-                instructions=instructions
-            )
+            params: Dict[str, Any] = {
+               "model": "gpt-4o-mini-tts",
+               "input": text,
+               "voice": voice,
+            }
 
-            audio_data = response.content
-            
-            return audio_data
+            if instructions:
+                  params["instructions"] = instructions
+
+            audio_bytes = self._make_proxy_tts(params)
+            return audio_bytes
             
         except Exception as e:
             log.error(f"Error in text_to_speech: {str(e)}")
