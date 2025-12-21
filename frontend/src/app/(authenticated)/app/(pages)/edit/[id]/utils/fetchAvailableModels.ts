@@ -3,15 +3,6 @@
 import axiosInstance from "@/utils//axiosInstance"
 import { ModelTemperatureRanges } from "@/app/(authenticated)/app/types";
 
- function createErrorResponse(): ModelTemperatureRanges {
-    return {
-       "Failed to load list of LLM models...": {
-          min: 0,
-          max: 0
-       }
-    };
- }
-
 /**
  * Async singlton, so if API request hasn't been resolved yet it puts all requests to queue
  *  
