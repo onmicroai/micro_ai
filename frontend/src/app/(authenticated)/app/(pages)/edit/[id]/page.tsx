@@ -194,7 +194,11 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       if (hashId !== null) {
          fetchMicroapp(hashId, signal);
          fetchCollections();
-         fetchModels();
+         
+         //fetchModels();
+         // fetchModels results in 404 error currently
+         // TODO: investigate why the endpoint is missing on
+         // backend & wheather it is needed after LiteLLM integration
       }
 
       return () => {

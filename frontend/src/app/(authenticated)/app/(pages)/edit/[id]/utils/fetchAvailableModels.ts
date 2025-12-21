@@ -52,8 +52,9 @@ export const fetchAvailableModelsSingleton = (): () => Promise<ModelTemperatureR
                resolveAllPendingRequests(modelTemperatureRanges);
             })
             .catch(() => {
-               modelTemperatureRanges = createErrorResponse();
-               resolveAllPendingRequests(modelTemperatureRanges);
+               // TODO: investigate why the endpoint is missing on
+               // backend & wheather it is needed after LiteLLM integration
+               throw new Error("Failed to fetch available models");
             })
             .finally(() => {
                isFetching = false;
