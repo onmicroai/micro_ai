@@ -3,12 +3,11 @@
 FROM python:3.11-bookworm
 ENV PYTHONUNBUFFERED=1
 
-# install node/npm
-RUN \
-  echo "deb https://deb.nodesource.com/node_20.x bookworm main" > /etc/apt/sources.list.d/nodesource.list && \
-  wget -qO- https://deb.nodesource.com/gpgkey/nodesource.gpg.key | apt-key add - && \
-  apt-get update && \
-  apt-get install -yqq nodejs
+# install node/npm (Bookworm-safe, ARM-safe)
+RUN apt-get update -y \
+    && apt-get install -y curl ca-certificates gnupg \
+    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+    && apt-get install -y nodejs
 
 # install Tesseract OCR and other dependencies
 RUN apt-get update \

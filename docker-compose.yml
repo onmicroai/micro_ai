@@ -3,10 +3,12 @@
 services:
   db:
     container_name: db
-    image: postgres
+    image: postgres:17
     # persist data beyond lifetime of container
     volumes:
-      - postgres_data:/var/lib/postgresql/data/
+      - ./db_data:/var/lib/postgresql/data
+      - type: tmpfs
+        target: /var/lib/postgresql
     environment:
       - POSTGRES_DB=${DATABASE_NAME}
       - POSTGRES_USER=${DATABASE_USER}
@@ -27,7 +29,7 @@ services:
     ports:
       - '8008:4000'
     env_file:
-      - .env
+      - ./.env
     volumes:
       - ./litellm/config.yaml:/app/config.yaml
     networks:
