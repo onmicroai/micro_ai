@@ -1,6 +1,10 @@
 "use client";
 
-import { PhaseType, AttachedFile } from '@/app/(authenticated)/app/types';
+import {
+  PhaseType,
+  AttachedFile,
+  AIResponseInstruction,
+} from "@/app/(authenticated)/app/types";
 import { ScrollArea } from "./ui/scroll-area";
 
 interface JsonPreviewProps {
@@ -29,7 +33,7 @@ export default function JsonPreview({
   clonable,
   completedHtml,
   attachedFiles,
-  aiConfig
+  aiConfig,
 }: JsonPreviewProps) {
   const formData = {
     title,
@@ -38,12 +42,12 @@ export default function JsonPreview({
     privacySettings,
     clonable,
     completedHtml,
-    attachedFiles: attachedFiles.map(file => ({
+    attachedFiles: attachedFiles.map((file) => ({
       original_filename: file.original_filename,
       text_filename: file.text_filename,
       size: file.size,
       word_count: file.word_count,
-      description: file.description
+      description: file.description,
     })),
     aiConfig: {
       aiModel: aiConfig.aiModel,
@@ -51,7 +55,7 @@ export default function JsonPreview({
       maxResponseTokens: aiConfig.maxResponseTokens,
       systemPrompt: aiConfig.systemPrompt,
     },
-    phases: (Array.isArray(phases) ? phases : []).map(phase => ({
+    phases: (Array.isArray(phases) ? phases : []).map((phase) => ({
       id: phase.id,
       title: phase.title,
       description: phase.description,
@@ -59,80 +63,146 @@ export default function JsonPreview({
       scoredPhase: phase.scoredPhase,
       rubric: phase.rubric,
       minScore: phase.minScore,
-      fields: (Array.isArray(phase.elements) ? phase.elements : []).map(field => ({
-        id: field.id,
-        type: field.type,
-        name: field.name,
-        ...(field.type !== 'prompt' && field.type !== 'aiInstructions' ? {
-          label: field.label,
-        } : {}),
-        description: field.description,
-        isRequired: field.isRequired,
-        ...(field.type === 'imageUpload' ? {
-          multiple: field.multiple,
-          maxFiles: field.maxFiles,
-          maxFileSize: field.maxFileSize,
-          allowedFileTypes: field.allowedFileTypes,
-        } : {}),
-        ...(field.type === 'chat' ? {
-          maxMessages: field.maxMessages,
-          initialMessage: field.initialMessage,
-          chatbotInstructions: field.chatbotInstructions,
-          ttsProvider: field.ttsProvider,
-          selectedVoiceId: field.selectedVoiceId,
-          customVoiceId: field.customVoiceId,
-          enableTts: field.enableTts,
-          voiceInstructions: field.voiceInstructions,
-          avatarUrl: field.avatarUrl,
-        } : {}),
-        ...(field.type === 'text' || field.type === 'textarea' ? {
-          minChars: field.minChars,
-          maxChars: field.maxChars,
-          defaultValue: field.defaultValue,
-          placeholder: field.placeholder,
-        } : {}),
-        ...(field.type === 'radio' || field.type === 'checkbox' || field.type === 'dropdown' ? {
-          choices: field.choices,
-          showOtherItem: field.showOtherItem,
-          defaultValue: field.defaultValue,
-        } : {}),
-        ...(field.type === 'slider' ? {
-          minValue: field.minValue,
-          maxValue: field.maxValue,
-          defaultValue: field.defaultValue,
-          step: field.step,
-        } : {}),
-        ...(field.type === 'boolean' ? {
-          defaultValue: field.defaultValue,
-        } : {}),
-        ...(field.type === 'prompt' || field.type === 'aiInstructions' ? {
-          aiPromptProperty: field.text,
-        } : {}),  
-        ...(field.type === 'richText' ? {
-          html: field.html,
-        } : {}),
-        ...(field.conditionalLogic && {
-          conditionalLogic: {
-            sourceFieldId: field.conditionalLogic.sourceFieldId,
-            operator: field.conditionalLogic.operator,
-            value: field.conditionalLogic.value
+      fields: (Array.isArray(phase.elements) ? phase.elements : []).map(
+        (field) => ({
+          id: field.id,
+          type: field.type,
+          name: field.name,
+          ...(field.type !== "prompt" && field.type !== "aiInstructions"
+            ? {
+                label: field.label,
+              }
+            : {}),
+          description: field.description,
+          isRequired: field.isRequired,
+          ...(field.type === "imageUpload"
+            ? {
+                multiple: field.multiple,
+                maxFiles: field.maxFiles,
+                maxFileSize: field.maxFileSize,
+                allowedFileTypes: field.allowedFileTypes,
+              }
+            : {}),
+          ...(field.type === "chat"
+            ? {
+                maxMessages: field.maxMessages,
+                initialMessage: field.initialMessage,
+                chatbotInstructions: field.chatbotInstructions,
+                ttsProvider: field.ttsProvider,
+                selectedVoiceId: field.selectedVoiceId,
+                customVoiceId: field.customVoiceId,
+                enableTts: field.enableTts,
+                voiceInstructions: field.voiceInstructions,
+                avatarUrl: field.avatarUrl,
+              }
+            : {}),
+          ...(field.type === "text" || field.type === "textarea"
+            ? {
+                minChars: field.minChars,
+                maxChars: field.maxChars,
+                defaultValue: field.defaultValue,
+                placeholder: field.placeholder,
+              }
+            : {}),
+          ...(field.type === "radio" ||
+          field.type === "checkbox" ||
+          field.type === "dropdown"
+            ? {
+                choices: field.choices,
+                showOtherItem: field.showOtherItem,
+                defaultValue: field.defaultValue,
+              }
+            : {}),
+          ...(field.type === "slider"
+            ? {
+                minValue: field.minValue,
+                maxValue: field.maxValue,
+                defaultValue: field.defaultValue,
+                step: field.step,
+              }
+            : {}),
+          ...(field.type === "boolean"
+            ? {
+                defaultValue: field.defaultValue,
+              }
+            : {}),
+          ...(field.type === "prompt" || field.type === "aiInstructions"
+            ? {
+                aiPromptProperty: field.text,
+              }
+            : {}),
+          ...(field.type === "richText"
+            ? {
+                html: field.html,
+              }
+            : {}),
+          ...(field.conditionalLogic && {
+            conditionalLogic: {
+              sourceFieldId: field.conditionalLogic.sourceFieldId,
+              operator: field.conditionalLogic.operator,
+              value: field.conditionalLogic.value,
+            },
+          }),
+        })
+      ),
+      prompts: (Array.isArray(phase.prompts) ? phase.prompts : []).map(
+        (prompt) => {
+          if (prompt.type === "aiResponse") {
+            if (prompt.instructions && prompt.instructions.length > 0) {
+              return {
+                id: prompt.id,
+                type: prompt.type,
+                name: prompt.name,
+                instructions: prompt.instructions.map((inst) => ({
+                  text: inst.text,
+                  ...(inst.conditionalLogic && {
+                    conditionalLogic: {
+                      operator: inst.conditionalLogic.operator,
+                      sourceFieldId: inst.conditionalLogic.sourceFieldId,
+                      ...(inst.conditionalLogic.value !== undefined && {
+                        value: inst.conditionalLogic.value,
+                      }),
+                    },
+                  }),
+                })),
+              };
+            }
+
+            const instructions: AIResponseInstruction[] = [];
+            if (prompt.text) {
+              const instructionTexts = prompt.text
+                .split("\n\n")
+                .filter((t) => t.trim());
+
+              instructionTexts.forEach((text) => {
+                instructions.push({ text: text.trim() });
+              });
+            }
+
+            return {
+              id: prompt.id,
+              type: prompt.type,
+              name: prompt.name,
+              instructions,
+            };
           }
-        }),
-      })),
-      prompts: (Array.isArray(phase.prompts) ? phase.prompts : []).map(prompt => ({
-        id: prompt.id,
-        type: prompt.type,
-        name: prompt.name,
-        text: prompt.text,
-        ...(prompt.conditionalLogic && {
-          conditionalLogic: {
-            sourceFieldId: prompt.conditionalLogic.sourceFieldId,
-            operator: prompt.conditionalLogic.operator,
-            value: prompt.conditionalLogic.value
-          }
-        }),
-      }))
-    }))
+
+          return {
+            id: prompt.id,
+            type: prompt.type,
+            name: prompt.name,
+            text: prompt.text,
+            ...(prompt.conditionalLogic && {
+              conditionalLogic: {
+                sourceFieldId: prompt.conditionalLogic.sourceFieldId,
+                operator: prompt.conditionalLogic.operator,
+                value: prompt.conditionalLogic.value,
+              },
+            }),
+          };
+        }
+      ),
+    })),
   };
 
   return (

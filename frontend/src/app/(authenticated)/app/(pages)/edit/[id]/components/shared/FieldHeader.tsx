@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
+import { useEffect, useState } from "react";
 
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
@@ -19,6 +20,7 @@ interface FieldHeaderProps {
   onMove?: () => void;
   onDelete?: () => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  onRename?: (newName: string) => void;
 }
 
 export default function FieldHeader({
@@ -30,7 +32,19 @@ export default function FieldHeader({
   onMove,
   onDelete,
   dragHandleProps,
+  onRename,
 }: FieldHeaderProps) {
+  const [editOpen, setEditOpen] = useState(false);
+  const [newName, setNewName] = useState(fieldId);
+
+  useEffect(() => {
+    setNewName(fieldId);
+  }, [fieldId]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewName(e.target.value);
+    onRename?.(e.target.value);
+  };
   return (
     <div className="flex items-center justify-between py-2">
       <div className="flex items-center gap-2">
@@ -55,10 +69,33 @@ export default function FieldHeader({
         </button>
         <Badge
           variant="secondary"
-          className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50"
+          className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50 cursor-pointer"
+          onClick={() => setEditOpen(true)}
         >
           {fieldId}
         </Badge>
+        {editOpen && (
+          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
+            <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px]">
+              <div className="mb-2 font-medium">Edit name</div>
+              <input
+                className="border rounded px-2 py-1 w-full"
+                value={newName}
+                onChange={handleChange}
+                autoFocus
+              />
+              <div className="flex justify-end gap-2 mt-4">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  type="button"
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-1">

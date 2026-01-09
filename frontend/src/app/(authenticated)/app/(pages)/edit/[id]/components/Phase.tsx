@@ -1,32 +1,76 @@
 "use client";
 
-import { PhaseType, ChoiceType, ConditionalLogic } from '@/app/(authenticated)/app/types';
-import Field from './Field';
-import { Droppable } from '@hello-pangea/dnd';
+import {
+  PhaseType,
+  ChoiceType,
+  ConditionalLogic,
+  AIResponseInstruction,
+} from "@/app/(authenticated)/app/types";
+import Field from "./Field";
+import { Droppable } from "@hello-pangea/dnd";
 import { Checkbox } from "./ui/checkbox";
-import { HelpCircle } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-
+import { HelpCircle } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 
 interface PhaseProps {
   phase: PhaseType;
   appPhases: PhaseType[];
   onUpdatePhase: (phaseId: string, updates: Partial<PhaseType>) => void;
-  onUpdateFieldLabel: (fieldId: string, newLabel: string, isPrompt: boolean) => void;
-  onUpdateFieldName: (fieldId: string, newName: string, isPrompt: boolean) => void;
+  onUpdateFieldLabel: (
+    fieldId: string,
+    newLabel: string,
+    isPrompt: boolean
+  ) => void;
+  onUpdateFieldName: (
+    fieldId: string,
+    newName: string,
+    isPrompt: boolean
+  ) => void;
   onDeleteField: (fieldId: string, isPrompt: boolean) => void;
-  onUpdateFieldDescription: (fieldId: string, description: string, isPrompt: boolean) => void;
-  onUpdateFieldRequired: (fieldId: string, isRequired: boolean, isPrompt: boolean) => void;
-  onUpdateFieldValidation: (fieldId: string, minChars: number | null, maxChars: number | null, isPrompt: boolean) => void;
-  onUpdateFieldDefaultValue: (fieldId: string, defaultValue: string | string[] | number | boolean) => void;
+  onUpdateFieldDescription: (
+    fieldId: string,
+    description: string,
+    isPrompt: boolean
+  ) => void;
+  onUpdateFieldRequired: (
+    fieldId: string,
+    isRequired: boolean,
+    isPrompt: boolean
+  ) => void;
+  onUpdateFieldValidation: (
+    fieldId: string,
+    minChars: number | null,
+    maxChars: number | null,
+    isPrompt: boolean
+  ) => void;
+  onUpdateFieldDefaultValue: (
+    fieldId: string,
+    defaultValue: string | string[] | number | boolean
+  ) => void;
   onUpdateFieldPlaceholder: (fieldId: string, placeholder: string) => void;
   onUpdateFieldChoices: (fieldId: string, choices: ChoiceType[]) => void;
   onUpdateFieldShowOther: (fieldId: string, showOther: boolean) => void;
-  onUpdateFieldSliderProps: (fieldId: string, updates: { minValue?: number; maxValue?: number; step?: number; }) => void;
+  onUpdateFieldSliderProps: (
+    fieldId: string,
+    updates: { minValue?: number; maxValue?: number; step?: number }
+  ) => void;
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
-  onUpdatePromptText: (fieldId: string, text: string) => void;
+  onUpdatePromptText: (
+    fieldId: string,
+    text: string,
+    instructions?: AIResponseInstruction[]
+  ) => void;
   onUpdateRichText: (fieldId: string, html: string) => void;
-  onUpdateConditionalLogic: (fieldId: string, logic: ConditionalLogic | null, isPrompt: boolean) => void;
+  onUpdateConditionalLogic: (
+    fieldId: string,
+    logic: ConditionalLogic | null,
+    isPrompt: boolean
+  ) => void;
   onUpdateImageUploadSettings: (
     fieldId: string,
     settings: {
@@ -37,7 +81,10 @@ interface PhaseProps {
     }
   ) => void;
   onUpdateFieldMaxMessages: (fieldId: string, maxMessages: number) => void;
-  onUpdateFieldInitialMessage: (fieldId: string, initialMessage: string) => void;
+  onUpdateFieldInitialMessage: (
+    fieldId: string,
+    initialMessage: string
+  ) => void;
   onUpdateChatbotInstructions: (fieldId: string, instructions: string) => void;
   onUpdateTtsProvider: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId: (fieldId: string, voiceId: string) => void;
@@ -49,9 +96,9 @@ interface PhaseProps {
 
 export default function Phase({
   appPhases,
-  phase, 
-  onUpdatePhase, 
-  onUpdateFieldLabel, 
+  phase,
+  onUpdatePhase,
+  onUpdateFieldLabel,
   onUpdateFieldName,
   onDeleteField,
   onUpdateFieldDescription,
@@ -77,20 +124,19 @@ export default function Phase({
   onUpdateAvatarUrl,
   appId,
 }: PhaseProps) {
-
-   /**
-    * Get all elements from all phases
-    * @param phases - The phases to get elements from
-    * @returns All elements from all phases
-    */
+  /**
+   * Get all elements from all phases
+   * @param phases - The phases to get elements from
+   * @returns All elements from all phases
+   */
   const getAllElementsFromPhases = (phases: PhaseType[]) => {
-    return phases.flatMap(phase => phase.elements);
+    return phases.flatMap((phase) => phase.elements);
   };
 
   const renderField = (field: any, index: number) => {
     return (
-      <Field 
-        field={field} 
+      <Field
+        field={field}
         index={index}
         appId={appId}
         phaseFields={phase.elements}
@@ -109,7 +155,7 @@ export default function Phase({
         onUpdateFieldSliderValue={onUpdateFieldSliderValue}
         onUpdatePromptText={onUpdatePromptText}
         onUpdateRichText={onUpdateRichText}
-        onUpdateConditionalLogic={(fieldId, logic) => 
+        onUpdateConditionalLogic={(fieldId, logic) =>
           onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, false)
         }
         onUpdateImageUploadSettings={onUpdateImageUploadSettings}
@@ -137,30 +183,26 @@ export default function Phase({
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5}>
                 <p className="w-[200px] text-sm">
-                  Drag fields onto this area to collect inputs from your user. You&apos;ll be able to use these inputs later in your prompts. 
+                  Drag fields onto this area to collect inputs from your user.
+                  You&apos;ll be able to use these inputs later in your prompts.
                 </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Droppable 
-          droppableId={`fields-${phase.id}`}
-          type="field"
-        >
+        <Droppable droppableId={`fields-${phase.id}`} type="field">
           {(provided, snapshot) => (
             <div
               ref={provided.innerRef}
               {...provided.droppableProps}
               className={`min-h-[200px] p-4 rounded-lg border-2 border-dashed transition-colors ${
                 snapshot.isDraggingOver
-                  ? 'border-primary/50 bg-primary/5'
-                  : 'border-gray-200'
+                  ? "border-primary/50 bg-primary/5"
+                  : "border-gray-200"
               }`}
             >
               {phase.elements?.map((field, index) => (
-                <div key={field.id}>
-                  {renderField(field, index)}
-                </div>
+                <div key={field.id}>{renderField(field, index)}</div>
               ))}
               {provided.placeholder}
             </div>
@@ -178,16 +220,15 @@ export default function Phase({
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5}>
                 <p className="w-[200px] text-sm">
-                  Drag prompts onto this area that will be sent to the AI. You can include user inputs inside your prompts by using the input&apos;s name in brackets {`{}`}. 
+                  Drag prompts onto this area that will be sent to the AI. You
+                  can include user inputs inside your prompts by using the
+                  input&apos;s name in brackets {`{}`}.
                 </p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
-        <Droppable 
-          droppableId={`prompts-${phase.id}`}
-          type="prompt"
-        >
+        <Droppable droppableId={`prompts-${phase.id}`} type="prompt">
           {(provided, snapshot) => (
             <div
               id={`prompts-${phase.id}`}
@@ -195,44 +236,67 @@ export default function Phase({
               {...provided.droppableProps}
               className={`min-h-[200px] p-4 rounded-lg border-2 border-dashed transition-colors ${
                 snapshot.isDraggingOver
-                  ? 'border-primary/50 bg-primary/5'
-                  : 'border-gray-200'
+                  ? "border-primary/50 bg-primary/5"
+                  : "border-gray-200"
               }`}
             >
-              {Array.isArray(phase.prompts) && phase.prompts.map((prompt, index) => (
-                <Field 
-                  key={prompt.id} 
-                  field={prompt} 
-                  index={index}
-                  appId={appId}
-                  phaseFields={phase.elements}
-                  appFields={getAllElementsFromPhases(appPhases)}
-                  onUpdateFieldLabel={(fieldId, newLabel) => onUpdateFieldLabel(fieldId, newLabel, true)}
-                  onUpdateFieldName={(fieldId, newName) => onUpdateFieldName(fieldId, newName, true)}
-                  onDeleteField={(fieldId) => onDeleteField(fieldId, true)}
-                  onUpdateFieldDescription={(fieldId, description) => onUpdateFieldDescription(fieldId, description, true)}
-                  onUpdateFieldValidation={(fieldId, minChars, maxChars) => onUpdateFieldValidation(fieldId, minChars, maxChars, true)}
-                  onUpdateFieldDefaultValue={(fieldId, defaultValue) => onUpdateFieldDefaultValue(fieldId, defaultValue)}
-                  onUpdateFieldPlaceholder={(fieldId, placeholder) => onUpdateFieldPlaceholder(fieldId, placeholder)}
-                  onUpdateFieldRequired={(fieldId, required) => onUpdateFieldRequired(fieldId, required, true)}
-                  onUpdateFieldChoices={(fieldId, choices) => onUpdateFieldChoices(fieldId, choices)}
-                  onUpdateFieldShowOther={(fieldId, showOther) => onUpdateFieldShowOther(fieldId, showOther)}
-                  onUpdateFieldSliderProps={onUpdateFieldSliderProps}
-                  onUpdateFieldSliderValue={onUpdateFieldSliderValue}
-                  onUpdatePromptText={onUpdatePromptText}
-                  onUpdateRichText={onUpdateRichText}
-                  onUpdateConditionalLogic={(fieldId, logic) => 
-                    onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, true)
-                  }
-                  onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
-                  onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
-                  onUpdateChatbotInstructions={onUpdateChatbotInstructions}
-                  onUpdateTtsProvider={onUpdateTtsProvider}
-                  onUpdateTtsVoiceId={onUpdateTtsVoiceId}
-                  onUpdateTtsEnabled={onUpdateTtsEnabled}
-                  onUpdateVoiceInstructions={onUpdateVoiceInstructions}
-                />
-              ))}
+              {Array.isArray(phase.prompts) &&
+                phase.prompts.map((prompt, index) => (
+                  <Field
+                    key={prompt.id}
+                    field={prompt}
+                    index={index}
+                    appId={appId}
+                    phaseFields={phase.elements}
+                    appFields={getAllElementsFromPhases(appPhases)}
+                    onUpdateFieldLabel={(fieldId, newLabel) =>
+                      onUpdateFieldLabel(fieldId, newLabel, true)
+                    }
+                    onUpdateFieldName={(fieldId, newName) =>
+                      onUpdateFieldName(fieldId, newName, true)
+                    }
+                    onDeleteField={(fieldId) => onDeleteField(fieldId, true)}
+                    onUpdateFieldDescription={(fieldId, description) =>
+                      onUpdateFieldDescription(fieldId, description, true)
+                    }
+                    onUpdateFieldValidation={(fieldId, minChars, maxChars) =>
+                      onUpdateFieldValidation(fieldId, minChars, maxChars, true)
+                    }
+                    onUpdateFieldDefaultValue={(fieldId, defaultValue) =>
+                      onUpdateFieldDefaultValue(fieldId, defaultValue)
+                    }
+                    onUpdateFieldPlaceholder={(fieldId, placeholder) =>
+                      onUpdateFieldPlaceholder(fieldId, placeholder)
+                    }
+                    onUpdateFieldRequired={(fieldId, required) =>
+                      onUpdateFieldRequired(fieldId, required, true)
+                    }
+                    onUpdateFieldChoices={(fieldId, choices) =>
+                      onUpdateFieldChoices(fieldId, choices)
+                    }
+                    onUpdateFieldShowOther={(fieldId, showOther) =>
+                      onUpdateFieldShowOther(fieldId, showOther)
+                    }
+                    onUpdateFieldSliderProps={onUpdateFieldSliderProps}
+                    onUpdateFieldSliderValue={onUpdateFieldSliderValue}
+                    onUpdatePromptText={onUpdatePromptText}
+                    onUpdateRichText={onUpdateRichText}
+                    onUpdateConditionalLogic={(fieldId, logic) =>
+                      onUpdateConditionalLogic(
+                        fieldId,
+                        logic as ConditionalLogic,
+                        true
+                      )
+                    }
+                    onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
+                    onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
+                    onUpdateChatbotInstructions={onUpdateChatbotInstructions}
+                    onUpdateTtsProvider={onUpdateTtsProvider}
+                    onUpdateTtsVoiceId={onUpdateTtsVoiceId}
+                    onUpdateTtsEnabled={onUpdateTtsEnabled}
+                    onUpdateVoiceInstructions={onUpdateVoiceInstructions}
+                  />
+                ))}
               {provided.placeholder}
             </div>
           )}
@@ -244,7 +308,7 @@ export default function Phase({
             <Checkbox
               id={`skipPhase-${phase.id}`}
               checked={phase.skipPhase}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 onUpdatePhase(phase.id, { skipPhase: checked as boolean })
               }
             />
@@ -262,8 +326,8 @@ export default function Phase({
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={5}>
                   <p className="w-[200px] text-sm">
-                    If true, user can skip this phase. Recommended if this is a phase 
-                    where the AI can make scoring mistakes.
+                    If true, user can skip this phase. Recommended if this is a
+                    phase where the AI can make scoring mistakes.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -274,7 +338,7 @@ export default function Phase({
             <Checkbox
               id={`scored-${phase.id}`}
               checked={phase.scoredPhase}
-              onCheckedChange={(checked) => 
+              onCheckedChange={(checked) =>
                 onUpdatePhase(phase.id, { scoredPhase: checked as boolean })
               }
             />
@@ -292,7 +356,10 @@ export default function Phase({
                 </TooltipTrigger>
                 <TooltipContent side="right" sideOffset={5}>
                   <p className="w-[200px] text-sm">
-                    Scored phases use AI to assess the content in a prompt according to a scoring rubric. Users will not be able to advance beyond this phase until they&apos;ve achieved the minimum score.
+                    Scored phases use AI to assess the content in a prompt
+                    according to a scoring rubric. Users will not be able to
+                    advance beyond this phase until they&apos;ve achieved the
+                    minimum score.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -303,13 +370,19 @@ export default function Phase({
         {phase.scoredPhase && (
           <div className="space-y-2">
             <div className="space-y-2 mb-4">
-              <label className="text-sm font-medium text-gray-700">Minimum Score</label>
+              <label className="text-sm font-medium text-gray-700">
+                Minimum Score
+              </label>
               <input
                 type="number"
-                value={phase.minScore || ''}
-                onChange={(e) => onUpdatePhase(phase.id, { 
-                  minScore: e.target.value ? Number(e.target.value) : undefined 
-                })}
+                value={phase.minScore || ""}
+                onChange={(e) =>
+                  onUpdatePhase(phase.id, {
+                    minScore: e.target.value
+                      ? Number(e.target.value)
+                      : undefined,
+                  })
+                }
                 className="w-full rounded-md border border-gray-300 
                   px-3 py-2 text-gray-900 focus:border-primary 
                   focus:ring-primary"
@@ -318,7 +391,9 @@ export default function Phase({
             </div>
 
             <div className="flex items-center gap-2 mb-4">
-              <label className="text-sm font-medium text-gray-700">Rubric</label>
+              <label className="text-sm font-medium text-gray-700">
+                Rubric
+              </label>
               <TooltipProvider delayDuration={0}>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -326,23 +401,32 @@ export default function Phase({
                   </TooltipTrigger>
                   <TooltipContent side="right" sideOffset={5}>
                     <p className="w-[400px] text-sm">
-                      Any human-readable text can be used as a scoring rubric. For rubrics with multiple dimensions, the total score will be used to determine if the user has passed the phase.
+                      Any human-readable text can be used as a scoring rubric.
+                      For rubrics with multiple dimensions, the total score will
+                      be used to determine if the user has passed the phase.
                       <br />
                       E.g. <br />
-                      Name:<br />
-                        1 point - The user has entered a valid name. <br />
-                        0 points - The user has not entered a valid name.<br />
-                      Content:<br />
-                        5 points - The user has described how precipitation works. <br />
-                        0 points - The user has not described how precipitation works.<br />
+                      Name:
+                      <br />
+                      1 point - The user has entered a valid name. <br />
+                      0 points - The user has not entered a valid name.
+                      <br />
+                      Content:
+                      <br />5 points - The user has described how precipitation
+                      works. <br />
+                      0 points - The user has not described how precipitation
+                      works.
+                      <br />
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </div>
             <textarea
-              value={phase.rubric || ''}
-              onChange={(e) => onUpdatePhase(phase.id, { rubric: e.target.value })}
+              value={phase.rubric || ""}
+              onChange={(e) =>
+                onUpdatePhase(phase.id, { rubric: e.target.value })
+              }
               className="w-full min-h-[100px] rounded-md border border-gray-300 
                 px-3 py-2 text-gray-900 focus:border-primary 
                 focus:ring-primary resize-y"

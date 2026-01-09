@@ -130,6 +130,12 @@ export interface Prompt {
   aiModel?: string; // AI model
   temperature?: number;
   conditionalLogic?: ConditionalLogic;
+  instructions?: AIResponseInstruction[];
+}
+
+export interface AIResponseInstruction {
+  text: string;
+  conditionalLogic?: ConditionalLogic;
 }
 
 export interface Value {
@@ -187,6 +193,8 @@ export interface Element {
   defaultValue?: string | string[] | number | boolean | undefined;
   placeholder?: string;
   text?: string; // For prompt, aiInstructions, and fixedResponse types
+
+  instructions?: AIResponseInstruction[];
 
   // Text input specific
   minChars?: number;

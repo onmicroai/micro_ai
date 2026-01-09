@@ -3,6 +3,7 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { MessageCircle, X, Split } from "lucide-react";
 import { Badge } from "../ui/badge";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
 import {
@@ -17,6 +18,7 @@ import {
   Prompt,
   Element,
   ConditionalLogic,
+  AIResponseInstruction,
 } from "@/app/(authenticated)/app/types";
 import FieldHeader from "../shared/FieldHeader";
 import "./styles.scss";
@@ -36,13 +38,14 @@ interface Instruction {
 interface AIResponseFieldProps {
   field: Prompt;
   fields: Element[];
-  onChange?: (fieldId: string, content: string) => void;
-  onDelete?: () => void;
-  onUpdateConditionalLogic?: (
-    instructionId: string,
-    logic: ConditionalLogic | null
+  onChange?: (
+    fieldId: string,
+    content: string,
+    instructions?: AIResponseInstruction[]
   ) => void;
+  onDelete?: () => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
+  onRename?: (newName: string) => void;
 }
 
 export default function AIResponseField({
@@ -50,8 +53,8 @@ export default function AIResponseField({
   fields,
   onChange,
   onDelete,
-  onUpdateConditionalLogic,
   dragHandleProps,
+  onRename,
 }: AIResponseFieldProps) {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [instructions, setInstructions] = useState<Instruction[]>([
@@ -68,19 +71,48 @@ export default function AIResponseField({
   const [selectedSourceField, setSelectedSourceField] = useState<string>("");
   const [selectedOperator, setSelectedOperator] = useState<string>("");
   const [conditionValue, setConditionValue] = useState<string>("");
+  const [focusedInstruction, setFocusedInstruction] = useState<string | null>(
+    null
+  );
+
+  const previousContentRef = useRef<Map<string, string>>(new Map());
+  const isUserInputRef = useRef<Map<string, boolean>>(new Map());
 
   useEffect(() => {
-    if (!initialized.current && field.text && field.text.includes("\n\n")) {
-      const lines = field.text.split("\n\n").filter((line) => line.trim());
-      setInstructions(
-        lines.map((line, idx) => ({
-          id: String(Date.now() + idx),
-          content: line,
-        }))
-      );
-      initialized.current = true;
+    initialized.current = false;
+  }, [field.id, field.instructions]);
+
+  useEffect(() => {
+    if (!initialized.current) {
+      console.log("Initializing AIResponseField:", {
+        fieldId: field.id,
+        instructions: field.instructions,
+        text: field.text,
+      });
+
+      if (field.instructions && field.instructions.length > 0) {
+        console.log("✅ Initializing from field.instructions");
+        setInstructions(
+          field.instructions.map((inst, idx) => ({
+            id: String(Date.now() + idx),
+            content: inst.text,
+            conditionalLogic: inst.conditionalLogic,
+          }))
+        );
+        initialized.current = true;
+      } else if (field.text && field.text.includes("\n\n")) {
+        console.log("⚠️ Initializing from field.text (fallback)");
+        const lines = field.text.split("\n\n").filter((line) => line.trim());
+        setInstructions(
+          lines.map((line, idx) => ({
+            id: String(Date.now() + idx),
+            content: line,
+          }))
+        );
+        initialized.current = true;
+      }
     }
-  }, []);
+  }, [field.instructions, field.text]);
 
   const handleAddInstruction = () => {
     const newInstruction: Instruction = {
@@ -120,31 +152,43 @@ export default function AIResponseField({
       value: conditionValue,
     };
 
-    setInstructions((prev) =>
-      prev.map((inst) =>
-        inst.id === openDialog ? { ...inst, conditionalLogic: logic } : inst
-      )
+    const updatedInstructions = instructions.map((inst) =>
+      inst.id === openDialog ? { ...inst, conditionalLogic: logic } : inst
     );
 
-    onUpdateConditionalLogic?.(openDialog, logic);
+    setInstructions(updatedInstructions);
+
+    updateFieldText(updatedInstructions);
+
     setOpenDialog(null);
   };
 
   const handleDeleteCondition = (instructionId: string) => {
-    setInstructions((prev) =>
-      prev.map((inst) =>
-        inst.id === instructionId
-          ? { ...inst, conditionalLogic: undefined }
-          : inst
-      )
+    const updatedInstructions = instructions.map((inst) =>
+      inst.id === instructionId
+        ? { ...inst, conditionalLogic: undefined }
+        : inst
     );
-    onUpdateConditionalLogic?.(instructionId, null);
+
+    setInstructions(updatedInstructions);
+    updateFieldText(updatedInstructions);
   };
 
-  const updateFieldText = (insts: Instruction[]) => {
-    const combinedText = insts.map((inst) => inst.content).join("\n\n");
-    onChange?.(field.id, combinedText);
-  };
+  const updateFieldText = useCallback(
+    (insts: Instruction[]) => {
+      const combinedText = insts.map((inst) => inst.content).join("\n\n");
+
+      const instructions: AIResponseInstruction[] = insts.map((inst) => ({
+        text: inst.content,
+        ...(inst.conditionalLogic && {
+          conditionalLogic: inst.conditionalLogic,
+        }),
+      }));
+
+      onChange?.(field.id, combinedText, instructions);
+    },
+    [onChange, field.id]
+  );
 
   const convertPlaceholdersToTags = useCallback(
     (text: string): string => {
@@ -157,7 +201,11 @@ export default function AIResponseField({
           );
           if (!field) return match;
 
-          return `<span contenteditable="false" draggable="true" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
+          return `<span contenteditable="false" draggable="true" data-tag-id="${
+            field.id
+          }" data-tag-label="${
+            field.name || field.id
+          }" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         }
@@ -224,9 +272,14 @@ export default function AIResponseField({
     const target = event.target as HTMLDivElement;
     const newContent = target.innerHTML;
 
+    isUserInputRef.current.set(instructionId, true);
+
     saveSelection(instructionId);
 
     const placeholderContent = convertTagsToPlaceholders(newContent);
+
+    const richText = convertPlaceholdersToTags(placeholderContent);
+    previousContentRef.current.set(instructionId, richText);
 
     const newInstructions = instructions.map((inst) =>
       inst.id === instructionId
@@ -292,23 +345,26 @@ export default function AIResponseField({
     restoreSelection(instructionId);
   };
 
-  const updateEditorContent = (instructionId: string) => {
-    const editorElement = editorRefs.current.get(instructionId);
-    if (!editorElement) return;
+  const updateEditorContent = useCallback(
+    (instructionId: string) => {
+      const editorElement = editorRefs.current.get(instructionId);
+      if (!editorElement) return;
 
-    saveSelection(instructionId);
+      saveSelection(instructionId);
 
-    const newContent = editorElement.innerHTML;
-    const placeholderContent = convertTagsToPlaceholders(newContent);
+      const newContent = editorElement.innerHTML;
+      const placeholderContent = convertTagsToPlaceholders(newContent);
 
-    const newInstructions = instructions.map((inst) =>
-      inst.id === instructionId
-        ? { ...inst, content: placeholderContent }
-        : inst
-    );
-    setInstructions(newInstructions);
-    updateFieldText(newInstructions);
-  };
+      const newInstructions = instructions.map((inst) =>
+        inst.id === instructionId
+          ? { ...inst, content: placeholderContent }
+          : inst
+      );
+      setInstructions(newInstructions);
+      updateFieldText(newInstructions);
+    },
+    [convertTagsToPlaceholders, instructions, updateFieldText]
+  );
 
   const handleDragStart = (event: React.DragEvent, tag: Tag) => {
     event.dataTransfer.setData("tag", JSON.stringify(tag));
@@ -450,6 +506,8 @@ export default function AIResponseField({
   };
 
   const handleFocus = (instructionId: string) => {
+    setFocusedInstruction(instructionId);
+
     const editorElement = editorRefs.current.get(instructionId);
     const lastRange = lastRangeRefs.current.get(instructionId);
 
@@ -484,53 +542,68 @@ export default function AIResponseField({
   useEffect(() => {
     instructions.forEach((instruction) => {
       const editorElement = editorRefs.current.get(instruction.id);
-      if (editorElement) {
-        const selection = window.getSelection();
-        const hadFocus = document.activeElement === editorElement;
-        const cursorPosition = selection?.rangeCount
-          ? selection.getRangeAt(0).cloneRange()
-          : null;
+      if (!editorElement) return;
 
-        const richText = convertPlaceholdersToTags(instruction.content);
+      if (isUserInputRef.current.get(instruction.id)) {
+        isUserInputRef.current.set(instruction.id, false);
+        return;
+      }
 
-        if (editorElement.innerHTML !== richText) {
-          const prevHTML = editorElement.innerHTML;
-          editorElement.innerHTML = richText;
+      const richText = convertPlaceholdersToTags(instruction.content);
+      const previousContent = previousContentRef.current.get(instruction.id);
 
-          if (hadFocus && cursorPosition) {
-            try {
-              const prevTextNoSpaces = prevHTML.replace(/<[^>]*>|\s+/g, "");
-              const newTextNoSpaces = richText.replace(/<[^>]*>|\s+/g, "");
-              const isOnlySpaceChange = prevTextNoSpaces === newTextNoSpaces;
+      if (previousContent === richText) return;
 
-              if (isOnlySpaceChange) {
-                const range = document.createRange();
-                const textNode = editorElement.lastChild;
-                if (textNode && textNode.nodeType === Node.TEXT_NODE) {
-                  const textLength = textNode.textContent?.length || 0;
-                  range.setStart(textNode, textLength);
-                  range.setEnd(textNode, textLength);
-                } else {
-                  range.selectNodeContents(editorElement);
-                  range.collapse(false);
-                }
-                selection?.removeAllRanges();
-                selection?.addRange(range);
-              } else {
-                restoreSelection(instruction.id);
-              }
-            } catch {
-              const range = document.createRange();
-              range.selectNodeContents(editorElement);
-              range.collapse(false);
-              selection?.removeAllRanges();
-              selection?.addRange(range);
-            }
-          }
+      const selection = window.getSelection();
+      const hadFocus = document.activeElement === editorElement;
+
+      if (hadFocus && selection?.rangeCount) {
+        const range = selection.getRangeAt(0);
+        if (editorElement.contains(range.startContainer)) {
+          saveSelection(instruction.id);
         }
       }
+
+      editorElement.innerHTML = richText;
+      previousContentRef.current.set(instruction.id, richText);
+
+      const tagElements = editorElement.querySelectorAll("span[data-tag-id]");
+      tagElements.forEach((tagEl) => {
+        tagEl.addEventListener("dragstart", (e) => {
+          const dragEvent = e as DragEvent;
+          const target = dragEvent.target as HTMLElement;
+          const tagId = target.getAttribute("data-tag-id");
+          const tagLabel = target.getAttribute("data-tag-label");
+          if (tagId && tagLabel && dragEvent.dataTransfer) {
+            dragEvent.dataTransfer.setData(
+              "tag",
+              JSON.stringify({ id: tagId, label: tagLabel })
+            );
+            setTimeout(() => {
+              target.remove();
+              updateEditorContent(instruction.id);
+            }, 0);
+          }
+        });
+      });
+
+      if (hadFocus) {
+        setTimeout(() => {
+          try {
+            restoreSelection(instruction.id);
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(editorElement);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+            editorElement.focus();
+          }
+        }, 0);
+      }
     });
-  }, [instructions, convertPlaceholdersToTags]);
+  }, [instructions, convertPlaceholdersToTags, updateEditorContent]);
 
   const getOperatorsForField = (fieldType: string) => {
     const operators = [];
@@ -585,154 +658,197 @@ export default function AIResponseField({
     ? getOperatorsForField(selectedField.type)
     : [];
 
+  const handleBlur = (instructionId: string) => {
+    setFocusedInstruction(null);
+    saveSelection(instructionId);
+  };
+
   return (
     <div className="space-y-4">
       <FieldHeader
         icon={MessageCircle}
-        label="AI response"
+        label="AI respossnse"
         fieldId={field.name}
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
         onMove={() => {}}
         onDelete={onDelete}
         dragHandleProps={dragHandleProps}
+        onRename={onRename}
       />
 
-      {!isCollapsed && (
-        <div className="space-y-4 mt-4">
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              Instructions
-            </label>
-            {instructions.map((instruction) => {
-              const editorElement = editorRefs.current.get(instruction.id);
-              const isEmpty = checkIfEmpty(editorElement);
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-4 mt-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">
+                  Instructions
+                </label>
+                <AnimatePresence mode="popLayout">
+                  {instructions.map((instruction) => {
+                    const editorElement = editorRefs.current.get(
+                      instruction.id
+                    );
+                    const isEmpty = checkIfEmpty(editorElement);
+                    const isFocused = focusedInstruction === instruction.id;
 
-              return (
-                <div key={instruction.id} className="space-y-2">
-                  {instruction.conditionalLogic && (
-                    <div className="mt-6">
-                      <InstructionConditionBox
-                        property={
-                          fields.find(
-                            (f) =>
-                              f.id ===
-                              instruction.conditionalLogic?.sourceFieldId
-                          )?.name || instruction.conditionalLogic.sourceFieldId
-                        }
-                        operator={instruction.conditionalLogic.operator}
-                        value={
-                          instruction.conditionalLogic.value
-                            ? String(instruction.conditionalLogic.value)
-                            : undefined
-                        }
-                        onRemove={() => handleDeleteCondition(instruction.id)}
-                      />
-                    </div>
-                  )}
-
-                  <div className="relative">
-                    <div
-                      ref={(el) => {
-                        if (el) editorRefs.current.set(instruction.id, el);
-                      }}
-                      contentEditable
-                      data-placeholder={"Add instruction..."}
-                      className={`w-full bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-20 ${
-                        instructions.length === 1
-                          ? "min-h-[150px] px-3 py-3"
-                          : "h-[40px] flex items-center px-3"
-                      } ${
-                        isEmpty
-                          ? "empty-editor before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none"
-                          : ""
-                      }`}
-                      onInput={(e) => handleInstructionInput(instruction.id, e)}
-                      onClick={() => saveSelection(instruction.id)}
-                      onKeyDown={() => {
-                        requestAnimationFrame(() => {
-                          saveSelection(instruction.id);
-                        });
-                      }}
-                      onFocus={() => handleFocus(instruction.id)}
-                      onBlur={() => saveSelection(instruction.id)}
-                      onDrop={(e) => handleDrop(instruction.id, e)}
-                      onDragOver={(e) => handleDragOver(instruction.id, e)}
-                      onDragLeave={(e) => handleDragLeave(instruction.id, e)}
-                      suppressContentEditableWarning
-                    />
-                    <div
-                      className={`absolute right-2 ${
-                        instructions.length === 1
-                          ? "top-2"
-                          : "top-1/2 -translate-y-1/2"
-                      } flex items-center gap-1`}
-                    >
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          handleOpenConditionDialog(instruction.id)
-                        }
-                        className="h-8 w-8 p-0 hover:bg-gray-100"
+                    return (
+                      <motion.div
+                        key={instruction.id}
+                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        className="space-y-2"
                       >
-                        <Split className="h-4 w-4" />
-                      </Button>
-                      {instructions.length > 1 && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() =>
-                            handleDeleteInstruction(instruction.id)
-                          }
-                          className="h-8 w-8 p-0 hover:bg-gray-100"
+                        {instruction.conditionalLogic && (
+                          <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-6"
+                          >
+                            <InstructionConditionBox
+                              property={
+                                fields.find(
+                                  (f) =>
+                                    f.id ===
+                                    instruction.conditionalLogic?.sourceFieldId
+                                )?.name ||
+                                instruction.conditionalLogic.sourceFieldId
+                              }
+                              operator={instruction.conditionalLogic.operator}
+                              value={
+                                instruction.conditionalLogic.value
+                                  ? String(instruction.conditionalLogic.value)
+                                  : undefined
+                              }
+                              onRemove={() =>
+                                handleDeleteCondition(instruction.id)
+                              }
+                            />
+                          </motion.div>
+                        )}
+
+                        {/* ✅ ВИДАЛЕНО layout prop для усунення зайвих ререндерів */}
+                        <div
+                          className="relative w-full box-border bg-white rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
+                          style={{
+                            minHeight: isFocused ? "150px" : "40px",
+                          }}
                         >
-                          <X className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+                          <div
+                            ref={(el) => {
+                              if (el)
+                                editorRefs.current.set(instruction.id, el);
+                            }}
+                            contentEditable
+                            data-placeholder={"Add instruction..."}
+                            className={`w-full h-full outline-none bg-transparent px-3 py-2 pr-20 ${
+                              isEmpty
+                                ? "empty-editor before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none"
+                                : ""
+                            }`}
+                            style={{
+                              wordWrap: "break-word",
+                              overflowWrap: "break-word",
+                            }}
+                            onInput={(e) =>
+                              handleInstructionInput(instruction.id, e)
+                            }
+                            onClick={() => saveSelection(instruction.id)}
+                            onKeyDown={() => {
+                              requestAnimationFrame(() => {
+                                saveSelection(instruction.id);
+                              });
+                            }}
+                            onFocus={() => handleFocus(instruction.id)}
+                            onBlur={() => handleBlur(instruction.id)}
+                            onDrop={(e) => handleDrop(instruction.id, e)}
+                            onDragOver={(e) =>
+                              handleDragOver(instruction.id, e)
+                            }
+                            onDragLeave={(e) =>
+                              handleDragLeave(instruction.id, e)
+                            }
+                            suppressContentEditableWarning
+                          />
+                          <div className="absolute right-2 top-2 flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() =>
+                                handleOpenConditionDialog(instruction.id)
+                              }
+                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                            >
+                              <Split className="h-4 w-4" />
+                            </Button>
+                            {instructions.length > 1 && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() =>
+                                  handleDeleteInstruction(instruction.id)
+                                }
+                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
 
-          <div className="flex items-center gap-2 text-sm">
-            <span
-              onClick={handleAddInstruction}
-              className="text-blue-600 cursor-pointer hover:underline"
-            >
-              ⊕ Add instructions
-            </span>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {fields.map((sourceField) => {
-              const fieldIdentifier = sourceField.name || sourceField.id;
-              const tagData = {
-                id: sourceField.id,
-                label: sourceField.name || "",
-              };
-              return (
-                <Badge
-                  key={sourceField.id}
-                  draggable="true"
-                  onDragStart={(event) => handleDragStart(event, tagData)}
-                  onClick={() => {
-                    if (instructions.length > 0) {
-                      insertTag(tagData, instructions[0].id);
-                    }
-                  }}
-                  variant="default"
-                  className="cursor-move bg-primary-600 align-baseline"
+              <div className="flex items-center gap-2 text-sm">
+                <span
+                  onClick={handleAddInstruction}
+                  className="text-blue-600 cursor-pointer hover:underline"
                 >
-                  {fieldIdentifier}
-                </Badge>
-              );
-            })}
-          </div>
-        </div>
-      )}
+                  ⊕ Add instructions
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {fields.map((sourceField) => {
+                  const fieldIdentifier = sourceField.name || sourceField.id;
+                  const tagData = {
+                    id: sourceField.id,
+                    label: sourceField.name || "",
+                  };
+                  return (
+                    <Badge
+                      key={sourceField.id}
+                      draggable="true"
+                      onDragStart={(event) => handleDragStart(event, tagData)}
+                      onClick={() => {
+                        if (instructions.length > 0) {
+                          insertTag(tagData, instructions[0].id);
+                        }
+                      }}
+                      variant="default"
+                      className="cursor-move bg-primary-600 align-baseline"
+                    >
+                      {fieldIdentifier}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Conditional Logic Dialog */}
       <Dialog

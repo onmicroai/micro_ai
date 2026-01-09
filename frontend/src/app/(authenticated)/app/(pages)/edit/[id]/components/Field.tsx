@@ -365,19 +365,13 @@ export default function Field({
           field={{
             id: field.id,
             name: field.name,
-            type: field.type,
+            type: "aiResponse",
             text: field.text,
+            instructions: field.instructions,
           }}
           fields={appFields}
           onDelete={() => onDeleteField(field.id, true)}
           onChange={onUpdatePromptText}
-          onUpdateConditionalLogic={(instructionId, logic) =>
-            console.log(
-              "Update conditional logic for instruction:",
-              instructionId,
-              logic
-            )
-          }
         />
       );
     }
@@ -1154,18 +1148,13 @@ export default function Field({
                 name: field.name,
                 type: "aiResponse",
                 text: field.text,
+                instructions: field.instructions,
               }}
               fields={appFields}
               onDelete={() => onDeleteField(field.id, true)}
               onChange={onUpdatePromptText}
-              onUpdateConditionalLogic={(instructionId, logic) =>
-                console.log(
-                  "Update conditional logic for instruction:",
-                  instructionId,
-                  logic
-                )
-              }
               dragHandleProps={provided.dragHandleProps || undefined}
+              onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
             />
           </div>
         )}
