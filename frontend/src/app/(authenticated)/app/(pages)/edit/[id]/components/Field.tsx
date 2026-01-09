@@ -50,6 +50,7 @@ import {
 import { synthesizeSpeech } from "@/utils/textToSpeechService";
 import { Play, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import InstructionConditionBox from "./shared/InstructionConditionBox";
 
 const FIELD_ICONS: Record<
   string,
@@ -260,6 +261,10 @@ export default function Field({
     Record<string, string>
   >({});
   const [isGeneratingSample, setIsGeneratingSample] = useState(false);
+
+  const fieldCondition =
+    field.conditionalLogic &&
+    phaseFields.find((f) => f.id === field.conditionalLogic?.sourceFieldId);
 
   // Create a cache key for the current voice configuration
   const getVoiceCacheKey = () => {
@@ -1253,6 +1258,19 @@ export default function Field({
 
   return (
     <div className="space-y-2">
+      {field.conditionalLogic && fieldCondition && (
+        <InstructionConditionBox
+          property={
+            fieldCondition.name || fieldCondition.label || fieldCondition.id
+          }
+          operator={field.conditionalLogic.operator}
+          value={
+            field.conditionalLogic.value
+              ? String(field.conditionalLogic.value)
+              : undefined
+          }
+        />
+      )}
       <FieldHeader
         icon={FIELD_ICONS[field.type]}
         label={FIELD_LABELS[field.type] || field.type}
