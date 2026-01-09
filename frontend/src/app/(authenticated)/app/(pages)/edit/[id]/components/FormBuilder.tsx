@@ -2,7 +2,26 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { Plus, ChevronDown, Upload, X, FileText, Type, AlignLeft, CircleDot, CheckSquare, List, SlidersHorizontal, ToggleLeft, Bot, MessageCircle, ImagePlus, MessagesSquare, PanelLeft, PanelRightClose } from "lucide-react";
+import {
+  Plus,
+  ChevronDown,
+  Upload,
+  X,
+  FileText,
+  Type,
+  AlignLeft,
+  CircleDot,
+  CheckSquare,
+  List,
+  SlidersHorizontal,
+  ToggleLeft,
+  Bot,
+  MessageCircle,
+  ImagePlus,
+  MessagesSquare,
+  PanelLeft,
+  PanelRightClose,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
@@ -10,14 +29,10 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./ui/popover";
-import JsonPreview from './JsonPreview';
-import Field from './Field';
-import { Droppable, Draggable } from '@hello-pangea/dnd';
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import JsonPreview from "./JsonPreview";
+import Field from "./Field";
+import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { Checkbox } from "./ui/checkbox";
 import {
   Select,
@@ -29,11 +44,9 @@ import {
 import { Input } from "./ui/input";
 import { useSurveyStore } from "../store/editSurveyStore";
 import {
- 
   Element,
   Choice,
   ConditionalLogic,
-  AIResponseInstruction,
 } from "@/app/(authenticated)/app/types";
 import {
   Tooltip,
@@ -47,23 +60,93 @@ import { createFileUploader } from "@/utils/imageUpload";
 
 // Options for the "Add section" dialog
 const fieldTypes = [
-  { id: 'text', label: 'Single Line', icon: Type, helper: 'Collect a single line of text input.'},
-  { id: 'textarea', label: 'Long Text', icon: AlignLeft, helper: 'Collect a longer block of text input.'},
-  { id: 'richText', label: 'Rich Text', icon: FileText, helper: 'Display text or images to the user.'},
-  { id: 'radio', label: 'Radio Buttons', icon: CircleDot, helper: 'Collect a single choice from a list of options.'},
-  { id: 'checkbox', label: 'Checkboxes', icon: CheckSquare, helper: 'Collect one or more choices from a list of options.'},
-  { id: 'dropdown', label: 'Dropdown', icon: List, helper: 'Collect a single choice from a dropdown menu.'},
-  { id: 'slider', label: 'Slider', icon: SlidersHorizontal, helper: 'Collect a numeric value from a slider.'},
-  { id: 'boolean', label: 'Boolean', icon: ToggleLeft, helper: 'Collect a true or false value. Often used for conditional logic.'},
-  { id: 'imageUpload', label: 'Image Upload', icon: ImagePlus, helper: 'Collect an image or images from the user.'},
-  { id: 'chat', label: 'Chatbot', icon: MessagesSquare, helper: 'Add a chat interface for users to interact with the AI.'},
+  {
+    id: "text",
+    label: "Single Line",
+    icon: Type,
+    helper: "Collect a single line of text input.",
+  },
+  {
+    id: "textarea",
+    label: "Long Text",
+    icon: AlignLeft,
+    helper: "Collect a longer block of text input.",
+  },
+  {
+    id: "richText",
+    label: "Rich Text",
+    icon: FileText,
+    helper: "Display text or images to the user.",
+  },
+  {
+    id: "radio",
+    label: "Radio Buttons",
+    icon: CircleDot,
+    helper: "Collect a single choice from a list of options.",
+  },
+  {
+    id: "checkbox",
+    label: "Checkboxes",
+    icon: CheckSquare,
+    helper: "Collect one or more choices from a list of options.",
+  },
+  {
+    id: "dropdown",
+    label: "Dropdown",
+    icon: List,
+    helper: "Collect a single choice from a dropdown menu.",
+  },
+  {
+    id: "slider",
+    label: "Slider",
+    icon: SlidersHorizontal,
+    helper: "Collect a numeric value from a slider.",
+  },
+  {
+    id: "boolean",
+    label: "Boolean",
+    icon: ToggleLeft,
+    helper: "Collect a true or false value. Often used for conditional logic.",
+  },
+  {
+    id: "imageUpload",
+    label: "Image Upload",
+    icon: ImagePlus,
+    helper: "Collect an image or images from the user.",
+  },
+  {
+    id: "chat",
+    label: "Chatbot",
+    icon: MessagesSquare,
+    helper: "Add a chat interface for users to interact with the AI.",
+  },
 ];
 
 const cardTypes = [
-  { id: 'title', label: 'Title', icon: Type, helper: 'Static title text shown to the user.'},
-  { id: 'aiResponse', label: 'AI Response', icon: Bot, helper: 'Stops the flow and runs the AI when the user clicks Run.'},
-  { id: 'fixedResponse', label: 'Response', icon: MessageCircle, helper: 'Stops the flow and shows static text (no AI call).'},
-  { id: 'scoring', label: 'Scoring', icon: SlidersHorizontal, helper: 'Stops the flow and runs rubric scoring when the user clicks Run.'},
+  {
+    id: "title",
+    label: "Title",
+    icon: Type,
+    helper: "Static title text shown to the user.",
+  },
+  {
+    id: "aiResponse",
+    label: "AI Response",
+    icon: Bot,
+    helper: "Stops the flow and runs the AI when the user clicks Run.",
+  },
+  {
+    id: "fixedResponse",
+    label: "Response",
+    icon: MessageCircle,
+    helper: "Stops the flow and shows static text (no AI call).",
+  },
+  {
+    id: "scoring",
+    label: "Scoring",
+    icon: SlidersHorizontal,
+    helper: "Stops the flow and runs rubric scoring when the user clicks Run.",
+  },
 ];
 
 const ACCEPTED_FILE_TYPES = {
@@ -106,11 +189,13 @@ export default function FormBuilder() {
   const [isOpen, setIsOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
-  const [addSectionOpenFor, setAddSectionOpenFor] = useState<string | null>(null);
+  const [addSectionOpenFor, setAddSectionOpenFor] = useState<string | null>(
+    null
+  );
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
-  const [backgroundTheme] = useState<'white' | 'gray'>('gray');
+  const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<'build' | 'preview'>('build');
+  const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
   const availableSections = [...fieldTypes, ...cardTypes];
 
   const {
@@ -262,15 +347,23 @@ export default function FormBuilder() {
   /**
    * V2 builder: elements are stored as a single ordered list.
    */
-  const updateElement = useCallback((elementId: string, updates: Partial<Element>) => {
-    const current = Array.isArray(elements) ? elements : [];
-    setElements(current.map(el => (el.id === elementId ? { ...el, ...updates } : el)));
-  }, [elements, setElements]);
+  const updateElement = useCallback(
+    (elementId: string, updates: Partial<Element>) => {
+      const current = Array.isArray(elements) ? elements : [];
+      setElements(
+        current.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
+      );
+    },
+    [elements, setElements]
+  );
 
-  const deleteElement = useCallback((elementId: string) => {
-    const current = Array.isArray(elements) ? elements : [];
-    setElements(current.filter(el => el.id !== elementId));
-  }, [elements, setElements]);
+  const deleteElement = useCallback(
+    (elementId: string) => {
+      const current = Array.isArray(elements) ? elements : [];
+      setElements(current.filter((el) => el.id !== elementId));
+    },
+    [elements, setElements]
+  );
 
   /**
    * Handles the completion of a drag-and-drop operation within the form builder.
@@ -292,41 +385,41 @@ export default function FormBuilder() {
    */
   const addElementToApp = (type: string, insertAfter?: number | null) => {
     const current = Array.isArray(elements) ? elements : [];
-    const existingCount = current.filter(e => e.type === type).length;
+    const existingCount = current.filter((e) => e.type === type).length;
 
     const base: Element = {
       id: `${type}-${Date.now()}`,
-      type: type as Element['type'],
-      label: '',
+      type: type as Element["type"],
+      label: "",
       name: `${type}${existingCount + 1}`,
       isRequired: false,
     };
 
     const newElement: Element = {
       ...base,
-      ...(type === 'title' && {
-        label: 'Title',
-        text: 'Title',
+      ...(type === "title" && {
+        label: "Title",
+        text: "Title",
       }),
-      ...(type === 'aiResponse' && {
-        instructions: [{ text: '' }],
+      ...(type === "aiResponse" && {
+        instructions: [{ text: "" }],
       }),
-      ...(type === 'fixedResponse' && { text: '' }),
-      ...(type === 'scoring' && { rubric: '', minScore: 0 }),
-      ...(type === 'imageUpload' && {
+      ...(type === "fixedResponse" && { text: "" }),
+      ...(type === "scoring" && { rubric: "", minScore: 0 }),
+      ...(type === "imageUpload" && {
         multiple: false,
         maxFiles: 1,
         maxFileSize: 5,
-        allowedFileTypes: ['image/jpeg', 'image/png'],
+        allowedFileTypes: ["image/jpeg", "image/png"],
       }),
-      ...(type === 'chat' && {
+      ...(type === "chat" && {
         maxMessages: 10,
-        initialMessage: 'Hello! How can I help you today?',
+        initialMessage: "Hello! How can I help you today?",
         enableTts: false,
-        ttsProvider: 'openai',
-        selectedVoiceId: '',
-        voiceInstructions: '',
-        avatarUrl: '',
+        ttsProvider: "openai",
+        selectedVoiceId: "",
+        voiceInstructions: "",
+        avatarUrl: "",
       }),
     };
 
@@ -345,7 +438,11 @@ export default function FormBuilder() {
   /**
    * Updates the label of an element.
    */
-  const updateFieldLabel = (fieldId: string, newLabel: string, _isPrompt: boolean = false) => {
+  const updateFieldLabel = (
+    fieldId: string,
+    newLabel: string,
+    _isPrompt: boolean = false
+  ) => {
     // For title elements we also mirror label into text for display.
     updateElement(fieldId, { label: newLabel, text: newLabel });
   };
@@ -353,14 +450,22 @@ export default function FormBuilder() {
   /**
    * Updates the internal name/identifier of an element.
    */
-  const updateFieldName = (fieldId: string, newName: string, _isPrompt: boolean = false) => {
+  const updateFieldName = (
+    fieldId: string,
+    newName: string,
+    _isPrompt: boolean = false
+  ) => {
     updateElement(fieldId, { name: newName });
   };
 
   /**
    * Sets whether a field is required for form submission.
    */
-  const updateFieldRequired = (fieldId: string, isRequired: boolean, _isPrompt: boolean = false) => {
+  const updateFieldRequired = (
+    fieldId: string,
+    isRequired: boolean,
+    _isPrompt: boolean = false
+  ) => {
     updateElement(fieldId, { isRequired });
   };
 
@@ -374,7 +479,11 @@ export default function FormBuilder() {
   /**
    * Updates the description of a field within a specific phase.
    */
-  const updateFieldDescription = (fieldId: string, description: string, _isPrompt: boolean = false) => {
+  const updateFieldDescription = (
+    fieldId: string,
+    description: string,
+    _isPrompt: boolean = false
+  ) => {
     updateElement(fieldId, { description });
   };
 
@@ -383,14 +492,14 @@ export default function FormBuilder() {
    * Now works with the flattened view by finding the phase automatically.
    */
   const updateFieldValidation = (
-    fieldId: string, 
-    minChars: number | null, 
-    maxChars: number | null, 
+    fieldId: string,
+    minChars: number | null,
+    maxChars: number | null,
     _isPrompt: boolean = false
   ) => {
-    updateElement(fieldId, { 
-            minChars: minChars ?? undefined,
-            maxChars: maxChars ?? undefined
+    updateElement(fieldId, {
+      minChars: minChars ?? undefined,
+      maxChars: maxChars ?? undefined,
     });
   };
 
@@ -398,7 +507,7 @@ export default function FormBuilder() {
    * Sets the default value for a field.
    */
   const updateFieldDefaultValue = (
-    fieldId: string, 
+    fieldId: string,
     value: string | string[] | number | boolean
   ) => {
     updateElement(fieldId, { defaultValue: value });
@@ -430,7 +539,7 @@ export default function FormBuilder() {
    * Now works with the flattened view by finding the phase automatically.
    */
   const updateFieldSliderProps = (
-    fieldId: string, 
+    fieldId: string,
     updates: {
       minValue?: number;
       maxValue?: number;
@@ -452,7 +561,11 @@ export default function FormBuilder() {
    * Updates the text content of a text-based field.
    * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldText = (fieldId: string, text: string, _isPrompt: boolean = false) => {
+  const updateFieldText = (
+    fieldId: string,
+    text: string,
+    _isPrompt: boolean = false
+  ) => {
     updateElement(fieldId, { text });
   };
 
@@ -460,7 +573,11 @@ export default function FormBuilder() {
    * Updates the HTML content of a rich text field.
    * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldRichText = (fieldId: string, html: string, _isPrompt: boolean = false) => {
+  const updateFieldRichText = (
+    fieldId: string,
+    html: string,
+    _isPrompt: boolean = false
+  ) => {
     updateElement(fieldId, { html });
   };
 
@@ -468,7 +585,11 @@ export default function FormBuilder() {
    * Updates the conditional display logic for a field.
    * Now works with the flattened view by finding the phase automatically.
    */
-  const handleUpdateConditionalLogic = (fieldId: string, logic: ConditionalLogic | null, _isPrompt: boolean) => {
+  const handleUpdateConditionalLogic = (
+    fieldId: string,
+    logic: ConditionalLogic | null,
+    _isPrompt: boolean
+  ) => {
     updateElement(fieldId, { conditionalLogic: logic || undefined });
   };
 
@@ -477,7 +598,7 @@ export default function FormBuilder() {
    * Now works with the flattened view by finding the phase automatically.
    */
   const updateImageUploadSettings = (
-    fieldId: string, 
+    fieldId: string,
     settings: {
       multiple?: boolean;
       maxFiles?: number;
@@ -500,7 +621,10 @@ export default function FormBuilder() {
    * Sets the initial message displayed in a chat field.
    * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldInitialMessage = (fieldId: string, initialMessage: string) => {
+  const updateFieldInitialMessage = (
+    fieldId: string,
+    initialMessage: string
+  ) => {
     updateElement(fieldId, { initialMessage });
   };
 
@@ -525,9 +649,9 @@ export default function FormBuilder() {
    * Now works with the flattened view by finding the phase automatically.
    */
   const updateTtsVoiceId = (fieldId: string, voiceId: string) => {
-    updateElement(fieldId, { 
-              selectedVoiceId: voiceId,
-              ttsProvider: 'openai' //TODO: Support other TTS providers
+    updateElement(fieldId, {
+      selectedVoiceId: voiceId,
+      ttsProvider: "openai", //TODO: Support other TTS providers
     });
   };
 
@@ -578,22 +702,24 @@ export default function FormBuilder() {
       <div className="space-y-2">
         <label className="text-sm font-medium text-left">Collection</label>
         <Select
-          value={collectionId?.toString() || ''}
+          value={collectionId?.toString() || ""}
           onValueChange={(value) => setCollectionId(parseInt(value))}
           disabled={isLoadingCollections}
         >
           <SelectTrigger className="w-full">
-            <SelectValue placeholder={
-              isLoadingCollections 
-                ? "Loading collections..." 
-                : "Select a collection"
-            } />
+            <SelectValue
+              placeholder={
+                isLoadingCollections
+                  ? "Loading collections..."
+                  : "Select a collection"
+              }
+            />
           </SelectTrigger>
           <SelectContent className="bg-white">
             {collections?.length > 0 ? (
               collections.map((collection) => (
-                <SelectItem 
-                  key={collection.value} 
+                <SelectItem
+                  key={collection.value}
                   value={collection.value.toString()}
                 >
                   {collection.text}
@@ -601,8 +727,8 @@ export default function FormBuilder() {
               ))
             ) : (
               <SelectItem value="" disabled>
-                {isLoadingCollections 
-                  ? "Loading collections..." 
+                {isLoadingCollections
+                  ? "Loading collections..."
                   : "No collections available"}
               </SelectItem>
             )}
@@ -611,11 +737,10 @@ export default function FormBuilder() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-left">Privacy Settings</label>
-        <Select
-          value={privacy}
-          onValueChange={(value) => setPrivacy(value)}
-        >
+        <label className="text-sm font-medium text-left">
+          Privacy Settings
+        </label>
+        <Select value={privacy} onValueChange={(value) => setPrivacy(value)}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select privacy setting" />
           </SelectTrigger>
@@ -642,7 +767,9 @@ export default function FormBuilder() {
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium text-left">Completion Message</label>
+        <label className="text-sm font-medium text-left">
+          Completion Message
+        </label>
         <textarea
           value={completedHtml}
           onChange={(e) => setCompletedHtml(e.target.value)}
@@ -654,7 +781,9 @@ export default function FormBuilder() {
 
       <div className="border-t border-gray-200 pt-4">
         <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-sm font-medium text-left uppercase text-gray-500">Attached Files</h3>
+          <h3 className="text-sm font-medium text-left uppercase text-gray-500">
+            Attached Files
+          </h3>
           <TooltipProvider delayDuration={0}>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -662,7 +791,8 @@ export default function FormBuilder() {
               </TooltipTrigger>
               <TooltipContent side="right" sideOffset={5}>
                 <p className="w-[200px] text-sm">
-                  Upload files that will be available to users of your app. Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
+                  Upload files that will be available to users of your app.
+                  Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
                 </p>
               </TooltipContent>
             </Tooltip>
@@ -673,22 +803,34 @@ export default function FormBuilder() {
           {...getRootProps()}
           className={`
             mt-2 border-2 border-dashed rounded-lg p-4 transition-colors duration-150 ease-in-out
-            ${isDragActive ? 'border-primary-400 bg-primary-50' : isUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-600'}
-            ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
+            ${
+              isDragActive
+                ? "border-primary-400 bg-primary-50"
+                : isUploading
+                ? "border-primary-300 bg-primary-50"
+                : "border-gray-300 hover:border-primary-600"
+            }
+            ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}
           `}
         >
           <input {...getInputProps()} />
           <div className="text-center">
-            <Upload className={`mx-auto h-8 w-8 ${isDragActive || isUploading ? 'text-primary-400' : 'text-gray-400'}`} />
+            <Upload
+              className={`mx-auto h-8 w-8 ${
+                isDragActive || isUploading
+                  ? "text-primary-400"
+                  : "text-gray-400"
+              }`}
+            />
             <p className="mt-2 text-sm text-gray-600">
-              {isDragActive ? "Drop files here" : "Drag and drop files here, or click to select files"}
+              {isDragActive
+                ? "Drop files here"
+                : "Drag and drop files here, or click to select files"}
             </p>
             <p className="mt-1 text-xs text-gray-500">
               PDF, PPT, DOC, TXT, CSV, JSON, MD
             </p>
-            <p className="mt-1 text-xs text-gray-500">
-              Max file size: 50MB
-            </p>
+            <p className="mt-1 text-xs text-gray-500">Max file size: 50MB</p>
             {isUploading && (
               <div className="mt-4 flex items-center justify-center gap-2">
                 <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
@@ -706,7 +848,9 @@ export default function FormBuilder() {
                   <div className="flex items-center gap-2">
                     <FileText className="h-5 w-5 text-gray-400" />
                     <div>
-                      <p className="text-sm font-medium text-gray-700">{file.name}</p>
+                      <p className="text-sm font-medium text-gray-700">
+                        {file.name}
+                      </p>
                       <p className="text-xs text-gray-500">
                         {(file.size / 1024 / 1024).toFixed(2)} MB
                         {file.word_count && ` • ${file.word_count} words`}
@@ -723,8 +867,10 @@ export default function FormBuilder() {
                 <div className="relative">
                   <input
                     type="text"
-                    value={file.description || ''}
-                    onChange={(e) => updateFileDescription(index, e.target.value)}
+                    value={file.description || ""}
+                    onChange={(e) =>
+                      updateFileDescription(index, e.target.value)
+                    }
                     placeholder="Add a description so the AI understands the content of this file better (optional)"
                     maxLength={MAX_DESCRIPTION_LENGTH}
                     className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
@@ -732,7 +878,7 @@ export default function FormBuilder() {
                       placeholder:text-gray-400"
                   />
                   <div className="absolute right-2 bottom-1 text-xs text-gray-400">
-                    {(file.description?.length || 0)}/{MAX_DESCRIPTION_LENGTH}
+                    {file.description?.length || 0}/{MAX_DESCRIPTION_LENGTH}
                   </div>
                 </div>
               </div>
@@ -742,24 +888,32 @@ export default function FormBuilder() {
       </div>
 
       <div className="space-y-4 border-t border-gray-200 pt-4">
-        <h3 className="text-sm font-medium text-left uppercase text-gray-500">AI Configuration</h3>
+        <h3 className="text-sm font-medium text-left uppercase text-gray-500">
+          AI Configuration
+        </h3>
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-left">System Prompt</label>
+            <label className="text-sm font-medium text-left">
+              System Prompt
+            </label>
             <textarea
               value={aiConfig.systemPrompt}
-              onChange={(e) => setAIConfig({ ...aiConfig, systemPrompt: e.target.value })}
+              onChange={(e) =>
+                setAIConfig({ ...aiConfig, systemPrompt: e.target.value })
+              }
               className="w-full rounded-md border border-gray-300 px-3 py-2 
                 text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
               placeholder="Enter your prompt here"
             />
           </div>
-          
+
           <div className="space-y-2">
             <label className="text-sm font-medium text-left">AI Model</label>
             <Select
               value={aiConfig.aiModel}
-              onValueChange={(value) => setAIConfig({ ...aiConfig, aiModel: value })}
+              onValueChange={(value) =>
+                setAIConfig({ ...aiConfig, aiModel: value })
+              }
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select AI model" />
@@ -779,8 +933,8 @@ export default function FormBuilder() {
             <Input
               type="number"
               step="0.01"
-              min={availableModels[aiConfig.aiModel || 'gpt-4o-mini']?.min ?? 0}
-              max={availableModels[aiConfig.aiModel || 'gpt-4o-mini']?.max ?? 2}
+              min={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.min ?? 0}
+              max={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.max ?? 2}
               value={aiConfig.temperature}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);
@@ -789,22 +943,29 @@ export default function FormBuilder() {
                   const max = availableModels[aiConfig.aiModel]?.max ?? 2;
                   setAIConfig({
                     ...aiConfig,
-                    temperature: Math.min(max, Math.max(min, Number(value.toFixed(2))))
+                    temperature: Math.min(
+                      max,
+                      Math.max(min, Number(value.toFixed(2)))
+                    ),
                   });
                 }
               }}
               className="w-full"
-              placeholder={`Enter temperature (${availableModels[aiConfig.aiModel]?.min ?? 0}-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
+              placeholder={`Enter temperature (${
+                availableModels[aiConfig.aiModel]?.min ?? 0
+              }-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-left">Max Response Tokens</label>
+            <label className="text-sm font-medium text-left">
+              Max Response Tokens
+            </label>
             <Input
               type="number"
               step="1"
               min="1"
-              value={aiConfig.maxResponseTokens || ''}
+              value={aiConfig.maxResponseTokens || ""}
               onChange={(e) => {
                 const value = e.target.value ? parseInt(e.target.value) : null;
                 setAIConfig({ ...aiConfig, maxResponseTokens: value });
@@ -820,25 +981,52 @@ export default function FormBuilder() {
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-      <div className={`min-h-screen ${backgroundTheme === 'gray' ? 'bg-gray-50' : 'bg-white'}`}>
+      <div
+        className={`min-h-screen ${
+          backgroundTheme === "gray" ? "bg-gray-50" : "bg-white"
+        }`}
+      >
         {/* Main Layout with Sidebar */}
         <div className="flex relative">
           {/* Sidebar - opens after first header */}
           {sidebarOpen && (
-            <div 
+            <div
               className="w-80 bg-gray-50 border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30"
               ref={(el) => {
                 if (el) {
                   // #region agent log
                   const rect = el.getBoundingClientRect();
-                  fetch('http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FormBuilder.tsx:sidebar-ref',message:'Sidebar dimensions',data:{width:rect.width,height:rect.height,top:rect.top,left:rect.left,viewportHeight:window.innerHeight},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                  fetch(
+                    "http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b",
+                    {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        location: "FormBuilder.tsx:sidebar-ref",
+                        message: "Sidebar dimensions",
+                        data: {
+                          width: rect.width,
+                          height: rect.height,
+                          top: rect.top,
+                          left: rect.left,
+                          viewportHeight: window.innerHeight,
+                        },
+                        timestamp: Date.now(),
+                        sessionId: "debug-session",
+                        runId: "run1",
+                        hypothesisId: "A",
+                      }),
+                    }
+                  ).catch(() => {});
                   // #endregion
                 }
               }}
             >
               {/* Sidebar Header */}
               <div className="h-14 px-4 border-b border-gray-300 bg-gray-50 flex items-center justify-between">
-                <span className="text-sm font-medium">Additional App Settings</span>
+                <span className="text-sm font-medium">
+                  Additional App Settings
+                </span>
                 <button
                   onClick={() => setSidebarOpen(false)}
                   className="p-1 hover:bg-gray-200 rounded-md transition-colors"
@@ -847,24 +1035,42 @@ export default function FormBuilder() {
                   <PanelRightClose className="h-5 w-5 text-gray-600" />
                 </button>
               </div>
-              
+
               {/* Scrollable Settings Container */}
               <div className="flex-1 overflow-y-auto">
-                <div className="p-4 pb-20">
-                  {renderAdditionalAppSettings()}
-                </div>
+                <div className="p-4 pb-20">{renderAdditionalAppSettings()}</div>
               </div>
             </div>
           )}
 
           {/* Main Content Area */}
-          <div 
+          <div
             className="flex-1 transition-all duration-300"
             ref={(el) => {
               if (el && sidebarOpen) {
                 // #region agent log
                 const rect = el.getBoundingClientRect();
-                fetch('http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'FormBuilder.tsx:main-content-ref',message:'Main content dimensions with sidebar',data:{width:rect.width,left:rect.left,marginLeft:window.getComputedStyle(el).marginLeft,sidebarWidth:320},timestamp:Date.now(),sessionId:'debug-session',runId:'run2',hypothesisId:'B'})}).catch(()=>{});
+                fetch(
+                  "http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      location: "FormBuilder.tsx:main-content-ref",
+                      message: "Main content dimensions with sidebar",
+                      data: {
+                        width: rect.width,
+                        left: rect.left,
+                        marginLeft: window.getComputedStyle(el).marginLeft,
+                        sidebarWidth: 320,
+                      },
+                      timestamp: Date.now(),
+                      sessionId: "debug-session",
+                      runId: "run2",
+                      hypothesisId: "B",
+                    }),
+                  }
+                ).catch(() => {});
                 // #endregion
               }
             }}
@@ -882,26 +1088,26 @@ export default function FormBuilder() {
                     <PanelLeft className="h-5 w-5 text-gray-600" />
                   </button>
                 )}
-                
+
                 {/* Tabs in center */}
                 <div className="flex items-center justify-center flex-1 gap-0 h-full">
                   <button
-                    onClick={() => setActiveTab('build')}
+                    onClick={() => setActiveTab("build")}
                     className={`px-6 py-2 text-sm font-medium transition-colors h-full flex items-center ${
-                      activeTab === 'build'
-                        ? 'text-primary border-b-2 border-primary'
-                        : 'text-gray-600 hover:text-gray-900'
+                      activeTab === "build"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Build
                   </button>
                   <div className="h-6 w-px bg-gray-300" />
                   <button
-                    onClick={() => setActiveTab('preview')}
+                    onClick={() => setActiveTab("preview")}
                     className={`px-6 py-2 text-sm font-medium transition-colors h-full flex items-center ${
-                      activeTab === 'preview'
-                        ? 'text-primary border-b-2 border-primary'
-                        : 'text-gray-600 hover:text-gray-900'
+                      activeTab === "preview"
+                        ? "text-primary border-b-2 border-primary"
+                        : "text-gray-600 hover:text-gray-900"
                     }`}
                   >
                     Preview
@@ -912,11 +1118,13 @@ export default function FormBuilder() {
 
             {/* Main Content */}
             <div className="container mx-auto py-8 px-4 max-w-7xl">
-              {activeTab === 'build' ? (
+              {activeTab === "build" ? (
                 <>
                   <div className="space-y-6 mb-8">
                     <div className="flex items-center gap-2 mb-4">
-                      <h3 className="text-sm font-medium text-gray-500">App Details</h3>
+                      <h3 className="text-sm font-medium text-gray-500">
+                        App Details
+                      </h3>
                       <TooltipProvider delayDuration={0}>
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -924,7 +1132,8 @@ export default function FormBuilder() {
                           </TooltipTrigger>
                           <TooltipContent side="right" sideOffset={5}>
                             <p className="w-[200px] text-sm">
-                              Provide a name and a description for your app that will be displayed to users.
+                              Provide a name and a description for your app that
+                              will be displayed to users.
                             </p>
                           </TooltipContent>
                         </Tooltip>
@@ -944,11 +1153,14 @@ export default function FormBuilder() {
                         placeholder:text-gray-400"
                       placeholder="Untitled App"
                     />
-                    
+
                     <textarea
                       value={description}
                       onFocus={() => {
-                        if (description === "Tell the user what your app does...") setDescription("");
+                        if (
+                          description === "Tell the user what your app does..."
+                        )
+                          setDescription("");
                       }}
                       onChange={(e) => setDescription(e.target.value)}
                       className="text-lg bg-transparent w-full 
@@ -967,146 +1179,392 @@ export default function FormBuilder() {
                           ref={provided.innerRef}
                           {...provided.droppableProps}
                           className={`min-h-[200px] transition-colors ${
-                            snapshot.isDraggingOver
-                              ? 'bg-primary/5'
-                              : ''
+                            snapshot.isDraggingOver ? "bg-primary/5" : ""
                           }`}
                         >
                           {(() => {
-                            const visibleElements = Array.isArray(elements) ? elements : [];
+                            const visibleElements = Array.isArray(elements)
+                              ? elements
+                              : [];
 
-                            return visibleElements.map((element, index, array) => {
-                              const isLastElement = index === array.length - 1;
+                            return visibleElements.map(
+                              (element, index, array) => {
+                                const isLastElement =
+                                  index === array.length - 1;
 
-                              return (
-                                <React.Fragment key={element.id}>
-                                  <Draggable draggableId={element.id} index={index}>
-                                    {(providedDraggable, snapshotDraggable) => (
-                                      <div
-                                        ref={providedDraggable.innerRef}
-                                        {...providedDraggable.draggableProps}
-                                        className={`mb-4 rounded-lg border border-gray-200 bg-white p-4 ${
-                                          snapshotDraggable.isDragging ? "opacity-80" : ""
-                                        }`}
-                                      >
-                                        <Field
-                                          field={element}
-                                          index={index}
-                                          phaseFields={visibleElements}
-                                          appFields={visibleElements}
-                                          appId={appId}
-                                          dragHandleProps={providedDraggable.dragHandleProps}
-                                          onUpdateFieldLabel={(fieldId, newLabel, isPrompt) => updateFieldLabel(fieldId, newLabel, isPrompt)}
-                                          onUpdateFieldName={(fieldId, newName, isPrompt) => updateFieldName(fieldId, newName, isPrompt)}
-                                          onDeleteField={(fieldId, isPrompt) => deleteField(fieldId, isPrompt)}
-                                          onUpdateFieldDescription={(fieldId, description, isPrompt) => updateFieldDescription(fieldId, description, isPrompt)}
-                                          onUpdateFieldRequired={(fieldId, required, isPrompt) => updateFieldRequired(fieldId, required, isPrompt)}
-                                          onUpdateFieldValidation={(fieldId, minChars, maxChars, isPrompt) => updateFieldValidation(fieldId, minChars, maxChars, isPrompt)}
-                                          onUpdateFieldDefaultValue={(fieldId, defaultValue) => updateFieldDefaultValue(fieldId, defaultValue)}
-                                          onUpdateFieldPlaceholder={(fieldId, placeholder) => updateFieldPlaceholder(fieldId, placeholder)}
-                                          onUpdateFieldChoices={(fieldId, choices) => updateFieldChoices(fieldId, choices)}
-                                          onUpdateFieldShowOther={(fieldId, showOther) => updateFieldShowOther(fieldId, showOther)}
-                                          onUpdateFieldSliderProps={(fieldId, updates) => updateFieldSliderProps(fieldId, updates)}
-                                          onUpdateFieldSliderValue={(fieldId, value) => updateFieldSliderValue(fieldId, value)}
-                                          onUpdatePromptText={(fieldId, text) => updateFieldText(fieldId, text, true)}
-                                          onUpdateRichText={(fieldId, html) => updateFieldRichText(fieldId, html, false)}
-                                          onUpdateConditionalLogic={(fieldId, logic) => handleUpdateConditionalLogic(fieldId, logic, false)}
-                                          onUpdateAiResponseInstructions={(fieldId, instructions) => updateElement(fieldId, { instructions })}
-                                          onUpdateScoringSettings={(fieldId, updates) => updateElement(fieldId, updates)}
-                                          onUpdateImageUploadSettings={(fieldId, settings) => updateImageUploadSettings(fieldId, settings)}
-                                          onUpdateFieldMaxMessages={(fieldId, maxMessages) => updateFieldMaxMessages(fieldId, maxMessages)}
-                                          onUpdateFieldInitialMessage={(fieldId, initialMessage) => updateFieldInitialMessage(fieldId, initialMessage)}
-                                          onUpdateChatbotInstructions={(fieldId, instructions) => updateChatbotInstructions(fieldId, instructions)}
-                                          onUpdateTtsProvider={(fieldId, provider) => updateTtsProvider(fieldId, provider)}
-                                          onUpdateTtsVoiceId={(fieldId, voiceId) => updateTtsVoiceId(fieldId, voiceId)}
-                                          onUpdateTtsEnabled={(fieldId, enabled) => updateTtsEnabled(fieldId, enabled)}
-                                          onUpdateVoiceInstructions={(fieldId, instructions) => updateVoiceInstructions(fieldId, instructions)}
-                                          onUpdateAvatarUrl={(fieldId, avatarUrl) => updateAvatarUrl(fieldId, avatarUrl)}
-                                        />
+                                return (
+                                  <React.Fragment key={element.id}>
+                                    <Draggable
+                                      draggableId={element.id}
+                                      index={index}
+                                    >
+                                      {(
+                                        providedDraggable,
+                                        snapshotDraggable
+                                      ) => (
+                                        <div
+                                          ref={providedDraggable.innerRef}
+                                          {...providedDraggable.draggableProps}
+                                          className={`mb-4 rounded-lg border border-gray-200 bg-white p-4 ${
+                                            snapshotDraggable.isDragging
+                                              ? "opacity-80"
+                                              : ""
+                                          }`}
+                                        >
+                                          <Field
+                                            field={element}
+                                            index={index}
+                                            phaseFields={visibleElements}
+                                            appFields={visibleElements}
+                                            appId={appId}
+                                            dragHandleProps={
+                                              providedDraggable.dragHandleProps
+                                            }
+                                            onUpdateFieldLabel={(
+                                              fieldId,
+                                              newLabel,
+                                              isPrompt
+                                            ) =>
+                                              updateFieldLabel(
+                                                fieldId,
+                                                newLabel,
+                                                isPrompt
+                                              )
+                                            }
+                                            onUpdateFieldName={(
+                                              fieldId,
+                                              newName,
+                                              isPrompt
+                                            ) =>
+                                              updateFieldName(
+                                                fieldId,
+                                                newName,
+                                                isPrompt
+                                              )
+                                            }
+                                            onDeleteField={(
+                                              fieldId,
+                                              isPrompt
+                                            ) => deleteField(fieldId, isPrompt)}
+                                            onUpdateFieldDescription={(
+                                              fieldId,
+                                              description,
+                                              isPrompt
+                                            ) =>
+                                              updateFieldDescription(
+                                                fieldId,
+                                                description,
+                                                isPrompt
+                                              )
+                                            }
+                                            onUpdateFieldRequired={(
+                                              fieldId,
+                                              required,
+                                              isPrompt
+                                            ) =>
+                                              updateFieldRequired(
+                                                fieldId,
+                                                required,
+                                                isPrompt
+                                              )
+                                            }
+                                            onUpdateFieldValidation={(
+                                              fieldId,
+                                              minChars,
+                                              maxChars,
+                                              isPrompt
+                                            ) =>
+                                              updateFieldValidation(
+                                                fieldId,
+                                                minChars,
+                                                maxChars,
+                                                isPrompt
+                                              )
+                                            }
+                                            onUpdateFieldDefaultValue={(
+                                              fieldId,
+                                              defaultValue
+                                            ) =>
+                                              updateFieldDefaultValue(
+                                                fieldId,
+                                                defaultValue
+                                              )
+                                            }
+                                            onUpdateFieldPlaceholder={(
+                                              fieldId,
+                                              placeholder
+                                            ) =>
+                                              updateFieldPlaceholder(
+                                                fieldId,
+                                                placeholder
+                                              )
+                                            }
+                                            onUpdateFieldChoices={(
+                                              fieldId,
+                                              choices
+                                            ) =>
+                                              updateFieldChoices(
+                                                fieldId,
+                                                choices
+                                              )
+                                            }
+                                            onUpdateFieldShowOther={(
+                                              fieldId,
+                                              showOther
+                                            ) =>
+                                              updateFieldShowOther(
+                                                fieldId,
+                                                showOther
+                                              )
+                                            }
+                                            onUpdateFieldSliderProps={(
+                                              fieldId,
+                                              updates
+                                            ) =>
+                                              updateFieldSliderProps(
+                                                fieldId,
+                                                updates
+                                              )
+                                            }
+                                            onUpdateFieldSliderValue={(
+                                              fieldId,
+                                              value
+                                            ) =>
+                                              updateFieldSliderValue(
+                                                fieldId,
+                                                value
+                                              )
+                                            }
+                                            onUpdatePromptText={(
+                                              fieldId,
+                                              text
+                                            ) =>
+                                              updateFieldText(
+                                                fieldId,
+                                                text,
+                                                true
+                                              )
+                                            }
+                                            onUpdateRichText={(fieldId, html) =>
+                                              updateFieldRichText(
+                                                fieldId,
+                                                html,
+                                                false
+                                              )
+                                            }
+                                            onUpdateConditionalLogic={(
+                                              fieldId,
+                                              logic
+                                            ) =>
+                                              handleUpdateConditionalLogic(
+                                                fieldId,
+                                                logic,
+                                                false
+                                              )
+                                            }
+                                            onUpdateAiResponseInstructions={(
+                                              fieldId,
+                                              instructions
+                                            ) =>
+                                              updateElement(fieldId, {
+                                                instructions,
+                                              })
+                                            }
+                                            onUpdateScoringSettings={(
+                                              fieldId,
+                                              updates
+                                            ) =>
+                                              updateElement(fieldId, updates)
+                                            }
+                                            onUpdateImageUploadSettings={(
+                                              fieldId,
+                                              settings
+                                            ) =>
+                                              updateImageUploadSettings(
+                                                fieldId,
+                                                settings
+                                              )
+                                            }
+                                            onUpdateFieldMaxMessages={(
+                                              fieldId,
+                                              maxMessages
+                                            ) =>
+                                              updateFieldMaxMessages(
+                                                fieldId,
+                                                maxMessages
+                                              )
+                                            }
+                                            onUpdateFieldInitialMessage={(
+                                              fieldId,
+                                              initialMessage
+                                            ) =>
+                                              updateFieldInitialMessage(
+                                                fieldId,
+                                                initialMessage
+                                              )
+                                            }
+                                            onUpdateChatbotInstructions={(
+                                              fieldId,
+                                              instructions
+                                            ) =>
+                                              updateChatbotInstructions(
+                                                fieldId,
+                                                instructions
+                                              )
+                                            }
+                                            onUpdateTtsProvider={(
+                                              fieldId,
+                                              provider
+                                            ) =>
+                                              updateTtsProvider(
+                                                fieldId,
+                                                provider
+                                              )
+                                            }
+                                            onUpdateTtsVoiceId={(
+                                              fieldId,
+                                              voiceId
+                                            ) =>
+                                              updateTtsVoiceId(fieldId, voiceId)
+                                            }
+                                            onUpdateTtsEnabled={(
+                                              fieldId,
+                                              enabled
+                                            ) =>
+                                              updateTtsEnabled(fieldId, enabled)
+                                            }
+                                            onUpdateVoiceInstructions={(
+                                              fieldId,
+                                              instructions
+                                            ) =>
+                                              updateVoiceInstructions(
+                                                fieldId,
+                                                instructions
+                                              )
+                                            }
+                                            onUpdateAvatarUrl={(
+                                              fieldId,
+                                              avatarUrl
+                                            ) =>
+                                              updateAvatarUrl(
+                                                fieldId,
+                                                avatarUrl
+                                              )
+                                            }
+                                          />
+                                        </div>
+                                      )}
+                                    </Draggable>
+
+                                    {/* Plus button between cards on its own line with always-visible silver line */}
+                                    {!isLastElement && (
+                                      <div className="group grid grid-cols-[1fr_auto_1fr] items-center gap-2 my-3">
+                                        <div className="h-px w-full bg-gray-300 rounded-full" />
+                                        <Popover
+                                          open={
+                                            addSectionOpenFor ===
+                                            `between-${element.id}`
+                                          }
+                                          onOpenChange={(open) => {
+                                            setAddSectionOpenFor(
+                                              open
+                                                ? `between-${element.id}`
+                                                : null
+                                            );
+                                            if (!open) {
+                                              setInsertAfterIndex(null);
+                                            }
+                                          }}
+                                        >
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="outline"
+                                              size="sm"
+                                              className="h-7 w-7 rounded-full p-0 bg-white border-2 border-gray-300 hover:border-primary hover:bg-primary/5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                              onClick={() => {
+                                                setInsertAfterIndex(index);
+                                              }}
+                                            >
+                                              <Plus className="h-3 w-3" />
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent
+                                            align="center"
+                                            side="bottom"
+                                            className="w-72 p-2"
+                                          >
+                                            <div className="space-y-1">
+                                              {availableSections.map(
+                                                (section) => {
+                                                  const Icon = section.icon;
+                                                  return (
+                                                    <button
+                                                      key={section.id}
+                                                      onClick={() => {
+                                                        addElementToApp(
+                                                          section.id,
+                                                          insertAfterIndex
+                                                        );
+                                                        setAddSectionOpenFor(
+                                                          null
+                                                        );
+                                                      }}
+                                                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                                    >
+                                                      <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-medium text-gray-900">
+                                                          {section.label}
+                                                        </div>
+                                                      </div>
+                                                      <TooltipProvider
+                                                        delayDuration={0}
+                                                      >
+                                                        <Tooltip>
+                                                          <TooltipTrigger
+                                                            asChild
+                                                          >
+                                                            <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                          </TooltipTrigger>
+                                                          <TooltipContent side="right">
+                                                            <p className="max-w-xs text-xs">
+                                                              {section.helper}
+                                                            </p>
+                                                          </TooltipContent>
+                                                        </Tooltip>
+                                                      </TooltipProvider>
+                                                    </button>
+                                                  );
+                                                }
+                                              )}
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                        <div className="h-px w-full bg-gray-300 rounded-full" />
                                       </div>
                                     )}
-                                  </Draggable>
-
-                                  {/* Plus button between cards on its own line with always-visible silver line */}
-                                  {!isLastElement && (
-                                    <div className="group grid grid-cols-[1fr_auto_1fr] items-center gap-2 my-3">
-                                      <div className="h-px w-full bg-gray-300 rounded-full" />
-                                      <Popover
-                                        open={addSectionOpenFor === `between-${element.id}`}
-                                        onOpenChange={(open) => {
-                                          setAddSectionOpenFor(open ? `between-${element.id}` : null);
-                                          if (!open) {
-                                            setInsertAfterIndex(null);
-                                          }
-                                        }}
-                                      >
-                                        <PopoverTrigger asChild>
-                                          <Button
-                                            variant="outline"
-                                            size="sm"
-                                            className="h-7 w-7 rounded-full p-0 bg-white border-2 border-gray-300 hover:border-primary hover:bg-primary/5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
-                                            onClick={() => {
-                                              setInsertAfterIndex(index);
-                                            }}
-                                          >
-                                            <Plus className="h-3 w-3" />
-                                          </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent align="center" side="bottom" className="w-72 p-2">
-                                          <div className="space-y-1">
-                                            {availableSections.map((section) => {
-                                              const Icon = section.icon;
-                                              return (
-                                                <button
-                                                  key={section.id}
-                                                  onClick={() => {
-                                                    addElementToApp(section.id, insertAfterIndex);
-                                                    setAddSectionOpenFor(null);
-                                                  }}
-                                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                                >
-                                                  <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                  <div className="flex-1 min-w-0">
-                                                    <div className="text-xs font-medium text-gray-900">{section.label}</div>
-                                                  </div>
-                                                  <TooltipProvider delayDuration={0}>
-                                                    <Tooltip>
-                                                      <TooltipTrigger asChild>
-                                                        <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                      </TooltipTrigger>
-                                                      <TooltipContent side="right">
-                                                        <p className="max-w-xs text-xs">{section.helper}</p>
-                                                      </TooltipContent>
-                                                    </Tooltip>
-                                                  </TooltipProvider>
-                                                </button>
-                                              );
-                                            })}
-                                          </div>
-                                        </PopoverContent>
-                                      </Popover>
-                                      <div className="h-px w-full bg-gray-300 rounded-full" />
-                                    </div>
-                                  )}
-                                </React.Fragment>
-                              );
-                            });
+                                  </React.Fragment>
+                                );
+                              }
+                            );
                           })()}
                           {provided.placeholder}
-                          
+
                           {/* Add Section button at the end */}
                           <div className="mt-4 flex justify-start">
                             <Popover
                               open={addSectionOpenFor === "end-button"}
                               onOpenChange={(open) => {
-                                setAddSectionOpenFor(open ? "end-button" : null);
+                                setAddSectionOpenFor(
+                                  open ? "end-button" : null
+                                );
                                 if (!open) {
                                   setInsertAfterIndex(null);
                                 }
                               }}
                             >
                               <PopoverTrigger asChild>
-                                <Button 
+                                <Button
                                   variant="default"
                                   size="lg"
                                   className="bg-primary text-primary-foreground hover:bg-primary-600"
@@ -1116,7 +1574,11 @@ export default function FormBuilder() {
                                   Add Section
                                 </Button>
                               </PopoverTrigger>
-                              <PopoverContent align="start" side="bottom" className="w-72 p-2">
+                              <PopoverContent
+                                align="start"
+                                side="bottom"
+                                className="w-72 p-2"
+                              >
                                 <div className="space-y-1">
                                   {availableSections.map((section) => {
                                     const Icon = section.icon;
@@ -1124,14 +1586,19 @@ export default function FormBuilder() {
                                       <button
                                         key={section.id}
                                         onClick={() => {
-                                          addElementToApp(section.id, insertAfterIndex);
+                                          addElementToApp(
+                                            section.id,
+                                            insertAfterIndex
+                                          );
                                           setAddSectionOpenFor(null);
                                         }}
                                         className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
                                       >
                                         <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
                                         <div className="flex-1 min-w-0">
-                                          <div className="text-xs font-medium text-gray-900">{section.label}</div>
+                                          <div className="text-xs font-medium text-gray-900">
+                                            {section.label}
+                                          </div>
                                         </div>
                                         <TooltipProvider delayDuration={0}>
                                           <Tooltip>
@@ -1139,7 +1606,9 @@ export default function FormBuilder() {
                                               <HelpCircle className="h-4 w-4 text-gray-400" />
                                             </TooltipTrigger>
                                             <TooltipContent side="right">
-                                              <p className="max-w-xs text-xs">{section.helper}</p>
+                                              <p className="max-w-xs text-xs">
+                                                {section.helper}
+                                              </p>
                                             </TooltipContent>
                                           </Tooltip>
                                         </TooltipProvider>
@@ -1161,17 +1630,26 @@ export default function FormBuilder() {
                     >
                       <Card>
                         <CollapsibleTrigger asChild>
-                          <Button variant="ghost" className="w-full flex items-center justify-between p-4">
-                            <span className="text-lg font-semibold">JSON Preview</span>
-                            <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
+                          <Button
+                            variant="ghost"
+                            className="w-full flex items-center justify-between p-4"
+                          >
+                            <span className="text-lg font-semibold">
+                              JSON Preview
+                            </span>
+                            <ChevronDown
+                              className={`h-4 w-4 transition-transform ${
+                                isOpen ? "transform rotate-180" : ""
+                              }`}
+                            />
                           </Button>
                         </CollapsibleTrigger>
                         <CollapsibleContent>
                           <div className="p-4 border-t">
-                            <JsonPreview 
+                            <JsonPreview
                               elements={Array.isArray(elements) ? elements : []}
-                              title={title || ''}
-                              description={description || ''}
+                              title={title || ""}
+                              description={description || ""}
                               collection={collectionId || 0}
                               privacySettings={privacy}
                               clonable={clonable}

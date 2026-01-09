@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { MessageCircle, X, Split } from "lucide-react";
+import { MessageCircle, X, Split, CirclePlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
@@ -81,7 +81,10 @@ export default function AIResponseField({
 
       if (
         target.closest("span[data-tag-id]") ||
-        target.closest(".cursor-move")
+        target.closest(".cursor-move") ||
+        target.closest(".instruction-action") ||
+        target.closest('[role="dialog"]') ||
+        target.closest("[data-radix-popper-content-wrapper]")
       ) {
         return;
       }
@@ -848,7 +851,7 @@ export default function AIResponseField({
                               onClick={() =>
                                 handleOpenConditionDialog(instruction.id)
                               }
-                              className="h-8 w-8 p-0 hover:bg-gray-100"
+                              className="h-8 w-8 p-0 hover:bg-gray-100 instruction-action"
                             >
                               <Split className="h-4 w-4" />
                             </Button>
@@ -859,7 +862,7 @@ export default function AIResponseField({
                                 onClick={() =>
                                   handleDeleteInstruction(instruction.id)
                                 }
-                                className="h-8 w-8 p-0 hover:bg-gray-100"
+                                className="h-8 w-8 p-0 hover:bg-gray-100 instruction-action"
                               >
                                 <X className="h-4 w-4" />
                               </Button>
@@ -877,7 +880,8 @@ export default function AIResponseField({
                   onClick={handleAddInstruction}
                   className="text-blue-600 cursor-pointer hover:underline"
                 >
-                  ⊕ Add instructions
+                  <CirclePlus size={16} className="inline-block mr-1" /> Add
+                  instructions
                 </span>
               </div>
 
