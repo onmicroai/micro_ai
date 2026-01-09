@@ -83,6 +83,10 @@ export default function AIResponseField({
     null
   );
 
+  const fieldCondition =
+    field.conditionalLogic &&
+    fields.find((f) => f.id === field.conditionalLogic?.sourceFieldId);
+
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
@@ -741,6 +745,19 @@ export default function AIResponseField({
 
   return (
     <div className="space-y-2">
+      {field.conditionalLogic && fieldCondition && (
+        <InstructionConditionBox
+          property={
+            fieldCondition.name || fieldCondition.label || fieldCondition.id
+          }
+          operator={field.conditionalLogic.operator}
+          value={
+            field.conditionalLogic.value
+              ? String(field.conditionalLogic.value)
+              : undefined
+          }
+        />
+      )}
       <FieldHeader
         icon={MessageCircle}
         label="AI Response"
