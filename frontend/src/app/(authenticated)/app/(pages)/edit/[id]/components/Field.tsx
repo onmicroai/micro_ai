@@ -28,6 +28,7 @@ import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
+import { Draggable } from "@hello-pangea/dnd";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -43,12 +44,6 @@ import { synthesizeSpeech } from '@/utils/textToSpeechService';
 import { Loader2 } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 import AIResponseField from "./fields/AIResponseField";
-
-interface ConditionalLogic {
-  sourceFieldId: string;
-  operator: string;
-  value?: string | number | boolean;
-}
 
 interface VoiceOption {
   id: string;
