@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useParams } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import { Plus, ChevronDown, Upload, X, FileText, Type, AlignLeft, CircleDot, CheckSquare, List, SlidersHorizontal, ToggleLeft, Bot, MessageCircle, ImagePlus, MessagesSquare, PanelLeft, PanelRightClose } from "lucide-react";
 import { Button } from "./ui/button";
@@ -28,12 +29,12 @@ import {
 } from "./ui/select";
 import { Input } from "./ui/input";
 import { useSurveyStore } from "../store/editSurveyStore";
+import AppRuntimeView from "@/components/AppRuntimeView";
 import {
  
   Element,
   Choice,
   ConditionalLogic,
-  AIResponseInstruction,
 } from "@/app/(authenticated)/app/types";
 import {
   Tooltip,
@@ -103,6 +104,9 @@ interface UploadedFile {
 }
 
 export default function FormBuilder() {
+  const params = useParams() ?? {};
+  const hashId = (params.id as string) || "";
+
   const [isOpen, setIsOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
@@ -826,7 +830,7 @@ export default function FormBuilder() {
           {/* Sidebar - opens after first header */}
           {sidebarOpen && (
             <div 
-              className="w-80 bg-gray-50 border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30"
+              className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30"
               ref={(el) => {
                 if (el) {
                   // #region agent log
@@ -837,7 +841,7 @@ export default function FormBuilder() {
               }}
             >
               {/* Sidebar Header */}
-              <div className="h-14 px-4 border-b border-gray-300 bg-gray-50 flex items-center justify-between">
+              <div className="h-14 px-4 border-b border-gray-300 bg-white flex items-center justify-between">
                 <span className="text-sm font-medium">Additional App Settings</span>
                 <button
                   onClick={() => setSidebarOpen(false)}
@@ -911,8 +915,8 @@ export default function FormBuilder() {
             </div>
 
             {/* Main Content */}
-            <div className="container mx-auto py-8 px-4 max-w-7xl">
-              {activeTab === 'build' ? (
+            {activeTab === 'build' ? (
+              <div className="container mx-auto py-8 px-4 max-w-7xl">
                 <>
                   <div className="space-y-6 mb-8">
                     <div className="flex items-center gap-2 mb-4">
@@ -1185,14 +1189,10 @@ export default function FormBuilder() {
                     </Collapsible>
                   </div>
                 </>
-              ) : (
-                <div className="container mx-auto py-8 px-4 max-w-7xl">
-                  <div className="text-center py-20">
-                    <p className="text-gray-500">Preview content coming soon</p>
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            ) : (
+              <AppRuntimeView hashId={hashId} />
+            )}
           </div>
         </div>
       </div>

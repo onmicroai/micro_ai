@@ -20,6 +20,37 @@ interface RunScoreDisplayProps {
    run: Run | null;
 }
 
+export const MarkdownResponseDisplay: React.FC<{
+   content: string;
+   footer?: React.ReactNode;
+   className?: string;
+}> = ({ content, footer, className }) => {
+   if (!content) return null;
+
+   return (
+      <div
+         className={`bg-gradient-to-b from-white to-gray-50/50 border border-gray-200/80 rounded-sm p-6 shadow-sm backdrop-blur-sm ${className || ""}`}
+      >
+         <div className={proseClasses}>
+            <ReactMarkdown
+               remarkPlugins={[remarkGfm, remarkBreaks]}
+               components={{
+                  code: CodeBlock,
+                  table: TableWrapper
+               }}
+            >
+               {content}
+            </ReactMarkdown>
+         </div>
+         {footer ? (
+            <div className="mt-4 pt-4 border-t border-gray-100">
+               {footer}
+            </div>
+         ) : null}
+      </div>
+   );
+};
+
 export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwner = false, isAdmin = false }) => {
    const [copied, setCopied] = useState(false);
    const [liked, setLiked] = useState(false);
@@ -81,52 +112,45 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
    if (!assistantMessage?.content) return null;
 
    return (
-      <div className="mt-6 bg-gradient-to-b from-white to-gray-50/50 border border-gray-200/80 rounded-sm p-6 shadow-sm backdrop-blur-sm">
-         <div className={proseClasses}>
-            <ReactMarkdown 
-               remarkPlugins={[remarkGfm, remarkBreaks]}
-               components={{
-                  code: CodeBlock,
-                  table: TableWrapper 
-               }}
-            >
-               {assistantMessage.content || ''}
-            </ReactMarkdown>
-         </div>
-         <div className="flex justify-between items-center mt-4 pt-4 border-t border-gray-100">
-            <div className="flex space-x-3">
-               <button
-                  type="button"
-                  onClick={() => handleCopy(assistantMessage.content)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                  title={copied ? "Copied!" : "Copy to clipboard"}
-               >
-                  {copied ? <FaCopy /> : <FaRegCopy />}
-               </button>
-               <button
-                  type="button"
-                  onClick={handleLike}
-                  className={`${liked ? 'text-green-500' : 'text-gray-500 hover:text-gray-700'}`}
-                  title="Like"
-               >
-                  <FaThumbsUp />
-               </button>
-               <button
-                  type="button"
-                  onClick={handleDislike}
-                  className={`${disliked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}
-                  title="Dislike"
-               >
-                  <FaThumbsDown />
-               </button>
+      <MarkdownResponseDisplay
+         content={assistantMessage.content || ''}
+         className="mt-6"
+         footer={
+            <div className="flex justify-between items-center">
+               <div className="flex space-x-3">
+                  <button
+                     type="button"
+                     onClick={() => handleCopy(assistantMessage.content)}
+                     className="text-gray-400 hover:text-gray-600 transition-colors"
+                     title={copied ? "Copied!" : "Copy to clipboard"}
+                  >
+                     {copied ? <FaCopy /> : <FaRegCopy />}
+                  </button>
+                  <button
+                     type="button"
+                     onClick={handleLike}
+                     className={`${liked ? 'text-green-500' : 'text-gray-500 hover:text-gray-700'}`}
+                     title="Like"
+                  >
+                     <FaThumbsUp />
+                  </button>
+                  <button
+                     type="button"
+                     onClick={handleDislike}
+                     className={`${disliked ? 'text-red-500' : 'text-gray-500 hover:text-gray-700'}`}
+                     title="Dislike"
+                  >
+                     <FaThumbsDown />
+                  </button>
+               </div>
+               {(isOwner || isAdmin) && (
+                  <span className="text-xs text-gray-400">
+                     Credits Used: {typeof run.credits === 'string' ? Number(run.credits).toFixed(0) : run.credits?.toFixed(0) || '0'}
+                  </span>
+               )}
             </div>
-            {(isOwner || isAdmin) && (
-               <span className="text-xs text-gray-400">
-                  Credits Used: {typeof run.credits === 'string' ? Number(run.credits).toFixed(0) : run.credits?.toFixed(0) || '0'}
-               </span>
-            )}
-         </div>
-      </div>
+         }
+      />
    );
 };
 

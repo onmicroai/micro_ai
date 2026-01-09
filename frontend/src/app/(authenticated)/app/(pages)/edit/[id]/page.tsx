@@ -11,8 +11,7 @@ import Modal from '@/components/modules/custom-prompt-modal/custom-prompt-modal'
 import { SurveyCreatorProps } from '@/app/(authenticated)/app/types';
 import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
-import Link from "next/link";
-import { Video } from 'lucide-react';
+import { Video, BookTextIcon } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied"; 
 import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
@@ -51,10 +50,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
          showModal(errorMessage);
       }
    }, [showModal]);
-
-   const getAppUrl = (hashId: string) => {
-      return `/app/${hashId}`;
-   };
 
    /**
     * Fetches the microapp data and sets the store values
@@ -177,7 +172,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
    const TutorialButton = () => {
       return (
-        <div className="fixed bottom-20 right-6 z-50">
+        <div className="fixed bottom-10 right-6 z-50">
                 <a
                   href="/building-microapps-101"
                   target="_blank"
@@ -186,7 +181,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
                     shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105
                     hover:translate-x-[-8px] group"
                 >
-                  <Video className="h-5 w-5" />
+                  <BookTextIcon className="h-5 w-5" />
                   <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[200px] 
                     transition-all duration-300">
                     Watch Tutorial
@@ -236,18 +231,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
          <>
             <FormBuilder />
             <TutorialButton />
-            <Link 
-               href={getAppUrl(hashId)}
-               id="preview-button"
-               className="fixed bottom-6 right-6 px-6 py-3 shadow-lg z-50
-                  text-primary-foreground
-                  bg-gradient-to-r from-secondary via-primary to-primary
-                  bg-[length:300%_100%] bg-right
-                  hover:bg-left transition-all duration-500
-                  hover:shadow-xl"
-            >
-               Preview
-            </Link>
          </>
          <Modal isOpen={modalInfo.isOpen} onClose={() => setModalInfo({ ...modalInfo, isOpen: false })}>
             <div>{modalInfo.message}</div>

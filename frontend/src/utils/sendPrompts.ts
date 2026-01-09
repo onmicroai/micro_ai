@@ -25,6 +25,16 @@ const handleAIResponse = async (
          store.updateRun(runId, { status: "running" });
       }
 
+      // In streaming mode, streamRun may return before the stream finishes.
+      // We must only resolve this function when onDone/onError fires.
+      let streamCompleted = false;
+      let streamResult: SendPromptResponse | null = null;
+      let streamError: string | null = null;
+      let resolveDone: (() => void) | null = null;
+      const donePromise = new Promise<void>((resolve) => {
+         resolveDone = resolve;
+      });
+
       const response = await streamRun(
             requestBody,
             userId,
@@ -83,6 +93,17 @@ const handleAIResponse = async (
                      promptResponse: accumulated,
                      promptLoading: false,
                   }));
+                  streamCompleted = true;
+                  const latestRun = runId
+                     ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId)
+                     : undefined;
+                  streamResult = {
+                     success: true,
+                     response: accumulated,
+                     run_passed: latestRun?.run_passed,
+                     run_uuid: runId
+                  };
+                  resolveDone?.();
                },
                onError: (err) => {
                   console.error(err);
@@ -94,6 +115,9 @@ const handleAIResponse = async (
                      sendPromptError: String(err),
                      promptLoading: false,
                   }));
+                  streamCompleted = true;
+                  streamError = String(err);
+                  resolveDone?.();
                },
             },
          );
@@ -137,8 +161,14 @@ const handleAIResponse = async (
             };
          }
 
-      const latestRun = runId ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId) : undefined;
-      return { success: true, response: accumulated, run_passed: latestRun?.run_passed } as SendPromptResponse;
+      // Streaming path (response is undefined): wait for onDone/onError.
+      if (!streamCompleted) {
+         await donePromise;
+      }
+      if (streamError) {
+         return { success: false, error: streamError, run_passed: false, run_uuid: runId };
+      }
+      return (streamResult || { success: true, response: accumulated, run_passed: true, run_uuid: runId }) as SendPromptResponse;
    } catch (streamError: any) {
       console.log("Streaming attempt failed, falling back to standard request:", streamError);
    }
