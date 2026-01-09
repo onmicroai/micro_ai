@@ -4,6 +4,7 @@ import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, Surve
 import axiosInstance from "@/utils//axiosInstance";
 import axios from "axios";
 import { sendPromptsUtil } from '@/utils//sendPrompts';
+import { normalizeAppJsonToV2 } from '@/utils/migrateAppJson';
 
 /**
  * Serializes the raw app data into a SurveyJson format.
@@ -13,8 +14,9 @@ import { sendPromptsUtil } from '@/utils//sendPrompts';
  */
 const serializeAppData = (data: any): SurveyJson => {
    let parsedJSON = data || {};
-   let appJson = {
+   let appJson: any = {
       phases: [],
+      elements: undefined,
    };
 
    if (typeof data === "string") {
@@ -41,6 +43,11 @@ const serializeAppData = (data: any): SurveyJson => {
       appJson.phases = [];
    }
 
+   // Normalize legacy/v2 app_json into a canonical v2 elements[] array.
+   // We keep phases for backward compatibility until runtime is fully element-driven.
+   const v2 = normalizeAppJsonToV2(appJson);
+   appJson.elements = v2.elements;
+
    return {
       title: parsedJSON?.title || "",
       description: parsedJSON?.app_json?.description || "",
@@ -52,6 +59,7 @@ const serializeAppData = (data: any): SurveyJson => {
       aiConfig: parsedJSON?.app_json?.aiConfig || [],
       attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
       phases: appJson.phases,
+      elements: appJson.elements,
       completedHtml: parsedJSON?.app_json?.completedHtml || "You've reached the end",
    };
 };
@@ -401,7 +409,8 @@ export const useSurveyStore = create<SurveyStore>()(
          pageIndex: number, 
          userId: number | null, 
          requestSkip: boolean = false,
-         noSubmit: boolean  = false
+         noSubmit: boolean  = false,
+         pageConfigOverride?: { scoredPhase: boolean; rubric: string; minScore: number }
       ): Promise<SendPromptResponse> => {
          set({ promptLoading: true, sendPromptError: null, promptResponse: null });
          const images = get().images; // Get images from store
@@ -415,7 +424,8 @@ export const useSurveyStore = create<SurveyStore>()(
             userId,
             requestSkip,
             set,
-            noSubmit
+            noSubmit,
+            pageConfigOverride
          });
       },
 

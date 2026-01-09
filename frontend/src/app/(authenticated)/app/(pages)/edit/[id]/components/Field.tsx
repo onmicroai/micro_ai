@@ -1,6 +1,6 @@
 "use client";
 
-import { Choice, Element } from "@/app/(authenticated)/app/types";
+import { Choice, Element, ConditionalLogic, ElementInstruction } from "@/app/(authenticated)/app/types";
 import Image from "next/image";
 import {
   GripVertical,
@@ -28,7 +28,7 @@ import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
-import { Draggable } from "@hello-pangea/dnd";
+import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import { useState, useEffect } from "react";
 import {
   Dialog,
@@ -44,11 +44,7 @@ import { synthesizeSpeech } from '@/utils/textToSpeechService';
 import { Loader2 } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
 
-interface ConditionalLogic {
-  sourceFieldId: string;
-  operator: string;
-  value?: string | number | boolean;
-}
+// ConditionalLogic is imported from types.ts
 
 interface VoiceOption {
   id: string;
@@ -91,6 +87,7 @@ interface FieldProps {
   phaseFields: Element[];
   appFields: Element[];
   appId: number | null;
+  dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onUpdateFieldLabel: (
     fieldId: string,
     newLabel: string,
@@ -119,6 +116,8 @@ interface FieldProps {
     isPrompt: boolean
   ) => void;
   onUpdatePromptText?: (fieldId: string, text: string) => void;
+  onUpdateAiResponseInstructions?: (fieldId: string, instructions: ElementInstruction[]) => void;
+  onUpdateScoringSettings?: (fieldId: string, updates: { rubric?: string; minScore?: number }) => void;
   onUpdateFieldDefaultValue: (
     fieldId: string,
     defaultValue: string | string[] | number | boolean
@@ -171,6 +170,7 @@ export default function Field({
   phaseFields,
   appFields,
   appId,
+  dragHandleProps,
   onUpdateFieldLabel,
   onUpdateFieldName,
   onUpdateFieldRequired,
@@ -178,6 +178,8 @@ export default function Field({
   onUpdateFieldDescription,
   onUpdateFieldValidation,
   onUpdatePromptText,
+  onUpdateAiResponseInstructions,
+  onUpdateScoringSettings,
   onUpdateFieldDefaultValue,
   onUpdateFieldPlaceholder,
   onUpdateFieldChoices,
@@ -336,7 +338,7 @@ export default function Field({
   };
 
   const renderField = () => {
-    // Handle prompt-related types separately
+    // Legacy prompt-related types + V2 fixed response
     if (field.type === "prompt" || field.type === "aiInstructions" || field.type === "fixedResponse") {
       return (
         <PromptField
@@ -349,6 +351,97 @@ export default function Field({
           fields={appFields}
           onChange={onUpdatePromptText}
         />
+      );
+    }
+
+    if (field.type === "aiResponse") {
+      const instructions = Array.isArray(field.instructions) ? field.instructions : [{ text: "" }];
+
+      const setInstructions = (next: ElementInstruction[]) => {
+        onUpdateAiResponseInstructions?.(field.id, next);
+      };
+
+      return (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-medium text-gray-900">Instructions</div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setInstructions([...instructions, { text: "" }])}
+            >
+              + Add instruction
+            </Button>
+          </div>
+
+          {instructions.map((inst, idx) => (
+            <div key={`${field.id}-inst-${idx}`} className="relative">
+              <PromptField
+                field={{
+                  id: `${field.id}-inst-${idx}`,
+                  name: `${field.name}-inst-${idx}`,
+                  text: inst.text || ""
+                }}
+                fields={appFields}
+                placeholder="Enter instruction..."
+                onChange={(_id, content) => {
+                  const next = instructions.map((p, i) =>
+                    i === idx ? { ...p, text: content } : p
+                  );
+                  setInstructions(next);
+                }}
+              />
+              {instructions.length > 1 && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
+                  onClick={() => setInstructions(instructions.filter((_, i) => i !== idx))}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (field.type === "title") {
+      return (
+        <Input
+          placeholder="Enter title..."
+          value={field.text || field.label || ""}
+          onChange={(e) => onUpdateFieldLabel(field.id, e.target.value, false)}
+        />
+      );
+    }
+
+    if (field.type === "scoring") {
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-sm">Minimum score</Label>
+            <Input
+              type="number"
+              value={typeof field.minScore === "number" ? field.minScore : 0}
+              onChange={(e) =>
+                onUpdateScoringSettings?.(field.id, { minScore: Number(e.target.value || 0) })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Rubric</Label>
+            <Textarea
+              value={field.rubric || ""}
+              placeholder="Enter rubric..."
+              onChange={(e) => onUpdateScoringSettings?.(field.id, { rubric: e.target.value })}
+              className="min-h-[160px]"
+            />
+          </div>
+        </div>
       );
     }
 
@@ -1152,15 +1245,9 @@ export default function Field({
   };
 
   return (
-    <Draggable draggableId={field.id?.toString() || ""} index={index}>
-      {(provided) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          className="mb-4 p-4 rounded-lg border"
-        >
+    <div>
           <div className="flex gap-4">
-            <div {...provided.dragHandleProps}>
+            <div {...(dragHandleProps || {})}>
               <GripVertical className="h-5 w-5 text-gray-400 cursor-move" />
             </div>
             <div className="flex-1 space-y-2">
@@ -1611,7 +1698,5 @@ export default function Field({
           </div>
           {renderValidationSection()}
         </div>
-      )}
-    </Draggable>
   );
 }

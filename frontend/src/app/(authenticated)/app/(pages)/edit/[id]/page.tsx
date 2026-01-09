@@ -15,6 +15,7 @@ import Link from "next/link";
 import { Video } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied"; 
+import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
 const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) => {
    const api = axiosInstance();
    const appId = useRef<number | null>(null);
@@ -23,7 +24,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
    const collectionId = useRef<number | null>(null);
    const {
-      setPhases,
+      setElements,
       setTitle,
       setDescription,
       setCollectionId,
@@ -88,16 +89,24 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
             if (typeof appData.app_json === 'string') {
                if (appData.app_json.length === 0) {
-                  //First render after creation
-                  appJson = appData;
+                  //First render after creation - use empty object, phases will be initialized with default
+                  appJson = {};
                } else {
                   appJson = structuredClone(JSON.parse(appData.app_json || "{}"));
                }
             } else {
-               appJson = structuredClone(appData.app_json);
+               appJson = structuredClone(appData.app_json || {});
             }
 
-            setPhases(appJson.phases, true, signal);
+            // Normalize/migrate legacy app_json to v2 elements[] so the editor has a canonical shape available.
+            // (Editor will switch to storing elements[] directly in the next step of the migration.)
+            const v2 = normalizeAppJsonToV2(appJson);
+            if (!Array.isArray(appJson.elements)) {
+               appJson.elements = v2.elements;
+            }
+
+            // Editor is V2: always set elements[] (legacy phases were migrated above).
+            setElements(v2.elements || [], true, signal);
             setTitle(appJson.title || "Untitled App", true, signal);
             setDescription(appJson.description, true, signal);
             setPrivacy(getPrivacyName(appJson.privacySettings), true, signal);
@@ -136,7 +145,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       api, 
       handleAPIErrors,
       setAppId, 
-      setPhases, 
+      setElements,
       setTitle, 
       setDescription, 
       setPrivacy, 

@@ -9,19 +9,7 @@ import { fetchLiteLLMModelsSingleton } from '../utils/fetchLiteLLMModels';
 import { updateMicroappCollection } from '../utils/updateMicroappCollection';
 
 const initialState = {
-  phases: [
-    { 
-      id: '1', 
-      name: 'phase1',
-      title: 'Phase 1',
-      description: '', 
-      elements: [], 
-      prompts: [],
-      skipPhase: false,
-      scoredPhase: false,
-      rubric: '',
-    }
-  ],
+  elements: [],
   title: '',
   description: '',
   collectionId: null,
@@ -75,6 +63,17 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
       }));
 
       const api = axiosInstance();
+      const appJsonData: any = {
+        title: state.title,
+        description: state.description,
+        privacySettings: state.privacy,
+        clonable: state.clonable,
+        completedHtml: state.completedHtml,
+        aiConfig: state.aiConfig,
+        attachedFiles: state.attachedFiles,
+        elements: state.elements
+      };
+      
       const data = {
         title: state.title || "Untitled App",
         privacy: state.privacy,
@@ -82,16 +81,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         ai_model: state.aiConfig.aiModel,
         temperature: state.aiConfig.temperature,
         explanation: state.description,
-        app_json: {
-          phases: state.phases,
-          title: state.title,
-          description: state.description,
-          privacySettings: state.privacy,
-          clonable: state.clonable,
-          completedHtml: state.completedHtml,
-          aiConfig: state.aiConfig,
-          attachedFiles: state.attachedFiles
-        },
+        app_json: appJsonData,
       };
 
       await api.put(`/api/microapps/${appId}`, data, {
@@ -146,15 +136,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     setAppId: (id: number | null) => set({ appId: id }),
 
     /**
-     * Sets the phases of the survey
-     * @param phases - The phases of the survey
-     * @param skipServerUpdate - Whether to skip saving to server
-     * @param signal - The AbortSignal to cancel the request
+     * Sets the elements of the builder (V2 schema).
      */
-    setPhases: async (phases, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setElements: async (elements, skipServerUpdate?: boolean, signal?: AbortSignal) => {
       const state = get();
-      if (JSON.stringify(state.phases) !== JSON.stringify(phases)) {
-        set({ phases });
+      if (JSON.stringify(state.elements) !== JSON.stringify(elements)) {
+        set({ elements });
         if (!skipServerUpdate) {
           await get().saveToServer(signal);
         }

@@ -351,6 +351,7 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
+  pageConfigOverride?: ReturnType<typeof getPageConfig>;
   transcriptionCost?: number;
 }): Promise<SendPromptResponse> => {
 const {
@@ -365,6 +366,7 @@ const {
     requestSkip = false,
     set = (s: any) => s,
     noSubmit = false,
+    pageConfigOverride,
     transcriptionCost
   } = options;
 
@@ -402,7 +404,7 @@ const {
 
     const attachedFiles = appConfig?.attachedFiles || [];
    const page = appConfig?.phases?.[pageIndex] || null;
-   const pageConfig = getPageConfig(page);
+   const pageConfig = pageConfigOverride ?? getPageConfig(page);
 
    //Create a run with current settings and 'pending' status
    //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.

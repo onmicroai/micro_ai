@@ -36,7 +36,8 @@ export type sendPrompts = (
   pageIndex: number, 
   userId: number | null, 
   requestSkip: boolean,
-  noSubmit?: boolean
+  noSubmit?: boolean,
+  pageConfigOverride?: { scoredPhase: boolean; rubric: string; minScore: number }
 ) => Promise<SendPromptResponse>;
 
 export interface SurveyStore {
@@ -146,12 +147,43 @@ prompt: Prompt;
 conditionals: [Conditional];
 }
 
+/**
+ * V2 builder/runtime instruction piece used inside an AI Response card.
+ * This is NOT a chat message role; it's a UI-authored prompt part that we
+ * concatenate into a single user prompt at run-time.
+ */
+export interface ElementInstruction {
+  text: string;
+  conditionalLogic?: ConditionalLogic;
+}
+
+export type ElementType =
+  // Input fields
+  | 'text'
+  | 'textarea'
+  | 'radio'
+  | 'checkbox'
+  | 'dropdown'
+  | 'slider'
+  | 'boolean'
+  | 'richText'
+  | 'chat'
+  | 'imageUpload'
+  // Legacy prompt elements (phase-based)
+  | 'prompt'
+  | 'aiInstructions'
+  | 'fixedResponse'
+  // V2 elements (no phases)
+  | 'title'
+  | 'aiResponse'
+  | 'scoring';
+
 export interface Element {
   // Core properties
   id: string;
   name: string;
   title?: string;
-  type: 'text' | 'textarea' | 'radio' | 'checkbox' | 'dropdown' | 'slider' | 'boolean' | 'richText' | 'chat' | 'prompt' | 'aiInstructions' | 'fixedResponse' | 'imageUpload';
+  type: ElementType;
   label: string;
   description?: string;
   isRequired: boolean;
@@ -161,7 +193,22 @@ export interface Element {
   value?: string;
   defaultValue?: string | string[] | number | boolean | undefined;
   placeholder?: string;
-  text?: string;  // For prompt, aiInstructions, and fixedResponse types
+  /**
+   * For legacy phase prompts + fixedResponse, and for some static elements.
+   * V2 AI Response cards should use `instructions[]` instead.
+   */
+  text?: string;
+
+  /**
+   * V2 AI Response card prompt parts (concatenated at run-time).
+   */
+  instructions?: ElementInstruction[];
+
+  /**
+   * V2 scoring card configuration (runtime-run scoring).
+   */
+  rubric?: string;
+  minScore?: number;
   
   // Text input specific
   minChars?: number;
@@ -218,15 +265,24 @@ export interface Choice {
 }
 
 export interface ConditionalLogic {
-  value: string | number | boolean | undefined;
-  operator: string;
   sourceFieldId: string;
+  operator: string;
+  value?: string | number | boolean; // Made optional
 }
 
 export interface SurveyJson {
    title: string;
    description: string;
+   /**
+    * Legacy (phase-based) runtime config.
+    * Existing apps may still contain this shape.
+    */
    phases: SurveyPage[];
+   /**
+    * V2 (no-phases) runtime config.
+    * New apps should prefer this.
+    */
+   elements?: Element[];
    attachedFiles: AttachedFile[];
    id: number;
    hashId: string;
@@ -235,6 +291,21 @@ export interface SurveyJson {
    copyAllowed: boolean;
    completedHtml: string;
    aiConfig: AIConfig;
+}
+
+/**
+ * V2 builder/runtime app_json shape (stored as a string in backend).
+ * Backend is schema-agnostic; frontend owns this contract.
+ */
+export interface AppJsonV2 {
+  title?: string;
+  description?: string;
+  privacySettings?: string;
+  clonable?: boolean;
+  completedHtml?: string;
+  attachedFiles?: AttachedFile[];
+  aiConfig?: AIConfig;
+  elements: Element[];
 }
 
 
@@ -261,7 +332,11 @@ export type PhaseType = {
  };
 
 export interface SurveyState {
-   phases: PhaseType[];
+   /**
+    * V2 editor state: single ordered list of builder elements.
+    * Legacy phases are migrated on load and never authored by the new builder.
+    */
+   elements: Element[];
    title: string | undefined;
    description: string | undefined;
    collectionId: number | null;
@@ -271,7 +346,7 @@ export interface SurveyState {
    attachedFiles: AttachedFile[];
    aiConfig: AIConfig;
    setAIConfig: (aiConfig: AIConfig, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
-   setPhases: (phases: any, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+   setElements: (elements: Element[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
    setTitle: (title: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
    setDescription: (description: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
    setCollectionId: (id: number | null, skipServerUpdate?: boolean, signal?: AbortSignal) => void;

@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Badge } from "../ui/badge";
-import { Prompt, Element } from "@/app/(authenticated)/app/types";
+import { Element } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
 
 interface Tag {
@@ -9,16 +9,23 @@ interface Tag {
 }
 
 interface TagEditorProps {
-  field: Prompt;
+  field: {
+    id: string;
+    name: string;
+    type?: string;
+    text?: string;
+  };
   fields: Element[];
   initialContent?: string;
   onChange?: (fieldId: string, content: string) => void;
+  placeholder?: string;
 }
 
 export default function PromptField({
   field,
   fields,
   onChange,
+  placeholder,
 }: TagEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(field.text || "");
@@ -847,6 +854,7 @@ export default function PromptField({
    * creation for each editor variant.
    */
   const getPlaceholderText = () => {
+    if (placeholder) return placeholder;
     switch (field.type) {
       case "aiInstructions":
         return "Enter instructions for the AI...";
