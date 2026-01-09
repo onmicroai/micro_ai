@@ -33,6 +33,7 @@ import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import { Button } from "./ui/button";
 import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
+import { Draggable } from "@hello-pangea/dnd";
 import { useState, useEffect } from "react";
 import {
   Dialog,
