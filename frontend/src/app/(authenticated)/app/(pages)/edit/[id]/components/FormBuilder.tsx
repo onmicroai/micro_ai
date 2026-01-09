@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from 'react';
-import { DragDropContext } from '@hello-pangea/dnd';
-import { Plus, ChevronDown, Upload, X, FileText, Type, AlignLeft, CircleDot, CheckSquare, List, SlidersHorizontal, ToggleLeft, Bot, MessageCircle, ImagePlus, MessagesSquare, PanelLeft, PanelRightClose } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from "react";
+import { DragDropContext } from "@hello-pangea/dnd";
+import { Plus, ChevronDown, Upload, X, FileText, Type, AlignLeft, CircleDot, CheckSquare, List, SlidersHorizontal, ToggleLeft, Bot, MessageCircle, ImagePlus, MessagesSquare, PanelLeft, PanelRightClose } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
@@ -19,13 +19,30 @@ import JsonPreview from './JsonPreview';
 import Field from './Field';
 import { Droppable, Draggable } from '@hello-pangea/dnd';
 import { Checkbox } from "./ui/checkbox";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "./ui/select";
 import { Input } from "./ui/input";
-import { useSurveyStore } from '../store/editSurveyStore';
-import { Element, Choice, ConditionalLogic } from '@/app/(authenticated)/app/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { HelpCircle } from 'lucide-react';
-import { useDropzone } from 'react-dropzone';
+import { useSurveyStore } from "../store/editSurveyStore";
+import {
+ 
+  Element,
+  Choice,
+  ConditionalLogic,
+  AIResponseInstruction,
+} from "@/app/(authenticated)/app/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import { HelpCircle } from "lucide-react";
+import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
 
 // Options for the "Add section" dialog
@@ -50,18 +67,24 @@ const cardTypes = [
 ];
 
 const ACCEPTED_FILE_TYPES = {
-  'application/pdf': ['.pdf'],
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-  'application/msword': ['.doc'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'application/vnd.ms-excel': ['.xls'],
-  'text/csv': ['.csv'],
-  'text/plain': ['.txt', '.log'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/tiff': ['.tiff'],
-  'image/bmp': ['.bmp']
+  "application/pdf": [".pdf"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
+    ".pptx",
+  ],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+    ".docx",
+  ],
+  "application/msword": [".doc"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+    ".xlsx",
+  ],
+  "application/vnd.ms-excel": [".xls"],
+  "text/csv": [".csv"],
+  "text/plain": [".txt", ".log"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/tiff": [".tiff"],
+  "image/bmp": [".bmp"],
 };
 
 //TO-DO: Just use the backend max file size
@@ -119,67 +142,75 @@ export default function FormBuilder() {
     setAttachedFiles,
   } = useSurveyStore();
 
-  const fileUploader = createFileUploader(appId?.toString() || '');
+  const fileUploader = createFileUploader(appId?.toString() || "");
 
-  const handleFileUpload = useCallback(async (file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      alert('File size must be less than 5MB');
-      return;
-    }
-
-    try {
-      setIsUploading(true);
-      const result = await fileUploader.uploadFile(file);
-      
-      // Extract filename from original_file path
-      const original_filename = result.original_file?.split('/').pop();
-      const text_filename = result.text_file?.split('/').pop();
-      if (!original_filename || !text_filename) {
-        throw new Error('No filename returned from upload');
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      if (file.size > MAX_FILE_SIZE) {
+        alert("File size must be less than 5MB");
+        return;
       }
 
-      const fileData = {
-        original_filename,
-        text_filename,
-        size: file.size,
-        word_count: result.word_count,
-      };
+      try {
+        setIsUploading(true);
+        const result = await fileUploader.uploadFile(file);
 
-      setUploadedFiles(prev => [...prev, {
-        name: file.name,
-        url: result.url,
-        original_filename,
-        text_filename,
-        size: file.size,
-        word_count: result.word_count
-      }]);
+        // Extract filename from original_file path
+        const original_filename = result.original_file?.split("/").pop();
+        const text_filename = result.text_file?.split("/").pop();
+        if (!original_filename || !text_filename) {
+          throw new Error("No filename returned from upload");
+        }
 
-      await addAttachedFile(fileData);
+        const fileData = {
+          original_filename,
+          text_filename,
+          size: file.size,
+          word_count: result.word_count,
+        };
 
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [fileUploader, addAttachedFile]);
+        setUploadedFiles((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            url: result.url,
+            original_filename,
+            text_filename,
+            size: file.size,
+            word_count: result.word_count,
+          },
+        ]);
 
-  const removeFile = useCallback(async (index: number) => {
-    const file = uploadedFiles[index];
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    if (!file.original_filename) {
-      throw new Error('No filename found for file');
-    }
-    await removeAttachedFile(file.original_filename);
-  }, [uploadedFiles, removeAttachedFile]);
+        await addAttachedFile(fileData);
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("Failed to upload file");
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [fileUploader, addAttachedFile]
+  );
+
+  const removeFile = useCallback(
+    async (index: number) => {
+      const file = uploadedFiles[index];
+      setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+      if (!file.original_filename) {
+        throw new Error("No filename found for file");
+      }
+      await removeAttachedFile(file.original_filename);
+    },
+    [uploadedFiles, removeAttachedFile]
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
-      acceptedFiles.forEach(file => handleFileUpload(file));
+      acceptedFiles.forEach((file) => handleFileUpload(file));
     },
     accept: ACCEPTED_FILE_TYPES,
     maxSize: MAX_FILE_SIZE,
-    disabled: isUploading
+    disabled: isUploading,
   });
 
   useEffect(() => {
@@ -187,13 +218,13 @@ export default function FormBuilder() {
     if (!aiConfig.aiModel) {
       setAIConfig({
         ...aiConfig,
-        aiModel: 'gpt-4o-mini'
+        aiModel: "gpt-4o-mini",
       });
     }
     if (!aiConfig.temperature) {
       setAIConfig({
         ...aiConfig,
-        temperature: 0.7
+        temperature: 0.7,
       });
     }
   }, [aiConfig, setAIConfig]);
@@ -202,15 +233,15 @@ export default function FormBuilder() {
   useEffect(() => {
     if (attachedFiles && attachedFiles.length > 0) {
       const files = attachedFiles
-        .filter(file => file && file.original_filename)
-        .map(file => ({
-          name: file.original_filename.split('_')[0],
+        .filter((file) => file && file.original_filename)
+        .map((file) => ({
+          name: file.original_filename.split("_")[0],
           original_filename: file.original_filename,
           text_filename: file.text_filename,
           url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.original_filename}`,
           size: file.size,
           word_count: file.word_count,
-          description: file.description
+          description: file.description,
         }));
       setUploadedFiles(files);
     } else {
@@ -523,14 +554,16 @@ export default function FormBuilder() {
   const updateFileDescription = (index: number, description: string) => {
     const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
 
-    setUploadedFiles(prev => prev.map((file, i) => 
-      i === index ? { ...file, description: truncatedDescription } : file
-    ));
+    setUploadedFiles((prev) =>
+      prev.map((file, i) =>
+        i === index ? { ...file, description: truncatedDescription } : file
+      )
+    );
 
     // Update description in store
     const file = uploadedFiles[index];
     if (file) {
-      const updatedFiles = attachedFiles.map(attachedFile => {
+      const updatedFiles = attachedFiles.map((attachedFile) => {
         return attachedFile.original_filename === file.original_filename
           ? { ...attachedFile, description: truncatedDescription }
           : attachedFile;

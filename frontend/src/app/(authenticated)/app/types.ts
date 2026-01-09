@@ -2,100 +2,111 @@ import { ChangeEvent } from "react";
 
 // Add these new types
 export type Answers = {
-   [key: string]: AnswerValue;
+  [key: string]: AnswerValue;
 };
 
 export type AnswerValue = {
-   value: string | string[];
-   otherValue?: string;
+  value: string | string[];
+  otherValue?: string;
 };
 
 export type Base64Images = {
   [key: string]: {
-    [filename: string]: string;  // filename -> base64 string
+    [filename: string]: string; // filename -> base64 string
   };
 };
 
 export interface SendPromptResponse {
-   success: boolean;
-   response?: any;
-   error?: string;
-   run_passed?: boolean;
-   run_uuid?: string;  // Changed from runId to run_uuid to match API response
+  success: boolean;
+  response?: any;
+  error?: string;
+  run_passed?: boolean;
+  run_uuid?: string; // Changed from runId to run_uuid to match API response
 }
 
-export type setInputValue = (name: string, value: string | string[] | undefined, otherValue: string, type: string) => void;
+export type setInputValue = (
+  name: string,
+  value: string | string[] | undefined,
+  otherValue: string,
+  type: string
+) => void;
 
-export type handleInputChange = (e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => void;
+export type handleInputChange = (
+  e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => void;
 
 export type sendPrompts = (
-  prompts: Prompt[] | null, 
+  prompts: Prompt[] | null,
   answers: Answers,
-  appId: number, 
-  appConfig: SurveyJson | null, 
-  pageIndex: number, 
-  userId: number | null, 
+  appId: number,
+  appConfig: SurveyJson | null,
+  pageIndex: number,
+  userId: number | null,
   requestSkip: boolean,
   noSubmit?: boolean,
   pageConfigOverride?: { scoredPhase: boolean; rubric: string; minScore: number }
 ) => Promise<SendPromptResponse>;
 
 export interface SurveyStore {
-   prompt: string | null; // The current prompt with placeholder replaced by real values
-   aiInstructions: string | null; // The current AI instructions
-   surveyJson: SurveyJson | null;
-   currentPhase: SurveyPage | null;
-   currentPhaseIndex: number; // The index of the current phase. Starts at 0 for the first phase.
-   answers: Answers;
-   images: Base64Images;
-   responses: string[]; // A list of AI responses
-   completedPhases: number[];
-   errors: ErrorObject[];
-   loading: boolean;
-   promptLoading: boolean;
-   promptResponse: any; // The most recent AI response
-   sendPromptError: string | null;
-   appFetchLoading: boolean;
-   appFetchError: {
-      status: number | null;
-      message: string | null;
-   };
-   elements: Element[] | null;
-   processedPrompts: ProcessedPrompts;
-   fetchApp: (hashId: string, privatePage: boolean, signal: AbortSignal) => Promise<boolean>;
-   setPrompt: (prompt: string | null) => void;
-   setAiInstructions: (aiInstructions: string | null) => void;
-   setSurveyJson: (surveyJson: SurveyJson | null) => void;
-   setCurrentPhase: (currentPhase: SurveyPage | null) => void;
-   setCurrentPhaseIndex: (index: number) => void;
-   setAnswers: (updater: (prevAnswers: Answers) => Answers) => void;
-   setImages: (updater: (prevImages: Base64Images) => Base64Images) => void;
-   setResponses: (updater: (prevResponses: string[]) => string[]) => void;
-   setCompletedPhases: (completedPhases: number[]) => void;
-   setErrors: (errors: ErrorObject[]) => void;
-   setLoading: (loading: boolean) => void;
-   setPromptLoading: (loading: boolean) => void;
-   setInputValue: setInputValue;
-   handleInputChange: handleInputChange;
-   sendPrompts: sendPrompts;
-   setElements: (elements: Element[] | null) => void;
-   setPromptResponse: (response: any) => void;
-   setSendPromptError: (error: string | null) => void;
-   reset: () => void;
-   softReset: () => void;
-   setProcessedPrompts: (processedPrompts: ProcessedPrompts) => void;
-   isPromptEmpty: (prompt: string | any[]) => boolean;
-   userRole: string | null;
-   userRoleLoading: boolean;
-   userRoleError: {
-      status: number | null;
-      message: string | null;
-   } | null;
-   fetchUserRole: (
-      hashId: string, 
-      userId: string, 
-      signal: AbortSignal
-   ) => Promise<string | null>;
+  prompt: string | null; // The current prompt with placeholder replaced by real values
+  aiInstructions: string | null; // The current AI instructions
+  surveyJson: SurveyJson | null;
+  currentPhase: SurveyPage | null;
+  currentPhaseIndex: number; // The index of the current phase. Starts at 0 for the first phase.
+  answers: Answers;
+  images: Base64Images;
+  responses: string[]; // A list of AI responses
+  completedPhases: number[];
+  errors: ErrorObject[];
+  loading: boolean;
+  promptLoading: boolean;
+  promptResponse: any; // The most recent AI response
+  sendPromptError: string | null;
+  appFetchLoading: boolean;
+  appFetchError: {
+    status: number | null;
+    message: string | null;
+  };
+  elements: Element[] | null;
+  processedPrompts: ProcessedPrompts;
+  fetchApp: (
+    hashId: string,
+    privatePage: boolean,
+    signal: AbortSignal
+  ) => Promise<boolean>;
+  setPrompt: (prompt: string | null) => void;
+  setAiInstructions: (aiInstructions: string | null) => void;
+  setSurveyJson: (surveyJson: SurveyJson | null) => void;
+  setCurrentPhase: (currentPhase: SurveyPage | null) => void;
+  setCurrentPhaseIndex: (index: number) => void;
+  setAnswers: (updater: (prevAnswers: Answers) => Answers) => void;
+  setImages: (updater: (prevImages: Base64Images) => Base64Images) => void;
+  setResponses: (updater: (prevResponses: string[]) => string[]) => void;
+  setCompletedPhases: (completedPhases: number[]) => void;
+  setErrors: (errors: ErrorObject[]) => void;
+  setLoading: (loading: boolean) => void;
+  setPromptLoading: (loading: boolean) => void;
+  setInputValue: setInputValue;
+  handleInputChange: handleInputChange;
+  sendPrompts: sendPrompts;
+  setElements: (elements: Element[] | null) => void;
+  setPromptResponse: (response: any) => void;
+  setSendPromptError: (error: string | null) => void;
+  reset: () => void;
+  softReset: () => void;
+  setProcessedPrompts: (processedPrompts: ProcessedPrompts) => void;
+  isPromptEmpty: (prompt: string | any[]) => boolean;
+  userRole: string | null;
+  userRoleLoading: boolean;
+  userRoleError: {
+    status: number | null;
+    message: string | null;
+  } | null;
+  fetchUserRole: (
+    hashId: string,
+    userId: string,
+    signal: AbortSignal
+  ) => Promise<string | null>;
 }
 
 export interface SurveyPage {
@@ -113,38 +124,44 @@ export interface SurveyPage {
 export interface Prompt {
   id: string;
   name: string;
-  type: 'prompt' | 'aiInstructions' | 'fixedResponse';
-  text?: string;  // Make text optional
+  type: "prompt" | "aiInstructions" | "fixedResponse" | "aiResponse";
+  text?: string; // Make text optional
   label?: string;
   aiPromptProperty?: string; // AI prompt property
   aiModel?: string; // AI model
   temperature?: number;
   conditionalLogic?: ConditionalLogic;
+  instructions?: AIResponseInstruction[];
+}
+
+export interface AIResponseInstruction {
+  text: string;
+  conditionalLogic?: ConditionalLogic;
 }
 
 export interface Value {
-   name: string;
-   value: string;
- }
+  name: string;
+  value: string;
+}
 
 export interface Conditional {
-   question: string;
-   operator: string;
-   value: string;
- }
+  question: string;
+  operator: string;
+  value: string;
+}
 
 export interface Instruction {
-   prompt: Prompt;
-   conditionals: Conditional[];
- }
- 
+  prompt: Prompt;
+  conditionals: Conditional[];
+}
+
 export interface Instructions {
-instructions: Instruction[];
+  instructions: Instruction[];
 }
 
 export interface AiInstruction {
-prompt: Prompt;
-conditionals: [Conditional];
+  prompt: Prompt;
+  conditionals: [Conditional];
 }
 
 /**
@@ -188,7 +205,7 @@ export interface Element {
   description?: string;
   isRequired: boolean;
   readOnly?: boolean;
-  
+
   // Value and default properties
   value?: string;
   defaultValue?: string | string[] | number | boolean | undefined;
@@ -213,7 +230,7 @@ export interface Element {
   // Text input specific
   minChars?: number;
   maxChars?: number;
-  
+
   // Choice-based fields (radio, checkbox, dropdown)
   choices?: Choice[];
   showOtherItem?: boolean;
@@ -222,39 +239,39 @@ export interface Element {
   otherErrorText?: string;
   showNoneItem?: boolean;
   noneText?: string;
-  
+
   // Slider specific
   minValue?: number;
   maxValue?: number;
   step?: number;
-  
+
   // Boolean specific
   labelTrue?: string;
   labelFalse?: string;
   swapOrder?: boolean;
-  
+
   // Rich text specific
   html?: string;
-  
+
   // Image upload specific
   multiple?: boolean;
   maxFiles?: number;
   maxFileSize?: number;
   allowedFileTypes?: string[];
-  
+
   // Chat specific
   maxMessages?: number;
   initialMessage?: string;
   chatbotInstructions?: string;
-  avatarUrl?: string;  // URL for the chat avatar image
-  
+  avatarUrl?: string; // URL for the chat avatar image
+
   // TTS specific (for chat fields)
   ttsProvider?: string;
   selectedVoiceId?: string;
-  customVoiceId?: string;  // ID of the generated custom voice when selectedVoiceId is 'custom'
+  customVoiceId?: string; // ID of the generated custom voice when selectedVoiceId is 'custom'
   enableTts?: boolean;
   voiceInstructions?: string;
-  
+
   // Conditional logic
   conditionalLogic?: ConditionalLogic;
 }
@@ -310,26 +327,26 @@ export interface AppJsonV2 {
 
 
 export interface SurveyCreatorProps {
-   hashId: string;
- }
+  hashId: string;
+}
 
 export type ChoiceType = {
-value: string;
-text: string;
+  value: string;
+  text: string;
 };
 
 export type PhaseType = {
-   id: string;
-   name: string;
-   title: string;
-   description: string;
-   elements: Element[];
-   prompts: Element[];
-   skipPhase: boolean;
-   scoredPhase: boolean;
-   rubric: string;
-   minScore?: number;
- };
+  id: string;
+  name: string;
+  title: string;
+  description: string;
+  elements: Element[];
+  prompts: Element[];
+  skipPhase: boolean;
+  scoredPhase: boolean;
+  rubric: string;
+  minScore?: number;
+};
 
 export interface SurveyState {
    /**
@@ -389,11 +406,11 @@ export interface SurveyState {
   }
 
 export interface AttachedFile {
-   original_filename: string;
-   text_filename: string;
-   size: number;
-   word_count?: number;
-   description?: string;
+  original_filename: string;
+  text_filename: string;
+  size: number;
+  word_count?: number;
+  description?: string;
 }
 
 export interface AIConfig {
@@ -424,8 +441,8 @@ export interface RenderPromptProps {
 }
 
 export interface ErrorObject {
-   element: string;
-   error: string;
+  element: string;
+  error: string;
 }
 
 export interface ProcessedPrompts {

@@ -9,7 +9,6 @@ import {
   ChevronUp,
   Settings,
   Play,
-  
   Repeat2,
   User,
 } from "lucide-react";
@@ -43,8 +42,13 @@ import { createImageUploader } from "@/utils/imageUpload";
 import { synthesizeSpeech } from '@/utils/textToSpeechService';
 import { Loader2 } from 'lucide-react';
 import { useUserStore } from '@/store/userStore';
+import AIResponseField from "./fields/AIResponseField";
 
-// ConditionalLogic is imported from types.ts
+interface ConditionalLogic {
+  sourceFieldId: string;
+  operator: string;
+  value?: string | number | boolean;
+}
 
 interface VoiceOption {
   id: string;
@@ -54,31 +58,31 @@ interface VoiceOption {
 }
 
 const VOICE_OPTIONS: VoiceOption[] = [
-   {
-      id: 'shimmer',
-      name: 'Shimmer',
-      description: 'A bright, energetic voice perfect for engaging users',
-      avatarUrl: '/img/voices/shimmer.png'
-    },   
   {
-    id: 'ash',
-    name: 'Ash',
-    description: 'A warm, friendly voice with a natural conversational tone',
-    avatarUrl: '/img/voices/ash.png'
+    id: "shimmer",
+    name: "Shimmer",
+    description: "A bright, energetic voice perfect for engaging users",
+    avatarUrl: "/img/voices/shimmer.png",
+  },
+  {
+    id: "ash",
+    name: "Ash",
+    description: "A warm, friendly voice with a natural conversational tone",
+    avatarUrl: "/img/voices/ash.png",
   },
 
   {
-    id: 'onyx',
-    name: 'Onyx',
-    description: 'Deep, smooth, masculine',
-    avatarUrl: '/img/voices/onyx.png'
+    id: "onyx",
+    name: "Onyx",
+    description: "Deep, smooth, masculine",
+    avatarUrl: "/img/voices/onyx.png",
   },
   {
-    id: 'nova',
-    name: 'Nova',
-    description: 'Youthful, clear, gender-neutral',
-    avatarUrl: '/img/voices/nova.png'
-  }
+    id: "nova",
+    name: "Nova",
+    description: "Youthful, clear, gender-neutral",
+    avatarUrl: "/img/voices/nova.png",
+  },
 ];
 
 interface FieldProps {
@@ -217,15 +221,21 @@ export default function Field({
     string | number | boolean
   >(field.conditionalLogic?.value || "");
   const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-  
+
   // Voice sample caching
-  const [cachedVoiceSamples, setCachedVoiceSamples] = useState<Record<string, string>>({});
+  const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
+    Record<string, string>
+  >({});
   const [isGeneratingSample, setIsGeneratingSample] = useState(false);
 
   // Create a cache key for the current voice configuration
   const getVoiceCacheKey = () => {
-    const sampleText = field.initialMessage || "Hello! This is a sample of my voice. I hope you like it!";
-    return `${field.selectedVoiceId || 'ash'}-${field.ttsProvider || 'openai'}-${field.voiceInstructions || ''}-${sampleText}`;
+    const sampleText =
+      field.initialMessage ||
+      "Hello! This is a sample of my voice. I hope you like it!";
+    return `${field.selectedVoiceId || "ash"}-${
+      field.ttsProvider || "openai"
+    }-${field.voiceInstructions || ""}-${sampleText}`;
   };
 
   const currentCacheKey = getVoiceCacheKey();
@@ -238,7 +248,6 @@ export default function Field({
       setConditionValue(field.conditionalLogic.value || "");
     }
   }, [field.conditionalLogic]);
-
 
   const handleAddOption = () => {
     const newChoices = [
@@ -325,7 +334,7 @@ export default function Field({
 
   const handleAvatarUpload = async (file: File) => {
     if (!appId) return;
-    
+
     try {
       const imageUploader = createImageUploader(appId.toString());
       const result = await imageUploader.uploadFile(file);
@@ -333,24 +342,79 @@ export default function Field({
         onUpdateAvatarUrl(field.id, result.url);
       }
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      console.error("Error uploading avatar:", error);
     }
   };
 
   const renderField = () => {
     // Legacy prompt-related types + V2 fixed response
-    if (field.type === "prompt" || field.type === "aiInstructions" || field.type === "fixedResponse") {
+    if (
+      field.type === "prompt" ||
+      field.type === "aiInstructions" ||
+      field.type === "fixedResponse"
+    ) {
       return (
         <PromptField
           field={{
             id: field.id,
             name: field.name,
             type: field.type,
-            text: field.text
+            text: field.text,
           }}
           fields={appFields}
           onChange={onUpdatePromptText}
         />
+      );
+    } else if (field.type === "aiResponse") {
+      return (
+        <AIResponseField
+          field={{
+            id: field.id,
+            name: field.name,
+            type: "aiResponse",
+            text: field.text,
+            instructions: field.instructions,
+          }}
+          fields={appFields}
+          onDelete={() => onDeleteField(field.id, true)}
+          onChange={onUpdatePromptText}
+        />
+      );
+    }
+
+    if (field.type === "title") {
+      return (
+        <Input
+          placeholder="Enter title..."
+          value={field.text || field.label || ""}
+          onChange={(e) => onUpdateFieldLabel(field.id, e.target.value, false)}
+        />
+      );
+    }
+
+    if (field.type === "scoring") {
+      return (
+        <div className="space-y-3">
+          <div className="space-y-1">
+            <Label className="text-sm">Minimum score</Label>
+            <Input
+              type="number"
+              value={typeof field.minScore === "number" ? field.minScore : 0}
+              onChange={(e) =>
+                onUpdateScoringSettings?.(field.id, { minScore: Number(e.target.value || 0) })
+              }
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-sm">Rubric</Label>
+            <Textarea
+              value={field.rubric || ""}
+              placeholder="Enter rubric..."
+              onChange={(e) => onUpdateScoringSettings?.(field.id, { rubric: e.target.value })}
+              className="min-h-[160px]"
+            />
+          </div>
+        </div>
       );
     }
 
@@ -1013,8 +1077,10 @@ export default function Field({
             <div className="space-y-2">
               <label className="text-sm font-medium">Initial Message</label>
               <textarea
-                value={field.initialMessage || ''}
-                onChange={(e) => onUpdateFieldInitialMessage?.(field.id, e.target.value)}
+                value={field.initialMessage || ""}
+                onChange={(e) =>
+                  onUpdateFieldInitialMessage?.(field.id, e.target.value)
+                }
                 className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
                 placeholder="Enter initial message..."
               />
@@ -1035,7 +1101,6 @@ export default function Field({
               />
             </div>
 
-            
             {/* TTS Configuration Section */}
             <div className="border-t pt-4 space-y-4">
               <div className="flex items-center space-x-2">
@@ -1048,15 +1113,20 @@ export default function Field({
                   }}
                 />
                 <div>
-                  <label className="text-sm font-medium">Enable Voice Conversations</label>
-                  <p className="text-xs text-gray-500 mt-1">Allow users to speak with the chatbot and hear responses out loud</p>
+                  <label className="text-sm font-medium">
+                    Enable Voice Conversations
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Allow users to speak with the chatbot and hear responses out
+                    loud
+                  </p>
                 </div>
               </div>
-              
+
               {field.enableTts && (
                 <div className="space-y-4">
                   <RadioGroup
-                    value={field.selectedVoiceId || ''}
+                    value={field.selectedVoiceId || ""}
                     onValueChange={(value: string) => {
                       if (onUpdateTtsVoiceId) {
                         onUpdateTtsVoiceId(field.id, value);
@@ -1074,8 +1144,8 @@ export default function Field({
                           }}
                           className={`relative border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md ${
                             field.selectedVoiceId === voice.id
-                              ? 'border-primary bg-primary/5 ring-2 ring-primary/20'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                              ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                              : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
                           }`}
                         >
                           <div className="flex items-start space-x-3">
@@ -1097,7 +1167,9 @@ export default function Field({
                                   className="ml-2 pointer-events-none"
                                 />
                               </div>
-                              <p className="text-sm text-gray-500 mt-1">{voice.description}</p>
+                              <p className="text-sm text-gray-500 mt-1">
+                                {voice.description}
+                              </p>
                             </div>
                           </div>
                         </div>
@@ -1106,12 +1178,16 @@ export default function Field({
                   </RadioGroup>
 
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">Voice Instructions</label>
+                    <label className="text-sm font-medium">
+                      Voice Instructions
+                    </label>
                     <p className="text-xs text-gray-500">
-                      Add specific instructions for how the voice should sound (e.g., &quot;Speak with enthusiasm&quot; or &quot;Use a calm, soothing tone&quot;)
+                      Add specific instructions for how the voice should sound
+                      (e.g., &quot;Speak with enthusiasm&quot; or &quot;Use a
+                      calm, soothing tone&quot;)
                     </p>
                     <Textarea
-                      value={field.voiceInstructions || ''}
+                      value={field.voiceInstructions || ""}
                       onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
                         if (onUpdateVoiceInstructions) {
                           onUpdateVoiceInstructions(field.id, e.target.value);
@@ -1129,32 +1205,36 @@ export default function Field({
                         try {
                           if (hasCachedSample && !isGeneratingSample) {
                             // Play cached sample
-                            const audio = new Audio(cachedVoiceSamples[currentCacheKey]);
+                            const audio = new Audio(
+                              cachedVoiceSamples[currentCacheKey]
+                            );
                             audio.play();
                           } else {
                             // Generate new sample
                             setIsGeneratingSample(true);
-                            const sampleText = field.initialMessage || "Hello! This is a sample of my voice. I hope you like it!";
+                            const sampleText =
+                              field.initialMessage ||
+                              "Hello! This is a sample of my voice. I hope you like it!";
                             const audioUrl = await synthesizeSpeech(
                               sampleText,
-                              'openai',
-                              field.selectedVoiceId || 'ash',
+                              "openai",
+                              field.selectedVoiceId || "ash",
                               field.voiceInstructions,
                               user?.id || null
                             );
-                            
+
                             // Cache the sample
-                            setCachedVoiceSamples(prev => ({
+                            setCachedVoiceSamples((prev) => ({
                               ...prev,
-                              [currentCacheKey]: audioUrl
+                              [currentCacheKey]: audioUrl,
                             }));
-                            
+
                             // Play the sample
                             const audio = new Audio(audioUrl);
                             audio.play();
                           }
                         } catch (error) {
-                          console.error('Error playing voice sample:', error);
+                          console.error("Error playing voice sample:", error);
                         } finally {
                           setIsGeneratingSample(false);
                         }
@@ -1168,12 +1248,11 @@ export default function Field({
                         <Play className="w-4 h-4" />
                       )}
                       <span>
-                        {isGeneratingSample 
-                          ? "Generating..." 
-                          : hasCachedSample 
-                            ? "Play Sample" 
-                            : "Generate Sample"
-                        }
+                        {isGeneratingSample
+                          ? "Generating..."
+                          : hasCachedSample
+                          ? "Play Sample"
+                          : "Generate Sample"}
                       </span>
                     </Button>
                   </div>
@@ -1187,6 +1266,34 @@ export default function Field({
     }
   };
 
+  if (field.type === "aiResponse") {
+    return (
+      <Draggable draggableId={field.id?.toString() || ""} index={index}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            className="mb-4 p-4 rounded-lg border"
+          >
+            <AIResponseField
+              field={{
+                id: field.id,
+                name: field.name,
+                type: "aiResponse",
+                text: field.text,
+                instructions: field.instructions,
+              }}
+              fields={appFields}
+              onDelete={() => onDeleteField(field.id, true)}
+              onChange={onUpdatePromptText}
+              dragHandleProps={provided.dragHandleProps || undefined}
+              onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
+            />
+          </div>
+        )}
+      </Draggable>
+    );
+  }
   const renderValidationSection = () => {
     if (field.type === "text" || field.type === "textarea") {
       return (
@@ -1473,8 +1580,9 @@ export default function Field({
                           </SelectTrigger>
                           <SelectContent>
                             {getOperatorsForElement(
-                              phaseFields.find((f) => f.id === selectedSourceField)
-                                ?.type || ""
+                              phaseFields.find(
+                                (f) => f.id === selectedSourceField
+                              )?.type || ""
                             ).map((op) => (
                               <SelectItem key={op.value} value={op.value}>
                                 {op.label}

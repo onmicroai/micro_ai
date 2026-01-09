@@ -29,7 +29,7 @@ export default function JsonPreview({
   clonable,
   completedHtml,
   attachedFiles,
-  aiConfig
+  aiConfig,
 }: JsonPreviewProps) {
   const formData = {
     title,
@@ -38,12 +38,12 @@ export default function JsonPreview({
     privacySettings,
     clonable,
     completedHtml,
-    attachedFiles: attachedFiles.map(file => ({
+    attachedFiles: attachedFiles.map((file) => ({
       original_filename: file.original_filename,
       text_filename: file.text_filename,
       size: file.size,
       word_count: file.word_count,
-      description: file.description
+      description: file.description,
     })),
     aiConfig: {
       aiModel: aiConfig.aiModel,
