@@ -1290,26 +1290,20 @@ export default function Field({
     return (
       <Draggable draggableId={field.id?.toString() || ""} index={index}>
         {(provided) => (
-          <div
-            ref={provided.innerRef}
-            {...provided.draggableProps}
-            className="mb-4 p-4 rounded-lg border"
-          >
-            <AIResponseField
-              field={{
-                id: field.id,
-                name: field.name,
-                type: "aiResponse",
-                text: field.text,
-                instructions: field.instructions,
-              }}
-              fields={appFields}
-              onDelete={() => onDeleteField(field.id, true)}
-              onChange={onUpdatePromptText}
-              dragHandleProps={provided.dragHandleProps || undefined}
-              onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
-            />
-          </div>
+          <AIResponseField
+            field={{
+              id: field.id,
+              name: field.name,
+              type: "aiResponse",
+              text: field.text,
+              instructions: field.instructions,
+            }}
+            fields={appFields}
+            onDelete={() => onDeleteField(field.id, true)}
+            onChange={onUpdatePromptText}
+            dragHandleProps={provided.dragHandleProps || undefined}
+            onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
+          />
         )}
       </Draggable>
     );
