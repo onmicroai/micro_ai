@@ -1,23 +1,9 @@
 "use client";
 
-import {
-  Choice,
-  Element,
-  ConditionalLogic,
-  ElementInstruction,
-} from "@/app/(authenticated)/app/types";
-import Image from "next/image";
-import {
-  GripVertical,
-  Trash2,
-  ChevronDown,
-  ChevronUp,
-  Settings,
-  Play,
-  Repeat2,
-  User,
-} from "lucide-react";
+import { Repeat2, User } from "lucide-react";
+import React, { useState } from "react";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { Checkbox } from "./ui/checkbox";
@@ -28,27 +14,83 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./ui/select";
-import { Slider } from "./ui/slider";
 import { Switch } from "./ui/switch";
-import { Label } from "./ui/label";
+import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
-import type { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
-import { Draggable } from "@hello-pangea/dnd";
-import { useState, useEffect } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "./ui/dialog";
-import { RichText } from "./fields/RichText";
+import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import PromptField from "./fields/PromptField";
-import { createImageUploader } from "@/utils/imageUpload";
-import { synthesizeSpeech } from "@/utils/textToSpeechService";
-import { Loader2 } from "lucide-react";
-import { useUserStore } from "@/store/userStore";
 import AIResponseField from "./fields/AIResponseField";
+import { RichText } from "./fields/RichText";
+import { createImageUploader } from "@/utils/imageUpload";
+import {
+  Element,
+  ConditionalLogic,
+  ElementInstruction,
+  Choice,
+} from "@/app/(authenticated)/app/types";
+import { useUserStore } from "@/store/userStore";
+import FieldHeader from "./shared/FieldHeader";
+import Image from "next/image";
+import {
+  Type,
+  AlignLeft,
+  CircleDot,
+  CheckSquare,
+  List,
+  SlidersHorizontal,
+  ToggleLeft,
+  MessageSquare,
+  FileText,
+  Bot,
+  MessageCircle,
+  ImagePlus,
+  MessagesSquare,
+} from "lucide-react";
+import { synthesizeSpeech } from "@/utils/textToSpeechService";
+import { Play, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+
+const FIELD_ICONS: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
+  text: Type,
+  textarea: AlignLeft,
+  radio: CircleDot,
+  checkbox: CheckSquare,
+  dropdown: List,
+  slider: SlidersHorizontal,
+  boolean: ToggleLeft,
+  richText: FileText,
+  imageUpload: ImagePlus,
+  chat: MessagesSquare,
+  prompt: MessageSquare,
+  aiInstructions: Bot,
+  fixedResponse: MessageCircle,
+  aiResponse: MessageCircle,
+  scoring: SlidersHorizontal,
+  title: Type,
+};
+
+const FIELD_LABELS: Record<string, string> = {
+  text: "Single Line",
+  textarea: "Long Text",
+  radio: "Radio Buttons",
+  checkbox: "Checkboxes",
+  dropdown: "Dropdown",
+  slider: "Slider",
+  boolean: "Boolean",
+  richText: "Rich Text",
+  imageUpload: "Image Upload",
+  chat: "Chatbot",
+  prompt: "Prompt",
+  aiInstructions: "AI Instructions",
+  fixedResponse: "Fixed Response",
+  aiResponse: "AI Response",
+  scoring: "Scoring",
+  title: "Title",
+};
 
 interface VoiceOption {
   id: string;
@@ -138,11 +180,7 @@ interface FieldProps {
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
   onUpdateFieldSliderProps: (
     fieldId: string,
-    updates: {
-      minValue?: number;
-      maxValue?: number;
-      step?: number;
-    }
+    updates: { minValue?: number; maxValue?: number; step?: number }
   ) => void;
   onUpdateConditionalLogic?: (
     fieldId: string,
@@ -176,7 +214,6 @@ interface FieldProps {
 
 export default function Field({
   field,
-  index,
   phaseFields,
   appFields,
   appId,
@@ -208,6 +245,7 @@ export default function Field({
   onUpdateAvatarUrl,
 }: FieldProps) {
   const { user } = useUserStore();
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isValidationExpanded, setValidationExpanded] = useState(false);
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
@@ -217,17 +255,6 @@ export default function Field({
   const [sliderDefault, setSliderDefault] = useState(50);
   const [sliderStep, setSliderStep] = useState(1);
   const [showDescription, setShowDescription] = useState(false);
-  const [selectedSourceField, setSelectedSourceField] = useState<string>(
-    field.conditionalLogic?.sourceFieldId || ""
-  );
-  const [selectedOperator, setSelectedOperator] = useState<string>(
-    field.conditionalLogic?.operator || ""
-  );
-  const [conditionValue, setConditionValue] = useState<
-    string | number | boolean
-  >(field.conditionalLogic?.value || "");
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
-
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
     Record<string, string>
@@ -246,14 +273,6 @@ export default function Field({
 
   const currentCacheKey = getVoiceCacheKey();
   const hasCachedSample = !!cachedVoiceSamples[currentCacheKey];
-
-  useEffect(() => {
-    if (field.conditionalLogic) {
-      setSelectedSourceField(field.conditionalLogic.sourceFieldId);
-      setSelectedOperator(field.conditionalLogic.operator);
-      setConditionValue(field.conditionalLogic.value || "");
-    }
-  }, [field.conditionalLogic]);
 
   const handleAddOption = () => {
     const newChoices = [
@@ -289,55 +308,6 @@ export default function Field({
     );
   };
 
-  const getOperatorsForElement = (Element: string) => {
-    const operators = [];
-
-    // Basic equality operators shared by most types
-    switch (Element) {
-      case "text":
-      case "textarea":
-      case "radio":
-      case "dropdown":
-      case "boolean":
-      case "slider":
-        operators.push(
-          { value: "equals", label: "Equals" },
-          { value: "not_equals", label: "Does not equal" }
-        );
-    }
-
-    // Additional operators for text fields
-    switch (Element) {
-      case "text":
-      case "textarea":
-      case "radio":
-      case "checkbox":
-      case "dropdown":
-        operators.push(
-          { value: "contains", label: "Contains" },
-          { value: "not_contains", label: "Does not contain" },
-          { value: "is_empty", label: "Is empty" },
-          { value: "is_not_empty", label: "Is not empty" }
-        );
-        break;
-
-      case "slider":
-        operators.push(
-          { value: "greater_than", label: "Greater than" },
-          { value: "less_than", label: "Less than" },
-          { value: "greater_than_or_equal", label: "Greater than or equal to" },
-          { value: "less_than_or_equal", label: "Less than or equal to" }
-        );
-        break;
-    }
-
-    return operators;
-  };
-
-  const operatorNeedsValue = (operator: string) => {
-    return !["is_empty", "is_not_empty"].includes(operator);
-  };
-
   const handleAvatarUpload = async (file: File) => {
     if (!appId) return;
 
@@ -351,6 +321,13 @@ export default function Field({
       console.error("Error uploading avatar:", error);
     }
   };
+
+  const isPromptType =
+    field.type === "prompt" ||
+    field.type === "aiInstructions" ||
+    field.type === "fixedResponse";
+  const isSpecialType =
+    isPromptType || field.type === "richText" || field.type === "aiResponse";
 
   const renderField = () => {
     // Legacy prompt-related types + V2 fixed response
@@ -371,7 +348,9 @@ export default function Field({
           onChange={onUpdatePromptText}
         />
       );
-    } else if (field.type === "aiResponse") {
+    }
+
+    if (field.type === "aiResponse") {
       return (
         <AIResponseField
           field={{
@@ -380,112 +359,27 @@ export default function Field({
             type: "aiResponse",
             text: field.text,
             instructions: field.instructions,
+            conditionalLogic: field.conditionalLogic,
           }}
           fields={appFields}
           onDelete={() => onDeleteField(field.id, true)}
-          onChange={onUpdatePromptText}
+          onChange={(fieldId, text, instructions) => {
+            onUpdatePromptText?.(fieldId, text);
+            if (instructions) {
+              onUpdateAiResponseInstructions?.(fieldId, instructions);
+            }
+          }}
+          dragHandleProps={dragHandleProps || undefined}
+          onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
+          isCollapsed={isCollapsed}
+          onToggleCollapse={() => setIsCollapsed((v) => !v)}
+          onRequiredChange={(isRequired) =>
+            onUpdateFieldRequired(field.id, isRequired, true)
+          }
+          onConditionalLogicChange={(logic) =>
+            onUpdateConditionalLogic?.(field.id, logic)
+          }
         />
-      );
-    }
-
-    if (field.type === "title") {
-      return (
-        <Input
-          placeholder="Enter title..."
-          value={field.text || field.label || ""}
-          onChange={(e) => onUpdateFieldLabel(field.id, e.target.value, false)}
-        />
-      );
-    }
-
-    if (field.type === "scoring") {
-      return (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-sm">Minimum score</Label>
-            <Input
-              type="number"
-              value={typeof field.minScore === "number" ? field.minScore : 0}
-              onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, {
-                  minScore: Number(e.target.value || 0),
-                })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Rubric</Label>
-            <Textarea
-              value={field.rubric || ""}
-              placeholder="Enter rubric..."
-              onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, { rubric: e.target.value })
-              }
-              className="min-h-[160px]"
-            />
-          </div>
-        </div>
-      );
-    }
-
-    if (field.type === "aiResponse") {
-      const instructions = Array.isArray(field.instructions)
-        ? field.instructions
-        : [{ text: "" }];
-
-      const setInstructions = (next: ElementInstruction[]) => {
-        onUpdateAiResponseInstructions?.(field.id, next);
-      };
-
-      return (
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-900">
-              Instructions
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setInstructions([...instructions, { text: "" }])}
-            >
-              + Add instruction
-            </Button>
-          </div>
-
-          {instructions.map((inst, idx) => (
-            <div key={`${field.id}-inst-${idx}`} className="relative">
-              <PromptField
-                field={{
-                  id: `${field.id}-inst-${idx}`,
-                  name: `${field.name}-inst-${idx}`,
-                  text: inst.text || "",
-                }}
-                fields={appFields}
-                placeholder="Enter instruction..."
-                onChange={(_id, content) => {
-                  const next = instructions.map((p, i) =>
-                    i === idx ? { ...p, text: content } : p
-                  );
-                  setInstructions(next);
-                }}
-              />
-              {instructions.length > 1 && (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() =>
-                    setInstructions(instructions.filter((_, i) => i !== idx))
-                  }
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              )}
-            </div>
-          ))}
-        </div>
       );
     }
 
@@ -1286,28 +1180,6 @@ export default function Field({
     }
   };
 
-  if (field.type === "aiResponse") {
-    return (
-      <Draggable draggableId={field.id?.toString() || ""} index={index}>
-        {(provided) => (
-          <AIResponseField
-            field={{
-              id: field.id,
-              name: field.name,
-              type: "aiResponse",
-              text: field.text,
-              instructions: field.instructions,
-            }}
-            fields={appFields}
-            onDelete={() => onDeleteField(field.id, true)}
-            onChange={onUpdatePromptText}
-            dragHandleProps={provided.dragHandleProps || undefined}
-            onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
-          />
-        )}
-      </Draggable>
-    );
-  }
   const renderValidationSection = () => {
     if (field.type === "text" || field.type === "textarea") {
       return (
@@ -1327,486 +1199,166 @@ export default function Field({
                 : "Edit Validation Rules"}
             </span>
           </div>
-          {isValidationExpanded && (
-            <div className="mt-2 flex space-x-2">
-              <input
-                type="number"
-                value={field.minChars || ""}
-                onChange={(e) =>
-                  onUpdateFieldValidation(
-                    field.id,
-                    e.target.value ? parseInt(e.target.value, 10) : null,
-                    field.maxChars ?? null,
-                    false
-                  )
-                }
-                className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                placeholder="Min chars"
-              />
-              <input
-                type="number"
-                value={field.maxChars || ""}
-                onChange={(e) =>
-                  onUpdateFieldValidation(
-                    field.id,
-                    field.minChars ?? null,
-                    e.target.value ? parseInt(e.target.value, 10) : null,
-                    false
-                  )
-                }
-                className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                placeholder="Max chars"
-              />
-            </div>
-          )}
+          <AnimatePresence>
+            {isValidationExpanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: "easeInOut" }}
+                className="overflow-hidden"
+              >
+                <div className="mt-2 flex space-x-2">
+                  <input
+                    type="number"
+                    value={field.minChars || ""}
+                    onChange={(e) =>
+                      onUpdateFieldValidation(
+                        field.id,
+                        e.target.value ? parseInt(e.target.value, 10) : null,
+                        field.maxChars ?? null,
+                        false
+                      )
+                    }
+                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
+                    placeholder="Min chars"
+                  />
+                  <input
+                    type="number"
+                    value={field.maxChars || ""}
+                    onChange={(e) =>
+                      onUpdateFieldValidation(
+                        field.id,
+                        field.minChars ?? null,
+                        e.target.value ? parseInt(e.target.value, 10) : null,
+                        false
+                      )
+                    }
+                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
+                    placeholder="Max chars"
+                  />
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       );
     }
     return null;
   };
 
+  if (field.type === "aiResponse") {
+    return renderField();
+  }
+
   return (
-    <div>
-      <div className="flex gap-4">
-        <div {...(dragHandleProps || {})}>
-          <GripVertical className="h-5 w-5 text-gray-400 cursor-move" />
-        </div>
-        <div className="flex-1 space-y-2">
-          {field.type !== "prompt" &&
-            field.type !== "aiInstructions" &&
-            field.type !== "fixedResponse" &&
-            field.type !== "richText" && (
-              <textarea
-                value={field.label || ""}
-                onFocus={() => {
-                  if (!field.label) {
-                    onUpdateFieldLabel(
-                      field.id,
-                      "",
-                      field.type === "prompt" ||
-                        field.type === "aiInstructions" ||
-                        field.type === "fixedResponse"
-                    );
-                  }
-                }}
-                onChange={(e) => {
-                  e.target.style.height = "auto";
-                  e.target.style.height = e.target.scrollHeight + "px";
-                  onUpdateFieldLabel(
-                    field.id,
-                    e.target.value,
-                    field.type === "prompt" ||
-                      field.type === "aiInstructions" ||
-                      field.type === "fixedResponse"
-                  );
-                }}
-                className="text-md font-bold bg-transparent 
-                      border-2 border-dashed border-gray-200 hover:border-gray-400 
-                      focus:border-gray-600 rounded px-2 py-1 transition-colors 
-                      focus:outline-none focus:ring-0 w-full cursor-text
-                      resize-none overflow-hidden"
-                placeholder="Enter your question text..."
-                rows={1}
-              />
-            )}
+    <div className="space-y-2">
+      <FieldHeader
+        icon={FIELD_ICONS[field.type]}
+        label={FIELD_LABELS[field.type] || field.type}
+        fieldId={field.name}
+        isCollapsed={isCollapsed}
+        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
+        onDelete={() => onDeleteField(field.id, isPromptType)}
+        dragHandleProps={dragHandleProps || undefined}
+        onRename={(newName) =>
+          onUpdateFieldName(field.id, newName, isPromptType)
+        }
+        showRequired={!isSpecialType}
+        isRequired={field.isRequired || false}
+        onRequiredChange={(isRequired) =>
+          onUpdateFieldRequired(field.id, isRequired, isPromptType)
+        }
+        showConditionalLogic={!isSpecialType}
+        onConditionalLogicChange={(logic) =>
+          onUpdateConditionalLogic?.(field.id, logic)
+        }
+        availableFields={phaseFields}
+      />
 
-          {field.type !== "richText" && (
-            <input
-              type="text"
-              value={field.name}
-              onChange={(e) =>
-                onUpdateFieldName(
-                  field.id,
-                  e.target.value,
-                  field.type === "prompt" ||
-                    field.type === "aiInstructions" ||
-                    field.type === "fixedResponse"
-                )
-              }
-              onFocus={(e) => e.target.select()}
-              className="text-sm font-medium font-italic bg-transparent 
-                  border-2 border-dashed border-gray-200 hover:border-gray-400 
-                  focus:border-gray-600 rounded px-2 py-1 transition-colors 
-                  focus:outline-none focus:ring-0 w-full cursor-text"
-              placeholder="Field ID"
-            />
-          )}
-
-          {field.type !== "prompt" &&
-            field.type !== "aiInstructions" &&
-            field.type !== "fixedResponse" &&
-            field.type !== "richText" && (
-              <>
-                {/* Description toggle button */}
-                {!showDescription && !field.description && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setShowDescription(true)}
-                    className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 -mt-1"
-                  >
-                    + Add Optional Field Description
-                  </Button>
-                )}
-
-                {/* Description textarea - only show if expanded or has content */}
-                {(showDescription || field.description) && (
-                  <div className="relative">
-                    <textarea
-                      value={field.description || ""}
-                      onChange={(e) =>
-                        onUpdateFieldDescription(
-                          field.id,
-                          e.target.value,
-                          field.type === "prompt" ||
-                            field.type === "aiInstructions"
-                        )
+      <AnimatePresence>
+        {!isCollapsed && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-2">
+              {!isSpecialType && (
+                <>
+                  <Label className="text-sm font-medium mb-1 block">
+                    Question
+                  </Label>
+                  <Input
+                    value={field.label || ""}
+                    onFocus={() => {
+                      if (!field.label) {
+                        onUpdateFieldLabel(field.id, "", isPromptType);
                       }
-                      className="text-sm text-gray-600 bg-transparent w-full 
+                    }}
+                    onChange={(e) => {
+                      onUpdateFieldLabel(
+                        field.id,
+                        e.target.value,
+                        isPromptType
+                      );
+                    }}
+                    className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+                    placeholder="Enter your question..."
+                  />
+                  {!showDescription && !field.description && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowDescription(true)}
+                      className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 -mt-1"
+                    >
+                      + Add Optional Field Description
+                    </Button>
+                  )}
+
+                  {/* Description textarea - only show if expanded or has content */}
+                  {(showDescription || field.description) && (
+                    <div className="relative">
+                      <textarea
+                        value={field.description || ""}
+                        onChange={(e) =>
+                          onUpdateFieldDescription(
+                            field.id,
+                            e.target.value,
+                            isPromptType
+                          )
+                        }
+                        className="text-sm text-gray-600 bg-transparent w-full 
                           border-2 border-dashed border-gray-200 hover:border-gray-400 
                           focus:border-gray-600 rounded px-2 py-1 transition-colors 
                           focus:outline-none focus:ring-0 min-h-[60px] resize-y cursor-text"
-                      placeholder="Optional field description..."
-                    />
-                    {/* Remove description button */}
-                    {!field.description && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowDescription(false)}
-                        className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </>
-            )}
-        </div>
-      </div>
-      <div className="mt-3">{renderField()}</div>
-      <div className="flex items-center justify-end pt-2">
-        <div className="flex items-center gap-2">
-          {field.type !== "prompt" &&
-            field.type !== "aiInstructions" &&
-            field.type !== "fixedResponse" &&
-            field.type !== "richText" && (
-              <>
-                <Switch
-                  checked={field.isRequired}
-                  onCheckedChange={(checked) =>
-                    onUpdateFieldRequired(
-                      field.id,
-                      checked,
-                      field.type === "prompt" ||
-                        field.type === "aiInstructions" ||
-                        field.type === "fixedResponse"
-                    )
-                  }
-                />
-                <span className="text-sm text-gray-600">Required</span>
-                <div className="border-l border-gray-300 h-5 mx-2"></div>
-              </>
-            )}
-
-          <Dialog>
-            <DialogTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>
-                  Conditional Logic for{" "}
-                  {field.type === "prompt" || field.type === "aiInstructions"
-                    ? "Prompt"
-                    : field.name || "Field"}
-                </DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="sourceField">Show this field if</Label>
-                  <Select
-                    value={selectedSourceField}
-                    onValueChange={setSelectedSourceField}
-                  >
-                    <SelectTrigger id="sourceField">
-                      <SelectValue placeholder="Select a field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {field.type === "prompt" ||
-                      field.type === "aiInstructions" ||
-                      field.type === "fixedResponse"
-                        ? phaseFields
-                            .filter(
-                              (f) =>
-                                f.type !== "prompt" &&
-                                f.type !== "aiInstructions" &&
-                                f.type !== "fixedResponse"
-                            ) // Show all non-prompt fields for prompts
-                            .map((sourceField) => (
-                              <SelectItem
-                                key={sourceField.id}
-                                value={sourceField.id}
-                              >
-                                {sourceField.name ||
-                                  sourceField.label ||
-                                  sourceField.id}
-                              </SelectItem>
-                            ))
-                        : phaseFields
-                            .slice(0, index) // Keep original behavior for non-prompt fields
-                            .map((sourceField) => (
-                              <SelectItem
-                                key={sourceField.id}
-                                value={sourceField.id}
-                                disabled={
-                                  sourceField.type === "prompt" ||
-                                  sourceField.type === "aiInstructions" ||
-                                  sourceField.type === "fixedResponse"
-                                }
-                              >
-                                {sourceField.name ||
-                                  sourceField.label ||
-                                  sourceField.id}
-                              </SelectItem>
-                            ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedSourceField && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="operator">Condition</Label>
-                    <Select
-                      value={selectedOperator}
-                      onValueChange={setSelectedOperator}
-                    >
-                      <SelectTrigger id="operator">
-                        <SelectValue placeholder="Select condition" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {getOperatorsForElement(
-                          phaseFields.find((f) => f.id === selectedSourceField)
-                            ?.type || ""
-                        ).map((op) => (
-                          <SelectItem key={op.value} value={op.value}>
-                            {op.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {selectedSourceField &&
-                  selectedOperator &&
-                  operatorNeedsValue(selectedOperator) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="value">Value</Label>
-                      {(() => {
-                        const sourceField = phaseFields.find(
-                          (f) => f.id === selectedSourceField
-                        );
-                        if (!sourceField) return null;
-
-                        switch (sourceField.type) {
-                          case "radio":
-                          case "dropdown":
-                            return (
-                              <Select
-                                value={
-                                  sourceField.choices?.find(
-                                    (choice) => choice.text === conditionValue
-                                  )?.value ||
-                                  (conditionValue === "Other" ? "other" : "")
-                                }
-                                onValueChange={(value) => {
-                                  // Find the choice object that matches the selected value
-                                  const selectedChoice =
-                                    sourceField.choices?.find(
-                                      (choice) => choice.value === value
-                                    );
-                                  // Use the text instead of the value
-                                  setConditionValue(
-                                    selectedChoice?.text || value
-                                  );
-                                }}
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sourceField.choices?.map((choice) => (
-                                    <SelectItem
-                                      key={choice.value}
-                                      value={choice.value}
-                                    >
-                                      {choice.text}
-                                    </SelectItem>
-                                  ))}
-                                  {sourceField.showOtherItem && (
-                                    <SelectItem value="other">Other</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            );
-
-                          case "checkbox":
-                            return (
-                              <Select
-                                value={
-                                  sourceField.choices?.find(
-                                    (choice) => choice.text === conditionValue
-                                  )?.value ||
-                                  (conditionValue === "Other" ? "other" : "")
-                                }
-                                onValueChange={(value) => {
-                                  // Find the choice object that matches the selected value
-                                  const selectedChoice =
-                                    sourceField.choices?.find(
-                                      (choice) => choice.value === value
-                                    );
-                                  // Use the text instead of the value
-                                  setConditionValue(
-                                    selectedChoice?.text || value
-                                  );
-                                }}
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sourceField.choices?.map((choice) => (
-                                    <SelectItem
-                                      key={choice.value}
-                                      value={choice.value}
-                                    >
-                                      {choice.text}
-                                    </SelectItem>
-                                  ))}
-                                  {sourceField.showOtherItem && (
-                                    <SelectItem value="other">Other</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            );
-
-                          case "boolean":
-                            return (
-                              <Select
-                                value={String(conditionValue)}
-                                onValueChange={(value) =>
-                                  setConditionValue(value === "true")
-                                }
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="true">Yes</SelectItem>
-                                  <SelectItem value="false">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            );
-                          case "slider":
-                            return (
-                              <Input
-                                id="value"
-                                type="number"
-                                value={conditionValue as number}
-                                onChange={(e) =>
-                                  setConditionValue(Number(e.target.value))
-                                }
-                                min={sourceField.minValue}
-                                max={sourceField.maxValue}
-                                step={sourceField.step || 1}
-                                className="text-sm"
-                              />
-                            );
-
-                          case "text":
-                          case "textarea":
-                          default:
-                            return (
-                              <Input
-                                id="value"
-                                type="text"
-                                value={String(conditionValue)}
-                                onChange={(e) =>
-                                  setConditionValue(e.target.value)
-                                }
-                                className="text-sm"
-                                placeholder="Enter value to compare against..."
-                              />
-                            );
-                        }
-                      })()}
+                        placeholder="Optional field description..."
+                      />
+                      {/* Remove description button */}
+                      {!field.description && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShowDescription(false)}
+                          className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      )}
                     </div>
                   )}
+                </>
+              )}
 
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setSelectedSourceField("");
-                      setSelectedOperator("");
-                      setConditionValue("");
-                      onUpdateConditionalLogic?.(field.id, null);
-                    }}
-                  >
-                    Clear
-                  </Button>
-                  <Button
-                    type="button"
-                    onClick={() => {
-                      if (!selectedSourceField || !selectedOperator) return; // Add validation
-
-                      const logic: ConditionalLogic = {
-                        sourceFieldId: selectedSourceField,
-                        operator: selectedOperator,
-                        value: operatorNeedsValue(selectedOperator)
-                          ? conditionValue
-                          : "",
-                      };
-
-                      onUpdateConditionalLogic?.(field.id, logic);
-                      setShowSaveSuccess(true);
-                      setTimeout(() => setShowSaveSuccess(false), 2000);
-                    }}
-                  >
-                    {showSaveSuccess ? "Saved!" : "Save"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-          <div className="border-l border-gray-300 h-5 mx-2"></div>
-        </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() =>
-            onDeleteField(
-              field.id,
-              field.type === "prompt" ||
-                field.type === "aiInstructions" ||
-                field.type === "fixedResponse"
-            )
-          }
-          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
-      {renderValidationSection()}
+              <div className="mt-3">{renderField()}</div>
+              {renderValidationSection()}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

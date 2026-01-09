@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { MessageCircle, X, Split, CirclePlus } from "lucide-react";
+import { X, Split, CirclePlus, MessageCircle } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
@@ -55,8 +55,16 @@ export default function AIResponseField({
   onDelete,
   dragHandleProps,
   onRename,
-}: AIResponseFieldProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  isCollapsed = false,
+  onToggleCollapse,
+  onRequiredChange,
+  onConditionalLogicChange,
+}: AIResponseFieldProps & {
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
+  onRequiredChange?: (isRequired: boolean) => void;
+  onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
+}) {
   const [instructions, setInstructions] = useState<Instruction[]>([
     { id: "1", content: field.text || "" },
   ]);
@@ -475,7 +483,7 @@ export default function AIResponseField({
   useEffect(() => {
     instructions.forEach((instruction) => {
       const editorElement = editorRefs.current.get(instruction.id);
-      if (editorElement && !editorElement.innerHTML) {
+      if (editorElement) {
         updateEditorHTML(instruction.id, instruction.content);
       }
     });
@@ -729,17 +737,23 @@ export default function AIResponseField({
     : [];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-2">
       <FieldHeader
         icon={MessageCircle}
         label="AI Response"
         fieldId={field.name}
         isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
-        onMove={() => {}}
+        onToggleCollapse={onToggleCollapse}
         onDelete={onDelete}
         dragHandleProps={dragHandleProps}
         onRename={onRename}
+        showRequired={true}
+        isRequired={false}
+        onRequiredChange={onRequiredChange}
+        showConditionalLogic={true}
+        conditionalLogic={field.conditionalLogic}
+        onConditionalLogicChange={onConditionalLogicChange}
+        availableFields={fields}
       />
 
       <AnimatePresence>
