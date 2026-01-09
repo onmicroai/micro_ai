@@ -484,10 +484,13 @@ export default function AIResponseField({
     instructions.forEach((instruction) => {
       const editorElement = editorRefs.current.get(instruction.id);
       if (editorElement) {
-        updateEditorHTML(instruction.id, instruction.content);
+        const richText = convertPlaceholdersToTags(instruction.content);
+        if (editorElement.innerHTML !== richText) {
+          updateEditorHTML(instruction.id, instruction.content);
+        }
       }
     });
-  }, [instructions, updateEditorHTML]);
+  }, [instructions, updateEditorHTML, convertPlaceholdersToTags]);
 
   const handleDragStart = (event: React.DragEvent, tag: Tag) => {
     event.dataTransfer.setData("tag", JSON.stringify(tag));
