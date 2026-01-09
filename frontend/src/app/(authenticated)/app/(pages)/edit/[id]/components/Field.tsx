@@ -1,6 +1,11 @@
 "use client";
 
-import { Choice, Element, ConditionalLogic, ElementInstruction } from "@/app/(authenticated)/app/types";
+import {
+  Choice,
+  Element,
+  ConditionalLogic,
+  ElementInstruction,
+} from "@/app/(authenticated)/app/types";
 import Image from "next/image";
 import {
   GripVertical,
@@ -39,16 +44,10 @@ import {
 import { RichText } from "./fields/RichText";
 import PromptField from "./fields/PromptField";
 import { createImageUploader } from "@/utils/imageUpload";
-import { synthesizeSpeech } from '@/utils/textToSpeechService';
-import { Loader2 } from 'lucide-react';
-import { useUserStore } from '@/store/userStore';
+import { synthesizeSpeech } from "@/utils/textToSpeechService";
+import { Loader2 } from "lucide-react";
+import { useUserStore } from "@/store/userStore";
 import AIResponseField from "./fields/AIResponseField";
-
-interface ConditionalLogic {
-  sourceFieldId: string;
-  operator: string;
-  value?: string | number | boolean;
-}
 
 interface VoiceOption {
   id: string;
@@ -120,8 +119,14 @@ interface FieldProps {
     isPrompt: boolean
   ) => void;
   onUpdatePromptText?: (fieldId: string, text: string) => void;
-  onUpdateAiResponseInstructions?: (fieldId: string, instructions: ElementInstruction[]) => void;
-  onUpdateScoringSettings?: (fieldId: string, updates: { rubric?: string; minScore?: number }) => void;
+  onUpdateAiResponseInstructions?: (
+    fieldId: string,
+    instructions: ElementInstruction[]
+  ) => void;
+  onUpdateScoringSettings?: (
+    fieldId: string,
+    updates: { rubric?: string; minScore?: number }
+  ) => void;
   onUpdateFieldDefaultValue: (
     fieldId: string,
     defaultValue: string | string[] | number | boolean
@@ -401,7 +406,9 @@ export default function Field({
               type="number"
               value={typeof field.minScore === "number" ? field.minScore : 0}
               onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, { minScore: Number(e.target.value || 0) })
+                onUpdateScoringSettings?.(field.id, {
+                  minScore: Number(e.target.value || 0),
+                })
               }
             />
           </div>
@@ -410,7 +417,9 @@ export default function Field({
             <Textarea
               value={field.rubric || ""}
               placeholder="Enter rubric..."
-              onChange={(e) => onUpdateScoringSettings?.(field.id, { rubric: e.target.value })}
+              onChange={(e) =>
+                onUpdateScoringSettings?.(field.id, { rubric: e.target.value })
+              }
               className="min-h-[160px]"
             />
           </div>
@@ -419,7 +428,9 @@ export default function Field({
     }
 
     if (field.type === "aiResponse") {
-      const instructions = Array.isArray(field.instructions) ? field.instructions : [{ text: "" }];
+      const instructions = Array.isArray(field.instructions)
+        ? field.instructions
+        : [{ text: "" }];
 
       const setInstructions = (next: ElementInstruction[]) => {
         onUpdateAiResponseInstructions?.(field.id, next);
@@ -428,7 +439,9 @@ export default function Field({
       return (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-medium text-gray-900">Instructions</div>
+            <div className="text-sm font-medium text-gray-900">
+              Instructions
+            </div>
             <Button
               type="button"
               variant="outline"
@@ -445,7 +458,7 @@ export default function Field({
                 field={{
                   id: `${field.id}-inst-${idx}`,
                   name: `${field.name}-inst-${idx}`,
-                  text: inst.text || ""
+                  text: inst.text || "",
                 }}
                 fields={appFields}
                 placeholder="Enter instruction..."
@@ -462,7 +475,9 @@ export default function Field({
                   variant="ghost"
                   size="sm"
                   className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-50"
-                  onClick={() => setInstructions(instructions.filter((_, i) => i !== idx))}
+                  onClick={() =>
+                    setInstructions(instructions.filter((_, i) => i !== idx))
+                  }
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -492,7 +507,9 @@ export default function Field({
               type="number"
               value={typeof field.minScore === "number" ? field.minScore : 0}
               onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, { minScore: Number(e.target.value || 0) })
+                onUpdateScoringSettings?.(field.id, {
+                  minScore: Number(e.target.value || 0),
+                })
               }
             />
           </div>
@@ -501,7 +518,9 @@ export default function Field({
             <Textarea
               value={field.rubric || ""}
               placeholder="Enter rubric..."
-              onChange={(e) => onUpdateScoringSettings?.(field.id, { rubric: e.target.value })}
+              onChange={(e) =>
+                onUpdateScoringSettings?.(field.id, { rubric: e.target.value })
+              }
               className="min-h-[160px]"
             />
           </div>
@@ -1353,458 +1372,446 @@ export default function Field({
 
   return (
     <div>
-          <div className="flex gap-4">
-            <div {...(dragHandleProps || {})}>
-              <GripVertical className="h-5 w-5 text-gray-400 cursor-move" />
-            </div>
-            <div className="flex-1 space-y-2">
-              {field.type !== "prompt" &&
-                field.type !== "aiInstructions" &&
-                field.type !== "fixedResponse" &&
-                field.type !== "richText" && (
-                  <textarea
-                    value={field.label || ""}
-                    onFocus={() => {
-                      if (!field.label) {
-                        onUpdateFieldLabel(
-                          field.id,
-                          "",
-                          field.type === "prompt" ||
-                            field.type === "aiInstructions" ||
-                            field.type === "fixedResponse"
-                        );
-                      }
-                    }}
-                    onChange={(e) => {
-                      e.target.style.height = "auto";
-                      e.target.style.height = e.target.scrollHeight + "px";
-                      onUpdateFieldLabel(
-                        field.id,
-                        e.target.value,
-                        field.type === "prompt" ||
-                          field.type === "aiInstructions" ||
-                          field.type === "fixedResponse"
-                      );
-                    }}
-                    className="text-md font-bold bg-transparent 
+      <div className="flex gap-4">
+        <div {...(dragHandleProps || {})}>
+          <GripVertical className="h-5 w-5 text-gray-400 cursor-move" />
+        </div>
+        <div className="flex-1 space-y-2">
+          {field.type !== "prompt" &&
+            field.type !== "aiInstructions" &&
+            field.type !== "fixedResponse" &&
+            field.type !== "richText" && (
+              <textarea
+                value={field.label || ""}
+                onFocus={() => {
+                  if (!field.label) {
+                    onUpdateFieldLabel(
+                      field.id,
+                      "",
+                      field.type === "prompt" ||
+                        field.type === "aiInstructions" ||
+                        field.type === "fixedResponse"
+                    );
+                  }
+                }}
+                onChange={(e) => {
+                  e.target.style.height = "auto";
+                  e.target.style.height = e.target.scrollHeight + "px";
+                  onUpdateFieldLabel(
+                    field.id,
+                    e.target.value,
+                    field.type === "prompt" ||
+                      field.type === "aiInstructions" ||
+                      field.type === "fixedResponse"
+                  );
+                }}
+                className="text-md font-bold bg-transparent 
                       border-2 border-dashed border-gray-200 hover:border-gray-400 
                       focus:border-gray-600 rounded px-2 py-1 transition-colors 
                       focus:outline-none focus:ring-0 w-full cursor-text
                       resize-none overflow-hidden"
-                    placeholder="Enter your question text..."
-                    rows={1}
-                  />
-                )}
+                placeholder="Enter your question text..."
+                rows={1}
+              />
+            )}
 
-              {field.type !== "richText" && (
-                <input
-                  type="text"
-                  value={field.name}
-                  onChange={(e) =>
-                    onUpdateFieldName(
-                      field.id,
-                      e.target.value,
-                      field.type === "prompt" ||
-                        field.type === "aiInstructions" ||
-                        field.type === "fixedResponse"
-                    )
-                  }
-                  onFocus={(e) => e.target.select()}
-                  className="text-sm font-medium font-italic bg-transparent 
-                  border-2 border-dashed border-gray-200 hover:border-gray-400 
-                  focus:border-gray-600 rounded px-2 py-1 transition-colors 
-                  focus:outline-none focus:ring-0 w-full cursor-text"
-                  placeholder="Field ID"
-                />
-              )}
-
-              {field.type !== "prompt" &&
-                field.type !== "aiInstructions" &&
-                field.type !== "fixedResponse" &&
-                field.type !== "richText" && (
-                  <>
-                    {/* Description toggle button */}
-                    {!showDescription && !field.description && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setShowDescription(true)}
-                        className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 -mt-1"
-                      >
-                        + Add Optional Field Description
-                      </Button>
-                    )}
-
-                    {/* Description textarea - only show if expanded or has content */}
-                    {(showDescription || field.description) && (
-                      <div className="relative">
-                        <textarea
-                          value={field.description || ""}
-                          onChange={(e) =>
-                            onUpdateFieldDescription(
-                              field.id,
-                              e.target.value,
-                              field.type === "prompt" ||
-                                field.type === "aiInstructions"
-                            )
-                          }
-                          className="text-sm text-gray-600 bg-transparent w-full 
-                          border-2 border-dashed border-gray-200 hover:border-gray-400 
-                          focus:border-gray-600 rounded px-2 py-1 transition-colors 
-                          focus:outline-none focus:ring-0 min-h-[60px] resize-y cursor-text"
-                          placeholder="Optional field description..."
-                        />
-                        {/* Remove description button */}
-                        {!field.description && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowDescription(false)}
-                            className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    )}
-                  </>
-                )}
-            </div>
-          </div>
-          <div className="mt-3">{renderField()}</div>
-          <div className="flex items-center justify-end pt-2">
-            <div className="flex items-center gap-2">
-              {field.type !== "prompt" &&
-                field.type !== "aiInstructions" &&
-                field.type !== "fixedResponse" &&
-                field.type !== "richText" && (
-                  <>
-                    <Switch
-                      checked={field.isRequired}
-                      onCheckedChange={(checked) =>
-                        onUpdateFieldRequired(
-                          field.id,
-                          checked,
-                          field.type === "prompt" ||
-                            field.type === "aiInstructions" ||
-                            field.type === "fixedResponse"
-                        )
-                      }
-                    />
-                    <span className="text-sm text-gray-600">Required</span>
-                    <div className="border-l border-gray-300 h-5 mx-2"></div>
-                  </>
-                )}
-
-              <Dialog>
-                <DialogTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                  >
-                    <Settings className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>
-                      Conditional Logic for{" "}
-                      {field.type === "prompt" ||
-                      field.type === "aiInstructions"
-                        ? "Prompt"
-                        : field.name || "Field"}
-                    </DialogTitle>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="sourceField">Show this field if</Label>
-                      <Select
-                        value={selectedSourceField}
-                        onValueChange={setSelectedSourceField}
-                      >
-                        <SelectTrigger id="sourceField">
-                          <SelectValue placeholder="Select a field" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {field.type === "prompt" ||
-                          field.type === "aiInstructions" ||
-                          field.type === "fixedResponse"
-                            ? phaseFields
-                                .filter(
-                                  (f) =>
-                                    f.type !== "prompt" &&
-                                    f.type !== "aiInstructions" &&
-                                    f.type !== "fixedResponse"
-                                ) // Show all non-prompt fields for prompts
-                                .map((sourceField) => (
-                                  <SelectItem
-                                    key={sourceField.id}
-                                    value={sourceField.id}
-                                  >
-                                    {sourceField.name ||
-                                      sourceField.label ||
-                                      sourceField.id}
-                                  </SelectItem>
-                                ))
-                            : phaseFields
-                                .slice(0, index) // Keep original behavior for non-prompt fields
-                                .map((sourceField) => (
-                                  <SelectItem
-                                    key={sourceField.id}
-                                    value={sourceField.id}
-                                    disabled={
-                                      sourceField.type === "prompt" ||
-                                      sourceField.type === "aiInstructions" ||
-                                      sourceField.type === "fixedResponse"
-                                    }
-                                  >
-                                    {sourceField.name ||
-                                      sourceField.label ||
-                                      sourceField.id}
-                                  </SelectItem>
-                                ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {selectedSourceField && (
-                      <div className="grid gap-2">
-                        <Label htmlFor="operator">Condition</Label>
-                        <Select
-                          value={selectedOperator}
-                          onValueChange={setSelectedOperator}
-                        >
-                          <SelectTrigger id="operator">
-                            <SelectValue placeholder="Select condition" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {getOperatorsForElement(
-                              phaseFields.find(
-                                (f) => f.id === selectedSourceField
-                              )?.type || ""
-                            ).map((op) => (
-                              <SelectItem key={op.value} value={op.value}>
-                                {op.label}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    )}
-
-                    {selectedSourceField &&
-                      selectedOperator &&
-                      operatorNeedsValue(selectedOperator) && (
-                        <div className="grid gap-2">
-                          <Label htmlFor="value">Value</Label>
-                          {(() => {
-                            const sourceField = phaseFields.find(
-                              (f) => f.id === selectedSourceField
-                            );
-                            if (!sourceField) return null;
-
-                            switch (sourceField.type) {
-                              case "radio":
-                              case "dropdown":
-                                return (
-                                  <Select
-                                    value={
-                                      sourceField.choices?.find(
-                                        (choice) =>
-                                          choice.text === conditionValue
-                                      )?.value ||
-                                      (conditionValue === "Other"
-                                        ? "other"
-                                        : "")
-                                    }
-                                    onValueChange={(value) => {
-                                      // Find the choice object that matches the selected value
-                                      const selectedChoice =
-                                        sourceField.choices?.find(
-                                          (choice) => choice.value === value
-                                        );
-                                      // Use the text instead of the value
-                                      setConditionValue(
-                                        selectedChoice?.text || value
-                                      );
-                                    }}
-                                  >
-                                    <SelectTrigger id="value">
-                                      <SelectValue placeholder="Select value" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {sourceField.choices?.map((choice) => (
-                                        <SelectItem
-                                          key={choice.value}
-                                          value={choice.value}
-                                        >
-                                          {choice.text}
-                                        </SelectItem>
-                                      ))}
-                                      {sourceField.showOtherItem && (
-                                        <SelectItem value="other">
-                                          Other
-                                        </SelectItem>
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                );
-
-                              case "checkbox":
-                                return (
-                                  <Select
-                                    value={
-                                      sourceField.choices?.find(
-                                        (choice) =>
-                                          choice.text === conditionValue
-                                      )?.value ||
-                                      (conditionValue === "Other"
-                                        ? "other"
-                                        : "")
-                                    }
-                                    onValueChange={(value) => {
-                                      // Find the choice object that matches the selected value
-                                      const selectedChoice =
-                                        sourceField.choices?.find(
-                                          (choice) => choice.value === value
-                                        );
-                                      // Use the text instead of the value
-                                      setConditionValue(
-                                        selectedChoice?.text || value
-                                      );
-                                    }}
-                                  >
-                                    <SelectTrigger id="value">
-                                      <SelectValue placeholder="Select value" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      {sourceField.choices?.map((choice) => (
-                                        <SelectItem
-                                          key={choice.value}
-                                          value={choice.value}
-                                        >
-                                          {choice.text}
-                                        </SelectItem>
-                                      ))}
-                                      {sourceField.showOtherItem && (
-                                        <SelectItem value="other">
-                                          Other
-                                        </SelectItem>
-                                      )}
-                                    </SelectContent>
-                                  </Select>
-                                );
-
-                              case "boolean":
-                                return (
-                                  <Select
-                                    value={String(conditionValue)}
-                                    onValueChange={(value) =>
-                                      setConditionValue(value === "true")
-                                    }
-                                  >
-                                    <SelectTrigger id="value">
-                                      <SelectValue placeholder="Select value" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                      <SelectItem value="true">Yes</SelectItem>
-                                      <SelectItem value="false">No</SelectItem>
-                                    </SelectContent>
-                                  </Select>
-                                );
-                              case "slider":
-                                return (
-                                  <Input
-                                    id="value"
-                                    type="number"
-                                    value={conditionValue as number}
-                                    onChange={(e) =>
-                                      setConditionValue(Number(e.target.value))
-                                    }
-                                    min={sourceField.minValue}
-                                    max={sourceField.maxValue}
-                                    step={sourceField.step || 1}
-                                    className="text-sm"
-                                  />
-                                );
-
-                              case "text":
-                              case "textarea":
-                              default:
-                                return (
-                                  <Input
-                                    id="value"
-                                    type="text"
-                                    value={String(conditionValue)}
-                                    onChange={(e) =>
-                                      setConditionValue(e.target.value)
-                                    }
-                                    className="text-sm"
-                                    placeholder="Enter value to compare against..."
-                                  />
-                                );
-                            }
-                          })()}
-                        </div>
-                      )}
-
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        onClick={() => {
-                          setSelectedSourceField("");
-                          setSelectedOperator("");
-                          setConditionValue("");
-                          onUpdateConditionalLogic?.(field.id, null);
-                        }}
-                      >
-                        Clear
-                      </Button>
-                      <Button
-                        type="button"
-                        onClick={() => {
-                          if (!selectedSourceField || !selectedOperator) return; // Add validation
-
-                          const logic: ConditionalLogic = {
-                            sourceFieldId: selectedSourceField,
-                            operator: selectedOperator,
-                            ...(operatorNeedsValue(selectedOperator) && {
-                              value: conditionValue,
-                            }),
-                          };
-
-                          onUpdateConditionalLogic?.(field.id, logic);
-                          setShowSaveSuccess(true);
-                          setTimeout(() => setShowSaveSuccess(false), 2000);
-                        }}
-                      >
-                        {showSaveSuccess ? "Saved!" : "Save"}
-                      </Button>
-                    </div>
-                  </div>
-                </DialogContent>
-              </Dialog>
-              <div className="border-l border-gray-300 h-5 mx-2"></div>
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() =>
-                onDeleteField(
+          {field.type !== "richText" && (
+            <input
+              type="text"
+              value={field.name}
+              onChange={(e) =>
+                onUpdateFieldName(
                   field.id,
+                  e.target.value,
                   field.type === "prompt" ||
                     field.type === "aiInstructions" ||
                     field.type === "fixedResponse"
                 )
               }
-              className="text-red-500 hover:text-red-700 hover:bg-red-50"
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
-          {renderValidationSection()}
+              onFocus={(e) => e.target.select()}
+              className="text-sm font-medium font-italic bg-transparent 
+                  border-2 border-dashed border-gray-200 hover:border-gray-400 
+                  focus:border-gray-600 rounded px-2 py-1 transition-colors 
+                  focus:outline-none focus:ring-0 w-full cursor-text"
+              placeholder="Field ID"
+            />
+          )}
+
+          {field.type !== "prompt" &&
+            field.type !== "aiInstructions" &&
+            field.type !== "fixedResponse" &&
+            field.type !== "richText" && (
+              <>
+                {/* Description toggle button */}
+                {!showDescription && !field.description && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowDescription(true)}
+                    className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 -mt-1"
+                  >
+                    + Add Optional Field Description
+                  </Button>
+                )}
+
+                {/* Description textarea - only show if expanded or has content */}
+                {(showDescription || field.description) && (
+                  <div className="relative">
+                    <textarea
+                      value={field.description || ""}
+                      onChange={(e) =>
+                        onUpdateFieldDescription(
+                          field.id,
+                          e.target.value,
+                          field.type === "prompt" ||
+                            field.type === "aiInstructions"
+                        )
+                      }
+                      className="text-sm text-gray-600 bg-transparent w-full 
+                          border-2 border-dashed border-gray-200 hover:border-gray-400 
+                          focus:border-gray-600 rounded px-2 py-1 transition-colors 
+                          focus:outline-none focus:ring-0 min-h-[60px] resize-y cursor-text"
+                      placeholder="Optional field description..."
+                    />
+                    {/* Remove description button */}
+                    {!field.description && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowDescription(false)}
+                        className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
         </div>
+      </div>
+      <div className="mt-3">{renderField()}</div>
+      <div className="flex items-center justify-end pt-2">
+        <div className="flex items-center gap-2">
+          {field.type !== "prompt" &&
+            field.type !== "aiInstructions" &&
+            field.type !== "fixedResponse" &&
+            field.type !== "richText" && (
+              <>
+                <Switch
+                  checked={field.isRequired}
+                  onCheckedChange={(checked) =>
+                    onUpdateFieldRequired(
+                      field.id,
+                      checked,
+                      field.type === "prompt" ||
+                        field.type === "aiInstructions" ||
+                        field.type === "fixedResponse"
+                    )
+                  }
+                />
+                <span className="text-sm text-gray-600">Required</span>
+                <div className="border-l border-gray-300 h-5 mx-2"></div>
+              </>
+            )}
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-gray-500 hover:text-gray-700 hover:bg-gray-50"
+              >
+                <Settings className="h-4 w-4" />
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  Conditional Logic for{" "}
+                  {field.type === "prompt" || field.type === "aiInstructions"
+                    ? "Prompt"
+                    : field.name || "Field"}
+                </DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="sourceField">Show this field if</Label>
+                  <Select
+                    value={selectedSourceField}
+                    onValueChange={setSelectedSourceField}
+                  >
+                    <SelectTrigger id="sourceField">
+                      <SelectValue placeholder="Select a field" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {field.type === "prompt" ||
+                      field.type === "aiInstructions" ||
+                      field.type === "fixedResponse"
+                        ? phaseFields
+                            .filter(
+                              (f) =>
+                                f.type !== "prompt" &&
+                                f.type !== "aiInstructions" &&
+                                f.type !== "fixedResponse"
+                            ) // Show all non-prompt fields for prompts
+                            .map((sourceField) => (
+                              <SelectItem
+                                key={sourceField.id}
+                                value={sourceField.id}
+                              >
+                                {sourceField.name ||
+                                  sourceField.label ||
+                                  sourceField.id}
+                              </SelectItem>
+                            ))
+                        : phaseFields
+                            .slice(0, index) // Keep original behavior for non-prompt fields
+                            .map((sourceField) => (
+                              <SelectItem
+                                key={sourceField.id}
+                                value={sourceField.id}
+                                disabled={
+                                  sourceField.type === "prompt" ||
+                                  sourceField.type === "aiInstructions" ||
+                                  sourceField.type === "fixedResponse"
+                                }
+                              >
+                                {sourceField.name ||
+                                  sourceField.label ||
+                                  sourceField.id}
+                              </SelectItem>
+                            ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedSourceField && (
+                  <div className="grid gap-2">
+                    <Label htmlFor="operator">Condition</Label>
+                    <Select
+                      value={selectedOperator}
+                      onValueChange={setSelectedOperator}
+                    >
+                      <SelectTrigger id="operator">
+                        <SelectValue placeholder="Select condition" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {getOperatorsForElement(
+                          phaseFields.find((f) => f.id === selectedSourceField)
+                            ?.type || ""
+                        ).map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {selectedSourceField &&
+                  selectedOperator &&
+                  operatorNeedsValue(selectedOperator) && (
+                    <div className="grid gap-2">
+                      <Label htmlFor="value">Value</Label>
+                      {(() => {
+                        const sourceField = phaseFields.find(
+                          (f) => f.id === selectedSourceField
+                        );
+                        if (!sourceField) return null;
+
+                        switch (sourceField.type) {
+                          case "radio":
+                          case "dropdown":
+                            return (
+                              <Select
+                                value={
+                                  sourceField.choices?.find(
+                                    (choice) => choice.text === conditionValue
+                                  )?.value ||
+                                  (conditionValue === "Other" ? "other" : "")
+                                }
+                                onValueChange={(value) => {
+                                  // Find the choice object that matches the selected value
+                                  const selectedChoice =
+                                    sourceField.choices?.find(
+                                      (choice) => choice.value === value
+                                    );
+                                  // Use the text instead of the value
+                                  setConditionValue(
+                                    selectedChoice?.text || value
+                                  );
+                                }}
+                              >
+                                <SelectTrigger id="value">
+                                  <SelectValue placeholder="Select value" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sourceField.choices?.map((choice) => (
+                                    <SelectItem
+                                      key={choice.value}
+                                      value={choice.value}
+                                    >
+                                      {choice.text}
+                                    </SelectItem>
+                                  ))}
+                                  {sourceField.showOtherItem && (
+                                    <SelectItem value="other">Other</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            );
+
+                          case "checkbox":
+                            return (
+                              <Select
+                                value={
+                                  sourceField.choices?.find(
+                                    (choice) => choice.text === conditionValue
+                                  )?.value ||
+                                  (conditionValue === "Other" ? "other" : "")
+                                }
+                                onValueChange={(value) => {
+                                  // Find the choice object that matches the selected value
+                                  const selectedChoice =
+                                    sourceField.choices?.find(
+                                      (choice) => choice.value === value
+                                    );
+                                  // Use the text instead of the value
+                                  setConditionValue(
+                                    selectedChoice?.text || value
+                                  );
+                                }}
+                              >
+                                <SelectTrigger id="value">
+                                  <SelectValue placeholder="Select value" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {sourceField.choices?.map((choice) => (
+                                    <SelectItem
+                                      key={choice.value}
+                                      value={choice.value}
+                                    >
+                                      {choice.text}
+                                    </SelectItem>
+                                  ))}
+                                  {sourceField.showOtherItem && (
+                                    <SelectItem value="other">Other</SelectItem>
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            );
+
+                          case "boolean":
+                            return (
+                              <Select
+                                value={String(conditionValue)}
+                                onValueChange={(value) =>
+                                  setConditionValue(value === "true")
+                                }
+                              >
+                                <SelectTrigger id="value">
+                                  <SelectValue placeholder="Select value" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="true">Yes</SelectItem>
+                                  <SelectItem value="false">No</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            );
+                          case "slider":
+                            return (
+                              <Input
+                                id="value"
+                                type="number"
+                                value={conditionValue as number}
+                                onChange={(e) =>
+                                  setConditionValue(Number(e.target.value))
+                                }
+                                min={sourceField.minValue}
+                                max={sourceField.maxValue}
+                                step={sourceField.step || 1}
+                                className="text-sm"
+                              />
+                            );
+
+                          case "text":
+                          case "textarea":
+                          default:
+                            return (
+                              <Input
+                                id="value"
+                                type="text"
+                                value={String(conditionValue)}
+                                onChange={(e) =>
+                                  setConditionValue(e.target.value)
+                                }
+                                className="text-sm"
+                                placeholder="Enter value to compare against..."
+                              />
+                            );
+                        }
+                      })()}
+                    </div>
+                  )}
+
+                <div className="flex justify-end gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={() => {
+                      setSelectedSourceField("");
+                      setSelectedOperator("");
+                      setConditionValue("");
+                      onUpdateConditionalLogic?.(field.id, null);
+                    }}
+                  >
+                    Clear
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedSourceField || !selectedOperator) return; // Add validation
+
+                      const logic: ConditionalLogic = {
+                        sourceFieldId: selectedSourceField,
+                        operator: selectedOperator,
+                        value: operatorNeedsValue(selectedOperator)
+                          ? conditionValue
+                          : "",
+                      };
+
+                      onUpdateConditionalLogic?.(field.id, logic);
+                      setShowSaveSuccess(true);
+                      setTimeout(() => setShowSaveSuccess(false), 2000);
+                    }}
+                  >
+                    {showSaveSuccess ? "Saved!" : "Save"}
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+          <div className="border-l border-gray-300 h-5 mx-2"></div>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() =>
+            onDeleteField(
+              field.id,
+              field.type === "prompt" ||
+                field.type === "aiInstructions" ||
+                field.type === "fixedResponse"
+            )
+          }
+          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+        >
+          <Trash2 className="h-4 w-4" />
+        </Button>
+      </div>
+      {renderValidationSection()}
+    </div>
   );
 }

@@ -75,23 +75,41 @@ export default function AIResponseField({
     null
   );
 
-  const previousContentRef = useRef<Map<string, string>>(new Map());
-  const isUserInputRef = useRef<Map<string, boolean>>(new Map());
+  useEffect(() => {
+    const handleGlobalClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+
+      if (
+        target.closest("span[data-tag-id]") ||
+        target.closest(".cursor-move")
+      ) {
+        return;
+      }
+
+      let clickedInstruction: string | null = null;
+      instructions.forEach((instruction) => {
+        const editorElement = editorRefs.current.get(instruction.id);
+        if (editorElement && editorElement.contains(target)) {
+          clickedInstruction = instruction.id;
+        }
+      });
+
+      setFocusedInstruction(clickedInstruction);
+    };
+
+    document.addEventListener("mousedown", handleGlobalClick);
+    return () => {
+      document.removeEventListener("mousedown", handleGlobalClick);
+    };
+  }, [instructions]);
 
   useEffect(() => {
     initialized.current = false;
-  }, [field.id, field.instructions]);
+  }, [field.id]);
 
   useEffect(() => {
     if (!initialized.current) {
-      console.log("Initializing AIResponseField:", {
-        fieldId: field.id,
-        instructions: field.instructions,
-        text: field.text,
-      });
-
       if (field.instructions && field.instructions.length > 0) {
-        console.log("✅ Initializing from field.instructions");
         setInstructions(
           field.instructions.map((inst, idx) => ({
             id: String(Date.now() + idx),
@@ -101,7 +119,6 @@ export default function AIResponseField({
         );
         initialized.current = true;
       } else if (field.text && field.text.includes("\n\n")) {
-        console.log("⚠️ Initializing from field.text (fallback)");
         const lines = field.text.split("\n\n").filter((line) => line.trim());
         setInstructions(
           lines.map((line, idx) => ({
@@ -112,7 +129,7 @@ export default function AIResponseField({
         initialized.current = true;
       }
     }
-  }, [field.instructions, field.text]);
+  }, [field.id, field.instructions, field.text]);
 
   const handleAddInstruction = () => {
     const newInstruction: Instruction = {
@@ -272,14 +289,9 @@ export default function AIResponseField({
     const target = event.target as HTMLDivElement;
     const newContent = target.innerHTML;
 
-    isUserInputRef.current.set(instructionId, true);
-
     saveSelection(instructionId);
 
     const placeholderContent = convertTagsToPlaceholders(newContent);
-
-    const richText = convertPlaceholdersToTags(placeholderContent);
-    previousContentRef.current.set(instructionId, richText);
 
     const newInstructions = instructions.map((inst) =>
       inst.id === instructionId
@@ -291,9 +303,13 @@ export default function AIResponseField({
   };
 
   const createTagElement = (label: string): HTMLElement => {
+    const field = fields.find((f) => f.name === label || f.id === label);
+
     const tagElement = document.createElement("span");
     tagElement.contentEditable = "false";
     tagElement.draggable = true;
+    tagElement.setAttribute("data-tag-id", field?.id || label);
+    tagElement.setAttribute("data-tag-label", label);
     tagElement.className =
       "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
     tagElement.style.margin = "0 0.25em";
@@ -340,7 +356,17 @@ export default function AIResponseField({
     const tagElement = createTagElement(tag.label);
     insertNodeAndUpdateSelection(tagElement, insertionRange);
     saveSelection(instructionId);
-    updateEditorContent(instructionId);
+
+    const newContent = editorElement.innerHTML;
+    const placeholderContent = convertTagsToPlaceholders(newContent);
+
+    const newInstructions = instructions.map((inst) =>
+      inst.id === instructionId
+        ? { ...inst, content: placeholderContent }
+        : inst
+    );
+    setInstructions(newInstructions);
+    updateFieldText(newInstructions);
     editorElement.focus();
     restoreSelection(instructionId);
   };
@@ -365,6 +391,92 @@ export default function AIResponseField({
     },
     [convertTagsToPlaceholders, instructions, updateFieldText]
   );
+
+  const updateEditorHTML = useCallback(
+    (instructionId: string, content: string) => {
+      const editorElement = editorRefs.current.get(instructionId);
+      if (!editorElement) return;
+
+      const richText = convertPlaceholdersToTags(content);
+
+      const selection = window.getSelection();
+      const hadFocus = document.activeElement === editorElement;
+
+      if (hadFocus && selection?.rangeCount) {
+        const range = selection.getRangeAt(0);
+        if (editorElement.contains(range.startContainer)) {
+          saveSelection(instructionId);
+        }
+      }
+
+      editorElement.innerHTML = richText;
+
+      const tagElements = editorElement.querySelectorAll("span[data-tag-id]");
+      tagElements.forEach((tagEl) => {
+        tagEl.addEventListener("dragstart", (e) => {
+          const dragEvent = e as DragEvent;
+          const target = dragEvent.target as HTMLElement;
+          const tagId = target.getAttribute("data-tag-id");
+          const tagLabel = target.getAttribute("data-tag-label");
+          if (tagId && tagLabel && dragEvent.dataTransfer) {
+            dragEvent.dataTransfer.setData(
+              "tag",
+              JSON.stringify({ id: tagId, label: tagLabel })
+            );
+
+            saveSelection(instructionId);
+
+            target.setAttribute("data-dragging", "true");
+            target.style.opacity = "0.5";
+          }
+        });
+
+        tagEl.addEventListener("dragend", (e) => {
+          const dragEvent = e as DragEvent;
+          const target = dragEvent.target as HTMLElement;
+
+          if (target.getAttribute("data-dragging") === "true") {
+            target.remove();
+            updateEditorContent(instructionId);
+          }
+
+          const editorElement = editorRefs.current.get(instructionId);
+          if (editorElement) {
+            setTimeout(() => {
+              editorElement.focus();
+              restoreSelection(instructionId);
+            }, 10);
+          }
+        });
+      });
+
+      if (hadFocus) {
+        setTimeout(() => {
+          try {
+            restoreSelection(instructionId);
+          } catch {
+            const range = document.createRange();
+            range.selectNodeContents(editorElement);
+            range.collapse(false);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+            editorElement.focus();
+          }
+        }, 0);
+      }
+    },
+    [convertPlaceholdersToTags, updateEditorContent]
+  );
+
+  useEffect(() => {
+    instructions.forEach((instruction) => {
+      const editorElement = editorRefs.current.get(instruction.id);
+      if (editorElement && !editorElement.innerHTML) {
+        updateEditorHTML(instruction.id, instruction.content);
+      }
+    });
+  }, [instructions, updateEditorHTML]);
 
   const handleDragStart = (event: React.DragEvent, tag: Tag) => {
     event.dataTransfer.setData("tag", JSON.stringify(tag));
@@ -487,6 +599,7 @@ export default function AIResponseField({
 
   const handleDrop = (instructionId: string, event: React.DragEvent) => {
     event.preventDefault();
+    event.stopPropagation();
 
     removeAllPreviews(instructionId);
     setPreviewElements((prev) => {
@@ -501,13 +614,29 @@ export default function AIResponseField({
     const tagData = event.dataTransfer.getData("tag");
     if (tagData) {
       const tag = JSON.parse(tagData) as Tag;
-      insertTag(tag, instructionId, dropPosition);
+
+      const editorElement = editorRefs.current.get(instructionId);
+      if (editorElement) {
+        const draggingTags = editorElement.querySelectorAll(
+          "[data-dragging='true']"
+        );
+        draggingTags.forEach((dragTag) => dragTag.remove());
+
+        updateEditorContent(instructionId);
+
+        setTimeout(() => {
+          insertTag(tag, instructionId, dropPosition);
+
+          setTimeout(() => {
+            editorElement.focus();
+            restoreSelection(instructionId);
+          }, 0);
+        }, 0);
+      }
     }
   };
 
   const handleFocus = (instructionId: string) => {
-    setFocusedInstruction(instructionId);
-
     const editorElement = editorRefs.current.get(instructionId);
     const lastRange = lastRangeRefs.current.get(instructionId);
 
@@ -539,71 +668,9 @@ export default function AIResponseField({
     }
   };
 
-  useEffect(() => {
-    instructions.forEach((instruction) => {
-      const editorElement = editorRefs.current.get(instruction.id);
-      if (!editorElement) return;
-
-      if (isUserInputRef.current.get(instruction.id)) {
-        isUserInputRef.current.set(instruction.id, false);
-        return;
-      }
-
-      const richText = convertPlaceholdersToTags(instruction.content);
-      const previousContent = previousContentRef.current.get(instruction.id);
-
-      if (previousContent === richText) return;
-
-      const selection = window.getSelection();
-      const hadFocus = document.activeElement === editorElement;
-
-      if (hadFocus && selection?.rangeCount) {
-        const range = selection.getRangeAt(0);
-        if (editorElement.contains(range.startContainer)) {
-          saveSelection(instruction.id);
-        }
-      }
-
-      editorElement.innerHTML = richText;
-      previousContentRef.current.set(instruction.id, richText);
-
-      const tagElements = editorElement.querySelectorAll("span[data-tag-id]");
-      tagElements.forEach((tagEl) => {
-        tagEl.addEventListener("dragstart", (e) => {
-          const dragEvent = e as DragEvent;
-          const target = dragEvent.target as HTMLElement;
-          const tagId = target.getAttribute("data-tag-id");
-          const tagLabel = target.getAttribute("data-tag-label");
-          if (tagId && tagLabel && dragEvent.dataTransfer) {
-            dragEvent.dataTransfer.setData(
-              "tag",
-              JSON.stringify({ id: tagId, label: tagLabel })
-            );
-            setTimeout(() => {
-              target.remove();
-              updateEditorContent(instruction.id);
-            }, 0);
-          }
-        });
-      });
-
-      if (hadFocus) {
-        setTimeout(() => {
-          try {
-            restoreSelection(instruction.id);
-          } catch {
-            const range = document.createRange();
-            range.selectNodeContents(editorElement);
-            range.collapse(false);
-            const sel = window.getSelection();
-            sel?.removeAllRanges();
-            sel?.addRange(range);
-            editorElement.focus();
-          }
-        }, 0);
-      }
-    });
-  }, [instructions, convertPlaceholdersToTags, updateEditorContent]);
+  const handleBlur = (instructionId: string) => {
+    saveSelection(instructionId);
+  };
 
   const getOperatorsForField = (fieldType: string) => {
     const operators = [];
@@ -657,11 +724,6 @@ export default function AIResponseField({
   const operators = selectedField
     ? getOperatorsForField(selectedField.type)
     : [];
-
-  const handleBlur = (instructionId: string) => {
-    setFocusedInstruction(null);
-    saveSelection(instructionId);
-  };
 
   return (
     <div className="space-y-4">
@@ -737,7 +799,6 @@ export default function AIResponseField({
                           </motion.div>
                         )}
 
-                        {/* ✅ ВИДАЛЕНО layout prop для усунення зайвих ререндерів */}
                         <div
                           className="relative w-full box-border bg-white rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
                           style={{
@@ -780,7 +841,7 @@ export default function AIResponseField({
                             }
                             suppressContentEditableWarning
                           />
-                          <div className="absolute right-2 top-2 flex items-center gap-1">
+                          <div className="absolute right-2 top-1 flex items-center gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -831,14 +892,46 @@ export default function AIResponseField({
                     <Badge
                       key={sourceField.id}
                       draggable="true"
-                      onDragStart={(event) => handleDragStart(event, tagData)}
-                      onClick={() => {
-                        if (instructions.length > 0) {
+                      onDragStart={(event) => {
+                        handleDragStart(event, tagData);
+                        if (focusedInstruction) {
+                          event.dataTransfer.setData(
+                            "focusedInstruction",
+                            focusedInstruction
+                          );
+                        }
+                      }}
+                      onDragEnd={() => {
+                        if (focusedInstruction) {
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
+                        }
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (focusedInstruction) {
+                          insertTag(tagData, focusedInstruction);
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
+                        } else if (instructions.length > 0) {
                           insertTag(tagData, instructions[0].id);
                         }
                       }}
                       variant="default"
-                      className="cursor-move bg-primary-600 align-baseline"
+                      className="cursor-move bg-primary-600 align-baseline select-none"
                     >
                       {fieldIdentifier}
                     </Badge>

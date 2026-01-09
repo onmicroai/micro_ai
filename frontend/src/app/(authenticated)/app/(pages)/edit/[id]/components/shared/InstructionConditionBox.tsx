@@ -21,7 +21,6 @@ export default function InstructionConditionBox({
         height: 30,
         background: "linear-gradient(90deg, #E1E3FF80 0%, #FFFFFF00 100%)",
         border: "1px solid #5963E8",
-        borderRadius: 6,
       }}
     >
       <div
