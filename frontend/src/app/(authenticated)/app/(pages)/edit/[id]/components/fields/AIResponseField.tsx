@@ -729,7 +729,7 @@ export default function AIResponseField({
     <div className="space-y-4">
       <FieldHeader
         icon={MessageCircle}
-        label="AI respossnse"
+        label="AI response"
         fieldId={field.name}
         isCollapsed={isCollapsed}
         onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
