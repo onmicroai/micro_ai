@@ -1269,7 +1269,6 @@ export default function Field({
         onRequiredChange={(isRequired) =>
           onUpdateFieldRequired(field.id, isRequired, isPromptType)
         }
-        showConditionalLogic={!isSpecialType}
         onConditionalLogicChange={(logic) =>
           onUpdateConditionalLogic?.(field.id, logic)
         }
