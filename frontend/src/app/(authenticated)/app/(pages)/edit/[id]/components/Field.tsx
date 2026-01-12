@@ -1,6 +1,6 @@
 "use client";
 
-import { CirclePlus, Repeat2, User } from "lucide-react";
+import { CirclePlus, CircleMinus, Repeat2, User } from "lucide-react";
 import React, { useState } from "react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
@@ -18,7 +18,7 @@ import {
 import { Switch } from "./ui/switch";
 import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
-import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import PromptField from "./fields/PromptField";
 import AIResponseField from "./fields/AIResponseField";
@@ -248,7 +248,9 @@ export default function Field({
 }: FieldProps) {
   const { user } = useUserStore();
   const [isEditMode, setIsEditMode] = useState(false);
-  const [isValidationExpanded, setValidationExpanded] = useState(false);
+  const [isValidationExpanded, setValidationExpanded] = useState(
+    !!field.minChars || !!field.maxChars
+  );
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
   const [otherCheckboxValue, setOtherCheckboxValue] = useState("");
@@ -455,13 +457,25 @@ export default function Field({
     switch (field.type) {
       case "text":
         return (
-          <Input
-            placeholder={
-              field.placeholder ||
-              "Your user can enter a short response here... "
-            }
-            onChange={(e) => onUpdateFieldPlaceholder(field.id, e.target.value)}
-          />
+          <>
+            <Input
+              className="text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+              placeholder={
+                field.placeholder ||
+                "Your user can enter a short response here... "
+              }
+              onChange={(e) =>
+                onUpdateFieldPlaceholder(field.id, e.target.value)
+              }
+            />
+            {(field.minChars || field.maxChars) && (
+              <div className="text-xs text-gray-500 mt-1">
+                {field.minChars && `Minimum ${field.minChars} characters`}
+                {field.minChars && field.maxChars && " · "}
+                {field.maxChars && `Maximum ${field.maxChars} characters`}
+              </div>
+            )}
+          </>
         );
       case "textarea":
         return (
@@ -1246,21 +1260,26 @@ export default function Field({
     if (field.type === "text" || field.type === "textarea") {
       return (
         <div className="mt-2">
-          <div
-            onClick={() => setValidationExpanded(!isValidationExpanded)}
-            className="flex items-center justify-end cursor-pointer text-sm text-gray-600"
-          >
-            {isValidationExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-            <span className="ml-1">
-              {isValidationExpanded
-                ? "Hide Validation Rules"
-                : "Edit Validation Rules"}
-            </span>
-          </div>
+          {!isValidationExpanded ? (
+            <button
+              type="button"
+              onClick={() => setValidationExpanded(true)}
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              <CirclePlus size={16} className="mr-1" />
+              User input restrictions
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setValidationExpanded(false)}
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors mb-2"
+            >
+              <CircleMinus size={16} className="mr-1" />
+              User input restrictions
+            </button>
+          )}
+
           <AnimatePresence>
             {isValidationExpanded && (
               <motion.div
@@ -1270,35 +1289,45 @@ export default function Field({
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                <div className="mt-2 flex space-x-2">
-                  <input
-                    type="number"
-                    value={field.minChars || ""}
-                    onChange={(e) =>
-                      onUpdateFieldValidation(
-                        field.id,
-                        e.target.value ? parseInt(e.target.value, 10) : null,
-                        field.maxChars ?? null,
-                        false
-                      )
-                    }
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                    placeholder="Min chars"
-                  />
-                  <input
-                    type="number"
-                    value={field.maxChars || ""}
-                    onChange={(e) =>
-                      onUpdateFieldValidation(
-                        field.id,
-                        field.minChars ?? null,
-                        e.target.value ? parseInt(e.target.value, 10) : null,
-                        false
-                      )
-                    }
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                    placeholder="Max chars"
-                  />
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Min characters
+                    </label>
+                    <input
+                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      type="number"
+                      value={field.minChars || ""}
+                      onChange={(e) =>
+                        onUpdateFieldValidation(
+                          field.id,
+                          e.target.value ? parseInt(e.target.value, 10) : null,
+                          field.maxChars ?? null,
+                          false
+                        )
+                      }
+                      placeholder="Enter the number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Max characters
+                    </label>
+                    <input
+                      type="number"
+                      value={field.maxChars || ""}
+                      onChange={(e) =>
+                        onUpdateFieldValidation(
+                          field.id,
+                          field.minChars ?? null,
+                          e.target.value ? parseInt(e.target.value, 10) : null,
+                          false
+                        )
+                      }
+                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      placeholder="Enter the number"
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -1327,6 +1356,7 @@ export default function Field({
           </div>
         );
       default:
+        //TODO: Display restrictions labels
         return (
           <RenderQuestion
             element={field}
