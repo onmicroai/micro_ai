@@ -995,7 +995,7 @@ export default function FormBuilder() {
         <div className="flex relative">
           {/* Sidebar - opens after first header */}
           {sidebarOpen && (
-            <div 
+            <div
               className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30"
               ref={(el) => {
                 if (el) {
@@ -1029,7 +1029,9 @@ export default function FormBuilder() {
             >
               {/* Sidebar Header */}
               <div className="h-14 px-4 border-b border-gray-300 bg-white flex items-center justify-between">
-                <span className="text-sm font-medium">Additional App Settings</span>
+                <span className="text-sm font-medium">
+                  Additional App Settings
+                </span>
                 <button
                   onClick={() => setSidebarOpen(false)}
                   className="p-1 hover:bg-gray-200 rounded-md transition-colors"
@@ -1120,7 +1122,7 @@ export default function FormBuilder() {
             </div>
 
             {/* Main Content */}
-            {activeTab === 'build' ? (
+            {activeTab === "build" ? (
               <div className="container mx-auto py-8 px-4 max-w-7xl">
                 <>
                   <div className="space-y-6 mb-8">
@@ -1204,7 +1206,7 @@ export default function FormBuilder() {
                                         <div
                                           ref={providedDraggable.innerRef}
                                           {...providedDraggable.draggableProps}
-                                          className={`mb-4 rounded-lg border border-gray-200 bg-white p-4 ${
+                                          className={`mb-4 ${
                                             snapshotDraggable.isDragging
                                               ? "opacity-80"
                                               : ""

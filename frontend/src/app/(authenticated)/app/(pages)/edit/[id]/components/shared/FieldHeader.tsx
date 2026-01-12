@@ -27,7 +27,11 @@ import {
 } from "../../components/ui/select";
 import { Label } from "../../components/ui/label";
 import { Input } from "../../components/ui/input";
-import { ConditionalLogic, Element } from "@/app/(authenticated)/app/types";
+import {
+  ConditionalLogic,
+  Element,
+  HiddenHeaderElement,
+} from "@/app/(authenticated)/app/types";
 
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
@@ -48,6 +52,8 @@ interface FieldHeaderProps {
   conditionalLogic?: ConditionalLogic;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
   availableFields?: Element[];
+  // Generic hidden elements
+  hiddenElements?: HiddenHeaderElement[];
 }
 
 export default function FieldHeader({
@@ -56,17 +62,16 @@ export default function FieldHeader({
   fieldId,
   isCollapsed = false,
   onToggleCollapse,
-  onMove,
   onDelete,
   dragHandleProps,
   onRename,
   showRequired = false,
   isRequired = false,
   onRequiredChange,
-  showConditionalLogic = true,
   conditionalLogic,
   onConditionalLogicChange,
   availableFields = [],
+  hiddenElements = [],
 }: FieldHeaderProps) {
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState(fieldId);
@@ -80,6 +85,10 @@ export default function FieldHeader({
   const [conditionValue, setConditionValue] = useState<
     string | number | boolean
   >(conditionalLogic?.value || "");
+
+  const isHidden = (element: HiddenHeaderElement): boolean => {
+    return hiddenElements.includes(element);
+  };
 
   useEffect(() => {
     setNewName(fieldId);
@@ -177,34 +186,48 @@ export default function FieldHeader({
     : [];
 
   return (
-    <div className="flex items-center justify-between py-2">
+    <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        {dragHandleProps && (
+        {!isHidden("dragHandle") && dragHandleProps && (
           <div {...dragHandleProps} className="cursor-move text-gray-400">
             <GripVertical className="h-5 w-5" />
           </div>
         )}
-        {Icon && <Icon className="h-5 w-5 text-gray-600" />}
-        <span className="font-medium text-gray-900">{label}</span>
-        <button
-          type="button"
+        <div
+          className="flex items-center gap-2 cursor-pointer select-none"
           onClick={onToggleCollapse}
-          className="focus:outline-none"
-          aria-label={isCollapsed ? "Expand" : "Collapse"}
+          tabIndex={0}
+          role="button"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") onToggleCollapse?.();
+          }}
         >
-          {isCollapsed ? (
-            <ChevronDown className="h-5 w-5" />
-          ) : (
-            <ChevronUp className="h-5 w-5" />
-          )}
-        </button>
-        <Badge
-          variant="secondary"
-          className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50 cursor-pointer"
-          onClick={() => setEditOpen(true)}
-        >
-          {fieldId}
-        </Badge>
+          {Icon && <Icon className="h-5 w-5 text-gray-600" />}
+          <span className="font-medium text-gray-900">{label}</span>
+        </div>
+        {!isHidden("preview") && (
+          <button
+            type="button"
+            onClick={onToggleCollapse}
+            className="focus:outline-none"
+            aria-label={isCollapsed ? "Expand" : "Collapse"}
+          >
+            {isCollapsed ? (
+              <ChevronDown className="h-5 w-5" />
+            ) : (
+              <ChevronUp className="h-5 w-5" />
+            )}
+          </button>
+        )}
+        {!isHidden("rename") && (
+          <Badge
+            variant="secondary"
+            className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50 cursor-pointer"
+            onClick={() => setEditOpen(true)}
+          >
+            {fieldId}
+          </Badge>
+        )}
         {editOpen && (
           <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
             <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px]">
@@ -230,7 +253,7 @@ export default function FieldHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        {showRequired && (
+        {!isHidden("required") && showRequired && (
           <>
             <Switch checked={isRequired} onCheckedChange={onRequiredChange} />
             <span className="text-sm text-gray-600">Required</span>
@@ -238,7 +261,7 @@ export default function FieldHeader({
           </>
         )}
 
-        {showConditionalLogic && (
+        {!isHidden("conditionalLogic") && (
           <Dialog
             open={conditionalDialogOpen}
             onOpenChange={setConditionalDialogOpen}
@@ -453,21 +476,11 @@ export default function FieldHeader({
           </Dialog>
         )}
 
-        {showConditionalLogic && (
+        {!isHidden("conditionalLogic") && (
           <div className="border-l border-gray-300 h-5 mx-2"></div>
         )}
 
-        {onMove && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onMove}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
-          >
-            <Split className="h-4 w-4 text-gray-500" />
-          </Button>
-        )}
-        {onDelete && (
+        {!isHidden("delete") && onDelete && (
           <Button
             variant="ghost"
             size="sm"
