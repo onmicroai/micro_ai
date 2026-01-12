@@ -1398,6 +1398,7 @@ export default function Field({
               ? String(field.conditionalLogic.value)
               : undefined
           }
+          fieldId={field.id}
         />
       )}
       <>
