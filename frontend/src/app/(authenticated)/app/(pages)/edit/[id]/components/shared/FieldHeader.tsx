@@ -19,6 +19,11 @@ import {
   DialogTrigger,
 } from "../../components/ui/dialog";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -96,6 +101,17 @@ export default function FieldHeader({
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewName(e.target.value);
     onRename?.(e.target.value);
+  };
+
+  const handleAliasKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      setEditOpen(false);
+    }
+    if (e.key === "Enter") {
+      e.preventDefault();
+      setEditOpen(false);
+    }
   };
 
   const getOperatorsForField = (fieldType: string) => {
@@ -198,24 +214,36 @@ export default function FieldHeader({
             <ChevronUp className="h-5 w-5" />
           )}
         </button>
-        <Badge
-          variant="secondary"
-          className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50 cursor-pointer"
-          onClick={() => setEditOpen(true)}
-        >
-          {fieldId}
-        </Badge>
-        {editOpen && (
-          <div className="fixed inset-0 flex items-center justify-center z-50 bg-black/20">
-            <div className="bg-white rounded-lg shadow-lg p-6 min-w-[300px]">
-              <div className="mb-2 font-medium">Edit name</div>
-              <input
-                className="border rounded px-2 py-1 w-full"
+        <Popover open={editOpen} onOpenChange={setEditOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              aria-label="Edit field alias"
+              className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              <Badge
+                variant="secondary"
+                className="text-xs font-normal bg-blue-50 text-blue-700 hover:bg-blue-50 cursor-pointer"
+              >
+                {fieldId}
+              </Badge>
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="start"
+            side="bottom"
+            className="w-72 p-2"
+          >
+            <div className="space-y-2">
+              <div className="text-xs font-medium text-gray-900">Edit name</div>
+              <Input
                 value={newName}
                 onChange={handleChange}
+                onKeyDown={handleAliasKeyDown}
                 autoFocus
+                className="text-sm"
               />
-              <div className="flex justify-end gap-2 mt-4">
+              <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
                   onClick={() => setEditOpen(false)}
@@ -225,8 +253,8 @@ export default function FieldHeader({
                 </Button>
               </div>
             </div>
-          </div>
-        )}
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="flex items-center gap-2">
