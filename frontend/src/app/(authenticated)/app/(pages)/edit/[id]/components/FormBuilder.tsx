@@ -59,6 +59,7 @@ import {
 import { HelpCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
+import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
 
 // Options for the "Add section" dialog
 const fieldTypes = [
@@ -231,7 +232,16 @@ export default function FormBuilder() {
     fetchLiteLLMModels,
     appId,
     setAttachedFiles,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
   } = useSurveyStore();
+  const handleSaveConditionalLogic = () => {
+    setConditionalSidebarOpen(false);
+  };
+
+  const handleClearConditionalLogic = () => {
+    setConditionalSidebarOpen(false);
+  };
 
   const fileUploader = createFileUploader(appId?.toString() || "");
 
@@ -1125,7 +1135,9 @@ export default function FormBuilder() {
 
           {/* Main Content Area */}
           <div
-            className="flex-1 transition-all duration-300"
+            className={`flex-1 transition-all duration-300 ${
+              conditionalSidebarOpen ? "mr-[400px]" : ""
+            }`}
             ref={(el) => {
               if (el && sidebarOpen) {
                 // #region agent log
@@ -1751,6 +1763,15 @@ export default function FormBuilder() {
             )}
           </div>
         </div>
+        {conditionalSidebarOpen && (
+          <ConditionalLogicSidebar
+            isOpen={true}
+            onClose={() => setConditionalSidebarOpen(false)}
+            onSave={handleSaveConditionalLogic}
+            onClear={handleClearConditionalLogic}
+            availableFields={Array.isArray(elements) ? elements : []}
+          />
+        )}
       </div>
     </DragDropContext>
   );

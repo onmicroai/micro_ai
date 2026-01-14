@@ -435,6 +435,8 @@ export interface SurveyState {
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => Promise<void>;
+  conditionalSidebarOpen: boolean;
+  setConditionalSidebarOpen: (open: boolean) => void;
 }
 
 export interface SaveState {
