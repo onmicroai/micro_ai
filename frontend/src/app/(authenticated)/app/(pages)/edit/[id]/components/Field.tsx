@@ -1228,12 +1228,11 @@ export default function Field({
           label={FIELD_LABELS[field.type] || field.type}
           fieldId={field.name}
           fieldType={field.type}
-          showRequired={true}
           isRequired={field.isRequired || false}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, true)
           }
-          onRename={(newName) => onUpdateFieldName(field.id, newName, true)} // ДОДАЙТЕ ЦЕ
+          onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
           onDelete={() => onDeleteField(field.id, true)}
           onFieldTypeChange={(newType) =>
             onUpdateFieldType?.(field.id, newType)
@@ -1342,69 +1341,108 @@ export default function Field({
   };
 
   function renderFieldPreview() {
-    switch (field.type) {
-      case "title":
-        return (
-          <h2 className="text-base font-semibold">
-            {field.text || field.label}
-          </h2>
-        );
-      case "scoring":
-        return (
-          <div>
-            <div className="font-medium mb-1">Scoring</div>
-            <div className="text-sm text-gray-600">
-              {field.rubric || "No rubric set."}
+    const content = (() => {
+      switch (field.type) {
+        case "title":
+          return (
+            <h2 className="text-base font-semibold">
+              {field.text || field.label}
+            </h2>
+          );
+        case "scoring":
+          return (
+            <div>
+              <div className="font-medium mb-1">Scoring</div>
+              <div className="text-sm text-gray-600">
+                {field.rubric || "No rubric set."}
+              </div>
             </div>
-          </div>
-        );
-      default:
-        //TODO: Display restrictions labels
-        return (
-          <RenderQuestion
-            element={field}
-            answers={previewAnswers}
-            errors={[]}
-            disabled={false}
-            handleInputChange={handlePreviewInputChange}
-            setInputValue={handlePreviewSetInputValue}
-            setImages={() => {}}
-            visible={true}
-            appId={0}
-            userId={null}
-            surveyJson={null}
-            currentPhaseIndex={0}
-            isOwner={false}
-            isAdmin={false}
-          />
-        );
-    }
+          );
+        default:
+          //TODO: Display restrictions labels
+          return (
+            <RenderQuestion
+              element={field}
+              answers={previewAnswers}
+              errors={[]}
+              disabled={false}
+              handleInputChange={handlePreviewInputChange}
+              setInputValue={handlePreviewSetInputValue}
+              setImages={() => {}}
+              visible={true}
+              appId={0}
+              userId={null}
+              surveyJson={null}
+              currentPhaseIndex={0}
+              isOwner={false}
+              isAdmin={false}
+            />
+          );
+      }
+    })();
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.3 }}
+      >
+        {content}
+      </motion.div>
+    );
   }
 
   return (
-    <div
-      className={`space-y-2 mb-4 bg-gray-50 transition-all duration-300${
-        isEditMode || isPromptType
-          ? "rounded-lg border border-gray-300 bg-gray-50 p-5 "
-          : ""
-      }`}
-    >
-      {" "}
-      {field.conditionalLogic && fieldCondition && (
-        <InstructionConditionBox
-          property={
-            fieldCondition.name || fieldCondition.label || fieldCondition.id
-          }
-          operator={field.conditionalLogic.operator}
-          value={
-            field.conditionalLogic.value
-              ? String(field.conditionalLogic.value)
-              : undefined
-          }
-          fieldId={field.id}
-        />
-      )}
-      <>
+    <div className="space-y-2 mb-4 relative md:px-4">
+      <motion.div
+        initial={false}
+        animate={
+          isEditMode
+            ? {
+                opacity: 1,
+                scale: 1,
+                top: "-20px",
+                left: "-20px",
+                right: "-20px",
+                bottom: "-20px",
+              }
+            : {
+                opacity: 0,
+                scale: 0.95,
+                top: "0px",
+                left: "0px",
+                right: "0px",
+                bottom: "0px",
+              }
+        }
+        transition={{
+          duration: 0.5,
+          ease: [0.4, 0, 0.2, 1],
+        }}
+        className="absolute rounded-lg border border-gray-300 bg-gray-50 pointer-events-none"
+        style={{
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+        }}
+      />
+
+      <div className="relative z-10">
+        {field.conditionalLogic && fieldCondition && (
+          <InstructionConditionBox
+            property={
+              fieldCondition.name || fieldCondition.label || fieldCondition.id
+            }
+            operator={field.conditionalLogic.operator}
+            value={
+              field.conditionalLogic.value
+                ? String(field.conditionalLogic.value)
+                : undefined
+            }
+            fieldId={field.id}
+          />
+        )}
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
@@ -1420,7 +1458,6 @@ export default function Field({
           onRename={(newName) =>
             onUpdateFieldName(field.id, newName, isPromptType)
           }
-          showRequired={!isSpecialType}
           isRequired={field.isRequired || false}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, isPromptType)
@@ -1436,82 +1473,121 @@ export default function Field({
           }
         />
 
-        <AnimatePresence>
+        <AnimatePresence mode="wait">
           {isEditMode && (
             <motion.div
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             >
-              <div className="space-y-2">
+              <motion.div
+                className="space-y-2"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.1, duration: 0.3 }}
+              >
                 {!isSpecialType && (
                   <>
-                    <Label className="text-sm font-medium mb-1 block">
-                      Question
-                    </Label>
-                    <Input
-                      value={field.label || ""}
-                      onFocus={() => {
-                        if (!field.label) {
-                          onUpdateFieldLabel(field.id, "", isPromptType);
-                        }
-                      }}
-                      onChange={(e) => {
-                        onUpdateFieldLabel(
-                          field.id,
-                          e.target.value,
-                          isPromptType
-                        );
-                      }}
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
-                      placeholder="Enter your question..."
-                    />
-                    {!showDescription && !field.description && (
-                      <button
-                        type="button"
-                        onClick={() => setShowDescription(true)}
-                        className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors pb-6 pt-2"
-                      >
-                        <CirclePlus size={16} className="mr-1" />
-                        Add description
-                      </button>
-                    )}
-
-                    {/* Description textarea - only show if expanded or has content */}
-                    {(showDescription || field.description) && (
-                      <div className="relative pb-6 pt-2">
-                        <textarea
-                          value={field.description || ""}
-                          onChange={(e) =>
-                            onUpdateFieldDescription(
-                              field.id,
-                              e.target.value,
-                              isPromptType
-                            )
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15, duration: 0.3 }}
+                    >
+                      <Label className="text-sm font-medium mb-1 block">
+                        Question
+                      </Label>
+                      <Input
+                        value={field.label || ""}
+                        onFocus={() => {
+                          if (!field.label) {
+                            onUpdateFieldLabel(field.id, "", isPromptType);
                           }
-                          className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
-                          placeholder="Add a description..."
-                        />
-                        {/* Remove description button */}
-                        {!field.description && (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setShowDescription(false)}
-                            className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
+                        }}
+                        onChange={(e) => {
+                          onUpdateFieldLabel(
+                            field.id,
+                            e.target.value,
+                            isPromptType
+                          );
+                        }}
+                        className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+                        placeholder="Enter your question..."
+                      />
+                    </motion.div>
+
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2, duration: 0.3 }}
+                    >
+                      {!showDescription && !field.description && (
+                        <button
+                          type="button"
+                          onClick={() => setShowDescription(true)}
+                          className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors pb-6 pt-2"
+                        >
+                          <CirclePlus size={16} className="mr-1" />
+                          Add description
+                        </button>
+                      )}
+
+                      <AnimatePresence>
+                        {(showDescription || field.description) && (
+                          <motion.div
+                            className="relative pb-6 pt-2"
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: "auto" }}
+                            exit={{ opacity: 0, height: 0 }}
+                            transition={{ duration: 0.3 }}
                           >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
+                            <textarea
+                              value={field.description || ""}
+                              onChange={(e) =>
+                                onUpdateFieldDescription(
+                                  field.id,
+                                  e.target.value,
+                                  isPromptType
+                                )
+                              }
+                              className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
+                              placeholder="Add a description..."
+                            />
+                            {/* Remove description button */}
+                            {!field.description && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowDescription(false)}
+                                className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            )}
+                          </motion.div>
                         )}
-                      </div>
-                    )}
+                      </AnimatePresence>
+                    </motion.div>
                   </>
                 )}
 
-                <div className="mt-3">{renderFieldEdit()}</div>
-                {renderValidationSection()}
-              </div>
+                <motion.div
+                  className="mt-3"
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.25, duration: 0.3 }}
+                >
+                  {renderFieldEdit()}
+                </motion.div>
+
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3, duration: 0.3 }}
+                >
+                  {renderValidationSection()}
+                </motion.div>
+              </motion.div>
             </motion.div>
           )}
 
@@ -1520,13 +1596,13 @@ export default function Field({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.3, ease: "easeInOut" }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             >
               <div className="space-y-2 mt-4">{renderFieldPreview()}</div>
             </motion.div>
           )}
         </AnimatePresence>
-      </>
+      </div>
     </div>
   );
 }
