@@ -267,6 +267,13 @@ export default function Field({
   // Handle click outside to exit edit mode
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Ignore clicks inside Radix Select content because click events are bubbled
+      const selectContent = document.querySelector(
+        "[data-radix-popper-content-wrapper]"
+      );
+      if (selectContent && selectContent.contains(event.target as Node)) {
+        return;
+      }
       if (
         isEditMode &&
         fieldRef.current &&

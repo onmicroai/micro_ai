@@ -920,8 +920,8 @@ export default function AIResponseField({
                       insertTag(tagData, instructions[0].id);
                     }
                   }}
-                  variant="default"
-                  className="cursor-move bg-primary-600 align-baseline select-none"
+                  variant="secondary"
+                  className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer"
                 >
                   {fieldIdentifier}
                 </Badge>

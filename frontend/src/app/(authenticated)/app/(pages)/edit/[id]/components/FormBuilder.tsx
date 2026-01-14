@@ -1063,7 +1063,7 @@ export default function FormBuilder() {
     <DragDropContext onDragEnd={handleDragEnd}>
       <div
         className={`min-h-screen ${
-          backgroundTheme === "gray" ? "bg-gray-50" : "bg-white"
+          backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
         }`}
       >
         {/* Main Layout with Sidebar */}
