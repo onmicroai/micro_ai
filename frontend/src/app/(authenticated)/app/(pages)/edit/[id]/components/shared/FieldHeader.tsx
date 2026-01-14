@@ -1,12 +1,6 @@
 "use client";
 
-import {
-  ChevronDown,
-  ChevronUp,
-  Split,
-  Trash2,
-  GripVertical,
-} from "lucide-react";
+import { Split, Trash2, GripVertical } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
@@ -37,15 +31,18 @@ import {
   Element,
   HiddenHeaderElement,
 } from "@/app/(authenticated)/app/types";
+import { availableSections } from "../FormBuilder";
 
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
   fieldId: string;
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
+  fieldType?: string;
+  isPreviewMode?: boolean;
+  onTogglePreview?: () => void;
   onMove?: () => void;
   onDelete?: () => void;
+  onFieldTypeChange?: (newType: string) => void;
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   onRename?: (newName: string) => void;
   // Required toggle props
@@ -65,9 +62,11 @@ export default function FieldHeader({
   icon: Icon,
   label,
   fieldId,
-  isCollapsed = false,
-  onToggleCollapse,
+  fieldType,
+  isPreviewMode: isCollapsed = false,
+  onTogglePreview: onToggleCollapse,
   onDelete,
+  onFieldTypeChange,
   dragHandleProps,
   onRename,
   showRequired = false,
@@ -202,39 +201,59 @@ export default function FieldHeader({
     : [];
 
   return (
-    <div className="flex items-center justify-between">
+    <div
+      className="flex items-center justify-between w-full cursor-pointer select-none"
+      onClick={onToggleCollapse}
+      tabIndex={0}
+      role="button"
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onToggleCollapse?.();
+      }}
+    >
       <div className="flex items-center gap-2">
         {!isHidden("dragHandle") && dragHandleProps && (
-          <div {...dragHandleProps} className="cursor-move text-gray-400">
+          <div
+            {...dragHandleProps}
+            className="cursor-move text-gray-400"
+            onClick={(e) => e.stopPropagation()}
+          >
             <GripVertical className="h-5 w-5" />
           </div>
         )}
-        <div
-          className="flex items-center gap-2 cursor-pointer select-none"
-          onClick={onToggleCollapse}
-          tabIndex={0}
-          role="button"
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === " ") onToggleCollapse?.();
-          }}
-        >
-          {Icon && <Icon className="h-5 w-5 text-gray-600" />}
-          <span className="font-medium text-gray-900">{label}</span>
-        </div>
-        {!isHidden("preview") && (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="focus:outline-none"
-            aria-label={isCollapsed ? "Expand" : "Collapse"}
-          >
-            {isCollapsed ? (
-              <ChevronDown className="h-5 w-5" />
-            ) : (
-              <ChevronUp className="h-5 w-5" />
-            )}
-          </button>
-        )}
+        {Icon && <Icon className="h-5 w-5 text-gray-600" />}
+        <span className="font-medium text-gray-900">{label}</span>
+
+        {!isHidden("fieldTypeSelector") &&
+          !isCollapsed &&
+          fieldType &&
+          onFieldTypeChange && (
+            <Select
+              value={fieldType}
+              onValueChange={(value) => {
+                onFieldTypeChange(value);
+              }}
+            >
+              <SelectTrigger
+                className="h-6 w-6 p-0 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                style={{ minWidth: 0, width: 24, height: 24 }}
+                onClick={(e) => e.stopPropagation()}
+                aria-label="Change field type"
+              />
+              <SelectContent>
+                {availableSections.map((type) => {
+                  const TypeIcon = type.icon;
+                  return (
+                    <SelectItem key={type.id} value={type.id}>
+                      <div className="flex items-center gap-2">
+                        <TypeIcon className="h-4 w-4" />
+                        <span>{type.label}</span>
+                      </div>
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+          )}
 
         <Popover open={editOpen} onOpenChange={setEditOpen}>
           {!isHidden("rename") && (
@@ -243,6 +262,7 @@ export default function FieldHeader({
                 type="button"
                 aria-label="Edit field alias"
                 className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                onClick={(e) => e.stopPropagation()}
               >
                 <Badge
                   variant="secondary"
@@ -257,12 +277,11 @@ export default function FieldHeader({
             <div className="space-y-2">
               <div className="text-xs font-medium text-gray-900">Edit name</div>
               <Input
-                className="border rounded px-2 py-1 w-full"
+                className="border rounded px-2 py-1 w-full text-sm"
                 value={newName}
                 onChange={handleChange}
                 onKeyDown={handleAliasKeyDown}
                 autoFocus
-                className="text-sm"
               />
               <div className="flex justify-end gap-2">
                 <Button
@@ -281,7 +300,11 @@ export default function FieldHeader({
       <div className="flex items-center gap-2">
         {!isHidden("required") && showRequired && (
           <>
-            <Switch checked={isRequired} onCheckedChange={onRequiredChange} />
+            <Switch
+              checked={isRequired}
+              onCheckedChange={onRequiredChange}
+              onClick={(e) => e.stopPropagation()}
+            />
             <span className="text-sm text-gray-600">Required</span>
             <div className="border-l border-gray-300 h-5 mx-2"></div>
           </>
@@ -297,6 +320,7 @@ export default function FieldHeader({
                 variant="ghost"
                 size="sm"
                 className="h-8 w-8 p-0 hover:bg-gray-100"
+                onClick={(e) => e.stopPropagation()}
               >
                 <Split className="h-4 w-4 text-gray-500" />
               </Button>
@@ -510,7 +534,10 @@ export default function FieldHeader({
           <Button
             variant="ghost"
             size="sm"
-            onClick={onDelete}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDelete();
+            }}
             className="h-8 w-8 p-0 hover:bg-gray-100"
           >
             <Trash2 className="h-4 w-4 text-gray-500" />

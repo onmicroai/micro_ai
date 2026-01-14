@@ -146,6 +146,7 @@ interface FieldProps {
     newName: string,
     isPrompt: boolean
   ) => void;
+  onUpdateFieldType?: (fieldId: string, newType: string) => void;
   onDeleteField: (fieldId: string, isPrompt: boolean) => void;
   onUpdateFieldDescription: (
     fieldId: string,
@@ -222,6 +223,7 @@ export default function Field({
   dragHandleProps,
   onUpdateFieldLabel,
   onUpdateFieldName,
+  onUpdateFieldType,
   onUpdateFieldRequired,
   onDeleteField,
   onUpdateFieldDescription,
@@ -393,16 +395,12 @@ export default function Field({
             conditionalLogic: field.conditionalLogic,
           }}
           fields={appFields}
-          onDelete={() => onDeleteField(field.id, true)}
           onChange={(fieldId, text, instructions) => {
             onUpdatePromptText?.(fieldId, text);
             if (instructions) {
               onUpdateAiResponseInstructions?.(fieldId, instructions);
             }
           }}
-          dragHandleProps={dragHandleProps || undefined}
-          onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
-          onToggleCollapse={() => setIsEditMode(false)}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, true)
           }
@@ -1229,14 +1227,19 @@ export default function Field({
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
           fieldId={field.name}
+          fieldType={field.type}
           showRequired={true}
           isRequired={field.isRequired || false}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, true)
           }
+          onRename={(newName) => onUpdateFieldName(field.id, newName, true)} // ДОДАЙТЕ ЦЕ
           onDelete={() => onDeleteField(field.id, true)}
+          onFieldTypeChange={(newType) =>
+            onUpdateFieldType?.(field.id, newType)
+          }
           dragHandleProps={dragHandleProps || undefined}
-          hiddenElements={["preview", "required"]}
+          hiddenElements={["required"]}
         />
         {field.conditionalLogic && fieldCondition && (
           <InstructionConditionBox
@@ -1406,9 +1409,13 @@ export default function Field({
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
           fieldId={field.name}
-          isCollapsed={!isEditMode}
-          onToggleCollapse={() => setIsEditMode(!isEditMode)}
+          fieldType={field.type}
+          isPreviewMode={!isEditMode}
+          onTogglePreview={() => setIsEditMode(!isEditMode)}
           onDelete={() => onDeleteField(field.id, isPromptType)}
+          onFieldTypeChange={(newType) =>
+            onUpdateFieldType?.(field.id, newType)
+          }
           dragHandleProps={dragHandleProps || undefined}
           onRename={(newName) =>
             onUpdateFieldName(field.id, newName, isPromptType)
@@ -1422,7 +1429,11 @@ export default function Field({
             onUpdateConditionalLogic?.(field.id, logic)
           }
           availableFields={phaseFields}
-          hiddenElements={!isEditMode ? ["required", "conditionalLogic"] : []}
+          hiddenElements={
+            !isEditMode
+              ? ["required", "conditionalLogic", "fieldTypeSelector"]
+              : []
+          }
         />
 
         <AnimatePresence>

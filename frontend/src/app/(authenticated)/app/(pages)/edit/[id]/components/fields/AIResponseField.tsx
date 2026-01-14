@@ -42,9 +42,6 @@ interface AIResponseFieldProps {
     content: string,
     instructions?: AIResponseInstruction[]
   ) => void;
-  onDelete?: () => void;
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
-  onRename?: (newName: string) => void;
 }
 
 export default function AIResponseField({
@@ -52,7 +49,6 @@ export default function AIResponseField({
   fields,
   onChange,
 }: AIResponseFieldProps & {
-  onToggleCollapse?: () => void;
   onRequiredChange?: (isRequired: boolean) => void;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
 }) {
@@ -929,7 +925,7 @@ export default function AIResponseField({
           })}
         </div>
       </div>
-      ){/* Conditional Logic Dialog */}
+      {/* Conditional Logic Dialog */}
       <Dialog
         open={!!openDialog}
         onOpenChange={(open) => !open && setOpenDialog(null)}
