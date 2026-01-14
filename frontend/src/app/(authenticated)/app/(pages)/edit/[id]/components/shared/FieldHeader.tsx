@@ -204,16 +204,16 @@ export default function FieldHeader({
       role="button"
     >
       <div className="flex items-center gap-2">
-        <motion.div
-          layout
-          initial={{ opacity: 0, x: -24 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -24 }}
-          transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-          key="label-preview"
-          className="flex items-center gap-2"
-        >
-          {!isHidden("dragHandle") && dragHandleProps && (
+        {!isHidden("dragHandle") && dragHandleProps && (
+          <motion.div
+            layout
+            initial={{ opacity: 0, x: -24 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -24 }}
+            transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+            key="label-preview"
+            className="flex items-center gap-2"
+          >
             <div
               {...dragHandleProps}
               className="cursor-move text-gray-400"
@@ -221,8 +221,8 @@ export default function FieldHeader({
             >
               <GripVertical className="h-5 w-5" />
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+        )}
 
         {!isHidden("fieldLabel") &&
           !isCollapsed &&
