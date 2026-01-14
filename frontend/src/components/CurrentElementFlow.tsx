@@ -8,7 +8,12 @@ import { useConversationStore } from "@/store/conversationStore";
 import RenderQuestion from "./RenderQuestion";
 import RenderPrompt from "./RenderPrompt";
 import injectValuesIntoPrompt from "@/utils/injectValuesIntoPrompt";
-import type { Answers, ConditionalLogic, Element, Prompt } from "@/app/(authenticated)/app/types";
+import type {
+  Answers,
+  ConditionalLogic,
+  Element,
+  Prompt,
+} from "@/app/(authenticated)/app/types";
 import {
   AIResponseDisplay,
   MarkdownResponseDisplay,
@@ -17,7 +22,11 @@ import {
 } from "@/utils/phaseResultDisplay";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 
-const STOP_TYPES = new Set<Element["type"]>(["aiResponse", "fixedResponse", "scoring"]);
+const STOP_TYPES = new Set<Element["type"]>([
+  "aiResponse",
+  "fixedResponse",
+  "scoring",
+]);
 
 function isStopElement(el: Element): boolean {
   return STOP_TYPES.has(el.type);
@@ -59,12 +68,18 @@ export default function CurrentElementFlow({
    * Fixed responses are "revealed" without an API call; once revealed, keep them visible
    * when the UI accumulates.
    */
-  const [fixedResponsesById, setFixedResponsesById] = useState<Record<string, string>>({});
+  const [fixedResponsesById, setFixedResponsesById] = useState<
+    Record<string, string>
+  >({});
   /**
    * Fixed response "stream-like" typewriter display state (frontend only).
    */
-  const [fixedResponseDisplayedById, setFixedResponseDisplayedById] = useState<Record<string, string>>({});
-  const [fixedResponseAnimatingById, setFixedResponseAnimatingById] = useState<Record<string, boolean>>({});
+  const [fixedResponseDisplayedById, setFixedResponseDisplayedById] = useState<
+    Record<string, string>
+  >({});
+  const [fixedResponseAnimatingById, setFixedResponseAnimatingById] = useState<
+    Record<string, boolean>
+  >({});
   const fixedResponseRunTokenRef = useRef<Record<string, number>>({});
 
   const appElements = useMemo(() => {
@@ -114,12 +129,21 @@ export default function CurrentElementFlow({
       const minDelayMs = 12;
       const maxDelayMs = 28;
 
-      while (i < fullText.length && fixedResponseRunTokenRef.current[id] === nextToken) {
+      while (
+        i < fullText.length &&
+        fixedResponseRunTokenRef.current[id] === nextToken
+      ) {
         const remaining = fullText.length - i;
-        const chunkSize = remaining <= 2 ? remaining : Math.random() < 0.85 ? 1 : 2;
+        const chunkSize =
+          remaining <= 2 ? remaining : Math.random() < 0.85 ? 1 : 2;
         i += chunkSize;
-        setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText.slice(0, i) }));
-        const delayMs = minDelayMs + Math.floor(Math.random() * (maxDelayMs - minDelayMs + 1));
+        setFixedResponseDisplayedById((prev) => ({
+          ...prev,
+          [id]: fullText.slice(0, i),
+        }));
+        const delayMs =
+          minDelayMs +
+          Math.floor(Math.random() * (maxDelayMs - minDelayMs + 1));
         await new Promise((r) => setTimeout(r, delayMs));
       }
 
@@ -130,7 +154,8 @@ export default function CurrentElementFlow({
   };
 
   const revealFullFixedResponse = (id: string, fullText: string) => {
-    fixedResponseRunTokenRef.current[id] = (fixedResponseRunTokenRef.current[id] || 0) + 1;
+    fixedResponseRunTokenRef.current[id] =
+      (fixedResponseRunTokenRef.current[id] || 0) + 1;
     setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
     setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
   };
@@ -142,7 +167,9 @@ export default function CurrentElementFlow({
     if (!stopElement || stopIndex === null) return;
 
     // Validate only the current segment inputs (cursor..stopIndex-1)
-    const segmentInputs = appElements.slice(cursor, stopIndex).filter((el) => !isStopElement(el));
+    const segmentInputs = appElements
+      .slice(cursor, stopIndex)
+      .filter((el) => !isStopElement(el));
     const newErrors = validateForm(segmentInputs, answers);
     if (newErrors.length > 0) {
       setErrors(newErrors);
@@ -161,15 +188,25 @@ export default function CurrentElementFlow({
     }
 
     if (stopElement.type === "aiResponse") {
-      const prompts: Prompt[] = (stopElement.instructions || []).map((inst, idx) => ({
-        id: `${stopElement.id}-p-${idx}`,
-        name: `${stopElement.name}-p-${idx}`,
-        type: "prompt",
-        text: inst.text || "",
-        conditionalLogic: inst.conditionalLogic,
-      }));
+      const prompts: Prompt[] = (stopElement.instructions || []).map(
+        (inst, idx) => ({
+          id: `${stopElement.id}-p-${idx}`,
+          name: `${stopElement.name}-p-${idx}`,
+          type: "prompt",
+          text: inst.text || "",
+          conditionalLogic: inst.conditionalLogic,
+        })
+      );
 
-      const res = await sendPrompts(prompts, answers, appId, surveyJson, stopIndex, userId, false);
+      const res = await sendPrompts(
+        prompts,
+        answers,
+        appId,
+        surveyJson,
+        stopIndex,
+        userId,
+        false
+      );
       if (res.run_passed === false) return;
       advance(stopIndex + 1);
       return;
@@ -197,7 +234,8 @@ export default function CurrentElementFlow({
         {
           scoredPhase: true,
           rubric: stopElement.rubric || "",
-          minScore: typeof stopElement.minScore === "number" ? stopElement.minScore : 0,
+          minScore:
+            typeof stopElement.minScore === "number" ? stopElement.minScore : 0,
         }
       );
 
@@ -214,13 +252,18 @@ export default function CurrentElementFlow({
       <div className="space-y-4">
         <div
           className="prose max-w-none"
-          dangerouslySetInnerHTML={{ __html: surveyJson.completedHtml || "You've reached the end." }}
+          dangerouslySetInnerHTML={{
+            __html: surveyJson.completedHtml || "You've reached the end.",
+          }}
         />
       </div>
     );
   }
 
-  const visibleElements = appElements.slice(0, Math.min(visibleUntil + 1, appElements.length));
+  const visibleElements = appElements.slice(
+    0,
+    Math.min(visibleUntil + 1, appElements.length)
+  );
 
   return (
     <form onSubmit={handleRun} className="space-y-6">
@@ -238,7 +281,11 @@ export default function CurrentElementFlow({
         if (element.type === "title") {
           return (
             <div key={element.id} className="pt-2">
-              <h2 className={`text-base/7 font-semibold ${isLocked ? "text-gray-500" : "text-gray-900"}`}>
+              <h2
+                className={`text-base/7 font-semibold ${
+                  isLocked ? "text-gray-500" : "text-gray-900"
+                }`}
+              >
                 {element.text || element.label}
               </h2>
             </div>
@@ -247,28 +294,30 @@ export default function CurrentElementFlow({
 
         if (!isStop) {
           return (
-            <RenderQuestion
-              key={element.name}
-              errors={errors}
-              element={{
-                ...element,
-                isRequired: element.isRequired,
-                conditionalLogic: element.conditionalLogic,
-                type: element.type,
-              }}
-              answers={answers as any}
-              disabled={isLocked}
-              handleInputChange={handleInputChange}
-              setInputValue={setInputValue}
-              setImages={setImages}
-              visible={isVisible}
-              appId={appId}
-              userId={userId}
-              surveyJson={surveyJson}
-              currentPhaseIndex={stopIndex ?? cursor}
-              isOwner={isOwner}
-              isAdmin={isAdmin}
-            />
+            <div className="mb-6">
+              <RenderQuestion
+                key={element.name}
+                errors={errors}
+                element={{
+                  ...element,
+                  isRequired: element.isRequired,
+                  conditionalLogic: element.conditionalLogic,
+                  type: element.type,
+                }}
+                answers={answers as any}
+                disabled={isLocked}
+                handleInputChange={handleInputChange}
+                setInputValue={setInputValue}
+                setImages={setImages}
+                visible={isVisible}
+                appId={appId}
+                userId={userId}
+                surveyJson={surveyJson}
+                currentPhaseIndex={stopIndex ?? cursor}
+                isOwner={isOwner}
+                isAdmin={isAdmin}
+              />
+            </div>
           );
         }
 
@@ -278,15 +327,24 @@ export default function CurrentElementFlow({
             ?.filter((run) => run.phaseIndex === idx)
             .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
 
-        const revealedFixed = element.type === "fixedResponse" ? fixedResponsesById[element.id] : null;
-        const hasRevealedFixed = element.type === "fixedResponse" && revealedFixed != null;
+        const revealedFixed =
+          element.type === "fixedResponse"
+            ? fixedResponsesById[element.id]
+            : null;
+        const hasRevealedFixed =
+          element.type === "fixedResponse" && revealedFixed != null;
         const fixedDisplayed =
-          element.type === "fixedResponse" ? fixedResponseDisplayedById[element.id] : null;
+          element.type === "fixedResponse"
+            ? fixedResponseDisplayedById[element.id]
+            : null;
         const fixedAnimating =
-          element.type === "fixedResponse" ? fixedResponseAnimatingById[element.id] === true : false;
+          element.type === "fixedResponse"
+            ? fixedResponseAnimatingById[element.id] === true
+            : false;
         const isBareFixedReveal =
           element.type === "fixedResponse" && isActiveStop && !hasRevealedFixed;
-        const isFixedResponseCard = element.type === "fixedResponse" && hasRevealedFixed;
+        const isFixedResponseCard =
+          element.type === "fixedResponse" && hasRevealedFixed;
 
         const aiPromptPreviewPrompts: Prompt[] =
           element.type === "aiResponse"
@@ -310,18 +368,27 @@ export default function CurrentElementFlow({
           <div
             key={element.id}
             className={
-              isBorderlessStopWrapper ? "mt-6" : "mt-6 border rounded-lg p-4 bg-white"
+              isBorderlessStopWrapper
+                ? "mt-6"
+                : "mt-6 border rounded-lg p-4 bg-white"
             }
           >
             {/* Intentionally no helper text for aiResponse stops (button-only UX like older runtime). */}
 
             {element.type === "fixedResponse" && hasRevealedFixed && (
-              <MarkdownResponseDisplay content={fixedDisplayed ?? ""} className="" />
+              <MarkdownResponseDisplay
+                content={fixedDisplayed ?? ""}
+                className=""
+              />
             )}
 
             {runForThisStop && (
               <>
-                <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
+                <AIResponseDisplay
+                  run={runForThisStop}
+                  isOwner={isOwner}
+                  isAdmin={isAdmin}
+                />
                 <RunScoreDisplay run={runForThisStop} />
                 {!promptLoading && !passedTheRubricMinScore(runForThisStop) && (
                   <div className="mt-4 border rounded-lg p-3 bg-red-50">
@@ -335,17 +402,18 @@ export default function CurrentElementFlow({
 
             {isActiveStop && (
               <>
-                {element.type === "aiResponse" && aiPromptPreviewPrompts.length > 0 && (
-                  <div className="mb-2">
-                    <RenderPrompt
-                      prompts={aiPromptPreviewPrompts}
-                      answers={answers as any}
-                      disabled={false}
-                      isOwner={isOwner}
-                      isAdmin={isAdmin}
-                    />
-                  </div>
-                )}
+                {element.type === "aiResponse" &&
+                  aiPromptPreviewPrompts.length > 0 && (
+                    <div className="mb-2">
+                      <RenderPrompt
+                        prompts={aiPromptPreviewPrompts}
+                        answers={answers as any}
+                        disabled={false}
+                        isOwner={isOwner}
+                        isAdmin={isAdmin}
+                      />
+                    </div>
+                  )}
                 {promptLoading ? (
                   <div className="mt-4">
                     <SkeletonLoader />
@@ -385,10 +453,10 @@ export default function CurrentElementFlow({
                       {element.type === "aiResponse"
                         ? "Continue"
                         : element.type === "scoring"
-                          ? "Continue"
-                          : revealedFixed
-                            ? "Continue"
-                            : "Continue"}
+                        ? "Continue"
+                        : revealedFixed
+                        ? "Continue"
+                        : "Continue"}
                     </button>
                   </div>
                 )}
@@ -413,4 +481,3 @@ export default function CurrentElementFlow({
     </form>
   );
 }
-

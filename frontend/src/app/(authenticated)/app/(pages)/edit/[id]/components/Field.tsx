@@ -1,7 +1,7 @@
 "use client";
 
 import { CirclePlus, CircleMinus, Repeat2, User } from "lucide-react";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
@@ -262,6 +262,25 @@ export default function Field({
   const [sliderStep, setSliderStep] = useState(1);
   const [showDescription, setShowDescription] = useState(false);
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
+  const fieldRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle click outside to exit edit mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        isEditMode &&
+        fieldRef.current &&
+        !fieldRef.current.contains(event.target as Node)
+      ) {
+        setIsEditMode(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [isEditMode]);
 
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
@@ -1222,7 +1241,7 @@ export default function Field({
 
   if (isPromptType) {
     return (
-      <div className="space-y-2 mb-4 rounded-lg border border-gray-300 bg-gray-50 p-4">
+      <div className="space-y-2 mb-4 rounded-lg border border-gray-300 bg-white p-4">
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
@@ -1237,7 +1256,7 @@ export default function Field({
           onFieldTypeChange={(newType) =>
             onUpdateFieldType?.(field.id, newType)
           }
-          dragHandleProps={dragHandleProps || undefined}
+          dragHandleProps={dragHandleProps ?? undefined}
           hiddenElements={["required"]}
         />
         {field.conditionalLogic && fieldCondition && (
@@ -1393,33 +1412,35 @@ export default function Field({
   }
 
   return (
-    <div className="space-y-2 mb-4 relative md:px-4">
+    <div
+      ref={fieldRef}
+      className={`space-y-2 mb-4 relative md:p-5 bg-white rounded-lg ${
+        !isEditMode ? "cursor-pointer" : ""
+      }`}
+      onClick={() => {
+        if (!isEditMode) {
+          setIsEditMode(true);
+        }
+      }}
+    >
       <motion.div
         initial={false}
         animate={
           isEditMode
             ? {
-                opacity: 1,
+                opacity: 0,
                 scale: 1,
-                top: "-20px",
-                left: "-20px",
-                right: "-20px",
-                bottom: "-20px",
               }
             : {
                 opacity: 0,
                 scale: 0.95,
-                top: "0px",
-                left: "0px",
-                right: "0px",
-                bottom: "0px",
               }
         }
         transition={{
           duration: 0.5,
           ease: [0.4, 0, 0.2, 1],
         }}
-        className="absolute rounded-lg border border-gray-300 bg-gray-50 pointer-events-none"
+        className="absolute rounded-lg pointer-events-none"
         style={{
           top: 0,
           left: 0,
@@ -1428,20 +1449,22 @@ export default function Field({
         }}
       />
 
-      <div className="relative z-10">
+      <div className="relative z-10 !mt-0">
         {field.conditionalLogic && fieldCondition && (
-          <InstructionConditionBox
-            property={
-              fieldCondition.name || fieldCondition.label || fieldCondition.id
-            }
-            operator={field.conditionalLogic.operator}
-            value={
-              field.conditionalLogic.value
-                ? String(field.conditionalLogic.value)
-                : undefined
-            }
-            fieldId={field.id}
-          />
+          <div className="mb-4">
+            <InstructionConditionBox
+              property={
+                fieldCondition.name || fieldCondition.label || fieldCondition.id
+              }
+              operator={field.conditionalLogic.operator}
+              value={
+                field.conditionalLogic.value
+                  ? String(field.conditionalLogic.value)
+                  : undefined
+              }
+              fieldId={field.id}
+            />
+          </div>
         )}
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
@@ -1449,12 +1472,11 @@ export default function Field({
           fieldId={field.name}
           fieldType={field.type}
           isPreviewMode={!isEditMode}
-          onTogglePreview={() => setIsEditMode(!isEditMode)}
           onDelete={() => onDeleteField(field.id, isPromptType)}
           onFieldTypeChange={(newType) =>
             onUpdateFieldType?.(field.id, newType)
           }
-          dragHandleProps={dragHandleProps || undefined}
+          dragHandleProps={dragHandleProps ?? undefined}
           onRename={(newName) =>
             onUpdateFieldName(field.id, newName, isPromptType)
           }
@@ -1468,7 +1490,14 @@ export default function Field({
           availableFields={phaseFields}
           hiddenElements={
             !isEditMode
-              ? ["required", "conditionalLogic", "fieldTypeSelector"]
+              ? [
+                  "required",
+                  "conditionalLogic",
+                  "fieldTypeSelector",
+                  "fieldLabel",
+                  "dragHandle",
+                  "delete",
+                ]
               : []
           }
         />
