@@ -32,6 +32,7 @@ import {
   HiddenHeaderElement,
 } from "@/app/(authenticated)/app/types";
 import { availableSections } from "../FormBuilder";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
@@ -46,7 +47,6 @@ interface FieldHeaderProps {
   dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
   onRename?: (newName: string) => void;
   // Required toggle props
-  showRequired?: boolean;
   isRequired?: boolean;
   onRequiredChange?: (isRequired: boolean) => void;
   // Conditional logic props
@@ -69,7 +69,6 @@ export default function FieldHeader({
   onFieldTypeChange,
   dragHandleProps,
   onRename,
-  showRequired = false,
   isRequired = false,
   onRequiredChange,
   conditionalLogic,
@@ -202,7 +201,7 @@ export default function FieldHeader({
 
   return (
     <div
-      className="flex items-center justify-between w-full cursor-pointer select-none"
+      className="flex items-center justify-between w-full cursor-pointer select-none my-4"
       onClick={onToggleCollapse}
       tabIndex={0}
       role="button"
@@ -223,37 +222,46 @@ export default function FieldHeader({
         {Icon && <Icon className="h-5 w-5 text-gray-600" />}
         <span className="font-medium text-gray-900">{label}</span>
 
-        {!isHidden("fieldTypeSelector") &&
-          !isCollapsed &&
-          fieldType &&
-          onFieldTypeChange && (
-            <Select
-              value={fieldType}
-              onValueChange={(value) => {
-                onFieldTypeChange(value);
-              }}
-            >
-              <SelectTrigger
-                className="h-6 w-6 p-0 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                style={{ minWidth: 0, width: 24, height: 24 }}
-                onClick={(e) => e.stopPropagation()}
-                aria-label="Change field type"
-              />
-              <SelectContent>
-                {availableSections.map((type) => {
-                  const TypeIcon = type.icon;
-                  return (
-                    <SelectItem key={type.id} value={type.id}>
-                      <div className="flex items-center gap-2">
-                        <TypeIcon className="h-4 w-4" />
-                        <span>{type.label}</span>
-                      </div>
-                    </SelectItem>
-                  );
-                })}
-              </SelectContent>
-            </Select>
-          )}
+        <AnimatePresence>
+          {!isHidden("fieldTypeSelector") &&
+            !isCollapsed &&
+            fieldType &&
+            onFieldTypeChange && (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.8 }}
+                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <Select
+                  value={fieldType}
+                  onValueChange={(value) => {
+                    onFieldTypeChange(value);
+                  }}
+                >
+                  <SelectTrigger
+                    className="h-6 w-6 p-0 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    style={{ minWidth: 0, width: 24, height: 24 }}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Change field type"
+                  />
+                  <SelectContent>
+                    {availableSections.map((type) => {
+                      const TypeIcon = type.icon;
+                      return (
+                        <SelectItem key={type.id} value={type.id}>
+                          <div className="flex items-center gap-2">
+                            <TypeIcon className="h-4 w-4" />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </motion.div>
+            )}
+        </AnimatePresence>
 
         <Popover open={editOpen} onOpenChange={setEditOpen}>
           {!isHidden("rename") && (
@@ -298,251 +306,306 @@ export default function FieldHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        {!isHidden("required") && showRequired && (
-          <>
-            <Switch
-              checked={isRequired}
-              onCheckedChange={onRequiredChange}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="text-sm text-gray-600">Required</span>
-            <div className="border-l border-gray-300 h-5 mx-2"></div>
-          </>
-        )}
+        <AnimatePresence>
+          {!isHidden("required") && (
+            <motion.div
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 10 }}
+              transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+              className="flex items-center gap-2"
+            >
+              <Switch
+                checked={isRequired}
+                onCheckedChange={onRequiredChange}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-sm text-gray-600">Required</span>
+              <div className="border-l border-gray-300 h-5 mx-2"></div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
-        {!isHidden("conditionalLogic") && (
-          <Dialog
-            open={conditionalDialogOpen}
-            onOpenChange={setConditionalDialogOpen}
-          >
-            <DialogTrigger asChild>
+        <AnimatePresence>
+          {!isHidden("conditionalLogic") && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.4, 0, 0.2, 1],
+                delay: 0.05,
+              }}
+            >
+              <Dialog
+                open={conditionalDialogOpen}
+                onOpenChange={setConditionalDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0 hover:bg-gray-100"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Split className="h-4 w-4 text-gray-500" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Conditional Logic</DialogTitle>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="sourceField">Show this field if</Label>
+                      <Select
+                        value={selectedSourceField}
+                        onValueChange={setSelectedSourceField}
+                      >
+                        <SelectTrigger id="sourceField">
+                          <SelectValue placeholder="Select a field" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableFields.map((field) => (
+                            <SelectItem key={field.id} value={field.id}>
+                              {field.name || field.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {selectedSourceField && (
+                      <div className="grid gap-2">
+                        <Label htmlFor="operator">Condition</Label>
+                        <Select
+                          value={selectedOperator}
+                          onValueChange={setSelectedOperator}
+                        >
+                          <SelectTrigger id="operator">
+                            <SelectValue placeholder="Select condition" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {operators.map((op) => (
+                              <SelectItem key={op.value} value={op.value}>
+                                {op.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+
+                    {selectedSourceField &&
+                      selectedOperator &&
+                      operatorNeedsValue(selectedOperator) && (
+                        <div className="grid gap-2">
+                          <Label htmlFor="value">Value</Label>
+                          {(() => {
+                            const sourceField = availableFields.find(
+                              (f) => f.id === selectedSourceField
+                            );
+                            if (!sourceField) return null;
+
+                            switch (sourceField.type) {
+                              case "radio":
+                              case "dropdown":
+                                return (
+                                  <Select
+                                    value={
+                                      sourceField.choices?.find(
+                                        (choice) =>
+                                          choice.text === conditionValue
+                                      )?.value ||
+                                      (conditionValue === "Other"
+                                        ? "other"
+                                        : "")
+                                    }
+                                    onValueChange={(value) => {
+                                      const selectedChoice =
+                                        sourceField.choices?.find(
+                                          (choice) => choice.value === value
+                                        );
+                                      setConditionValue(
+                                        selectedChoice?.text || value
+                                      );
+                                    }}
+                                  >
+                                    <SelectTrigger id="value">
+                                      <SelectValue placeholder="Select value" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {sourceField.choices?.map((choice) => (
+                                        <SelectItem
+                                          key={choice.value}
+                                          value={choice.value}
+                                        >
+                                          {choice.text}
+                                        </SelectItem>
+                                      ))}
+                                      {sourceField.showOtherItem && (
+                                        <SelectItem value="other">
+                                          Other
+                                        </SelectItem>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              case "checkbox":
+                                return (
+                                  <Select
+                                    value={
+                                      sourceField.choices?.find(
+                                        (choice) =>
+                                          choice.text === conditionValue
+                                      )?.value ||
+                                      (conditionValue === "Other"
+                                        ? "other"
+                                        : "")
+                                    }
+                                    onValueChange={(value) => {
+                                      const selectedChoice =
+                                        sourceField.choices?.find(
+                                          (choice) => choice.value === value
+                                        );
+                                      setConditionValue(
+                                        selectedChoice?.text || value
+                                      );
+                                    }}
+                                  >
+                                    <SelectTrigger id="value">
+                                      <SelectValue placeholder="Select value" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {sourceField.choices?.map((choice) => (
+                                        <SelectItem
+                                          key={choice.value}
+                                          value={choice.value}
+                                        >
+                                          {choice.text}
+                                        </SelectItem>
+                                      ))}
+                                      {sourceField.showOtherItem && (
+                                        <SelectItem value="other">
+                                          Other
+                                        </SelectItem>
+                                      )}
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              case "boolean":
+                                return (
+                                  <Select
+                                    value={String(conditionValue)}
+                                    onValueChange={(value) =>
+                                      setConditionValue(value === "true")
+                                    }
+                                  >
+                                    <SelectTrigger id="value">
+                                      <SelectValue placeholder="Select value" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="true">Yes</SelectItem>
+                                      <SelectItem value="false">No</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                );
+                              case "slider":
+                                return (
+                                  <Input
+                                    id="value"
+                                    type="number"
+                                    value={conditionValue as number}
+                                    onChange={(e) =>
+                                      setConditionValue(Number(e.target.value))
+                                    }
+                                    min={sourceField.minValue}
+                                    max={sourceField.maxValue}
+                                    step={sourceField.step || 1}
+                                    className="text-sm"
+                                  />
+                                );
+                              case "text":
+                              case "textarea":
+                              default:
+                                return (
+                                  <Input
+                                    id="value"
+                                    type="text"
+                                    value={String(conditionValue)}
+                                    onChange={(e) =>
+                                      setConditionValue(e.target.value)
+                                    }
+                                    className="text-sm"
+                                    placeholder="Enter value to compare against..."
+                                  />
+                                );
+                            }
+                          })()}
+                        </div>
+                      )}
+
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        onClick={handleClearConditionalLogic}
+                      >
+                        Clear
+                      </Button>
+                      <Button
+                        type="button"
+                        onClick={handleSaveConditionalLogic}
+                      >
+                        Save
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!isHidden("conditionalLogic") && (
+            <motion.div
+              initial={{ opacity: 0, scaleX: 0 }}
+              animate={{ opacity: 1, scaleX: 1 }}
+              exit={{ opacity: 0, scaleX: 0 }}
+              transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1], delay: 0.1 }}
+              className="border-l border-gray-300 h-5 mx-2"
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {!isHidden("delete") && onDelete && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{
+                duration: 0.3,
+                ease: [0.4, 0, 0.2, 1],
+                delay: 0.15,
+              }}
+            >
               <Button
                 variant="ghost"
                 size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete();
+                }}
                 className="h-8 w-8 p-0 hover:bg-gray-100"
-                onClick={(e) => e.stopPropagation()}
               >
-                <Split className="h-4 w-4 text-gray-500" />
+                <Trash2 className="h-4 w-4 text-gray-500" />
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Conditional Logic</DialogTitle>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="sourceField">Show this field if</Label>
-                  <Select
-                    value={selectedSourceField}
-                    onValueChange={setSelectedSourceField}
-                  >
-                    <SelectTrigger id="sourceField">
-                      <SelectValue placeholder="Select a field" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableFields.map((field) => (
-                        <SelectItem key={field.id} value={field.id}>
-                          {field.name || field.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedSourceField && (
-                  <div className="grid gap-2">
-                    <Label htmlFor="operator">Condition</Label>
-                    <Select
-                      value={selectedOperator}
-                      onValueChange={setSelectedOperator}
-                    >
-                      <SelectTrigger id="operator">
-                        <SelectValue placeholder="Select condition" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {operators.map((op) => (
-                          <SelectItem key={op.value} value={op.value}>
-                            {op.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {selectedSourceField &&
-                  selectedOperator &&
-                  operatorNeedsValue(selectedOperator) && (
-                    <div className="grid gap-2">
-                      <Label htmlFor="value">Value</Label>
-                      {(() => {
-                        const sourceField = availableFields.find(
-                          (f) => f.id === selectedSourceField
-                        );
-                        if (!sourceField) return null;
-
-                        switch (sourceField.type) {
-                          case "radio":
-                          case "dropdown":
-                            return (
-                              <Select
-                                value={
-                                  sourceField.choices?.find(
-                                    (choice) => choice.text === conditionValue
-                                  )?.value ||
-                                  (conditionValue === "Other" ? "other" : "")
-                                }
-                                onValueChange={(value) => {
-                                  const selectedChoice =
-                                    sourceField.choices?.find(
-                                      (choice) => choice.value === value
-                                    );
-                                  setConditionValue(
-                                    selectedChoice?.text || value
-                                  );
-                                }}
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sourceField.choices?.map((choice) => (
-                                    <SelectItem
-                                      key={choice.value}
-                                      value={choice.value}
-                                    >
-                                      {choice.text}
-                                    </SelectItem>
-                                  ))}
-                                  {sourceField.showOtherItem && (
-                                    <SelectItem value="other">Other</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            );
-                          case "checkbox":
-                            return (
-                              <Select
-                                value={
-                                  sourceField.choices?.find(
-                                    (choice) => choice.text === conditionValue
-                                  )?.value ||
-                                  (conditionValue === "Other" ? "other" : "")
-                                }
-                                onValueChange={(value) => {
-                                  const selectedChoice =
-                                    sourceField.choices?.find(
-                                      (choice) => choice.value === value
-                                    );
-                                  setConditionValue(
-                                    selectedChoice?.text || value
-                                  );
-                                }}
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {sourceField.choices?.map((choice) => (
-                                    <SelectItem
-                                      key={choice.value}
-                                      value={choice.value}
-                                    >
-                                      {choice.text}
-                                    </SelectItem>
-                                  ))}
-                                  {sourceField.showOtherItem && (
-                                    <SelectItem value="other">Other</SelectItem>
-                                  )}
-                                </SelectContent>
-                              </Select>
-                            );
-                          case "boolean":
-                            return (
-                              <Select
-                                value={String(conditionValue)}
-                                onValueChange={(value) =>
-                                  setConditionValue(value === "true")
-                                }
-                              >
-                                <SelectTrigger id="value">
-                                  <SelectValue placeholder="Select value" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="true">Yes</SelectItem>
-                                  <SelectItem value="false">No</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            );
-                          case "slider":
-                            return (
-                              <Input
-                                id="value"
-                                type="number"
-                                value={conditionValue as number}
-                                onChange={(e) =>
-                                  setConditionValue(Number(e.target.value))
-                                }
-                                min={sourceField.minValue}
-                                max={sourceField.maxValue}
-                                step={sourceField.step || 1}
-                                className="text-sm"
-                              />
-                            );
-                          case "text":
-                          case "textarea":
-                          default:
-                            return (
-                              <Input
-                                id="value"
-                                type="text"
-                                value={String(conditionValue)}
-                                onChange={(e) =>
-                                  setConditionValue(e.target.value)
-                                }
-                                className="text-sm"
-                                placeholder="Enter value to compare against..."
-                              />
-                            );
-                        }
-                      })()}
-                    </div>
-                  )}
-
-                <div className="flex justify-end gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={handleClearConditionalLogic}
-                  >
-                    Clear
-                  </Button>
-                  <Button type="button" onClick={handleSaveConditionalLogic}>
-                    Save
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-
-        {!isHidden("conditionalLogic") && (
-          <div className="border-l border-gray-300 h-5 mx-2"></div>
-        )}
-
-        {!isHidden("delete") && onDelete && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={(e) => {
-              e.stopPropagation();
-              onDelete();
-            }}
-            className="h-8 w-8 p-0 hover:bg-gray-100"
-          >
-            <Trash2 className="h-4 w-4 text-gray-500" />
-          </Button>
-        )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
