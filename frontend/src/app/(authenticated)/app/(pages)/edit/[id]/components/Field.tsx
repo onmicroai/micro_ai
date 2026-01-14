@@ -1241,7 +1241,7 @@ export default function Field({
 
   if (isPromptType) {
     return (
-      <div className="space-y-2 mb-4 rounded-lg border border-gray-300 bg-white p-4">
+      <div className="space-y-2 mb-4 rounded-lg bg-white p-4">
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
