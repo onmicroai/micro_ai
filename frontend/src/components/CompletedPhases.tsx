@@ -205,9 +205,8 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
         );
 
         return (
-          <div className="mb-6">
+          <div key={element.name} className="mb-6">
             <RenderQuestion
-              key={element.name}
               element={element}
               answers={answers}
               errors={[]}
