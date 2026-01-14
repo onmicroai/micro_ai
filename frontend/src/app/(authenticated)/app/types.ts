@@ -504,7 +504,7 @@ export const HIDDEN_HEADER_ELEMENTS = [
   "delete",
   "dragHandle",
   "rename",
-  "preview",
+  "fieldTypeSelector",
 ] as const;
 
 export type HiddenHeaderElement = (typeof HIDDEN_HEADER_ELEMENTS)[number];

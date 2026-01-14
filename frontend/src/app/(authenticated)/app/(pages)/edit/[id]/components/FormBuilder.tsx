@@ -151,6 +151,8 @@ const cardTypes = [
   },
 ];
 
+export const availableSections = [...fieldTypes, ...cardTypes];
+
 const ACCEPTED_FILE_TYPES = {
   "application/pdf": [".pdf"],
   "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
@@ -201,7 +203,6 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
-  const availableSections = [...fieldTypes, ...cardTypes];
 
   const {
     elements,
@@ -560,6 +561,80 @@ export default function FormBuilder() {
    */
   const updateFieldSliderValue = (fieldId: string, value: number) => {
     updateElement(fieldId, { defaultValue: value });
+  };
+
+  /**
+   * Updates the type of a field, preserving common properties and resetting type-specific ones.
+   */
+  const updateFieldType = (fieldId: string, newType: string) => {
+    const element = elements.find((el) => el.id === fieldId);
+    if (!element) return;
+
+    const baseProperties: any = {
+      type: newType,
+      id: element.id,
+      name: element.name,
+      label: element.label,
+      description: element.description,
+      isRequired: element.isRequired,
+      conditionalLogic: element.conditionalLogic,
+    };
+
+    const typeSpecificDefaults: any = {};
+
+    switch (newType) {
+      case "radio":
+      case "checkbox":
+      case "dropdown":
+        typeSpecificDefaults.choices = [
+          { value: "Option 1", text: "Option 1" },
+          { value: "Option 2", text: "Option 2" },
+        ];
+        typeSpecificDefaults.showOther = false;
+        break;
+      case "slider":
+        typeSpecificDefaults.minValue = 0;
+        typeSpecificDefaults.maxValue = 100;
+        typeSpecificDefaults.step = 1;
+        typeSpecificDefaults.defaultValue = 50;
+        break;
+      case "boolean":
+        typeSpecificDefaults.defaultValue = false;
+        break;
+      case "chat":
+        typeSpecificDefaults.maxMessages = 10;
+        typeSpecificDefaults.initialMessage = "Hello! How can I help you?";
+        typeSpecificDefaults.ttsEnabled = false;
+        typeSpecificDefaults.selectedVoiceId = "ash";
+        typeSpecificDefaults.ttsProvider = "openai";
+        break;
+      case "imageUpload":
+        typeSpecificDefaults.multiple = false;
+        typeSpecificDefaults.maxFiles = 5;
+        typeSpecificDefaults.maxFileSize = 5242880; // 5MB
+        break;
+      case "richText":
+        typeSpecificDefaults.html = "<p>Enter your content here...</p>";
+        break;
+      case "aiResponse":
+        typeSpecificDefaults.text = "";
+        typeSpecificDefaults.instructions = [];
+        break;
+      case "fixedResponse":
+        typeSpecificDefaults.text = "";
+        break;
+      case "scoring":
+        typeSpecificDefaults.rubric = "";
+        typeSpecificDefaults.minScore = 0;
+        break;
+      case "text":
+      case "textarea":
+        typeSpecificDefaults.placeholder = "";
+        typeSpecificDefaults.defaultValue = "";
+        break;
+    }
+
+    updateElement(fieldId, { ...baseProperties, ...typeSpecificDefaults });
   };
 
   /**
@@ -1242,6 +1317,12 @@ export default function FormBuilder() {
                                                 newName,
                                                 isPrompt
                                               )
+                                            }
+                                            onUpdateFieldType={(
+                                              fieldId,
+                                              newType
+                                            ) =>
+                                              updateFieldType(fieldId, newType)
                                             }
                                             onDeleteField={(
                                               fieldId,
