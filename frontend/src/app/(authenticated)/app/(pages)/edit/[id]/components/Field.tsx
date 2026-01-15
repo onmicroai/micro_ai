@@ -269,11 +269,12 @@ export default function Field({
   // Handle click outside to exit edit mode
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      // Ignore clicks inside Radix Select content because click events are bubbled
-      const selectContent = document.querySelector(
+      // Ignore clicks inside Radix Select content and any open Radix poppers,
+      // because their click events are bubbled to the document.
+      const poppers = document.querySelectorAll(
         "[data-radix-popper-content-wrapper]"
       );
-      if (selectContent && selectContent.contains(event.target as Node)) {
+      if (poppers.length > 0) {
         return;
       }
       if (
@@ -285,9 +286,13 @@ export default function Field({
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("pointerdown", handleClickOutside, {
+      capture: true,
+    });
     return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("pointerdown", handleClickOutside, {
+        capture: true,
+      });
     };
   }, [isEditMode]);
 
