@@ -281,50 +281,61 @@ export default function FieldHeader({
                 exit={{ opacity: 0, x: -24 }}
                 {...(!isDragging ? { layout: true } : {})}
                 transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                className="flex items-center"
+                className="flex items-center "
               >
-                <PopoverTrigger asChild>
-                  <motion.button
-                    {...(!isDragging ? { layout: true } : {})}
-                    type="button"
-                    aria-label="Edit field alias"
-                    className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                    onClick={(e) => e.stopPropagation()}
+                {isPreviewMode ? (
+                  <Badge
+                    variant="secondary"
+                    className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-default flex items-center gap-1 cursor-pointer"
                   >
-                    <Badge
-                      variant="secondary"
-                      className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer flex items-center gap-1"
+                    {fieldId}
+                  </Badge>
+                ) : (
+                  <PopoverTrigger asChild>
+                    <motion.button
+                      {...(!isDragging ? { layout: true } : {})}
+                      type="button"
+                      aria-label="Edit field alias"
+                      className="rounded-full focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      onClick={(e) => e.stopPropagation()}
                     >
-                      {!isPreviewMode && <Pencil className="h-3 w-3" />}
-                      {fieldId}
-                    </Badge>
-                  </motion.button>
-                </PopoverTrigger>
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer flex items-center gap-1"
+                      >
+                        <Pencil className="h-3 w-3" />
+                        {fieldId}
+                      </Badge>
+                    </motion.button>
+                  </PopoverTrigger>
+                )}
               </motion.div>
             )}
-            <PopoverContent align="start" side="bottom" className="w-72 p-2">
-              <div className="space-y-2">
-                <div className="text-xs font-medium text-gray-900">
-                  Edit name
+            {!isPreviewMode && (
+              <PopoverContent align="start" side="bottom" className="w-72 p-2">
+                <div className="space-y-2">
+                  <div className="text-xs font-medium text-gray-900">
+                    Edit name
+                  </div>
+                  <Input
+                    className="border rounded px-2 py-1 w-full text-sm"
+                    value={newName}
+                    onChange={handleChange}
+                    onKeyDown={handleAliasKeyDown}
+                    autoFocus
+                  />
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setEditOpen(false)}
+                      type="button"
+                    >
+                      Close
+                    </Button>
+                  </div>
                 </div>
-                <Input
-                  className="border rounded px-2 py-1 w-full text-sm"
-                  value={newName}
-                  onChange={handleChange}
-                  onKeyDown={handleAliasKeyDown}
-                  autoFocus
-                />
-                <div className="flex justify-end gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setEditOpen(false)}
-                    type="button"
-                  >
-                    Close
-                  </Button>
-                </div>
-              </div>
-            </PopoverContent>
+              </PopoverContent>
+            )}
           </Popover>
         </AnimatePresence>
       </div>

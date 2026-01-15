@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useCallback, useState } from "react";
 import { Badge } from "../ui/badge";
 import { Element } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface Tag {
   id: string;
@@ -19,6 +20,7 @@ interface TagEditorProps {
   initialContent?: string;
   onChange?: (fieldId: string, content: string) => void;
   placeholder?: string;
+  isPreviewMode?: boolean;
 }
 
 export default function PromptField({
@@ -26,6 +28,7 @@ export default function PromptField({
   fields,
   onChange,
   placeholder,
+  isPreviewMode = true,
 }: TagEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(field.text || "");
@@ -970,13 +973,13 @@ export default function PromptField({
   };
 
   return (
-    <div className="relative bg-white rounded-lg md:p-5 p-3 border border-gray-200">
+    <div className="relative bg-white rounded-lg  ">
       <div className="space-y-4">
         <div
           id="prompt-editor"
           data-placeholder={getPlaceholderText()}
           ref={editorRef}
-          contentEditable
+          contentEditable={isPreviewMode ? false : true}
           className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
             ${
               isEmpty ? "empty-editor" : ""
@@ -990,30 +993,45 @@ export default function PromptField({
           onDragOver={handleDragOver}
           onDragLeave={handleDragLeave}
           suppressContentEditableWarning
+          style={{
+            cursor: !isPreviewMode ? "pointer" : "text",
+          }}
         />
-
-        <div className="flex flex-wrap gap-2">
-          {fields.map((sourceField) => {
-            const fieldIdentifier = sourceField.name || sourceField.id;
-            const tagData = {
-              id: sourceField.id,
-              label: sourceField.name || "",
-            };
-            return (
-              <Badge
-                key={sourceField.id}
-                draggable="true"
-                onDragStart={(event) => handleDragStart(event, tagData)}
-                onClick={() => insertTag(tagData)}
-                variant="default"
-                className={`cursor-move bg-primary-600 align-baseline`}
-                style={{ margin: "0 0.25em" }}
-              >
-                {fieldIdentifier}
-              </Badge>
-            );
-          })}
-        </div>
+        <AnimatePresence>
+          {isPreviewMode && (
+            <motion.div
+              className="flex flex-wrap gap-2"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.25 }}
+              key="chips"
+            >
+              <div className="flex flex-wrap gap-2">
+                {fields.map((sourceField) => {
+                  const fieldIdentifier = sourceField.name || sourceField.id;
+                  const tagData = {
+                    id: sourceField.id,
+                    label: sourceField.name || "",
+                  };
+                  return (
+                    <Badge
+                      key={sourceField.id}
+                      draggable="true"
+                      onDragStart={(event) => handleDragStart(event, tagData)}
+                      onClick={() => insertTag(tagData)}
+                      variant="default"
+                      className={`cursor-move bg-primary-600 align-baseline`}
+                      style={{ margin: "0 0.25em" }}
+                    >
+                      {fieldIdentifier}
+                    </Badge>
+                  );
+                })}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );
