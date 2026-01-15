@@ -1153,9 +1153,7 @@ export default function FormBuilder() {
 
           {/* Main Content Area */}
           <div
-            className={`flex-1 transition-all duration-300 ${
-              conditionalSidebarOpen ? "mr-[400px]" : ""
-            }`}
+            className="flex-1 transition-all duration-300"
             ref={(el) => {
               if (el && sidebarOpen) {
                 // #region agent log
@@ -1891,16 +1889,14 @@ export default function FormBuilder() {
               <AppRuntimeView hashId={hashId} />
             )}
           </div>
-        </div>
-        {conditionalSidebarOpen && (
           <ConditionalLogicSidebar
-            isOpen={true}
+            isOpen={conditionalSidebarOpen}
             onClose={() => setConditionalSidebarOpen(false)}
             onSave={handleSaveConditionalLogic}
             onClear={handleClearConditionalLogic}
             availableFields={Array.isArray(elements) ? elements : []}
           />
-        )}
+        </div>
       </div>
     </DragDropContext>
   );
