@@ -1254,7 +1254,7 @@ export default function Field({
     return (
       <div
         ref={fieldRef}
-        className={`space-y-2 mb-4 rounded-lg bg-white p-4 transition-shadow duration-200
+        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
         ${!isEditMode ? "cursor-pointer hover:shadow-md" : ""}
       `}
         onClick={() => {
@@ -1460,32 +1460,6 @@ export default function Field({
           }
         }}
       >
-        <motion.div
-          initial={false}
-          animate={
-            isEditMode
-              ? {
-                  opacity: 0,
-                  scale: 1,
-                }
-              : {
-                  opacity: 0,
-                  scale: 0.95,
-                }
-          }
-          transition={{
-            duration: 0.5,
-            ease: [0.4, 0, 0.2, 1],
-          }}
-          className="absolute rounded-lg pointer-events-none"
-          style={{
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-          }}
-        />
-
         <div className="relative z-10 !mt-0">
           {field.conditionalLogic && fieldCondition && (
             <motion.div className="mb-4" layout={!isDragging}>

@@ -1222,6 +1222,10 @@ export default function FormBuilder() {
                 }`}
               >
                 <>
+                  {/* This motion.div animates the App Details card when switching between edit and preview modes,
+                  as well as when its layout changes.
+                  The 'layout' prop enables smooth transitions for position and size changes,
+                  and the custom spring transition provides a natural, responsive feel. */}
                   <motion.div
                     ref={cardRef}
                     layout
@@ -1274,7 +1278,6 @@ export default function FormBuilder() {
                         <input
                           type="text"
                           value={title}
-                          // autoFocus={true} // краще не використовувати
                           onFocus={() => {
                             if (title === "Untitled App") setTitle("");
                           }}
@@ -1315,7 +1318,7 @@ export default function FormBuilder() {
                         </div>
                         <div className="text-lg text-gray-600">
                           {description ||
-                            "Here you can write the description about your form"}
+                            "Here you can write the description about your app"}
                         </div>
                       </motion.div>
                     )}
@@ -1370,7 +1373,7 @@ export default function FormBuilder() {
                                             }}
                                             ref={providedDraggable.innerRef}
                                             {...providedDraggable.draggableProps}
-                                            className={`mb-2 ${
+                                            className={`${
                                               snapshotDraggable.isDragging
                                                 ? "opacity-80"
                                                 : ""
@@ -1647,7 +1650,7 @@ export default function FormBuilder() {
                                       {/* Plus button between cards on its own line with always-visible silver line */}
                                       {!isLastElement && (
                                         <div className="relative flex items-center justify-center h-4 my-1 w-full group">
-                                          <div className="absolute left-0 right-0 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />
+                                          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
                                           <button
                                             className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
                                             tabIndex={-1}
