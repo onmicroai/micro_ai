@@ -433,6 +433,7 @@ export default function Field({
           onConditionalLogicChange={(logic) =>
             onUpdateConditionalLogic?.(field.id, logic)
           }
+          isPreviewMode={!isEditMode}
         />
       );
     }
@@ -1248,7 +1249,15 @@ export default function Field({
 
   if (isPromptType) {
     return (
-      <div className="space-y-2 mb-4 rounded-lg bg-white p-4">
+      <div
+        ref={fieldRef}
+        className={`space-y-2 mb-4 rounded-lg bg-white p-4 ${
+          !isEditMode ? "cursor-pointer" : ""
+        }`}
+        onClick={() => {
+          if (!isEditMode) setIsEditMode(true);
+        }}
+      >
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
@@ -1264,7 +1273,18 @@ export default function Field({
             onUpdateFieldType?.(field.id, newType)
           }
           dragHandleProps={dragHandleProps ?? undefined}
-          hiddenElements={["required"]}
+          hiddenElements={
+            !isEditMode
+              ? [
+                  "required",
+                  "conditionalLogic",
+                  "fieldTypeSelector",
+                  "fieldLabel",
+                  "dragHandle",
+                  "delete",
+                ]
+              : []
+          }
         />
         {field.conditionalLogic && fieldCondition && (
           <InstructionConditionBox
@@ -1421,7 +1441,7 @@ export default function Field({
   return (
     <div
       ref={fieldRef}
-      className={`space-y-2 mb-4 relative md:p-5 bg-white rounded-lg ${
+      className={`space-y-2 relative md:p-5 bg-white rounded-lg ${
         !isEditMode ? "cursor-pointer" : ""
       }`}
       onClick={() => {
@@ -1595,9 +1615,9 @@ export default function Field({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setShowDescription(false)}
-                                className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
+                                className="text-gray-400 hover:text-red-500"
                               >
-                                <Trash2 className="h-3 w-3" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             )}
                           </motion.div>

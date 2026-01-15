@@ -203,6 +203,10 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
+  const [popoverPosition, setPopoverPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const {
     elements,
@@ -1281,7 +1285,7 @@ export default function FormBuilder() {
                                         <div
                                           ref={providedDraggable.innerRef}
                                           {...providedDraggable.draggableProps}
-                                          className={`mb-4 ${
+                                          className={`mb-2 ${
                                             snapshotDraggable.isDragging
                                               ? "opacity-80"
                                               : ""
@@ -1540,8 +1544,24 @@ export default function FormBuilder() {
 
                                     {/* Plus button between cards on its own line with always-visible silver line */}
                                     {!isLastElement && (
-                                      <div className="group grid grid-cols-[1fr_auto_1fr] items-center gap-2 my-3">
-                                        <div className="h-px w-full bg-gray-300 rounded-full" />
+                                      <div className="relative flex items-center justify-center h-8 my-1 w-full group">
+                                        <div className="absolute left-0 right-0 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />
+                                        <button
+                                          className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                          tabIndex={-1}
+                                          aria-label="Add section"
+                                          onClick={(e) => {
+                                            setPopoverPosition({
+                                              x: e.clientX,
+                                              y: e.clientY - 400,
+                                            });
+                                            setAddSectionOpenFor(
+                                              `between-${element.id}`
+                                            );
+                                            setInsertAfterIndex(index);
+                                          }}
+                                          type="button"
+                                        />
                                         <Popover
                                           open={
                                             addSectionOpenFor ===
@@ -1562,7 +1582,7 @@ export default function FormBuilder() {
                                             <Button
                                               variant="outline"
                                               size="sm"
-                                              className="h-7 w-7 rounded-full p-0 bg-white border-2 border-gray-300 hover:border-primary hover:bg-primary/5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                                              className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
                                               onClick={() => {
                                                 setInsertAfterIndex(index);
                                               }}
@@ -1574,6 +1594,14 @@ export default function FormBuilder() {
                                             align="center"
                                             side="bottom"
                                             className="w-72 p-2"
+                                            style={
+                                              popoverPosition
+                                                ? {
+                                                    position: "fixed",
+                                                    left: popoverPosition.x,
+                                                  }
+                                                : undefined
+                                            }
                                           >
                                             <div className="space-y-1">
                                               {availableSections.map(
@@ -1622,7 +1650,6 @@ export default function FormBuilder() {
                                             </div>
                                           </PopoverContent>
                                         </Popover>
-                                        <div className="h-px w-full bg-gray-300 rounded-full" />
                                       </div>
                                     )}
                                   </React.Fragment>
