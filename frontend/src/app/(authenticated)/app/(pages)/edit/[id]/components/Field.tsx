@@ -213,6 +213,7 @@ interface FieldProps {
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
+  isDragging?: boolean;
 }
 
 export default function Field({
@@ -247,6 +248,7 @@ export default function Field({
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
+  isDragging = false,
 }: FieldProps) {
   const { user } = useUserStore();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -1285,6 +1287,7 @@ export default function Field({
                 ]
               : []
           }
+          isDragging={isDragging}
         />
         {field.conditionalLogic && fieldCondition && (
           <InstructionConditionBox
@@ -1527,6 +1530,7 @@ export default function Field({
                 ]
               : []
           }
+          isDragging={isDragging}
         />
 
         <AnimatePresence mode="wait">
