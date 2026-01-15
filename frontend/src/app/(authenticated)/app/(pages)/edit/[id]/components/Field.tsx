@@ -552,9 +552,9 @@ export default function Field({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteOption(index)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="text-gray-400 hover:text-red-500"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 " />
                   </Button>
                 </div>
               ))}
@@ -566,7 +566,7 @@ export default function Field({
                     variant="ghost"
                     size="sm"
                     onClick={() => onUpdateFieldShowOther(field.id, false)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="text-gray-400 hover:text-red-500"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -1619,7 +1619,7 @@ export default function Field({
                                 variant="ghost"
                                 size="sm"
                                 onClick={() => setShowDescription(false)}
-                                className="text-gray-400 hover:text-red-500"
+                                className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
