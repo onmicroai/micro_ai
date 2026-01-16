@@ -438,7 +438,7 @@ export interface SurveyState {
   conditionalSidebarOpen: boolean;
   setConditionalSidebarOpen: (open: boolean) => void;
   conditionalSidebarContext: {
-    field: Element;
+    field: Element | Prompt;
     currentLogic?: ConditionalLogic;
     instructionIndex?: number;
   } | null;

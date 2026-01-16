@@ -42,7 +42,7 @@ const initialState = {
     systemPrompt: "",
   },
   conditionalSidebarOpen: false,
-  conditionalSidebarContext: null,
+  conditionalSidebarContext: null as SurveyState["conditionalSidebarContext"],
 };
 
 export const useSurveyStore = create<SurveyState>((set, get) => {

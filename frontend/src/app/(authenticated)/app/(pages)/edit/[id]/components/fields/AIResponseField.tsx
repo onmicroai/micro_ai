@@ -44,6 +44,10 @@ interface AIResponseFieldProps {
     content: string,
     instructions?: AIResponseInstruction[]
   ) => void;
+  onInstructionConditionalLogicChange?: (
+    instructionIndex: number,
+    logic: ConditionalLogic | null
+  ) => void;
 }
 
 export default function AIResponseField({
@@ -74,10 +78,6 @@ export default function AIResponseField({
   );
   const { setConditionalSidebarOpen, setConditionalSidebarContext } =
     useSurveyStore();
-
-  const fieldCondition =
-    field.conditionalLogic &&
-    fields.find((f) => f.id === field.conditionalLogic?.sourceFieldId);
 
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
@@ -134,11 +134,14 @@ export default function AIResponseField({
       content: "",
     };
     setInstructions([...instructions, newInstruction]);
+    updateFieldText([...instructions, newInstruction]);
   };
 
   const handleDeleteInstruction = (id: string) => {
     if (instructions.length === 1) return;
-    const newInstructions = instructions.filter((inst) => inst.id !== id);
+    const newInstructions = instructions
+      .filter((inst) => inst.id !== id)
+      .map((inst, idx) => ({ ...inst, id: String(idx) }));
     setInstructions(newInstructions);
     updateFieldText(newInstructions);
   };
@@ -717,19 +720,6 @@ export default function AIResponseField({
   return (
     <div className="relative bg-white rounded-lg p-0">
       <div className="space-y-2">
-        {field.conditionalLogic && fieldCondition && (
-          <InstructionConditionBox
-            property={
-              fieldCondition.name || fieldCondition.label || fieldCondition.id
-            }
-            operator={field.conditionalLogic.operator}
-            value={
-              field.conditionalLogic.value
-                ? String(field.conditionalLogic.value)
-                : undefined
-            }
-          />
-        )}
         <div className="space-y-4">
           <div className="space-y-2">
             <label className="text-sm font-medium text-gray-700">

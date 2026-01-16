@@ -1278,6 +1278,19 @@ export default function Field({
           if (!isEditMode) setIsEditMode(true);
         }}
       >
+        {field.conditionalLogic && fieldCondition && (
+          <InstructionConditionBox
+            property={
+              fieldCondition.name || fieldCondition.label || fieldCondition.id
+            }
+            operator={field.conditionalLogic.operator}
+            value={
+              field.conditionalLogic.value
+                ? String(field.conditionalLogic.value)
+                : undefined
+            }
+          />
+        )}
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
@@ -1307,20 +1320,8 @@ export default function Field({
           }
           isDragging={isDragging}
           isPreviewMode={!isEditMode}
+          conditionalLogic={field.conditionalLogic}
         />
-        {field.conditionalLogic && fieldCondition && (
-          <InstructionConditionBox
-            property={
-              fieldCondition.name || fieldCondition.label || fieldCondition.id
-            }
-            operator={field.conditionalLogic.operator}
-            value={
-              field.conditionalLogic.value
-                ? String(field.conditionalLogic.value)
-                : undefined
-            }
-          />
-        )}
         {renderFieldEdit()}
       </div>
     );

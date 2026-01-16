@@ -291,6 +291,7 @@ export default function FieldHeader({
                     setConditionalSidebarContext({
                       field: field,
                       currentLogic: conditionalLogic,
+                      instructionIndex: undefined,
                     });
                     setConditionalSidebarOpen(true);
                   }}
