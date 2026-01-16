@@ -414,7 +414,20 @@ export default function CurrentElementFlow({
             {runForThisStop && (
               <>
                 {!isScoredRun && (
-                  <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
+                  <>
+                    <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
+                    {element.type === "aiResponse" && aiPromptPreviewPrompts.length > 0 && (
+                      <div className="mt-3">
+                        <RenderPrompt
+                          prompts={aiPromptPreviewPrompts}
+                          answers={answers as any}
+                          disabled={false}
+                          isOwner={isOwner}
+                          isAdmin={isAdmin}
+                        />
+                      </div>
+                    )}
+                  </>
                 )}
                 <RunScoreDisplay
                   run={runForThisStop}
@@ -433,18 +446,6 @@ export default function CurrentElementFlow({
 
             {isActiveStop && (
               <>
-                {element.type === "aiResponse" &&
-                  aiPromptPreviewPrompts.length > 0 && (
-                    <div className="mb-2">
-                      <RenderPrompt
-                        prompts={aiPromptPreviewPrompts}
-                        answers={answers as any}
-                        disabled={false}
-                        isOwner={isOwner}
-                        isAdmin={isAdmin}
-                      />
-                    </div>
-                  )}
                 {promptLoading ? (
                   <div className="mt-4">
                     <SkeletonLoader />
