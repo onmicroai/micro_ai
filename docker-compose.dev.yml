@@ -6,7 +6,7 @@ services:
     image: postgres:17
     # persist data beyond lifetime of container
     volumes:
-      - ./db_data:/var/lib/postgresql/data
+      - /docker/volumes/postgres/:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=${DATABASE_NAME}
       - POSTGRES_USER=${DATABASE_USER}

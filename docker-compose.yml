@@ -3,12 +3,10 @@
 services:
   db:
     container_name: db
-    image: postgres:17
+    image: postgres
     # persist data beyond lifetime of container
     volumes:
-      - ./db_data:/var/lib/postgresql/data
-      - type: tmpfs
-        target: /var/lib/postgresql
+      - postgres_data:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=${DATABASE_NAME}
       - POSTGRES_USER=${DATABASE_USER}
