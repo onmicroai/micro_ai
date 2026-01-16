@@ -1266,20 +1266,16 @@ export default function FormBuilder() {
                       and the custom spring transition provides a natural, responsive feel. */}
                     <motion.div
                       ref={cardRef}
-                      layout
+                      layout={!isAppDetailsEditMode}
                       initial={false}
-                      className={`mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200${
-                        isAppDetailsEditMode
-                          ? "cursor-auto"
-                          : "cursor-pointer hover:shadow-md"
-                      }`}
+                      className={`mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200 min-h-[160px]`}
                       onClick={() => {
                         if (!isAppDetailsEditMode)
                           setIsAppDetailsEditMode(true);
                       }}
                       transition={{
                         layout: {
-                          duration: 0.3,
+                          duration: 0.4,
                           type: "spring",
                           bounce: 0,
                           damping: 25,
@@ -1306,61 +1302,69 @@ export default function FormBuilder() {
                         </TooltipProvider>
                       </div>
 
-                      {isAppDetailsEditMode ? (
-                        <motion.div
-                          key="edit"
-                          initial={{ opacity: 0, y: 10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -10 }}
-                          transition={{ duration: 0.18 }}
-                        >
-                          <input
-                            type="text"
-                            value={title}
-                            onFocus={() => {
-                              if (title === "Untitled App") setTitle("");
+                      <AnimatePresence mode="wait">
+                        {isAppDetailsEditMode ? (
+                          <motion.div
+                            key="edit"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.4, 0, 0.2, 1],
                             }}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setTitle(e.target.value)}
-                            className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0"
-                            style={{ fontSize: 24 }}
-                            placeholder="Untitled App"
-                          />
-                          <textarea
-                            value={description}
-                            onFocus={() => {
-                              if (
-                                description ===
-                                "Tell the user what your app does..."
-                              )
-                                setDescription("");
-                            }}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={(e) => setDescription(e.target.value)}
-                            className="text-lg bg-transparent w-full border border-gray-200 px-4 py-2 min-h-[100px] resize-y focus:outline-none focus:border-gray-200 focus:ring-0"
-                            placeholder="Tell the user what your app does..."
-                          />
-                        </motion.div>
-                      ) : (
-                        <motion.div
-                          key="preview"
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: 10 }}
-                          transition={{ duration: 0.18 }}
-                        >
-                          <div
-                            className="font-semibold text-gray-900 mb-2"
-                            style={{ fontSize: 24 }}
                           >
-                            {title || "Untitled App"}
-                          </div>
-                          <div className="text-lg text-gray-600">
-                            {description ||
-                              "Here you can write the description about your app"}
-                          </div>
-                        </motion.div>
-                      )}
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: 0.1, duration: 0.3 }}
+                            >
+                              <input
+                                type="text"
+                                value={title}
+                                onFocus={() => {
+                                  if (title === "Untitled App") setTitle("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0 text-xl"
+                                style={{ fontSize: 24 }}
+                                placeholder="Untitled App"
+                              />
+                              <textarea
+                                value={description}
+                                onFocus={() => {
+                                  if (
+                                    description ===
+                                    "Tell the user what your app does..."
+                                  )
+                                    setDescription("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="text-sm bg-transparent w-full border border-gray-200 px-4 py-2 min-h-[100px] resize-y focus:outline-none focus:border-gray-200 focus:ring-0"
+                                placeholder="Tell the user what your app does..."
+                              />
+                            </motion.div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="preview"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.18 }}
+                          >
+                            <div className="font-semibold text-xl mb-2 text-gray-900">
+                              {title || "Untitled App"}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {description ||
+                                "Here you can write the description about your app"}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
                     </motion.div>
 
                     <div className="mt-8 space-y-6">
