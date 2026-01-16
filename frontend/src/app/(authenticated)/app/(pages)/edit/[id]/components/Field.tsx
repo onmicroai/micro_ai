@@ -1,11 +1,12 @@
 "use client";
 
-import { Repeat2, User } from "lucide-react";
-import React, { useState } from "react";
+import { CirclePlus, CircleMinus, Repeat2, User } from "lucide-react";
+import React, { useEffect, useState } from "react";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+import RenderQuestion from "@/components/RenderQuestion";
 import { Checkbox } from "./ui/checkbox";
 import {
   Select,
@@ -17,7 +18,7 @@ import {
 import { Switch } from "./ui/switch";
 import { Slider } from "./ui/slider";
 import { Button } from "./ui/button";
-import { Trash2, ChevronDown, ChevronUp } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { DraggableProvidedDragHandleProps } from "@hello-pangea/dnd";
 import PromptField from "./fields/PromptField";
 import AIResponseField from "./fields/AIResponseField";
@@ -145,6 +146,7 @@ interface FieldProps {
     newName: string,
     isPrompt: boolean
   ) => void;
+  onUpdateFieldType?: (fieldId: string, newType: string) => void;
   onDeleteField: (fieldId: string, isPrompt: boolean) => void;
   onUpdateFieldDescription: (
     fieldId: string,
@@ -211,6 +213,7 @@ interface FieldProps {
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
+  isDragging?: boolean;
 }
 
 export default function Field({
@@ -221,6 +224,7 @@ export default function Field({
   dragHandleProps,
   onUpdateFieldLabel,
   onUpdateFieldName,
+  onUpdateFieldType,
   onUpdateFieldRequired,
   onDeleteField,
   onUpdateFieldDescription,
@@ -244,10 +248,13 @@ export default function Field({
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
+  isDragging = false,
 }: FieldProps) {
   const { user } = useUserStore();
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const [isValidationExpanded, setValidationExpanded] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [isValidationExpanded, setValidationExpanded] = useState(
+    !!field.minChars || !!field.maxChars
+  );
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
   const [otherCheckboxValue, setOtherCheckboxValue] = useState("");
@@ -256,6 +263,39 @@ export default function Field({
   const [sliderDefault, setSliderDefault] = useState(50);
   const [sliderStep, setSliderStep] = useState(1);
   const [showDescription, setShowDescription] = useState(false);
+  const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
+  const fieldRef = React.useRef<HTMLDivElement>(null);
+
+  // Handle click outside to exit edit mode
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      // Ignore clicks inside Radix Select content and any open Radix poppers,
+      // because their click events are bubbled to the document.
+      const poppers = document.querySelectorAll(
+        "[data-radix-popper-content-wrapper]"
+      );
+      if (poppers.length > 0) {
+        return;
+      }
+      if (
+        isEditMode &&
+        fieldRef.current &&
+        !fieldRef.current.contains(event.target as Node)
+      ) {
+        setIsEditMode(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handleClickOutside, {
+      capture: true,
+    });
+    return () => {
+      document.removeEventListener("pointerdown", handleClickOutside, {
+        capture: true,
+      });
+    };
+  }, [isEditMode]);
+
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
     Record<string, string>
@@ -330,11 +370,34 @@ export default function Field({
   const isPromptType =
     field.type === "prompt" ||
     field.type === "aiInstructions" ||
-    field.type === "fixedResponse";
-  const isSpecialType =
-    isPromptType || field.type === "richText" || field.type === "aiResponse";
+    field.type === "fixedResponse" ||
+    field.type === "aiResponse";
+  const isSpecialType = isPromptType || field.type === "richText";
 
-  const renderField = () => {
+  const handlePreviewInputChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setPreviewAnswers((prev) => ({
+      ...prev,
+      [name]: { value },
+    }));
+  };
+
+  const handlePreviewSetInputValue = (
+    name: string,
+    value: string | string[] | undefined,
+    otherValue: string
+  ) => {
+    setPreviewAnswers((prev) => ({
+      ...prev,
+      [name]: { value, otherValue },
+    }));
+  };
+
+  const renderFieldEdit = () => {
     // Legacy prompt-related types + V2 fixed response
     if (
       field.type === "prompt" ||
@@ -351,11 +414,10 @@ export default function Field({
           }}
           fields={appFields}
           onChange={onUpdatePromptText}
+          isPreviewMode={isEditMode}
         />
       );
-    }
-
-    if (field.type === "aiResponse") {
+    } else if (field.type === "aiResponse") {
       return (
         <AIResponseField
           field={{
@@ -367,23 +429,19 @@ export default function Field({
             conditionalLogic: field.conditionalLogic,
           }}
           fields={appFields}
-          onDelete={() => onDeleteField(field.id, true)}
           onChange={(fieldId, text, instructions) => {
             onUpdatePromptText?.(fieldId, text);
             if (instructions) {
               onUpdateAiResponseInstructions?.(fieldId, instructions);
             }
           }}
-          dragHandleProps={dragHandleProps || undefined}
-          onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
-          isCollapsed={isCollapsed}
-          onToggleCollapse={() => setIsCollapsed((v) => !v)}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, true)
           }
           onConditionalLogicChange={(logic) =>
             onUpdateConditionalLogic?.(field.id, logic)
           }
+          isPreviewMode={!isEditMode}
         />
       );
     }
@@ -432,13 +490,25 @@ export default function Field({
     switch (field.type) {
       case "text":
         return (
-          <Input
-            placeholder={
-              field.placeholder ||
-              "Your user can enter a short response here... "
-            }
-            onChange={(e) => onUpdateFieldPlaceholder(field.id, e.target.value)}
-          />
+          <>
+            <Input
+              className="text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+              placeholder={
+                field.placeholder ||
+                "Your user can enter a short response here... "
+              }
+              onChange={(e) =>
+                onUpdateFieldPlaceholder(field.id, e.target.value)
+              }
+            />
+            {(field.minChars || field.maxChars) && (
+              <div className="text-xs text-gray-500 mt-1">
+                {field.minChars && `Minimum ${field.minChars} characters`}
+                {field.minChars && field.maxChars && " · "}
+                {field.maxChars && `Maximum ${field.maxChars} characters`}
+              </div>
+            )}
+          </>
         );
       case "textarea":
         return (
@@ -488,9 +558,9 @@ export default function Field({
                     variant="ghost"
                     size="sm"
                     onClick={() => handleDeleteOption(index)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="text-gray-400 hover:text-red-500"
                   >
-                    <Trash2 className="h-4 w-4" />
+                    <Trash2 className="h-4 w-4 " />
                   </Button>
                 </div>
               ))}
@@ -502,7 +572,7 @@ export default function Field({
                     variant="ghost"
                     size="sm"
                     onClick={() => onUpdateFieldShowOther(field.id, false)}
-                    className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    className="text-gray-400 hover:text-red-500"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -1185,25 +1255,89 @@ export default function Field({
     }
   };
 
+  if (isPromptType) {
+    return (
+      <div
+        ref={fieldRef}
+        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
+        ${!isEditMode ? "cursor-pointer hover:shadow-md" : ""}
+      `}
+        onClick={() => {
+          if (!isEditMode) setIsEditMode(true);
+        }}
+      >
+        <FieldHeader
+          icon={FIELD_ICONS[field.type]}
+          label={FIELD_LABELS[field.type] || field.type}
+          fieldId={field.name}
+          fieldType={field.type}
+          isRequired={field.isRequired || false}
+          onRequiredChange={(isRequired) =>
+            onUpdateFieldRequired(field.id, isRequired, true)
+          }
+          onRename={(newName) => onUpdateFieldName(field.id, newName, true)}
+          onDelete={() => onDeleteField(field.id, true)}
+          onFieldTypeChange={(newType) =>
+            onUpdateFieldType?.(field.id, newType)
+          }
+          dragHandleProps={dragHandleProps ?? undefined}
+          hiddenElements={
+            !isEditMode
+              ? [
+                  "required",
+                  "conditionalLogic",
+                  "fieldTypeSelector",
+                  "fieldLabel",
+                  "dragHandle",
+                  "delete",
+                ]
+              : []
+          }
+          isDragging={isDragging}
+          isPreviewMode={!isEditMode}
+        />
+        {field.conditionalLogic && fieldCondition && (
+          <InstructionConditionBox
+            property={
+              fieldCondition.name || fieldCondition.label || fieldCondition.id
+            }
+            operator={field.conditionalLogic.operator}
+            value={
+              field.conditionalLogic.value
+                ? String(field.conditionalLogic.value)
+                : undefined
+            }
+          />
+        )}
+        {renderFieldEdit()}
+      </div>
+    );
+  }
+
   const renderValidationSection = () => {
     if (field.type === "text" || field.type === "textarea") {
       return (
         <div className="mt-2">
-          <div
-            onClick={() => setValidationExpanded(!isValidationExpanded)}
-            className="flex items-center justify-end cursor-pointer text-sm text-gray-600"
-          >
-            {isValidationExpanded ? (
-              <ChevronUp className="h-4 w-4" />
-            ) : (
-              <ChevronDown className="h-4 w-4" />
-            )}
-            <span className="ml-1">
-              {isValidationExpanded
-                ? "Hide Validation Rules"
-                : "Edit Validation Rules"}
-            </span>
-          </div>
+          {!isValidationExpanded ? (
+            <button
+              type="button"
+              onClick={() => setValidationExpanded(true)}
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
+            >
+              <CirclePlus size={16} className="mr-1" />
+              User input restrictions
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setValidationExpanded(false)}
+              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors mb-2"
+            >
+              <CircleMinus size={16} className="mr-1" />
+              User input restrictions
+            </button>
+          )}
+
           <AnimatePresence>
             {isValidationExpanded && (
               <motion.div
@@ -1213,35 +1347,45 @@ export default function Field({
                 transition={{ duration: 0.2, ease: "easeInOut" }}
                 className="overflow-hidden"
               >
-                <div className="mt-2 flex space-x-2">
-                  <input
-                    type="number"
-                    value={field.minChars || ""}
-                    onChange={(e) =>
-                      onUpdateFieldValidation(
-                        field.id,
-                        e.target.value ? parseInt(e.target.value, 10) : null,
-                        field.maxChars ?? null,
-                        false
-                      )
-                    }
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                    placeholder="Min chars"
-                  />
-                  <input
-                    type="number"
-                    value={field.maxChars || ""}
-                    onChange={(e) =>
-                      onUpdateFieldValidation(
-                        field.id,
-                        field.minChars ?? null,
-                        e.target.value ? parseInt(e.target.value, 10) : null,
-                        false
-                      )
-                    }
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1 w-1/2"
-                    placeholder="Max chars"
-                  />
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Min characters
+                    </label>
+                    <input
+                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      type="number"
+                      value={field.minChars || ""}
+                      onChange={(e) =>
+                        onUpdateFieldValidation(
+                          field.id,
+                          e.target.value ? parseInt(e.target.value, 10) : null,
+                          field.maxChars ?? null,
+                          false
+                        )
+                      }
+                      placeholder="Enter the number"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Max characters
+                    </label>
+                    <input
+                      type="number"
+                      value={field.maxChars || ""}
+                      onChange={(e) =>
+                        onUpdateFieldValidation(
+                          field.id,
+                          field.minChars ?? null,
+                          e.target.value ? parseInt(e.target.value, 10) : null,
+                          false
+                        )
+                      }
+                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      placeholder="Enter the number"
+                    />
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -1252,130 +1396,262 @@ export default function Field({
     return null;
   };
 
-  if (field.type === "aiResponse") {
-    return renderField();
+  function renderFieldPreview() {
+    const content = (() => {
+      switch (field.type) {
+        case "title":
+          return (
+            <h2 className="text-base font-semibold">
+              {field.text || field.label}
+            </h2>
+          );
+        case "scoring":
+          return (
+            <div>
+              <div className="font-medium mb-1">Scoring</div>
+              <div className="text-sm text-gray-600">
+                {field.rubric || "No rubric set."}
+              </div>
+            </div>
+          );
+        default:
+          //TODO: Display restrictions labels
+          return (
+            <RenderQuestion
+              element={field}
+              answers={previewAnswers}
+              errors={[]}
+              disabled={false}
+              handleInputChange={handlePreviewInputChange}
+              setInputValue={handlePreviewSetInputValue}
+              setImages={() => {}}
+              visible={true}
+              appId={0}
+              userId={null}
+              surveyJson={null}
+              currentPhaseIndex={0}
+              isOwner={false}
+              isAdmin={false}
+            />
+          );
+      }
+    })();
+
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.15, duration: 0.3 }}
+      >
+        {content}
+      </motion.div>
+    );
   }
 
   return (
-    <div className="space-y-2">
-      {field.conditionalLogic && fieldCondition && (
-        <InstructionConditionBox
-          property={
-            fieldCondition.name || fieldCondition.label || fieldCondition.id
+    <div ref={fieldRef} className={`relative`}>
+      <motion.div
+        layout={!isDragging}
+        className={`space-y-2 relative md:p-5 bg-white rounded-lg transition-shadow duration-200
+            ${
+              !isEditMode
+                ? "cursor-pointer hover:shadow-md [&_*]:cursor-pointer"
+                : ""
+            }
+         `}
+        onClick={() => {
+          if (!isEditMode) {
+            setIsEditMode(true);
           }
-          operator={field.conditionalLogic.operator}
-          value={
-            field.conditionalLogic.value
-              ? String(field.conditionalLogic.value)
-              : undefined
-          }
-        />
-      )}
-      <FieldHeader
-        icon={FIELD_ICONS[field.type]}
-        label={FIELD_LABELS[field.type] || field.type}
-        fieldId={field.name}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={() => setIsCollapsed(!isCollapsed)}
-        onDelete={() => onDeleteField(field.id, isPromptType)}
-        dragHandleProps={dragHandleProps || undefined}
-        onRename={(newName) =>
-          onUpdateFieldName(field.id, newName, isPromptType)
-        }
-        showRequired={!isSpecialType}
-        isRequired={field.isRequired || false}
-        onRequiredChange={(isRequired) =>
-          onUpdateFieldRequired(field.id, isRequired, isPromptType)
-        }
-        onConditionalLogicChange={(logic) =>
-          onUpdateConditionalLogic?.(field.id, logic)
-        }
-        availableFields={phaseFields}
-      />
+        }}
+      >
+        <div className="relative z-10 !mt-0">
+          {field.conditionalLogic && fieldCondition && (
+            <motion.div className="mb-4" layout={!isDragging}>
+              <InstructionConditionBox
+                property={
+                  fieldCondition.name ||
+                  fieldCondition.label ||
+                  fieldCondition.id
+                }
+                operator={field.conditionalLogic.operator}
+                value={
+                  field.conditionalLogic.value
+                    ? String(field.conditionalLogic.value)
+                    : undefined
+                }
+                fieldId={field.id}
+              />
+            </motion.div>
+          )}
+          <FieldHeader
+            icon={FIELD_ICONS[field.type]}
+            label={FIELD_LABELS[field.type] || field.type}
+            fieldId={field.name}
+            fieldType={field.type}
+            isPreviewMode={!isEditMode}
+            onDelete={() => onDeleteField(field.id, isPromptType)}
+            onFieldTypeChange={(newType) =>
+              onUpdateFieldType?.(field.id, newType)
+            }
+            dragHandleProps={dragHandleProps ?? undefined}
+            onRename={(newName) =>
+              onUpdateFieldName(field.id, newName, isPromptType)
+            }
+            isRequired={field.isRequired || false}
+            onRequiredChange={(isRequired) =>
+              onUpdateFieldRequired(field.id, isRequired, isPromptType)
+            }
+            onConditionalLogicChange={(logic) =>
+              onUpdateConditionalLogic?.(field.id, logic)
+            }
+            availableFields={phaseFields}
+            hiddenElements={
+              !isEditMode
+                ? [
+                    "required",
+                    "conditionalLogic",
+                    "fieldTypeSelector",
+                    "fieldLabel",
+                    "dragHandle",
+                    "delete",
+                  ]
+                : []
+            }
+            isDragging={isDragging}
+          />
 
-      <AnimatePresence>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-2">
-              {!isSpecialType && (
-                <>
-                  <Label className="text-sm font-medium mb-1 block">
-                    Question
-                  </Label>
-                  <Input
-                    value={field.label || ""}
-                    onFocus={() => {
-                      if (!field.label) {
-                        onUpdateFieldLabel(field.id, "", isPromptType);
-                      }
-                    }}
-                    onChange={(e) => {
-                      onUpdateFieldLabel(
-                        field.id,
-                        e.target.value,
-                        isPromptType
-                      );
-                    }}
-                    className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
-                    placeholder="Enter your question..."
-                  />
-                  {!showDescription && !field.description && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => setShowDescription(true)}
-                      className="text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 -mt-1"
-                    >
-                      + Add Optional Field Description
-                    </Button>
+          <AnimatePresence mode="wait">
+            {isEditMode && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <motion.div
+                  className="space-y-2"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.3 }}
+                >
+                  {!isSpecialType && (
+                    <>
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.15, duration: 0.3 }}
+                      >
+                        <Label className="text-sm font-medium mb-1 block">
+                          Question
+                        </Label>
+                        <Input
+                          value={field.label || ""}
+                          onFocus={() => {
+                            if (!field.label) {
+                              onUpdateFieldLabel(field.id, "", isPromptType);
+                            }
+                          }}
+                          onChange={(e) => {
+                            onUpdateFieldLabel(
+                              field.id,
+                              e.target.value,
+                              isPromptType
+                            );
+                          }}
+                          className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+                          placeholder="Enter your question..."
+                        />
+                      </motion.div>
+
+                      <motion.div
+                        initial={{ opacity: 0, y: -10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: 0.2, duration: 0.3 }}
+                      >
+                        {!showDescription && !field.description && (
+                          <button
+                            type="button"
+                            onClick={() => setShowDescription(true)}
+                            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors pb-6 pt-2"
+                          >
+                            <CirclePlus size={16} className="mr-1" />
+                            Add description
+                          </button>
+                        )}
+
+                        <AnimatePresence>
+                          {(showDescription || field.description) && (
+                            <motion.div
+                              className="relative pb-6 pt-2"
+                              initial={{ opacity: 0, height: 0 }}
+                              animate={{ opacity: 1, height: "auto" }}
+                              exit={{ opacity: 0, height: 0 }}
+                              transition={{ duration: 0.3 }}
+                            >
+                              <textarea
+                                value={field.description || ""}
+                                onChange={(e) =>
+                                  onUpdateFieldDescription(
+                                    field.id,
+                                    e.target.value,
+                                    isPromptType
+                                  )
+                                }
+                                className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
+                                placeholder="Add a description..."
+                              />
+                              {/* Remove description button */}
+                              {!field.description && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setShowDescription(false)}
+                                  className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              )}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </motion.div>
+                    </>
                   )}
 
-                  {/* Description textarea - only show if expanded or has content */}
-                  {(showDescription || field.description) && (
-                    <div className="relative">
-                      <textarea
-                        value={field.description || ""}
-                        onChange={(e) =>
-                          onUpdateFieldDescription(
-                            field.id,
-                            e.target.value,
-                            isPromptType
-                          )
-                        }
-                        className="text-sm text-gray-600 bg-transparent w-full 
-                          border-2 border-dashed border-gray-200 hover:border-gray-400 
-                          focus:border-gray-600 rounded px-2 py-1 transition-colors 
-                          focus:outline-none focus:ring-0 min-h-[60px] resize-y cursor-text"
-                        placeholder="Optional field description..."
-                      />
-                      {/* Remove description button */}
-                      {!field.description && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setShowDescription(false)}
-                          className="absolute top-0 right-0 text-gray-400 hover:text-gray-600"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </>
-              )}
+                  <motion.div
+                    className="mt-3"
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.25, duration: 0.3 }}
+                  >
+                    {renderFieldEdit()}
+                  </motion.div>
 
-              <div className="mt-3">{renderField()}</div>
-              {renderValidationSection()}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.3 }}
+                  >
+                    {renderValidationSection()}
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            )}
+
+            {!isEditMode && !isSpecialType && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+              >
+                <div className="space-y-2 mt-4">{renderFieldPreview()}</div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </motion.div>
     </div>
   );
 }
