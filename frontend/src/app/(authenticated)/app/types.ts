@@ -437,6 +437,16 @@ export interface SurveyState {
   ) => Promise<void>;
   conditionalSidebarOpen: boolean;
   setConditionalSidebarOpen: (open: boolean) => void;
+  conditionalSidebarContext: {
+    field: Element;
+    currentLogic?: ConditionalLogic;
+  } | null;
+  setConditionalSidebarContext: (
+    context: {
+      field: Element;
+      currentLogic?: ConditionalLogic;
+    } | null
+  ) => void;
 }
 
 export interface SaveState {

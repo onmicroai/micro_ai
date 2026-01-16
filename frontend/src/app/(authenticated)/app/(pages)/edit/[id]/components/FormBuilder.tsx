@@ -241,12 +241,35 @@ export default function FormBuilder() {
     setAttachedFiles,
     conditionalSidebarOpen,
     setConditionalSidebarOpen,
+    conditionalSidebarContext,
   } = useSurveyStore();
-  const handleSaveConditionalLogic = () => {
+  const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
+    if (!conditionalSidebarContext?.field.id) {
+      setConditionalSidebarOpen(false);
+      return;
+    }
+    await setElements(
+      (Array.isArray(elements) ? elements : []).map((el) =>
+        el.id === conditionalSidebarContext.field.id
+          ? { ...el, conditionalLogic: logic }
+          : el
+      )
+    );
     setConditionalSidebarOpen(false);
   };
 
   const handleClearConditionalLogic = () => {
+    if (!conditionalSidebarContext?.field.id) {
+      setConditionalSidebarOpen(false);
+      return;
+    }
+    setElements(
+      (Array.isArray(elements) ? elements : []).map((el) =>
+        el.id === conditionalSidebarContext.field.id
+          ? { ...el, conditionalLogic: undefined }
+          : el
+      )
+    );
     setConditionalSidebarOpen(false);
   };
 
@@ -1898,6 +1921,8 @@ export default function FormBuilder() {
             onSave={handleSaveConditionalLogic}
             onClear={handleClearConditionalLogic}
             availableFields={Array.isArray(elements) ? elements : []}
+            currentLogic={conditionalSidebarContext?.currentLogic}
+            targetFieldName={conditionalSidebarContext?.field.name}
           />
         </div>
       </div>

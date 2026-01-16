@@ -30,8 +30,7 @@ import { useSurveyStore } from "../../store/editSurveyStore";
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
-  fieldId: string;
-  fieldType?: string;
+  field: Element;
   isPreviewMode?: boolean;
   onMove?: () => void;
   onDelete?: () => void;
@@ -54,8 +53,7 @@ interface FieldHeaderProps {
 export default function FieldHeader({
   icon: Icon,
   label,
-  fieldId,
-  fieldType,
+  field,
   isPreviewMode = false,
   onDelete,
   onFieldTypeChange,
@@ -65,19 +63,21 @@ export default function FieldHeader({
   onRequiredChange,
   hiddenElements = [],
   isDragging = false,
+  conditionalLogic,
 }: FieldHeaderProps) {
   const [editOpen, setEditOpen] = useState(false);
-  const [newName, setNewName] = useState(fieldId);
+  const [newName, setNewName] = useState(field.name);
 
-  const { setConditionalSidebarOpen } = useSurveyStore();
+  const { setConditionalSidebarOpen, setConditionalSidebarContext } =
+    useSurveyStore();
 
   const isHidden = (element: HiddenHeaderElement): boolean => {
     return hiddenElements.includes(element);
   };
 
   useEffect(() => {
-    setNewName(fieldId);
-  }, [fieldId]);
+    setNewName(field.name);
+  }, [field.name]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewName(e.target.value);
@@ -123,7 +123,7 @@ export default function FieldHeader({
               </div>
             </motion.div>
           )}
-          {!isHidden("fieldLabel") && fieldType && onFieldTypeChange && (
+          {!isHidden("fieldLabel") && field.type && onFieldTypeChange && (
             <motion.div
               key="fieldLabel"
               initial={{ opacity: 0, x: -24 }}
@@ -137,7 +137,7 @@ export default function FieldHeader({
               }}
             >
               <Select
-                value={fieldType}
+                value={field.type}
                 onValueChange={(value) => {
                   onFieldTypeChange(value);
                 }}
@@ -184,7 +184,7 @@ export default function FieldHeader({
                     variant="secondary"
                     className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-default flex items-center gap-1 cursor-pointer"
                   >
-                    {fieldId}
+                    {field.name}
                   </Badge>
                 ) : (
                   <PopoverTrigger asChild>
@@ -200,7 +200,7 @@ export default function FieldHeader({
                         className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer flex items-center gap-1"
                       >
                         <Pencil className="h-3 w-3" />
-                        {fieldId}
+                        {field.name}
                       </Badge>
                     </motion.button>
                   </PopoverTrigger>
@@ -288,6 +288,10 @@ export default function FieldHeader({
                   className="h-8 w-8 p-0 hover:bg-gray-100"
                   onClick={(e) => {
                     e.stopPropagation();
+                    setConditionalSidebarContext({
+                      field: field,
+                      currentLogic: conditionalLogic,
+                    });
                     setConditionalSidebarOpen(true);
                   }}
                 >

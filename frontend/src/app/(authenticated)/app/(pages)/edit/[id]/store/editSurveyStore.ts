@@ -4,8 +4,6 @@ import {
   SaveState,
   ModelTemperatureRanges,
   AttachedFile,
-  ConditionalLogic,
-  Element,
 } from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
 import { toast } from "react-toastify";
@@ -44,11 +42,7 @@ const initialState = {
     systemPrompt: "",
   },
   conditionalSidebarOpen: false,
-  conditionalSidebarContext: null as {
-    fieldId: string;
-    availableFields: Element[];
-    currentLogic?: ConditionalLogic;
-  } | null,
+  conditionalSidebarContext: null,
 };
 
 export const useSurveyStore = create<SurveyState>((set, get) => {
@@ -471,17 +465,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
 
     conditionalSidebarOpen: false,
-
     setConditionalSidebarOpen: (open) => {
-      if (open) {
-        set({
-          conditionalSidebarOpen: true,
-        });
-      } else {
-        set({
-          conditionalSidebarOpen: false,
-        });
-      }
+      set({ conditionalSidebarOpen: open });
+    },
+    setConditionalSidebarContext: (context) => {
+      set({ conditionalSidebarContext: context });
     },
   };
 });

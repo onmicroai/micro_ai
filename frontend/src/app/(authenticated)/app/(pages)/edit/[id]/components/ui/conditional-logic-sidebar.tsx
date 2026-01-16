@@ -23,7 +23,7 @@ interface ConditionalLogicSidebarProps {
   onClear?: () => void;
   availableFields: Element[];
   currentLogic?: ConditionalLogic;
-  targetFieldId?: string;
+  targetFieldName?: string;
 }
 
 export default function ConditionalLogicSidebar({
@@ -33,7 +33,7 @@ export default function ConditionalLogicSidebar({
   onClear,
   availableFields,
   currentLogic,
-  targetFieldId,
+  targetFieldName,
 }: ConditionalLogicSidebarProps) {
   const [selectedSourceField, setSelectedSourceField] = useState<string>(
     currentLogic?.sourceFieldId || ""
@@ -134,6 +134,7 @@ export default function ConditionalLogicSidebar({
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          id="conditional-logic-sidebar"
           initial={{ width: 400 }}
           animate={{ width: 400 }}
           exit={{ width: 0 }}
@@ -141,41 +142,48 @@ export default function ConditionalLogicSidebar({
           className="sticky top-0 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
           style={{ minWidth: 0, maxWidth: 400 }}
         >
-          <div className="h-14 px-4 border-b flex items-center justify-between">
+          <div className="px-4 flex items-center justify-between ">
             <div className="flex flex-col">
-              <h2 className="text-sm font-medium">Conditional Logic</h2>
-              {targetFieldId && (
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-gray-500">
-                    Create a conditional logic for
-                  </span>
-                  <Badge
-                    variant="secondary"
-                    className="text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-50"
-                  >
-                    {targetFieldId}
-                  </Badge>
-                </div>
-              )}
+              <h2 className="text-base font-semibold text-black">
+                Conditional Logic
+              </h2>{" "}
             </div>
             <Button
               variant="ghost"
-              size="sm"
+              size="lg"
               onClick={onClose}
-              className="h-8 w-8 p-0"
+              className="h-10 w-10 p-0 text-gray-500"
             >
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </Button>
           </div>
 
           <div className="overflow-y-auto p-4 space-y-4">
+            {targetFieldName && (
+              <div className="flex items-center gap-2 mb-5">
+                <span className="text-xs text-gray-500">
+                  Create a conditional logic for
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-50"
+                >
+                  {targetFieldName}
+                </Badge>
+              </div>
+            )}
             <div className="space-y-2">
-              <Label htmlFor="sourceField">Show this question if</Label>
+              <Label htmlFor="sourceField" className="text-black font-semibold">
+                Show this question if
+              </Label>
               <Select
                 value={selectedSourceField}
                 onValueChange={setSelectedSourceField}
               >
-                <SelectTrigger id="sourceField">
+                <SelectTrigger
+                  id="sourceField"
+                  className="text-gray-500 border-gray-500"
+                >
                   <SelectValue placeholder="Select an item" />
                 </SelectTrigger>
                 <SelectContent>
@@ -194,7 +202,9 @@ export default function ConditionalLogicSidebar({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="operator">Condition</Label>
+              <Label htmlFor="operator" className="text-black font-semibold">
+                Condition
+              </Label>
               <Select
                 value={selectedOperator}
                 onValueChange={setSelectedOperator}
