@@ -37,6 +37,14 @@ export type handleInputChange = (
   e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
 ) => void;
 
+export type PageConfigOverride = {
+  scoredPhase: boolean;
+  rubric: string;
+  minScore: number;
+  scoreExplanation?: boolean;
+  scoreExplanationMode?: ScoreExplanationMode;
+};
+
 export type sendPrompts = (
   prompts: Prompt[] | null,
   answers: Answers,
@@ -46,13 +54,7 @@ export type sendPrompts = (
   userId: number | null,
   requestSkip: boolean,
   noSubmit?: boolean,
-  pageConfigOverride?: {
-    scoredPhase: boolean;
-    rubric: string;
-    minScore: number;
-    scoreExplanation?: boolean;
-    scoreExplanationMode?: ScoreExplanationMode;
-  }
+  pageConfigOverride?: PageConfigOverride
 ) => Promise<SendPromptResponse>;
 
 export interface SurveyStore {

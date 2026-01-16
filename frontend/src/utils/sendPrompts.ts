@@ -1,4 +1,4 @@
-import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images } from '@/app/(authenticated)/app/types';
+import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import { ConditionalLogic } from "@/app/(authenticated)/app/types";
@@ -408,7 +408,7 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
-  pageConfigOverride?: ReturnType<typeof getPageConfig>;
+  pageConfigOverride?: PageConfigOverride;
   transcriptionCost?: number;
   scoreExplanation?: boolean;
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
