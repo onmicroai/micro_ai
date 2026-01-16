@@ -364,6 +364,35 @@ export default function CurrentElementFlow({
           isFixedResponseCard ||
           !!runForThisStop;
 
+        const isScoredRun = Boolean(
+          runForThisStop?.score_expected ||
+          runForThisStop?.scoreData?.scored_run ||
+          runForThisStop?.run_score
+        );
+        const scoreReady = Boolean(
+          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score
+        );
+        const explanationRequested = Boolean(
+          runForThisStop?.score_explanation ?? runForThisStop?.scoreData?.score_explanation
+        );
+        const explanationMode =
+          runForThisStop?.score_explanation_mode ||
+          runForThisStop?.scoreData?.score_explanation_mode ||
+          "always";
+        const shouldOfferExplanation =
+          isScoredRun &&
+          scoreReady &&
+          explanationRequested &&
+          (explanationMode === "always" ||
+            (explanationMode === "failed_only" && runForThisStop?.run_passed === false) ||
+            (explanationMode === "passed_only" && runForThisStop?.run_passed === true));
+        const isEvaluatingScore = isScoredRun && !scoreReady;
+        const explanationContent = shouldOfferExplanation
+          ? runForThisStop?.messages.findLast(
+              (m) => m.role === "assistant" || m.role === "fixed_response"
+            )?.content || ""
+          : "";
+
         return (
           <div
             key={element.id}
@@ -384,12 +413,27 @@ export default function CurrentElementFlow({
 
             {runForThisStop && (
               <>
-                <AIResponseDisplay
+                {!isScoredRun && (
+                  <>
+                    <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
+                    {element.type === "aiResponse" && aiPromptPreviewPrompts.length > 0 && (
+                      <div className="mt-3">
+                        <RenderPrompt
+                          prompts={aiPromptPreviewPrompts}
+                          answers={answers as any}
+                          disabled={false}
+                          isOwner={isOwner}
+                          isAdmin={isAdmin}
+                        />
+                      </div>
+                    )}
+                  </>
+                )}
+                <RunScoreDisplay
                   run={runForThisStop}
-                  isOwner={isOwner}
-                  isAdmin={isAdmin}
+                  isEvaluating={isEvaluatingScore}
+                  explanationContent={explanationContent}
                 />
-                <RunScoreDisplay run={runForThisStop} />
                 {!promptLoading && !passedTheRubricMinScore(runForThisStop) && (
                   <div className="mt-4 border rounded-lg p-3 bg-red-50">
                     <p className="text-sm/6 text-red-700">
@@ -402,18 +446,6 @@ export default function CurrentElementFlow({
 
             {isActiveStop && (
               <>
-                {element.type === "aiResponse" &&
-                  aiPromptPreviewPrompts.length > 0 && (
-                    <div className="mb-2">
-                      <RenderPrompt
-                        prompts={aiPromptPreviewPrompts}
-                        answers={answers as any}
-                        disabled={false}
-                        isOwner={isOwner}
-                        isAdmin={isAdmin}
-                      />
-                    </div>
-                  )}
                 {promptLoading ? (
                   <div className="mt-4">
                     <SkeletonLoader />
