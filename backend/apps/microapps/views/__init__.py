@@ -21,7 +21,8 @@ from .run_views import (
     RunList,
     AnonymousRunList,
     AIModelRoute,
-    LiteLLMModelConfigurations
+    LiteLLMModelConfigurations,
+    ScoreRunList
 )
 
 from .analytics_views import (

@@ -282,7 +282,22 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             title: nextAppName,
             type: "Private",
             copyAllowed: true,
-            app_json: "",
+            // Backend stores this as a string; frontend owns schema.
+            // New apps start with V2 (no phases) so we don't rely on phase defaults.
+            app_json: {
+               title: nextAppName,
+               description: "",
+               privacySettings: "private",
+               clonable: true,
+               attachedFiles: [],
+               aiConfig: {
+                  aiModel: "gpt-4o-mini",
+                  temperature: 0.7,
+                  maxResponseTokens: null,
+                  systemPrompt: ""
+               },
+               elements: []
+            },
             collection_id: collectionId,
          };
 

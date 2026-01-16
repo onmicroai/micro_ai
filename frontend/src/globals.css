@@ -30,6 +30,8 @@
     --black-dark: 0, 0%, 9%;
     --black-md: 0, 0%, 12%;
     --black-lt: 0, 0%, 16%;
+    --form-builder-bg-white: 0 0% 100%;
+    --form-builder-bg-gray: 210 40% 98%;
   }
   html {
     font-family: 'Cousine', system-ui, sans-serif;
