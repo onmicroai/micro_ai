@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
   Plus,
@@ -60,7 +60,9 @@ import { HelpCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
 import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
-import { motion, LayoutGroup } from "framer-motion";
+import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
+import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import Image from "next/image";
 
 // Options for the "Add section" dialog
 const fieldTypes = [
@@ -193,6 +195,7 @@ interface UploadedFile {
 
 export default function FormBuilder() {
   const params = useParams() ?? {};
+  const router = useRouter();
   const hashId = (params.id as string) || "";
 
   const [isOpen, setIsOpen] = useState(false);
@@ -1153,803 +1156,782 @@ export default function FormBuilder() {
           backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
         }`}
       >
-        {/* Main Layout with Sidebar */}
-        <div className="flex relative">
-          {/* Sidebar - opens after first header */}
+        <div className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
+          <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto relative">
+            <div className="flex items-center h-full">
+              <Image
+                src={Logo}
+                alt="Micro AI"
+                width={175}
+                height={56}
+                className="w-[175px] h-[56px] object-contain"
+                priority
+              />
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab("build")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === "build"
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Build
+              </button>
+              <button
+                onClick={() => setActiveTab("preview")}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === "preview"
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Preview
+              </button>
+            </div>
+            <div className="ml-auto">
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/dashboard")}
+                className="text-primary hover:text-primary/80 flex items-center gap-2"
+              >
+                <X className="h-4 w-4 mr-1" />
+                <span className="text-base">Back to Home page</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+
+        {!sidebarOpen && (
+          <div className="flex">
+            <AnimatePresence>
+              <motion.button
+                key="sidebar-open"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                onClick={() => setSidebarOpen(true)}
+                className={`
+                  fixed left-6 top-[96px] z-30 flex items-center
+                  bg-white p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
+                  ${
+                    !conditionalSidebarOpen
+                      ? "xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50 xl:gap-2"
+                      : ""
+                  }
+                  `}
+                aria-label="Open sidebar"
+              >
+                {!conditionalSidebarOpen && (
+                  <span className="hidden xl:inline text-[16px] font-semibold text-black whitespace-nowrap mb-1">
+                    App settings
+                  </span>
+                )}
+                <PanelLeft className="h-6 w-6 text-gray-400" />
+              </motion.button>
+            </AnimatePresence>
+          </div>
+        )}
+        <div className="flex-1 flex">
           {sidebarOpen && (
-            <div
-              className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30"
-              ref={(el) => {
-                if (el) {
-                  // #region agent log
-                  const rect = el.getBoundingClientRect();
-                  fetch(
-                    "http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b",
-                    {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        location: "FormBuilder.tsx:sidebar-ref",
-                        message: "Sidebar dimensions",
-                        data: {
-                          width: rect.width,
-                          height: rect.height,
-                          top: rect.top,
-                          left: rect.left,
-                          viewportHeight: window.innerHeight,
-                        },
-                        timestamp: Date.now(),
-                        sessionId: "debug-session",
-                        runId: "run1",
-                        hypothesisId: "A",
-                      }),
-                    }
-                  ).catch(() => {});
-                  // #endregion
-                }
-              }}
-            >
-              {/* Sidebar Header */}
-              <div className="h-14 px-4 border-b border-gray-300 bg-white flex items-center justify-between">
-                <span className="text-sm font-medium">
-                  Additional App Settings
+            <div className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
+                <span className="text-sm font-medium text-black">
+                  App settings
                 </span>
                 <button
                   onClick={() => setSidebarOpen(false)}
-                  className="p-1 hover:bg-gray-200 rounded-md transition-colors"
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   aria-label="Close sidebar"
                 >
                   <PanelRightClose className="h-5 w-5 text-gray-600" />
                 </button>
               </div>
-
-              {/* Scrollable Settings Container */}
               <div className="flex-1 overflow-y-auto">
                 <div className="p-4 pb-20">{renderAdditionalAppSettings()}</div>
               </div>
             </div>
           )}
 
-          {/* Main Content Area */}
-          <div
-            className="flex-1 transition-all duration-300"
-            ref={(el) => {
-              if (el && sidebarOpen) {
-                // #region agent log
-                const rect = el.getBoundingClientRect();
-                fetch(
-                  "http://127.0.0.1:7242/ingest/82826c81-9a19-444e-9aa2-e2bc8db5693b",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      location: "FormBuilder.tsx:main-content-ref",
-                      message: "Main content dimensions with sidebar",
-                      data: {
-                        width: rect.width,
-                        left: rect.left,
-                        marginLeft: window.getComputedStyle(el).marginLeft,
-                        sidebarWidth: 320,
-                      },
-                      timestamp: Date.now(),
-                      sessionId: "debug-session",
-                      runId: "run2",
-                      hypothesisId: "B",
-                    }),
-                  }
-                ).catch(() => {});
-                // #endregion
-              }
-            }}
-          >
-            {/* Second Header */}
-            <div className="bg-white border-b border-gray-300 sticky top-0 z-40 h-14">
-              <div className="flex items-center h-full px-4">
-                {/* Toggle button on left when sidebar is closed */}
-                {!sidebarOpen && (
-                  <button
-                    onClick={() => setSidebarOpen(true)}
-                    className="mr-4 p-2 hover:bg-gray-100 rounded-md transition-colors"
-                    aria-label="Open sidebar"
-                  >
-                    <PanelLeft className="h-5 w-5 text-gray-600" />
-                  </button>
-                )}
+          <div className="flex-1 transition-all duration-300 flex justify-center">
+            <div className="w-full max-w-[900px] px-2 sm:px-4">
+              {activeTab === "build" ? (
+                <div className="py-8">
+                  <>
+                    {/* This motion.div animates the App Details card when switching between edit and preview modes,
+                      as well as when its layout changes.
+                      The 'layout' prop enables smooth transitions for position and size changes,
+                      and the custom spring transition provides a natural, responsive feel. */}
+                    <motion.div
+                      ref={cardRef}
+                      layout={!isAppDetailsEditMode}
+                      initial={false}
+                      className={`mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200 min-h-[160px]`}
+                      onClick={() => {
+                        if (!isAppDetailsEditMode)
+                          setIsAppDetailsEditMode(true);
+                      }}
+                      transition={{
+                        layout: {
+                          duration: 0.4,
+                          type: "spring",
+                          bounce: 0,
+                          damping: 25,
+                          stiffness: 300,
+                        },
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-4">
+                        <h3 className="text-sm font-medium text-gray-500">
+                          App Details
+                        </h3>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={5}>
+                              <p className="w-[200px] text-sm">
+                                Provide a name and a description for your app
+                                that will be displayed to users.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
 
-                {/* Tabs in center */}
-                <div className="flex items-center justify-center flex-1 gap-0 h-full">
-                  <button
-                    onClick={() => setActiveTab("build")}
-                    className={`px-6 py-2 text-sm font-medium transition-colors h-full flex items-center ${
-                      activeTab === "build"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    Build
-                  </button>
-                  <div className="h-6 w-px bg-gray-300" />
-                  <button
-                    onClick={() => setActiveTab("preview")}
-                    className={`px-6 py-2 text-sm font-medium transition-colors h-full flex items-center ${
-                      activeTab === "preview"
-                        ? "text-primary border-b-2 border-primary"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
-                  >
-                    Preview
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Main Content */}
-            {activeTab === "build" ? (
-              <div
-                className={`container mx-auto py-8 px-4 max-w-7xl cursor-${
-                  isAppDetailsEditMode ? "auto" : "pointer"
-                }`}
-              >
-                <>
-                  {/* This motion.div animates the App Details card when switching between edit and preview modes,
-                  as well as when its layout changes.
-                  The 'layout' prop enables smooth transitions for position and size changes,
-                  and the custom spring transition provides a natural, responsive feel. */}
-                  <motion.div
-                    ref={cardRef}
-                    layout
-                    initial={false}
-                    className={`mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200${
-                      isAppDetailsEditMode
-                        ? "cursor-auto"
-                        : "cursor-pointer hover:shadow-md"
-                    }`}
-                    onClick={() => {
-                      if (!isAppDetailsEditMode) setIsAppDetailsEditMode(true);
-                    }}
-                    transition={{
-                      layout: {
-                        duration: 0.3,
-                        type: "spring",
-                        bounce: 0,
-                        damping: 25,
-                        stiffness: 300,
-                      },
-                    }}
-                  >
-                    <div className="flex items-center gap-2 mb-4">
-                      <h3 className="text-sm font-medium text-gray-500">
-                        App Details
-                      </h3>
-                      <TooltipProvider delayDuration={0}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-                          </TooltipTrigger>
-                          <TooltipContent side="right" sideOffset={5}>
-                            <p className="w-[200px] text-sm">
-                              Provide a name and a description for your app that
-                              will be displayed to users.
-                            </p>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </div>
-
-                    {isAppDetailsEditMode ? (
-                      <motion.div
-                        key="edit"
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -10 }}
-                        transition={{ duration: 0.18 }}
-                      >
-                        <input
-                          type="text"
-                          value={title}
-                          onFocus={() => {
-                            if (title === "Untitled App") setTitle("");
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setTitle(e.target.value)}
-                          className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0"
-                          style={{ fontSize: 24 }}
-                          placeholder="Untitled App"
-                        />
-                        <textarea
-                          value={description}
-                          onFocus={() => {
-                            if (
-                              description ===
-                              "Tell the user what your app does..."
-                            )
-                              setDescription("");
-                          }}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={(e) => setDescription(e.target.value)}
-                          className="text-lg bg-transparent w-full border border-gray-200 px-4 py-2 min-h-[100px] resize-y focus:outline-none focus:border-gray-200 focus:ring-0"
-                          placeholder="Tell the user what your app does..."
-                        />
-                      </motion.div>
-                    ) : (
-                      <motion.div
-                        key="preview"
-                        initial={{ opacity: 0, y: -10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: 10 }}
-                        transition={{ duration: 0.18 }}
-                      >
-                        <div
-                          className="font-semibold text-gray-900 mb-2"
-                          style={{ fontSize: 24 }}
-                        >
-                          {title || "Untitled App"}
-                        </div>
-                        <div className="text-lg text-gray-600">
-                          {description ||
-                            "Here you can write the description about your app"}
-                        </div>
-                      </motion.div>
-                    )}
-                  </motion.div>
-
-                  <div className="mt-8 space-y-6">
-                    <LayoutGroup>
-                      <Droppable droppableId="all-elements" type="element">
-                        {(provided, snapshot) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.droppableProps}
-                            className={`min-h-[200px] transition-colors ${
-                              snapshot.isDraggingOver ? "bg-primary/5" : ""
-                            }`}
+                      <AnimatePresence mode="wait">
+                        {isAppDetailsEditMode ? (
+                          <motion.div
+                            key="edit"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.4, 0, 0.2, 1],
+                            }}
                           >
-                            {(() => {
-                              const visibleElements = Array.isArray(elements)
-                                ? elements
-                                : [];
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: 0.1, duration: 0.3 }}
+                            >
+                              <input
+                                type="text"
+                                value={title}
+                                onFocus={() => {
+                                  if (title === "Untitled App") setTitle("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0 text-xl"
+                                style={{ fontSize: 24 }}
+                                placeholder="Untitled App"
+                              />
+                              <textarea
+                                value={description}
+                                onFocus={() => {
+                                  if (
+                                    description ===
+                                    "Tell the user what your app does..."
+                                  )
+                                    setDescription("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="text-sm bg-transparent w-full border border-gray-200 px-4 py-2 min-h-[100px] resize-y focus:outline-none focus:border-gray-200 focus:ring-0"
+                                placeholder="Tell the user what your app does..."
+                              />
+                            </motion.div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="preview"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.18 }}
+                          >
+                            <div className="font-semibold text-xl mb-2 text-gray-900">
+                              {title || "Untitled App"}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {description ||
+                                "Here you can write the description about your app"}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
 
-                              return visibleElements.map(
-                                (element, index, array) => {
-                                  const isLastElement =
-                                    index === array.length - 1;
+                    <div className="mt-8 space-y-6">
+                      <LayoutGroup>
+                        <Droppable droppableId="all-elements" type="element">
+                          {(provided, snapshot) => (
+                            <div
+                              ref={provided.innerRef}
+                              {...provided.droppableProps}
+                              className={`min-h-[200px] transition-colors ${
+                                snapshot.isDraggingOver ? "bg-primary/5" : ""
+                              }`}
+                            >
+                              {(() => {
+                                const visibleElements = Array.isArray(elements)
+                                  ? elements
+                                  : [];
 
-                                  return (
-                                    <React.Fragment key={element.id}>
-                                      <Draggable
-                                        draggableId={element.id}
-                                        index={index}
-                                      >
-                                        {(
-                                          providedDraggable,
-                                          snapshotDraggable
-                                        ) => (
-                                          <motion.div
-                                            layout={
-                                              !snapshotDraggable.isDragging
-                                            }
-                                            transition={{
-                                              duration: 0.3,
-                                              ease: "easeInOut",
-                                            }}
-                                            initial={false}
-                                            style={{
-                                              ...providedDraggable
-                                                .draggableProps.style,
-                                              ...(snapshotDraggable.isDragging
-                                                ? {}
-                                                : { transform: "none" }),
-                                            }}
-                                            ref={providedDraggable.innerRef}
-                                            {...providedDraggable.draggableProps}
-                                            className={`${
-                                              snapshotDraggable.isDragging
-                                                ? "opacity-80"
-                                                : ""
-                                            }`}
-                                          >
-                                            <Field
-                                              field={element}
-                                              index={index}
-                                              phaseFields={visibleElements}
-                                              appFields={visibleElements}
-                                              appId={appId}
-                                              dragHandleProps={
-                                                providedDraggable.dragHandleProps
+                                return visibleElements.map(
+                                  (element, index, array) => {
+                                    const isLastElement =
+                                      index === array.length - 1;
+
+                                    return (
+                                      <React.Fragment key={element.id}>
+                                        <Draggable
+                                          draggableId={element.id}
+                                          index={index}
+                                        >
+                                          {(
+                                            providedDraggable,
+                                            snapshotDraggable
+                                          ) => (
+                                            <motion.div
+                                              layout={
+                                                !snapshotDraggable.isDragging
                                               }
-                                              onUpdateFieldLabel={(
-                                                fieldId,
-                                                newLabel,
-                                                isPrompt
-                                              ) =>
-                                                updateFieldLabel(
+                                              transition={{
+                                                duration: 0.3,
+                                                ease: "easeInOut",
+                                              }}
+                                              initial={false}
+                                              style={{
+                                                ...providedDraggable
+                                                  .draggableProps.style,
+                                                ...(snapshotDraggable.isDragging
+                                                  ? {}
+                                                  : { transform: "none" }),
+                                              }}
+                                              ref={providedDraggable.innerRef}
+                                              {...providedDraggable.draggableProps}
+                                              className={`${
+                                                snapshotDraggable.isDragging
+                                                  ? "opacity-80"
+                                                  : ""
+                                              }`}
+                                            >
+                                              <Field
+                                                field={element}
+                                                index={index}
+                                                phaseFields={visibleElements}
+                                                appFields={visibleElements}
+                                                appId={appId}
+                                                dragHandleProps={
+                                                  providedDraggable.dragHandleProps
+                                                }
+                                                onUpdateFieldLabel={(
                                                   fieldId,
                                                   newLabel,
                                                   isPrompt
-                                                )
-                                              }
-                                              onUpdateFieldName={(
-                                                fieldId,
-                                                newName,
-                                                isPrompt
-                                              ) =>
-                                                updateFieldName(
+                                                ) =>
+                                                  updateFieldLabel(
+                                                    fieldId,
+                                                    newLabel,
+                                                    isPrompt
+                                                  )
+                                                }
+                                                onUpdateFieldName={(
                                                   fieldId,
                                                   newName,
                                                   isPrompt
-                                                )
-                                              }
-                                              onUpdateFieldType={(
-                                                fieldId,
-                                                newType
-                                              ) =>
-                                                updateFieldType(
+                                                ) =>
+                                                  updateFieldName(
+                                                    fieldId,
+                                                    newName,
+                                                    isPrompt
+                                                  )
+                                                }
+                                                onUpdateFieldType={(
                                                   fieldId,
                                                   newType
-                                                )
-                                              }
-                                              onDeleteField={(
-                                                fieldId,
-                                                isPrompt
-                                              ) =>
-                                                deleteField(fieldId, isPrompt)
-                                              }
-                                              onUpdateFieldDescription={(
-                                                fieldId,
-                                                description,
-                                                isPrompt
-                                              ) =>
-                                                updateFieldDescription(
+                                                ) =>
+                                                  updateFieldType(
+                                                    fieldId,
+                                                    newType
+                                                  )
+                                                }
+                                                onDeleteField={(
+                                                  fieldId,
+                                                  isPrompt
+                                                ) =>
+                                                  deleteField(fieldId, isPrompt)
+                                                }
+                                                onUpdateFieldDescription={(
                                                   fieldId,
                                                   description,
                                                   isPrompt
-                                                )
-                                              }
-                                              onUpdateFieldRequired={(
-                                                fieldId,
-                                                required,
-                                                isPrompt
-                                              ) =>
-                                                updateFieldRequired(
+                                                ) =>
+                                                  updateFieldDescription(
+                                                    fieldId,
+                                                    description,
+                                                    isPrompt
+                                                  )
+                                                }
+                                                onUpdateFieldRequired={(
                                                   fieldId,
                                                   required,
                                                   isPrompt
-                                                )
-                                              }
-                                              onUpdateFieldValidation={(
-                                                fieldId,
-                                                minChars,
-                                                maxChars,
-                                                isPrompt
-                                              ) =>
-                                                updateFieldValidation(
+                                                ) =>
+                                                  updateFieldRequired(
+                                                    fieldId,
+                                                    required,
+                                                    isPrompt
+                                                  )
+                                                }
+                                                onUpdateFieldValidation={(
                                                   fieldId,
                                                   minChars,
                                                   maxChars,
                                                   isPrompt
-                                                )
-                                              }
-                                              onUpdateFieldDefaultValue={(
-                                                fieldId,
-                                                defaultValue
-                                              ) =>
-                                                updateFieldDefaultValue(
+                                                ) =>
+                                                  updateFieldValidation(
+                                                    fieldId,
+                                                    minChars,
+                                                    maxChars,
+                                                    isPrompt
+                                                  )
+                                                }
+                                                onUpdateFieldDefaultValue={(
                                                   fieldId,
                                                   defaultValue
-                                                )
-                                              }
-                                              onUpdateFieldPlaceholder={(
-                                                fieldId,
-                                                placeholder
-                                              ) =>
-                                                updateFieldPlaceholder(
+                                                ) =>
+                                                  updateFieldDefaultValue(
+                                                    fieldId,
+                                                    defaultValue
+                                                  )
+                                                }
+                                                onUpdateFieldPlaceholder={(
                                                   fieldId,
                                                   placeholder
-                                                )
-                                              }
-                                              onUpdateFieldChoices={(
-                                                fieldId,
-                                                choices
-                                              ) =>
-                                                updateFieldChoices(
+                                                ) =>
+                                                  updateFieldPlaceholder(
+                                                    fieldId,
+                                                    placeholder
+                                                  )
+                                                }
+                                                onUpdateFieldChoices={(
                                                   fieldId,
                                                   choices
-                                                )
-                                              }
-                                              onUpdateFieldShowOther={(
-                                                fieldId,
-                                                showOther
-                                              ) =>
-                                                updateFieldShowOther(
+                                                ) =>
+                                                  updateFieldChoices(
+                                                    fieldId,
+                                                    choices
+                                                  )
+                                                }
+                                                onUpdateFieldShowOther={(
                                                   fieldId,
                                                   showOther
-                                                )
-                                              }
-                                              onUpdateFieldSliderProps={(
-                                                fieldId,
-                                                updates
-                                              ) =>
-                                                updateFieldSliderProps(
+                                                ) =>
+                                                  updateFieldShowOther(
+                                                    fieldId,
+                                                    showOther
+                                                  )
+                                                }
+                                                onUpdateFieldSliderProps={(
                                                   fieldId,
                                                   updates
-                                                )
-                                              }
-                                              onUpdateFieldSliderValue={(
-                                                fieldId,
-                                                value
-                                              ) =>
-                                                updateFieldSliderValue(
+                                                ) =>
+                                                  updateFieldSliderProps(
+                                                    fieldId,
+                                                    updates
+                                                  )
+                                                }
+                                                onUpdateFieldSliderValue={(
                                                   fieldId,
                                                   value
-                                                )
-                                              }
-                                              onUpdatePromptText={(
-                                                fieldId,
-                                                text
-                                              ) =>
-                                                updateFieldText(
+                                                ) =>
+                                                  updateFieldSliderValue(
+                                                    fieldId,
+                                                    value
+                                                  )
+                                                }
+                                                onUpdatePromptText={(
                                                   fieldId,
-                                                  text,
-                                                  true
-                                                )
-                                              }
-                                              onUpdateRichText={(
-                                                fieldId,
-                                                html
-                                              ) =>
-                                                updateFieldRichText(
+                                                  text
+                                                ) =>
+                                                  updateFieldText(
+                                                    fieldId,
+                                                    text,
+                                                    true
+                                                  )
+                                                }
+                                                onUpdateRichText={(
                                                   fieldId,
-                                                  html,
-                                                  false
-                                                )
-                                              }
-                                              onUpdateConditionalLogic={(
-                                                fieldId,
-                                                logic
-                                              ) =>
-                                                handleUpdateConditionalLogic(
+                                                  html
+                                                ) =>
+                                                  updateFieldRichText(
+                                                    fieldId,
+                                                    html,
+                                                    false
+                                                  )
+                                                }
+                                                onUpdateConditionalLogic={(
                                                   fieldId,
-                                                  logic,
-                                                  false
-                                                )
-                                              }
-                                              onUpdateAiResponseInstructions={(
-                                                fieldId,
-                                                instructions
-                                              ) =>
-                                                updateElement(fieldId, {
-                                                  instructions,
-                                                })
-                                              }
-                                              onUpdateScoringSettings={(
-                                                fieldId,
-                                                updates
-                                              ) =>
-                                                updateElement(fieldId, updates)
-                                              }
-                                              onUpdateImageUploadSettings={(
-                                                fieldId,
-                                                settings
-                                              ) =>
-                                                updateImageUploadSettings(
+                                                  logic
+                                                ) =>
+                                                  handleUpdateConditionalLogic(
+                                                    fieldId,
+                                                    logic,
+                                                    false
+                                                  )
+                                                }
+                                                onUpdateAiResponseInstructions={(
+                                                  fieldId,
+                                                  instructions
+                                                ) =>
+                                                  updateElement(fieldId, {
+                                                    instructions,
+                                                  })
+                                                }
+                                                onUpdateScoringSettings={(
+                                                  fieldId,
+                                                  updates
+                                                ) =>
+                                                  updateElement(
+                                                    fieldId,
+                                                    updates
+                                                  )
+                                                }
+                                                onUpdateImageUploadSettings={(
                                                   fieldId,
                                                   settings
-                                                )
-                                              }
-                                              onUpdateFieldMaxMessages={(
-                                                fieldId,
-                                                maxMessages
-                                              ) =>
-                                                updateFieldMaxMessages(
+                                                ) =>
+                                                  updateImageUploadSettings(
+                                                    fieldId,
+                                                    settings
+                                                  )
+                                                }
+                                                onUpdateFieldMaxMessages={(
                                                   fieldId,
                                                   maxMessages
-                                                )
-                                              }
-                                              onUpdateFieldInitialMessage={(
-                                                fieldId,
-                                                initialMessage
-                                              ) =>
-                                                updateFieldInitialMessage(
+                                                ) =>
+                                                  updateFieldMaxMessages(
+                                                    fieldId,
+                                                    maxMessages
+                                                  )
+                                                }
+                                                onUpdateFieldInitialMessage={(
                                                   fieldId,
                                                   initialMessage
-                                                )
-                                              }
-                                              onUpdateChatbotInstructions={(
-                                                fieldId,
-                                                instructions
-                                              ) =>
-                                                updateChatbotInstructions(
+                                                ) =>
+                                                  updateFieldInitialMessage(
+                                                    fieldId,
+                                                    initialMessage
+                                                  )
+                                                }
+                                                onUpdateChatbotInstructions={(
                                                   fieldId,
                                                   instructions
-                                                )
-                                              }
-                                              onUpdateTtsProvider={(
-                                                fieldId,
-                                                provider
-                                              ) =>
-                                                updateTtsProvider(
+                                                ) =>
+                                                  updateChatbotInstructions(
+                                                    fieldId,
+                                                    instructions
+                                                  )
+                                                }
+                                                onUpdateTtsProvider={(
                                                   fieldId,
                                                   provider
-                                                )
-                                              }
-                                              onUpdateTtsVoiceId={(
-                                                fieldId,
-                                                voiceId
-                                              ) =>
-                                                updateTtsVoiceId(
+                                                ) =>
+                                                  updateTtsProvider(
+                                                    fieldId,
+                                                    provider
+                                                  )
+                                                }
+                                                onUpdateTtsVoiceId={(
                                                   fieldId,
                                                   voiceId
-                                                )
-                                              }
-                                              onUpdateTtsEnabled={(
-                                                fieldId,
-                                                enabled
-                                              ) =>
-                                                updateTtsEnabled(
+                                                ) =>
+                                                  updateTtsVoiceId(
+                                                    fieldId,
+                                                    voiceId
+                                                  )
+                                                }
+                                                onUpdateTtsEnabled={(
                                                   fieldId,
                                                   enabled
-                                                )
-                                              }
-                                              onUpdateVoiceInstructions={(
-                                                fieldId,
-                                                instructions
-                                              ) =>
-                                                updateVoiceInstructions(
+                                                ) =>
+                                                  updateTtsEnabled(
+                                                    fieldId,
+                                                    enabled
+                                                  )
+                                                }
+                                                onUpdateVoiceInstructions={(
                                                   fieldId,
                                                   instructions
-                                                )
-                                              }
-                                              onUpdateAvatarUrl={(
-                                                fieldId,
-                                                avatarUrl
-                                              ) =>
-                                                updateAvatarUrl(
+                                                ) =>
+                                                  updateVoiceInstructions(
+                                                    fieldId,
+                                                    instructions
+                                                  )
+                                                }
+                                                onUpdateAvatarUrl={(
                                                   fieldId,
                                                   avatarUrl
-                                                )
-                                              }
-                                              isDragging={
-                                                snapshotDraggable.isDragging
-                                              }
+                                                ) =>
+                                                  updateAvatarUrl(
+                                                    fieldId,
+                                                    avatarUrl
+                                                  )
+                                                }
+                                                isDragging={
+                                                  snapshotDraggable.isDragging
+                                                }
+                                              />
+                                            </motion.div>
+                                          )}
+                                        </Draggable>
+
+                                        {/* Plus button between cards on its own line with always-visible silver line */}
+                                        {!isLastElement && (
+                                          <div className="relative flex items-center justify-center h-4 my-1 w-full group">
+                                            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
+                                            <button
+                                              className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              tabIndex={-1}
+                                              aria-label="Add section"
+                                              onClick={(e) => {
+                                                setPopoverPosition({
+                                                  x: e.clientX,
+                                                  y: e.clientY - 400,
+                                                });
+                                                setAddSectionOpenFor(
+                                                  `between-${element.id}`
+                                                );
+                                                setInsertAfterIndex(index);
+                                              }}
+                                              type="button"
                                             />
-                                          </motion.div>
-                                        )}
-                                      </Draggable>
-
-                                      {/* Plus button between cards on its own line with always-visible silver line */}
-                                      {!isLastElement && (
-                                        <div className="relative flex items-center justify-center h-4 my-1 w-full group">
-                                          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
-                                          <button
-                                            className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                            tabIndex={-1}
-                                            aria-label="Add section"
-                                            onClick={(e) => {
-                                              setPopoverPosition({
-                                                x: e.clientX,
-                                                y: e.clientY - 400,
-                                              });
-                                              setAddSectionOpenFor(
+                                            <Popover
+                                              open={
+                                                addSectionOpenFor ===
                                                 `between-${element.id}`
-                                              );
-                                              setInsertAfterIndex(index);
-                                            }}
-                                            type="button"
-                                          />
-                                          <Popover
-                                            open={
-                                              addSectionOpenFor ===
-                                              `between-${element.id}`
-                                            }
-                                            onOpenChange={(open) => {
-                                              setAddSectionOpenFor(
-                                                open
-                                                  ? `between-${element.id}`
-                                                  : null
-                                              );
-                                              if (!open) {
-                                                setInsertAfterIndex(null);
                                               }
-                                            }}
-                                          >
-                                            <PopoverTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                size="sm"
-                                                className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
-                                                onClick={() => {
-                                                  setInsertAfterIndex(index);
-                                                }}
-                                              >
-                                                <Plus className="h-3 w-3" />
-                                              </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent
-                                              align="center"
-                                              side="bottom"
-                                              className="w-72 p-2"
-                                              style={
-                                                popoverPosition
-                                                  ? {
-                                                      position: "fixed",
-                                                      left: popoverPosition.x,
-                                                    }
-                                                  : undefined
-                                              }
+                                              onOpenChange={(open) => {
+                                                setAddSectionOpenFor(
+                                                  open
+                                                    ? `between-${element.id}`
+                                                    : null
+                                                );
+                                                if (!open) {
+                                                  setInsertAfterIndex(null);
+                                                }
+                                              }}
                                             >
-                                              <div className="space-y-1">
-                                                {availableSections.map(
-                                                  (section) => {
-                                                    const Icon = section.icon;
-                                                    return (
-                                                      <button
-                                                        key={section.id}
-                                                        onClick={() => {
-                                                          addElementToApp(
-                                                            section.id,
-                                                            insertAfterIndex
-                                                          );
-                                                          setAddSectionOpenFor(
-                                                            null
-                                                          );
-                                                        }}
-                                                        className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                                      >
-                                                        <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                        <div className="flex-1 min-w-0">
-                                                          <div className="text-xs font-medium text-gray-900">
-                                                            {section.label}
-                                                          </div>
-                                                        </div>
-                                                        <TooltipProvider
-                                                          delayDuration={0}
+                                              <PopoverTrigger asChild>
+                                                <Button
+                                                  variant="outline"
+                                                  size="sm"
+                                                  className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
+                                                  onClick={() => {
+                                                    setInsertAfterIndex(index);
+                                                  }}
+                                                >
+                                                  <Plus className="h-3 w-3" />
+                                                </Button>
+                                              </PopoverTrigger>
+                                              <PopoverContent
+                                                align="center"
+                                                side="bottom"
+                                                className="w-72 p-2"
+                                                style={
+                                                  popoverPosition
+                                                    ? {
+                                                        position: "fixed",
+                                                        left: popoverPosition.x,
+                                                      }
+                                                    : undefined
+                                                }
+                                              >
+                                                <div className="space-y-1">
+                                                  {availableSections.map(
+                                                    (section) => {
+                                                      const Icon = section.icon;
+                                                      return (
+                                                        <button
+                                                          key={section.id}
+                                                          onClick={() => {
+                                                            addElementToApp(
+                                                              section.id,
+                                                              insertAfterIndex
+                                                            );
+                                                            setAddSectionOpenFor(
+                                                              null
+                                                            );
+                                                          }}
+                                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
                                                         >
-                                                          <Tooltip>
-                                                            <TooltipTrigger
-                                                              asChild
-                                                            >
-                                                              <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                            </TooltipTrigger>
-                                                            <TooltipContent side="right">
-                                                              <p className="max-w-xs text-xs">
-                                                                {section.helper}
-                                                              </p>
-                                                            </TooltipContent>
-                                                          </Tooltip>
-                                                        </TooltipProvider>
-                                                      </button>
-                                                    );
-                                                  }
-                                                )}
-                                              </div>
-                                            </PopoverContent>
-                                          </Popover>
-                                        </div>
-                                      )}
-                                    </React.Fragment>
-                                  );
-                                }
-                              );
-                            })()}
-                            {provided.placeholder}
-
-                            {/* Add Section button at the end */}
-                            <div className="mt-4 flex justify-start">
-                              <Popover
-                                open={addSectionOpenFor === "end-button"}
-                                onOpenChange={(open) => {
-                                  setAddSectionOpenFor(
-                                    open ? "end-button" : null
-                                  );
-                                  if (!open) {
-                                    setInsertAfterIndex(null);
-                                  }
-                                }}
-                              >
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="default"
-                                    size="lg"
-                                    className="bg-primary text-primary-foreground hover:bg-primary-600"
-                                    onClick={() => setInsertAfterIndex(null)}
-                                  >
-                                    <Plus className="h-5 w-5 mr-2" />
-                                    Add Section
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  align="start"
-                                  side="bottom"
-                                  className="w-72 p-2"
-                                >
-                                  <div className="space-y-1">
-                                    {availableSections.map((section) => {
-                                      const Icon = section.icon;
-                                      return (
-                                        <button
-                                          key={section.id}
-                                          onClick={() => {
-                                            addElementToApp(
-                                              section.id,
-                                              insertAfterIndex
-                                            );
-                                            setAddSectionOpenFor(null);
-                                          }}
-                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                        >
-                                          <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                          <div className="flex-1 min-w-0">
-                                            <div className="text-xs font-medium text-gray-900">
-                                              {section.label}
-                                            </div>
+                                                          <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                          <div className="flex-1 min-w-0">
+                                                            <div className="text-xs font-medium text-gray-900">
+                                                              {section.label}
+                                                            </div>
+                                                          </div>
+                                                          <TooltipProvider
+                                                            delayDuration={0}
+                                                          >
+                                                            <Tooltip>
+                                                              <TooltipTrigger
+                                                                asChild
+                                                              >
+                                                                <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                              </TooltipTrigger>
+                                                              <TooltipContent side="right">
+                                                                <p className="max-w-xs text-xs">
+                                                                  {
+                                                                    section.helper
+                                                                  }
+                                                                </p>
+                                                              </TooltipContent>
+                                                            </Tooltip>
+                                                          </TooltipProvider>
+                                                        </button>
+                                                      );
+                                                    }
+                                                  )}
+                                                </div>
+                                              </PopoverContent>
+                                            </Popover>
                                           </div>
-                                          <TooltipProvider delayDuration={0}>
-                                            <Tooltip>
-                                              <TooltipTrigger asChild>
-                                                <HelpCircle className="h-4 w-4 text-gray-400" />
-                                              </TooltipTrigger>
-                                              <TooltipContent side="right">
-                                                <p className="max-w-xs text-xs">
-                                                  {section.helper}
-                                                </p>
-                                              </TooltipContent>
-                                            </Tooltip>
-                                          </TooltipProvider>
-                                        </button>
-                                      );
-                                    })}
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
+                                        )}
+                                      </React.Fragment>
+                                    );
+                                  }
+                                );
+                              })()}
+                              {provided.placeholder}
+
+                              {/* Add Section button at the end */}
+                              <div className="mt-4 flex justify-start">
+                                <Popover
+                                  open={addSectionOpenFor === "end-button"}
+                                  onOpenChange={(open) => {
+                                    setAddSectionOpenFor(
+                                      open ? "end-button" : null
+                                    );
+                                    if (!open) {
+                                      setInsertAfterIndex(null);
+                                    }
+                                  }}
+                                >
+                                  <PopoverTrigger asChild>
+                                    <Button
+                                      variant="default"
+                                      size="lg"
+                                      className="bg-primary text-primary-foreground hover:bg-primary-600"
+                                      onClick={() => setInsertAfterIndex(null)}
+                                    >
+                                      <Plus className="h-5 w-5 mr-2" />
+                                      Add Section
+                                    </Button>
+                                  </PopoverTrigger>
+                                  <PopoverContent
+                                    align="start"
+                                    side="bottom"
+                                    className="w-72 p-2"
+                                  >
+                                    <div className="space-y-1">
+                                      {availableSections.map((section) => {
+                                        const Icon = section.icon;
+                                        return (
+                                          <button
+                                            key={section.id}
+                                            onClick={() => {
+                                              addElementToApp(
+                                                section.id,
+                                                insertAfterIndex
+                                              );
+                                              setAddSectionOpenFor(null);
+                                            }}
+                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                          >
+                                            <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-xs font-medium text-gray-900">
+                                                {section.label}
+                                              </div>
+                                            </div>
+                                            <TooltipProvider delayDuration={0}>
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
+                                                  <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                </TooltipTrigger>
+                                                <TooltipContent side="right">
+                                                  <p className="max-w-xs text-xs">
+                                                    {section.helper}
+                                                  </p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                            </TooltipProvider>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </PopoverContent>
+                                </Popover>
+                              </div>
                             </div>
-                          </div>
-                        )}
-                      </Droppable>
-                    </LayoutGroup>
-                    <Collapsible
-                      open={isOpen}
-                      onOpenChange={setIsOpen}
-                      className="mt-8"
-                    >
-                      <Card>
-                        <CollapsibleTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            className="w-full flex items-center justify-between p-4"
-                          >
-                            <span className="text-lg font-semibold">
-                              JSON Preview
-                            </span>
-                            <ChevronDown
-                              className={`h-4 w-4 transition-transform ${
-                                isOpen ? "transform rotate-180" : ""
-                              }`}
-                            />
-                          </Button>
-                        </CollapsibleTrigger>
-                        <CollapsibleContent>
-                          <div className="p-4 border-t">
-                            <JsonPreview
-                              elements={Array.isArray(elements) ? elements : []}
-                              title={title || ""}
-                              description={description || ""}
-                              collection={collectionId || 0}
-                              privacySettings={privacy}
-                              clonable={clonable}
-                              completedHtml={completedHtml}
-                              attachedFiles={attachedFiles}
-                              aiConfig={aiConfig}
-                            />
-                          </div>
-                        </CollapsibleContent>
-                      </Card>
-                    </Collapsible>
-                  </div>
-                </>
-              </div>
-            ) : (
-              <AppRuntimeView hashId={hashId} />
-            )}
+                          )}
+                        </Droppable>
+                      </LayoutGroup>
+                      <Collapsible
+                        open={isOpen}
+                        onOpenChange={setIsOpen}
+                        className="mt-8"
+                      >
+                        <Card>
+                          <CollapsibleTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              className="w-full flex items-center justify-between p-4"
+                            >
+                              <span className="text-lg font-semibold">
+                                JSON Preview
+                              </span>
+                              <ChevronDown
+                                className={`h-4 w-4 transition-transform ${
+                                  isOpen ? "transform rotate-180" : ""
+                                }`}
+                              />
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <div className="p-4 border-t">
+                              <JsonPreview
+                                elements={
+                                  Array.isArray(elements) ? elements : []
+                                }
+                                title={title || ""}
+                                description={description || ""}
+                                collection={collectionId || 0}
+                                privacySettings={privacy}
+                                clonable={clonable}
+                                completedHtml={completedHtml}
+                                attachedFiles={attachedFiles}
+                                aiConfig={aiConfig}
+                              />
+                            </div>
+                          </CollapsibleContent>
+                        </Card>
+                      </Collapsible>
+                    </div>
+                  </>
+                </div>
+              ) : (
+                <AppRuntimeView hashId={hashId} />
+              )}
+            </div>
           </div>
           <ConditionalLogicSidebar
             isOpen={conditionalSidebarOpen}
