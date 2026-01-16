@@ -1,4 +1,4 @@
-import { AttachedFile } from '@/app/(authenticated)/app/types';
+import { AttachedFile, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 
@@ -9,7 +9,7 @@ interface AIConfig {
    systemPrompt: string;
 }
 
-const getPageConfig = (page: SurveyPage | null) => {
+const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
    return {
       scoredPhase: page?.scoredPhase || false,
       rubric: page?.rubric || "",
@@ -43,7 +43,7 @@ export const buildRequestBody = async (
    requestSkip: boolean,
    userId: number | null,
    aiConfig: AIConfig,
-   pageConfig: ReturnType<typeof getPageConfig>,
+   pageConfig: PageConfigOverride,
    images: Base64Images,
    appHashId: string | undefined,
    attachedFiles: AttachedFile[],
