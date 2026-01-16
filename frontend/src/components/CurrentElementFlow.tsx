@@ -99,16 +99,6 @@ export default function CurrentElementFlow({
     return { stopIndex: stopIdx, stopElement: stopEl, visibleUntil: until };
   }, [appElements, cursor]);
 
-  const currentRun = useMemo(() => {
-    if (!currentConversation?.runs?.length) return null;
-    if (stopIndex === null) return null;
-    return (
-      currentConversation.runs
-        .filter((run) => run.phaseIndex === stopIndex)
-        .sort((a, b) => b.createdAt - a.createdAt)[0] || null
-    );
-  }, [currentConversation?.runs, stopIndex]);
-
   const advance = (nextIndex: number) => {
     setErrors([]);
     setCursor(nextIndex);
@@ -294,7 +284,7 @@ export default function CurrentElementFlow({
 
         if (!isStop) {
           return (
-            <div className="mb-6">
+            <div className="mb-6" key={element.id}>
               <RenderQuestion
                 key={element.name}
                 errors={errors}

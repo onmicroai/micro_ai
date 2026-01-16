@@ -252,7 +252,7 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
           );
 
           return (
-            <div className="mb-6">
+            <div className="mb-6" key={`div-${element.name}`}>
               <RenderQuestion
                 key={element.name}
                 errors={errors}
