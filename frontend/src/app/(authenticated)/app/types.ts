@@ -24,6 +24,8 @@ export interface SendPromptResponse {
   run_uuid?: string; // Changed from runId to run_uuid to match API response
 }
 
+export type ScoreExplanationMode = "always" | "failed_only" | "passed_only" | "never";
+
 export type setInputValue = (
   name: string,
   value: string | string[] | undefined,
@@ -44,7 +46,13 @@ export type sendPrompts = (
   userId: number | null,
   requestSkip: boolean,
   noSubmit?: boolean,
-  pageConfigOverride?: { scoredPhase: boolean; rubric: string; minScore: number }
+  pageConfigOverride?: {
+    scoredPhase: boolean;
+    rubric: string;
+    minScore: number;
+    scoreExplanation?: boolean;
+    scoreExplanationMode?: ScoreExplanationMode;
+  }
 ) => Promise<SendPromptResponse>;
 
 export interface SurveyStore {
@@ -118,6 +126,8 @@ export interface SurveyPage {
   scoredPhase: boolean;
   rubric: string;
   minScore: number;
+  scoreExplanation?: boolean;
+  scoreExplanationMode?: ScoreExplanationMode;
   skipPhase: boolean;
 }
 

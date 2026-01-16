@@ -18,6 +18,8 @@ interface AIResponseDisplayProps {
 
 interface RunScoreDisplayProps {
    run: Run | null;
+   isEvaluating?: boolean;
+   explanationContent?: string | null;
 }
 
 export const MarkdownResponseDisplay: React.FC<{
@@ -154,15 +156,27 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({ run, isOwn
    );
 };
 
-export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({ run }) => {
+export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
+   run,
+   isEvaluating = false,
+   explanationContent,
+}) => {
    const [isOpen, setIsOpen] = useState(false);
    
+   if (!run) return null;
+   if (isEvaluating) {
+      return (
+         <div className="mt-3 flex justify-end text-sm text-gray-500">
+            Evaluating…
+         </div>
+      );
+   }
    if (!run?.run_score) return null;
    
    const passed = passedTheRubricMinScore(run);
    
    return (
-      <div className="mt-3">
+      <div className="mt-3 space-y-2">
          <button
             onClick={() => setIsOpen(!isOpen)}
             className="w-full flex justify-end items-center group"
@@ -198,6 +212,9 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({ run }) => {
                </p>
             </div>
          )}
+         {isOpen && explanationContent ? (
+            <MarkdownResponseDisplay content={explanationContent} className="mt-3" />
+         ) : null}
       </div>
    );
 };

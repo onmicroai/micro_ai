@@ -306,6 +306,35 @@ export default function CurrentElementFlow({
           isFixedResponseCard ||
           !!runForThisStop;
 
+        const isScoredRun = Boolean(
+          runForThisStop?.score_expected ||
+          runForThisStop?.scoreData?.scored_run ||
+          runForThisStop?.run_score
+        );
+        const scoreReady = Boolean(
+          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score
+        );
+        const explanationRequested = Boolean(
+          runForThisStop?.score_explanation ?? runForThisStop?.scoreData?.score_explanation
+        );
+        const explanationMode =
+          runForThisStop?.score_explanation_mode ||
+          runForThisStop?.scoreData?.score_explanation_mode ||
+          "always";
+        const shouldOfferExplanation =
+          isScoredRun &&
+          scoreReady &&
+          explanationRequested &&
+          (explanationMode === "always" ||
+            (explanationMode === "failed_only" && runForThisStop?.run_passed === false) ||
+            (explanationMode === "passed_only" && runForThisStop?.run_passed === true));
+        const isEvaluatingScore = isScoredRun && !scoreReady;
+        const explanationContent = shouldOfferExplanation
+          ? runForThisStop?.messages.findLast(
+              (m) => m.role === "assistant" || m.role === "fixed_response"
+            )?.content || ""
+          : "";
+
         return (
           <div
             key={element.id}
@@ -321,8 +350,14 @@ export default function CurrentElementFlow({
 
             {runForThisStop && (
               <>
-                <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
-                <RunScoreDisplay run={runForThisStop} />
+                {!isScoredRun && (
+                  <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
+                )}
+                <RunScoreDisplay
+                  run={runForThisStop}
+                  isEvaluating={isEvaluatingScore}
+                  explanationContent={explanationContent}
+                />
                 {!promptLoading && !passedTheRubricMinScore(runForThisStop) && (
                   <div className="mt-4 border rounded-lg p-3 bg-red-50">
                     <p className="text-sm/6 text-red-700">
