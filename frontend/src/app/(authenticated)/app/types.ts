@@ -186,24 +186,24 @@ export interface ElementInstruction {
 
 export type ElementType =
   // Input fields
-  | 'text'
-  | 'textarea'
-  | 'radio'
-  | 'checkbox'
-  | 'dropdown'
-  | 'slider'
-  | 'boolean'
-  | 'richText'
-  | 'chat'
-  | 'imageUpload'
+  | "text"
+  | "textarea"
+  | "radio"
+  | "checkbox"
+  | "dropdown"
+  | "slider"
+  | "boolean"
+  | "richText"
+  | "chat"
+  | "imageUpload"
   // Legacy prompt elements (phase-based)
-  | 'prompt'
-  | 'aiInstructions'
-  | 'fixedResponse'
+  | "prompt"
+  | "aiInstructions"
+  | "fixedResponse"
   // V2 elements (no phases)
-  | 'title'
-  | 'aiResponse'
-  | 'scoring';
+  | "title"
+  | "aiResponse"
+  | "scoring";
 
 export interface Element {
   // Core properties
@@ -236,7 +236,7 @@ export interface Element {
    */
   rubric?: string;
   minScore?: number;
-  
+
   // Text input specific
   minChars?: number;
   maxChars?: number;
@@ -298,26 +298,26 @@ export interface ConditionalLogic {
 }
 
 export interface SurveyJson {
-   title: string;
-   description: string;
-   /**
-    * Legacy (phase-based) runtime config.
-    * Existing apps may still contain this shape.
-    */
-   phases: SurveyPage[];
-   /**
-    * V2 (no-phases) runtime config.
-    * New apps should prefer this.
-    */
-   elements?: Element[];
-   attachedFiles: AttachedFile[];
-   id: number;
-   hashId: string;
-   privacy: string;
-   temperature: number;
-   copyAllowed: boolean;
-   completedHtml: string;
-   aiConfig: AIConfig;
+  title: string;
+  description: string;
+  /**
+   * Legacy (phase-based) runtime config.
+   * Existing apps may still contain this shape.
+   */
+  phases: SurveyPage[];
+  /**
+   * V2 (no-phases) runtime config.
+   * New apps should prefer this.
+   */
+  elements?: Element[];
+  attachedFiles: AttachedFile[];
+  id: number;
+  hashId: string;
+  privacy: string;
+  temperature: number;
+  copyAllowed: boolean;
+  completedHtml: string;
+  aiConfig: AIConfig;
 }
 
 /**
@@ -334,7 +334,6 @@ export interface AppJsonV2 {
   aiConfig?: AIConfig;
   elements: Element[];
 }
-
 
 export interface SurveyCreatorProps {
   hashId: string;
@@ -359,61 +358,119 @@ export type PhaseType = {
 };
 
 export interface SurveyState {
-   /**
-    * V2 editor state: single ordered list of builder elements.
-    * Legacy phases are migrated on load and never authored by the new builder.
-    */
-   elements: Element[];
-   title: string | undefined;
-   description: string | undefined;
-   collectionId: number | null;
-   privacy: string;
-   clonable: boolean;
-   completedHtml: string;
-   attachedFiles: AttachedFile[];
-   aiConfig: AIConfig;
-   setAIConfig: (aiConfig: AIConfig, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
-   setElements: (elements: Element[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
-   setTitle: (title: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   setDescription: (description: string | undefined, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   setCollectionId: (id: number | null, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   setPrivacy: (privacy: string, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   setClonable: (clonable: boolean, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   setCompletedHtml: (completedHtml: string, skipServerUpdate?: boolean, signal?: AbortSignal) => void;
-   resetStore: (signal?: AbortSignal) => void;
-   saveState: SaveState;
-   appId: number | null;
-   setSaveState: (saveState: Partial<SaveState>) => void;
-   setAppId: (id: number | null) => void;
-   saveToServer: (signal?: AbortSignal) => Promise<void>;
-   isInitialLoad: boolean;
-   setIsInitialLoad: (isInitialLoad: boolean) => void;
-   collections: { value: number; text: string }[];
-   availableModels: ModelTemperatureRanges;
-   isLoadingCollections: boolean;
-   isLoadingModels: boolean;
-   fetchCollections: () => Promise<void>;
-   fetchModels: () => Promise<void>;
-   fetchLiteLLMModels: () => Promise<void>;
-   setAttachedFiles: (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
-   addAttachedFile: (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
-   removeAttachedFile: (filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => Promise<void>;
- }
- 
- export interface SaveState {
-    isSaving: boolean;
-    lastSaved: Date | null;
-    error: string | null;
-  }
- 
- export interface TemperatureRange {
-    min: number;
-    max: number;
-  }
-  
-  export interface ModelTemperatureRanges {
-    [modelName: string]: TemperatureRange;
-  }
+  /**
+   * V2 editor state: single ordered list of builder elements.
+   * Legacy phases are migrated on load and never authored by the new builder.
+   */
+  elements: Element[];
+  title: string | undefined;
+  description: string | undefined;
+  collectionId: number | null;
+  privacy: string;
+  clonable: boolean;
+  completedHtml: string;
+  attachedFiles: AttachedFile[];
+  aiConfig: AIConfig;
+  setAIConfig: (
+    aiConfig: AIConfig,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => Promise<void>;
+  setElements: (
+    elements: Element[],
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => Promise<void>;
+  setTitle: (
+    title: string | undefined,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setDescription: (
+    description: string | undefined,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setCollectionId: (
+    id: number | null,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setPrivacy: (
+    privacy: string,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setClonable: (
+    clonable: boolean,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setCompletedHtml: (
+    completedHtml: string,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  resetStore: (signal?: AbortSignal) => void;
+  saveState: SaveState;
+  appId: number | null;
+  setSaveState: (saveState: Partial<SaveState>) => void;
+  setAppId: (id: number | null) => void;
+  saveToServer: (signal?: AbortSignal) => Promise<void>;
+  isInitialLoad: boolean;
+  setIsInitialLoad: (isInitialLoad: boolean) => void;
+  collections: { value: number; text: string }[];
+  availableModels: ModelTemperatureRanges;
+  isLoadingCollections: boolean;
+  isLoadingModels: boolean;
+  fetchCollections: () => Promise<void>;
+  fetchModels: () => Promise<void>;
+  fetchLiteLLMModels: () => Promise<void>;
+  setAttachedFiles: (
+    attachedFiles: AttachedFile[],
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => Promise<void>;
+  addAttachedFile: (
+    file: AttachedFile,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => Promise<void>;
+  removeAttachedFile: (
+    filename: string,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => Promise<void>;
+  conditionalSidebarOpen: boolean;
+  setConditionalSidebarOpen: (open: boolean) => void;
+  conditionalSidebarContext: {
+    field: Element | Prompt;
+    currentLogic?: ConditionalLogic;
+    instructionIndex?: number;
+  } | null;
+  setConditionalSidebarContext: (
+    context: {
+      field: Element | Prompt;
+      currentLogic?: ConditionalLogic;
+      instructionIndex?: number;
+    } | null
+  ) => void;
+}
+
+export interface SaveState {
+  isSaving: boolean;
+  lastSaved: Date | null;
+  error: string | null;
+}
+
+export interface TemperatureRange {
+  min: number;
+  max: number;
+}
+
+export interface ModelTemperatureRanges {
+  [modelName: string]: TemperatureRange;
+}
 
 export interface AttachedFile {
   original_filename: string;
@@ -460,3 +517,15 @@ export interface ProcessedPrompts {
   aiInstructions: string[];
   fixedResponses: string[];
 }
+
+export const HIDDEN_HEADER_ELEMENTS = [
+  "required",
+  "conditionalLogic",
+  "delete",
+  "dragHandle",
+  "rename",
+  "fieldTypeSelector",
+  "fieldLabel",
+] as const;
+
+export type HiddenHeaderElement = (typeof HIDDEN_HEADER_ELEMENTS)[number];

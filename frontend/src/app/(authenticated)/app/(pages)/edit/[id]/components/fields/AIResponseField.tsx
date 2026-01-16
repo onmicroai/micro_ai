@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useEffect, useCallback, useState } from "react";
-import { X, Split, CirclePlus, MessageCircle } from "lucide-react";
+import { X, Split, CirclePlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
@@ -20,9 +20,9 @@ import {
   ConditionalLogic,
   AIResponseInstruction,
 } from "@/app/(authenticated)/app/types";
-import FieldHeader from "../shared/FieldHeader";
 import "./styles.scss";
 import InstructionConditionBox from "../shared/InstructionConditionBox";
+import { useSurveyStore } from "../../store/editSurveyStore";
 
 interface Tag {
   id: string;
@@ -38,30 +38,24 @@ interface Instruction {
 interface AIResponseFieldProps {
   field: Prompt;
   fields: Element[];
+  isPreviewMode?: boolean;
   onChange?: (
     fieldId: string,
     content: string,
     instructions?: AIResponseInstruction[]
   ) => void;
-  onDelete?: () => void;
-  dragHandleProps?: React.HTMLAttributes<HTMLDivElement>;
-  onRename?: (newName: string) => void;
+  onInstructionConditionalLogicChange?: (
+    instructionIndex: number,
+    logic: ConditionalLogic | null
+  ) => void;
 }
 
 export default function AIResponseField({
   field,
   fields,
   onChange,
-  onDelete,
-  dragHandleProps,
-  onRename,
-  isCollapsed = false,
-  onToggleCollapse,
-  onRequiredChange,
-  onConditionalLogicChange,
+  isPreviewMode = false,
 }: AIResponseFieldProps & {
-  isCollapsed?: boolean;
-  onToggleCollapse?: () => void;
   onRequiredChange?: (isRequired: boolean) => void;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
 }) {
@@ -82,10 +76,8 @@ export default function AIResponseField({
   const [focusedInstruction, setFocusedInstruction] = useState<string | null>(
     null
   );
-
-  const fieldCondition =
-    field.conditionalLogic &&
-    fields.find((f) => f.id === field.conditionalLogic?.sourceFieldId);
+  const { setConditionalSidebarOpen, setConditionalSidebarContext } =
+    useSurveyStore();
 
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
@@ -123,28 +115,18 @@ export default function AIResponseField({
   }, [field.id]);
 
   useEffect(() => {
-    if (!initialized.current) {
-      if (field.instructions && field.instructions.length > 0) {
-        setInstructions(
-          field.instructions.map((inst, idx) => ({
-            id: String(Date.now() + idx),
-            content: inst.text,
-            conditionalLogic: inst.conditionalLogic,
-          }))
-        );
-        initialized.current = true;
-      } else if (field.text && field.text.includes("\n\n")) {
-        const lines = field.text.split("\n\n").filter((line) => line.trim());
-        setInstructions(
-          lines.map((line, idx) => ({
-            id: String(Date.now() + idx),
-            content: line,
-          }))
-        );
-        initialized.current = true;
-      }
+    if (field.instructions && field.instructions.length > 0) {
+      setInstructions(
+        field.instructions.map((inst, idx) => ({
+          id: String(idx),
+          content: inst.text,
+          conditionalLogic: inst.conditionalLogic,
+        }))
+      );
+    } else {
+      setInstructions([{ id: "0", content: field.text || "" }]);
     }
-  }, [field.id, field.instructions, field.text]);
+  }, [field.instructions, field.text, field.id]);
 
   const handleAddInstruction = () => {
     const newInstruction: Instruction = {
@@ -152,27 +134,30 @@ export default function AIResponseField({
       content: "",
     };
     setInstructions([...instructions, newInstruction]);
+    updateFieldText([...instructions, newInstruction]);
   };
 
   const handleDeleteInstruction = (id: string) => {
     if (instructions.length === 1) return;
-    const newInstructions = instructions.filter((inst) => inst.id !== id);
+    const newInstructions = instructions
+      .filter((inst) => inst.id !== id)
+      .map((inst, idx) => ({ ...inst, id: String(idx) }));
     setInstructions(newInstructions);
     updateFieldText(newInstructions);
   };
 
   const handleOpenConditionDialog = (instructionId: string) => {
-    const instruction = instructions.find((inst) => inst.id === instructionId);
-    if (instruction?.conditionalLogic) {
-      setSelectedSourceField(instruction.conditionalLogic.sourceFieldId || "");
-      setSelectedOperator(instruction.conditionalLogic.operator || "");
-      setConditionValue(String(instruction.conditionalLogic.value || ""));
-    } else {
-      setSelectedSourceField("");
-      setSelectedOperator("");
-      setConditionValue("");
-    }
-    setOpenDialog(instructionId);
+    const instructionIdx = instructions.findIndex(
+      (inst) => inst.id === instructionId
+    );
+    const instruction = instructions[instructionIdx];
+
+    setConditionalSidebarContext({
+      field: field,
+      currentLogic: instruction?.conditionalLogic,
+      instructionIndex: instructionIdx,
+    });
+    setConditionalSidebarOpen(true);
   };
 
   const handleSaveCondition = () => {
@@ -193,17 +178,6 @@ export default function AIResponseField({
     updateFieldText(updatedInstructions);
 
     setOpenDialog(null);
-  };
-
-  const handleDeleteCondition = (instructionId: string) => {
-    const updatedInstructions = instructions.map((inst) =>
-      inst.id === instructionId
-        ? { ...inst, conditionalLogic: undefined }
-        : inst
-    );
-
-    setInstructions(updatedInstructions);
-    updateFieldText(updatedInstructions);
   };
 
   const updateFieldText = useCallback(
@@ -744,324 +718,309 @@ export default function AIResponseField({
     : [];
 
   return (
-    <div className="space-y-2">
-      {field.conditionalLogic && fieldCondition && (
-        <InstructionConditionBox
-          property={
-            fieldCondition.name || fieldCondition.label || fieldCondition.id
-          }
-          operator={field.conditionalLogic.operator}
-          value={
-            field.conditionalLogic.value
-              ? String(field.conditionalLogic.value)
-              : undefined
-          }
-        />
-      )}
-      <FieldHeader
-        icon={MessageCircle}
-        label="AI Response"
-        fieldId={field.name}
-        isCollapsed={isCollapsed}
-        onToggleCollapse={onToggleCollapse}
-        onDelete={onDelete}
-        dragHandleProps={dragHandleProps}
-        onRename={onRename}
-        showRequired={true}
-        isRequired={false}
-        onRequiredChange={onRequiredChange}
-        showConditionalLogic={true}
-        conditionalLogic={field.conditionalLogic}
-        onConditionalLogicChange={onConditionalLogicChange}
-        availableFields={fields}
-      />
-
-      <AnimatePresence>
-        {!isCollapsed && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="overflow-hidden"
-          >
-            <div className="space-y-4 mt-4">
+    <div className="relative bg-white rounded-lg p-0">
+      <div className="space-y-2">
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-gray-700">
+              Instructions
+            </label>
+            {isPreviewMode ? (
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">
-                  Instructions
-                </label>
-                <AnimatePresence mode="popLayout">
-                  {instructions.map((instruction) => {
-                    const editorElement = editorRefs.current.get(
-                      instruction.id
-                    );
-                    const isEmpty = checkIfEmpty(editorElement);
-                    const isFocused = focusedInstruction === instruction.id;
+                {instructions.map((instruction) => (
+                  <div key={instruction.id}>
+                    {instruction.conditionalLogic && (
+                      <InstructionConditionBox
+                        property={
+                          fields.find(
+                            (f) =>
+                              f.id ===
+                              instruction.conditionalLogic?.sourceFieldId
+                          )?.name || instruction.conditionalLogic.sourceFieldId
+                        }
+                        operator={instruction.conditionalLogic.operator}
+                        value={
+                          instruction.conditionalLogic.value
+                            ? String(instruction.conditionalLogic.value)
+                            : undefined
+                        }
+                      />
+                    )}
+                    <input
+                      value={instruction.content}
+                      readOnly
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mt-4"
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <AnimatePresence mode="popLayout">
+                {instructions.map((instruction) => {
+                  const editorElement = editorRefs.current.get(instruction.id);
+                  const isEmpty = checkIfEmpty(editorElement);
+                  const isFocused = focusedInstruction === instruction.id;
 
-                    return (
-                      <motion.div
-                        key={instruction.id}
-                        initial={{ opacity: 0, scale: 0.95, y: -10 }}
-                        animate={{ opacity: 1, scale: 1, y: 0 }}
-                        exit={{ opacity: 0, scale: 0.95, x: -20 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="space-y-2"
-                      >
-                        {instruction.conditionalLogic && (
-                          <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: "auto" }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="mt-6"
-                          >
-                            <InstructionConditionBox
-                              property={
-                                fields.find(
-                                  (f) =>
-                                    f.id ===
-                                    instruction.conditionalLogic?.sourceFieldId
-                                )?.name ||
-                                instruction.conditionalLogic.sourceFieldId
-                              }
-                              operator={instruction.conditionalLogic.operator}
-                              value={
-                                instruction.conditionalLogic.value
-                                  ? String(instruction.conditionalLogic.value)
-                                  : undefined
-                              }
-                              onRemove={() =>
-                                handleDeleteCondition(instruction.id)
-                              }
-                            />
-                          </motion.div>
-                        )}
-
-                        <div
-                          className="relative w-full box-border bg-white rounded-lg border border-gray-300 focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
-                          style={{
-                            minHeight: isFocused ? "150px" : "40px",
-                          }}
+                  return (
+                    <motion.div
+                      key={instruction.id}
+                      initial={{ opacity: 0, scale: 0.95, y: -10 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      exit={{ opacity: 0, scale: 0.95, x: -20 }}
+                      transition={{ duration: 0.2, ease: "easeOut" }}
+                      className="space-y-2"
+                    >
+                      {instruction.conditionalLogic && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: "auto" }}
+                          exit={{ opacity: 0, height: 0 }}
+                          className="mt-6"
                         >
-                          <div
-                            ref={(el) => {
-                              if (el)
-                                editorRefs.current.set(instruction.id, el);
-                            }}
-                            contentEditable
-                            data-placeholder={"Add instruction..."}
-                            className={`w-full h-full outline-none bg-transparent px-3 py-2 pr-20 ${
-                              isEmpty
-                                ? "empty-editor before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none"
-                                : ""
-                            }`}
-                            style={{
-                              wordWrap: "break-word",
-                              overflowWrap: "break-word",
-                            }}
-                            onInput={(e) =>
-                              handleInstructionInput(instruction.id, e)
+                          <InstructionConditionBox
+                            property={
+                              fields.find(
+                                (f) =>
+                                  f.id ===
+                                  instruction.conditionalLogic?.sourceFieldId
+                              )?.name ||
+                              instruction.conditionalLogic.sourceFieldId
                             }
-                            onClick={() => saveSelection(instruction.id)}
-                            onKeyDown={() => {
-                              requestAnimationFrame(() => {
-                                saveSelection(instruction.id);
-                              });
-                            }}
-                            onFocus={() => handleFocus(instruction.id)}
-                            onBlur={() => handleBlur(instruction.id)}
-                            onDrop={(e) => handleDrop(instruction.id, e)}
-                            onDragOver={(e) =>
-                              handleDragOver(instruction.id, e)
+                            operator={instruction.conditionalLogic.operator}
+                            value={
+                              instruction.conditionalLogic.value
+                                ? String(instruction.conditionalLogic.value)
+                                : undefined
                             }
-                            onDragLeave={(e) =>
-                              handleDragLeave(instruction.id, e)
-                            }
-                            suppressContentEditableWarning
                           />
-                          <div className="absolute right-2 top-1 flex items-center gap-1">
+                        </motion.div>
+                      )}
+
+                      <div
+                        className="relative w-full box-border bg-white rounded-lg border focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
+                        style={{
+                          minHeight: isFocused ? "150px" : "40px",
+                        }}
+                      >
+                        <div
+                          ref={(el) => {
+                            if (el) editorRefs.current.set(instruction.id, el);
+                          }}
+                          contentEditable
+                          data-placeholder={"Add instruction..."}
+                          className={`w-full h-full outline-none bg-transparent px-3 py-2 pr-20 ${
+                            isEmpty
+                              ? "empty-editor before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none"
+                              : ""
+                          }`}
+                          style={{
+                            wordWrap: "break-word",
+                            overflowWrap: "break-word",
+                          }}
+                          onInput={(e) =>
+                            handleInstructionInput(instruction.id, e)
+                          }
+                          onClick={() => saveSelection(instruction.id)}
+                          onKeyDown={() => {
+                            requestAnimationFrame(() => {
+                              saveSelection(instruction.id);
+                            });
+                          }}
+                          onFocus={() => handleFocus(instruction.id)}
+                          onBlur={() => handleBlur(instruction.id)}
+                          onDrop={(e) => handleDrop(instruction.id, e)}
+                          onDragOver={(e) => handleDragOver(instruction.id, e)}
+                          onDragLeave={(e) =>
+                            handleDragLeave(instruction.id, e)
+                          }
+                          suppressContentEditableWarning
+                        />
+                        <div className="absolute right-2 top-1 flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() =>
+                              handleOpenConditionDialog(instruction.id)
+                            }
+                            className="h-8 w-8 p-0 hover:bg-gray-100 instruction-action"
+                          >
+                            <Split className="h-4 w-4" />
+                          </Button>
+                          {instructions.length > 1 && (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() =>
-                                handleOpenConditionDialog(instruction.id)
+                                handleDeleteInstruction(instruction.id)
                               }
                               className="h-8 w-8 p-0 hover:bg-gray-100 instruction-action"
                             >
-                              <Split className="h-4 w-4" />
+                              <X className="h-4 w-4" />
                             </Button>
-                            {instructions.length > 1 && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                  handleDeleteInstruction(instruction.id)
-                                }
-                                className="h-8 w-8 p-0 hover:bg-gray-100 instruction-action"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
+                          )}
                         </div>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-
-              <div className="flex items-center gap-2 text-sm">
-                <span
-                  onClick={handleAddInstruction}
-                  className="text-blue-600 cursor-pointer hover:underline"
-                >
-                  <CirclePlus size={16} className="inline-block mr-1" /> Add
-                  instructions
-                </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                {fields.map((sourceField) => {
-                  const fieldIdentifier = sourceField.name || sourceField.id;
-                  const tagData = {
-                    id: sourceField.id,
-                    label: sourceField.name || "",
-                  };
-                  return (
-                    <Badge
-                      key={sourceField.id}
-                      draggable="true"
-                      onDragStart={(event) => {
-                        handleDragStart(event, tagData);
-                        if (focusedInstruction) {
-                          event.dataTransfer.setData(
-                            "focusedInstruction",
-                            focusedInstruction
-                          );
-                        }
-                      }}
-                      onDragEnd={() => {
-                        if (focusedInstruction) {
-                          const editorElement =
-                            editorRefs.current.get(focusedInstruction);
-                          if (editorElement) {
-                            setTimeout(() => {
-                              editorElement.focus();
-                              restoreSelection(focusedInstruction);
-                            }, 0);
-                          }
-                        }
-                      }}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        if (focusedInstruction) {
-                          insertTag(tagData, focusedInstruction);
-                          const editorElement =
-                            editorRefs.current.get(focusedInstruction);
-                          if (editorElement) {
-                            setTimeout(() => {
-                              editorElement.focus();
-                              restoreSelection(focusedInstruction);
-                            }, 0);
-                          }
-                        } else if (instructions.length > 0) {
-                          insertTag(tagData, instructions[0].id);
-                        }
-                      }}
-                      variant="default"
-                      className="cursor-move bg-primary-600 align-baseline select-none"
-                    >
-                      {fieldIdentifier}
-                    </Badge>
+                      </div>
+                    </motion.div>
                   );
                 })}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {!isPreviewMode && (
+            <div className="flex items-center gap-2 text-sm">
+              <span
+                onClick={handleAddInstruction}
+                className="text-blue-600 cursor-pointer hover:underline"
+              >
+                <CirclePlus size={16} className="inline-block mr-1" /> Add
+                instructions
+              </span>
+            </div>
+          )}
+
+          {!isPreviewMode && (
+            <div className="flex flex-wrap gap-2">
+              {fields.map((sourceField) => {
+                const fieldIdentifier = sourceField.name || sourceField.id;
+                const tagData = {
+                  id: sourceField.id,
+                  label: sourceField.name || "",
+                };
+                return (
+                  <Badge
+                    key={sourceField.id}
+                    draggable="true"
+                    onDragStart={(event) => {
+                      handleDragStart(event, tagData);
+                      if (focusedInstruction) {
+                        event.dataTransfer.setData(
+                          "focusedInstruction",
+                          focusedInstruction
+                        );
+                      }
+                    }}
+                    onDragEnd={() => {
+                      if (focusedInstruction) {
+                        const editorElement =
+                          editorRefs.current.get(focusedInstruction);
+                        if (editorElement) {
+                          setTimeout(() => {
+                            editorElement.focus();
+                            restoreSelection(focusedInstruction);
+                          }, 0);
+                        }
+                      }
+                    }}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      if (focusedInstruction) {
+                        insertTag(tagData, focusedInstruction);
+                        const editorElement =
+                          editorRefs.current.get(focusedInstruction);
+                        if (editorElement) {
+                          setTimeout(() => {
+                            editorElement.focus();
+                            restoreSelection(focusedInstruction);
+                          }, 0);
+                        }
+                      } else if (instructions.length > 0) {
+                        insertTag(tagData, instructions[0].id);
+                      }
+                    }}
+                    variant="secondary"
+                    className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer"
+                  >
+                    {fieldIdentifier}
+                  </Badge>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {/* Conditional Logic Dialog */}
+        <Dialog
+          open={!!openDialog}
+          onOpenChange={(open) => !open && setOpenDialog(null)}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Conditional Logic</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Show this instruction if
+                </label>
+                <Select
+                  value={selectedSourceField}
+                  onValueChange={setSelectedSourceField}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a field" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {fields.map((field) => (
+                      <SelectItem key={field.id} value={field.id}>
+                        {field.name || field.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedSourceField && (
+                <>
+                  <div className="space-y-2">
+                    <Select
+                      value={selectedOperator}
+                      onValueChange={setSelectedOperator}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select operator" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {operators.map((op) => (
+                          <SelectItem key={op.value} value={op.value}>
+                            {op.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedOperator && operatorNeedsValue(selectedOperator) && (
+                    <div className="space-y-2">
+                      <Input
+                        value={conditionValue}
+                        onChange={(e) => setConditionValue(e.target.value)}
+                        placeholder="Enter value"
+                      />
+                    </div>
+                  )}
+                </>
+              )}
+
+              <div className="flex justify-end gap-2 mt-4">
+                <Button variant="outline" onClick={() => setOpenDialog(null)}>
+                  Cancel
+                </Button>
+                <Button
+                  onClick={handleSaveCondition}
+                  disabled={
+                    !selectedSourceField ||
+                    !selectedOperator ||
+                    (operatorNeedsValue(selectedOperator) && !conditionValue)
+                  }
+                >
+                  Save
+                </Button>
               </div>
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* Conditional Logic Dialog */}
-      <Dialog
-        open={!!openDialog}
-        onOpenChange={(open) => !open && setOpenDialog(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Conditional Logic</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">
-                Show this instruction if
-              </label>
-              <Select
-                value={selectedSourceField}
-                onValueChange={setSelectedSourceField}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a field" />
-                </SelectTrigger>
-                <SelectContent>
-                  {fields.map((field) => (
-                    <SelectItem key={field.id} value={field.id}>
-                      {field.name || field.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            {selectedSourceField && (
-              <>
-                <div className="space-y-2">
-                  <Select
-                    value={selectedOperator}
-                    onValueChange={setSelectedOperator}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select operator" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {operators.map((op) => (
-                        <SelectItem key={op.value} value={op.value}>
-                          {op.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedOperator && operatorNeedsValue(selectedOperator) && (
-                  <div className="space-y-2">
-                    <Input
-                      value={conditionValue}
-                      onChange={(e) => setConditionValue(e.target.value)}
-                      placeholder="Enter value"
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => setOpenDialog(null)}>
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSaveCondition}
-                disabled={
-                  !selectedSourceField ||
-                  !selectedOperator ||
-                  (operatorNeedsValue(selectedOperator) && !conditionValue)
-                }
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }
