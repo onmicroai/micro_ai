@@ -22,6 +22,7 @@ import {
 } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
 import InstructionConditionBox from "../shared/InstructionConditionBox";
+import { useSurveyStore } from "../../store/editSurveyStore";
 
 interface Tag {
   id: string;
@@ -71,6 +72,8 @@ export default function AIResponseField({
   const [focusedInstruction, setFocusedInstruction] = useState<string | null>(
     null
   );
+  const { setConditionalSidebarOpen, setConditionalSidebarContext } =
+    useSurveyStore();
 
   const fieldCondition =
     field.conditionalLogic &&
@@ -112,28 +115,18 @@ export default function AIResponseField({
   }, [field.id]);
 
   useEffect(() => {
-    if (!initialized.current) {
-      if (field.instructions && field.instructions.length > 0) {
-        setInstructions(
-          field.instructions.map((inst, idx) => ({
-            id: String(Date.now() + idx),
-            content: inst.text,
-            conditionalLogic: inst.conditionalLogic,
-          }))
-        );
-        initialized.current = true;
-      } else if (field.text && field.text.includes("\n\n")) {
-        const lines = field.text.split("\n\n").filter((line) => line.trim());
-        setInstructions(
-          lines.map((line, idx) => ({
-            id: String(Date.now() + idx),
-            content: line,
-          }))
-        );
-        initialized.current = true;
-      }
+    if (field.instructions && field.instructions.length > 0) {
+      setInstructions(
+        field.instructions.map((inst, idx) => ({
+          id: String(idx),
+          content: inst.text,
+          conditionalLogic: inst.conditionalLogic,
+        }))
+      );
+    } else {
+      setInstructions([{ id: "0", content: field.text || "" }]);
     }
-  }, [field.id, field.instructions, field.text]);
+  }, [field.instructions, field.text, field.id]);
 
   const handleAddInstruction = () => {
     const newInstruction: Instruction = {
@@ -151,17 +144,17 @@ export default function AIResponseField({
   };
 
   const handleOpenConditionDialog = (instructionId: string) => {
-    const instruction = instructions.find((inst) => inst.id === instructionId);
-    if (instruction?.conditionalLogic) {
-      setSelectedSourceField(instruction.conditionalLogic.sourceFieldId || "");
-      setSelectedOperator(instruction.conditionalLogic.operator || "");
-      setConditionValue(String(instruction.conditionalLogic.value || ""));
-    } else {
-      setSelectedSourceField("");
-      setSelectedOperator("");
-      setConditionValue("");
-    }
-    setOpenDialog(instructionId);
+    const instructionIdx = instructions.findIndex(
+      (inst) => inst.id === instructionId
+    );
+    const instruction = instructions[instructionIdx];
+
+    setConditionalSidebarContext({
+      field: field,
+      currentLogic: instruction?.conditionalLogic,
+      instructionIndex: instructionIdx,
+    });
+    setConditionalSidebarOpen(true);
   };
 
   const handleSaveCondition = () => {
@@ -182,17 +175,6 @@ export default function AIResponseField({
     updateFieldText(updatedInstructions);
 
     setOpenDialog(null);
-  };
-
-  const handleDeleteCondition = (instructionId: string) => {
-    const updatedInstructions = instructions.map((inst) =>
-      inst.id === instructionId
-        ? { ...inst, conditionalLogic: undefined }
-        : inst
-    );
-
-    setInstructions(updatedInstructions);
-    updateFieldText(updatedInstructions);
   };
 
   const updateFieldText = useCallback(
@@ -757,11 +739,6 @@ export default function AIResponseField({
               <div className="space-y-2">
                 {instructions.map((instruction) => (
                   <div key={instruction.id}>
-                    <input
-                      value={instruction.content}
-                      readOnly
-                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer"
-                    />
                     {instruction.conditionalLogic && (
                       <InstructionConditionBox
                         property={
@@ -779,6 +756,11 @@ export default function AIResponseField({
                         }
                       />
                     )}
+                    <input
+                      value={instruction.content}
+                      readOnly
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mt-4"
+                    />
                   </div>
                 ))}
               </div>
@@ -819,9 +801,6 @@ export default function AIResponseField({
                               instruction.conditionalLogic.value
                                 ? String(instruction.conditionalLogic.value)
                                 : undefined
-                            }
-                            onRemove={() =>
-                              handleDeleteCondition(instruction.id)
                             }
                           />
                         </motion.div>

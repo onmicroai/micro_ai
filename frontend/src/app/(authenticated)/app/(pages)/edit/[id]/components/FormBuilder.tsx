@@ -248,13 +248,31 @@ export default function FormBuilder() {
       setConditionalSidebarOpen(false);
       return;
     }
-    await setElements(
-      (Array.isArray(elements) ? elements : []).map((el) =>
-        el.id === conditionalSidebarContext.field.id
-          ? { ...el, conditionalLogic: logic }
-          : el
-      )
-    );
+
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: logic }
+          : inst
+      );
+
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
+        )
+      );
+    } else {
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: logic }
+            : el
+        )
+      );
+    }
     setConditionalSidebarOpen(false);
   };
 
@@ -263,13 +281,31 @@ export default function FormBuilder() {
       setConditionalSidebarOpen(false);
       return;
     }
-    setElements(
-      (Array.isArray(elements) ? elements : []).map((el) =>
-        el.id === conditionalSidebarContext.field.id
-          ? { ...el, conditionalLogic: undefined }
-          : el
-      )
-    );
+
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: undefined }
+          : inst
+      );
+
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
+        )
+      );
+    } else {
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: undefined }
+            : el
+        )
+      );
+    }
     setConditionalSidebarOpen(false);
   };
 
@@ -1923,6 +1959,7 @@ export default function FormBuilder() {
             availableFields={Array.isArray(elements) ? elements : []}
             currentLogic={conditionalSidebarContext?.currentLogic}
             targetFieldName={conditionalSidebarContext?.field.name}
+            instructionIndex={conditionalSidebarContext?.instructionIndex}
           />
         </div>
       </div>

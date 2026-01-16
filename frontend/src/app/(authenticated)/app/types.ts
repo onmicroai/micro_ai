@@ -440,11 +440,13 @@ export interface SurveyState {
   conditionalSidebarContext: {
     field: Element;
     currentLogic?: ConditionalLogic;
+    instructionIndex?: number;
   } | null;
   setConditionalSidebarContext: (
     context: {
-      field: Element;
+      field: Element | Prompt;
       currentLogic?: ConditionalLogic;
+      instructionIndex?: number;
     } | null
   ) => void;
 }

@@ -23,6 +23,7 @@ interface ConditionalLogicSidebarProps {
   onClear?: () => void;
   availableFields: Element[];
   currentLogic?: ConditionalLogic;
+  instructionIndex?: number;
   targetFieldName?: string;
 }
 
@@ -34,6 +35,7 @@ export default function ConditionalLogicSidebar({
   availableFields,
   currentLogic,
   targetFieldName,
+  instructionIndex,
 }: ConditionalLogicSidebarProps) {
   const [selectedSourceField, setSelectedSourceField] = useState<string>(
     currentLogic?.sourceFieldId || ""
@@ -55,7 +57,7 @@ export default function ConditionalLogicSidebar({
       setSelectedOperator("");
       setConditionValue("");
     }
-  }, [currentLogic, isOpen]);
+  }, [currentLogic, isOpen, instructionIndex]);
 
   const getOperatorsForField = (fieldType: string) => {
     const operators = [];
@@ -143,7 +145,7 @@ export default function ConditionalLogicSidebar({
           style={{ minWidth: 0, maxWidth: 400 }}
         >
           <div className="px-4 flex items-center justify-between ">
-            <div className="flex flex-col">
+            <div className="flex flex-col mt-4">
               <h2 className="text-base font-semibold text-black">
                 Conditional Logic
               </h2>{" "}
@@ -160,9 +162,13 @@ export default function ConditionalLogicSidebar({
 
           <div className="overflow-y-auto p-4 space-y-4">
             {targetFieldName && (
-              <div className="flex items-center gap-2 mb-5">
+              <div className="flex flex-wrap items-center gap-2 mb-5">
                 <span className="text-xs text-gray-500">
-                  Create a conditional logic for
+                  {instructionIndex !== undefined
+                    ? `Create a conditional logic for instruction ${
+                        instructionIndex + 1
+                      } in`
+                    : "Create a conditional logic for"}
                 </span>
                 <Badge
                   variant="secondary"
@@ -180,10 +186,7 @@ export default function ConditionalLogicSidebar({
                 value={selectedSourceField}
                 onValueChange={setSelectedSourceField}
               >
-                <SelectTrigger
-                  id="sourceField"
-                  className="text-gray-500 border-gray-500"
-                >
+                <SelectTrigger id="sourceField">
                   <SelectValue placeholder="Select an item" />
                 </SelectTrigger>
                 <SelectContent>
