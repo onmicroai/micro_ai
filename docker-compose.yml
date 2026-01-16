@@ -27,7 +27,7 @@ services:
     ports:
       - '8008:4000'
     env_file:
-      - ./.env
+      - .env
     volumes:
       - ./litellm/config.yaml:/app/config.yaml
     networks:
