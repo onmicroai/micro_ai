@@ -1214,10 +1214,11 @@ export default function FormBuilder() {
                 transition={{ type: "spring", stiffness: 300, damping: 30 }}
                 onClick={() => setSidebarOpen(true)}
                 className={`
-                  fixed left-6 top-[96px] z-30 flex items-center bg-transparent border-none p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
+                  fixed left-6 top-[96px] z-30 flex items-center
+                  bg-white p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
                   ${
                     !conditionalSidebarOpen
-                      ? "xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50 gap-2"
+                      ? "xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50 xl:gap-2"
                       : ""
                   }
                   `}

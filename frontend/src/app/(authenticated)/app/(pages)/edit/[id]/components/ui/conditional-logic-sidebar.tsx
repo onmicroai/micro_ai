@@ -141,7 +141,7 @@ export default function ConditionalLogicSidebar({
           animate={{ width: 400 }}
           exit={{ width: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="sticky top-0 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
+          className="sticky top-16 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
           style={{ minWidth: 0, maxWidth: 400 }}
         >
           <div className="px-4 flex items-center justify-between ">
