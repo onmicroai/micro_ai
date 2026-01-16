@@ -91,8 +91,8 @@ const RenderPrompt = ({
    };
 
    return (
-      <div className="relative -mt-5">
-         <div className="flex justify-between items-center mb-2">
+      <div className="mt-3">
+         <div className="flex flex-wrap gap-3 items-center mb-2">
             {processPromptGroup(groupedPrompts['prompt']) && renderPromptGroup('prompt', processPromptGroup(groupedPrompts['prompt']))}
             {processPromptGroup(groupedPrompts['aiInstructions']) && renderPromptGroup('aiInstructions', processPromptGroup(groupedPrompts['aiInstructions']))}
             {processPromptGroup(groupedPrompts['fixedResponse']) && renderPromptGroup('fixedResponse', processPromptGroup(groupedPrompts['fixedResponse']))}

@@ -300,32 +300,59 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
 
           if (!currentRun) return null;
 
-          // Check if the current phase has a chat element
-          const hasChatElement = currentPhase.elements?.some(
-            (element: Element) => element.type === "chat"
-          );
+               const isScoredRun = Boolean(
+                  currentRun?.score_expected ||
+                  currentRun?.scoreData?.scored_run ||
+                  currentRun?.run_score
+               );
+               const scoreReady = Boolean(
+                  currentRun?.scoreData?.run_score || currentRun?.run_score
+               );
+               const explanationRequested = Boolean(
+                  currentRun?.score_explanation ?? currentRun?.scoreData?.score_explanation
+               );
+               const explanationMode =
+                  currentRun?.score_explanation_mode ||
+                  currentRun?.scoreData?.score_explanation_mode ||
+                  "always";
+               const shouldOfferExplanation =
+                  isScoredRun &&
+                  scoreReady &&
+                  explanationRequested &&
+                  (explanationMode === "always" ||
+                     (explanationMode === "failed_only" && currentRun?.run_passed === false) ||
+                     (explanationMode === "passed_only" && currentRun?.run_passed === true));
+               const isEvaluatingScore = isScoredRun && !scoreReady;
+               const explanationContent = shouldOfferExplanation
+                  ? currentRun?.messages.findLast(
+                        (m) => m.role === "assistant" || m.role === "fixed_response"
+                     )?.content || ""
+                  : "";
 
-          return (
-            <>
-              {/* Only show AIResponseDisplay if there's no chat element */}
-              {!hasChatElement && (
-                <AIResponseDisplay
-                  run={currentRun}
-                  isOwner={isOwner}
-                  isAdmin={isAdmin}
-                />
-              )}
-              <RunScoreDisplay run={currentRun} />
-              {!promptLoading && !passedTheRubricMinScore(currentRun) && (
-                <div className="mt-6 border rounded-lg p-4 bg-red-50">
-                  <p className="text-sm/6 text-red-700">
-                    Did not pass the Minimum Score. Please try again.
-                  </p>
-                </div>
-              )}
-            </>
-          );
-        })()}
+               // Check if the current phase has a chat element
+               const hasChatElement = currentPhase.elements?.some(
+                  (element: Element) => element.type === 'chat'
+               );
+               
+               return (
+                  <>
+                     {/* Only show AIResponseDisplay if there's no chat element */}
+                     {!hasChatElement && !isScoredRun && (
+                        <AIResponseDisplay run={currentRun} isOwner={isOwner} isAdmin={isAdmin} />
+                     )}
+                     <RunScoreDisplay
+                        run={currentRun}
+                        isEvaluating={isEvaluatingScore}
+                        explanationContent={explanationContent}
+                     />
+                     {!promptLoading && !passedTheRubricMinScore(currentRun) && (
+                        <div className="mt-6 border rounded-lg p-4 bg-red-50">
+                           <p className="text-sm/6 text-red-700">Did not pass the Minimum Score. Please try again.</p>
+                        </div>
+                     )}
+                  </>
+               );
+            })()}
 
         <input type="hidden" name="formAction" value={formAction} />
         {surveyJson?.phases?.length !== completedPhases.length &&
