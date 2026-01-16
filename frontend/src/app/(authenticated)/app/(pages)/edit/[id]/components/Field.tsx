@@ -277,6 +277,18 @@ export default function Field({
       if (poppers.length > 0) {
         return;
       }
+
+      // Ignore clicks inside conditional logic sidebar
+      const conditionalLogicSidebar = document.getElementById(
+        "conditional-logic-sidebar"
+      );
+      if (
+        conditionalLogicSidebar &&
+        conditionalLogicSidebar.contains(event?.target as Node)
+      ) {
+        return;
+      }
+
       if (
         isEditMode &&
         fieldRef.current &&
@@ -1266,11 +1278,23 @@ export default function Field({
           if (!isEditMode) setIsEditMode(true);
         }}
       >
+        {field.conditionalLogic && fieldCondition && (
+          <InstructionConditionBox
+            property={
+              fieldCondition.name || fieldCondition.label || fieldCondition.id
+            }
+            operator={field.conditionalLogic.operator}
+            value={
+              field.conditionalLogic.value
+                ? String(field.conditionalLogic.value)
+                : undefined
+            }
+          />
+        )}
         <FieldHeader
           icon={FIELD_ICONS[field.type]}
           label={FIELD_LABELS[field.type] || field.type}
-          fieldId={field.name}
-          fieldType={field.type}
+          field={field}
           isRequired={field.isRequired || false}
           onRequiredChange={(isRequired) =>
             onUpdateFieldRequired(field.id, isRequired, true)
@@ -1280,6 +1304,7 @@ export default function Field({
           onFieldTypeChange={(newType) =>
             onUpdateFieldType?.(field.id, newType)
           }
+          availableFields={phaseFields}
           dragHandleProps={dragHandleProps ?? undefined}
           hiddenElements={
             !isEditMode
@@ -1295,20 +1320,8 @@ export default function Field({
           }
           isDragging={isDragging}
           isPreviewMode={!isEditMode}
+          conditionalLogic={field.conditionalLogic}
         />
-        {field.conditionalLogic && fieldCondition && (
-          <InstructionConditionBox
-            property={
-              fieldCondition.name || fieldCondition.label || fieldCondition.id
-            }
-            operator={field.conditionalLogic.operator}
-            value={
-              field.conditionalLogic.value
-                ? String(field.conditionalLogic.value)
-                : undefined
-            }
-          />
-        )}
         {renderFieldEdit()}
       </div>
     );
@@ -1487,8 +1500,7 @@ export default function Field({
           <FieldHeader
             icon={FIELD_ICONS[field.type]}
             label={FIELD_LABELS[field.type] || field.type}
-            fieldId={field.name}
-            fieldType={field.type}
+            field={field}
             isPreviewMode={!isEditMode}
             onDelete={() => onDeleteField(field.id, isPromptType)}
             onFieldTypeChange={(newType) =>
@@ -1519,6 +1531,7 @@ export default function Field({
                 : []
             }
             isDragging={isDragging}
+            conditionalLogic={field.conditionalLogic}
           />
 
           <AnimatePresence mode="wait">

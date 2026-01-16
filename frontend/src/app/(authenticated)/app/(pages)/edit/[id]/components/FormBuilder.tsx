@@ -59,6 +59,7 @@ import {
 import { HelpCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
+import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
 import { motion, LayoutGroup } from "framer-motion";
 
 // Options for the "Add section" dialog
@@ -238,7 +239,75 @@ export default function FormBuilder() {
     fetchLiteLLMModels,
     appId,
     setAttachedFiles,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+    conditionalSidebarContext,
   } = useSurveyStore();
+  const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
+    if (!conditionalSidebarContext?.field.id) {
+      setConditionalSidebarOpen(false);
+      return;
+    }
+
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: logic }
+          : inst
+      );
+
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
+        )
+      );
+    } else {
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: logic }
+            : el
+        )
+      );
+    }
+    setConditionalSidebarOpen(false);
+  };
+
+  const handleClearConditionalLogic = () => {
+    if (!conditionalSidebarContext?.field.id) {
+      setConditionalSidebarOpen(false);
+      return;
+    }
+
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: undefined }
+          : inst
+      );
+
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
+        )
+      );
+    } else {
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: undefined }
+            : el
+        )
+      );
+    }
+    setConditionalSidebarOpen(false);
+  };
 
   const fileUploader = createFileUploader(appId?.toString() || "");
 
@@ -1882,6 +1951,16 @@ export default function FormBuilder() {
               <AppRuntimeView hashId={hashId} />
             )}
           </div>
+          <ConditionalLogicSidebar
+            isOpen={conditionalSidebarOpen}
+            onClose={() => setConditionalSidebarOpen(false)}
+            onSave={handleSaveConditionalLogic}
+            onClear={handleClearConditionalLogic}
+            availableFields={Array.isArray(elements) ? elements : []}
+            currentLogic={conditionalSidebarContext?.currentLogic}
+            targetFieldName={conditionalSidebarContext?.field.name}
+            instructionIndex={conditionalSidebarContext?.instructionIndex}
+          />
         </div>
       </div>
     </DragDropContext>

@@ -435,6 +435,20 @@ export interface SurveyState {
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => Promise<void>;
+  conditionalSidebarOpen: boolean;
+  setConditionalSidebarOpen: (open: boolean) => void;
+  conditionalSidebarContext: {
+    field: Element | Prompt;
+    currentLogic?: ConditionalLogic;
+    instructionIndex?: number;
+  } | null;
+  setConditionalSidebarContext: (
+    context: {
+      field: Element | Prompt;
+      currentLogic?: ConditionalLogic;
+      instructionIndex?: number;
+    } | null
+  ) => void;
 }
 
 export interface SaveState {
