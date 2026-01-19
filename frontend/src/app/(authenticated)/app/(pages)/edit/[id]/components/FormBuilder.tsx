@@ -1280,13 +1280,8 @@ export default function FormBuilder() {
                           setIsAppDetailsEditMode(true);
                       }}
                       transition={{
-                        layout: {
-                          duration: 0.4,
-                          type: "spring",
-                          bounce: 0,
-                          damping: 25,
-                          stiffness: 300,
-                        },
+                        duration: 0.3,
+                        ease: "easeInOut",
                       }}
                     >
                       <div className="flex items-center gap-2 mb-4">
