@@ -1264,7 +1264,7 @@ export default function FormBuilder() {
           <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] px-2 sm:px-4">
               {activeTab === "build" ? (
-                <div className="pt-8 pb-16">
+                <div className="pt-8 pb-24">
                   <>
                     {/* This motion.div animates the App Details card when switching between edit and preview modes,
                       as well as when its layout changes.
@@ -1898,7 +1898,7 @@ export default function FormBuilder() {
                       <Collapsible
                         open={isOpen}
                         onOpenChange={setIsOpen}
-                        className="mt-8"
+                        className="!mt-8"
                       >
                         <Card>
                           <CollapsibleTrigger asChild>
