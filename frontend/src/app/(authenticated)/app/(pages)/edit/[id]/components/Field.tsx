@@ -1272,8 +1272,13 @@ export default function Field({
       <div
         ref={fieldRef}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
-        ${!isEditMode ? "cursor-pointer hover:shadow-md" : ""}
+        ${
+          !isEditMode
+            ? "cursor-pointer hover:shadow-[0_2px_8px_0_rgba(89,99,232,0.18)]"
+            : ""
+        }
       `}
+        style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
           if (!isEditMode) setIsEditMode(true);
         }}
@@ -1468,10 +1473,11 @@ export default function Field({
         className={`space-y-2 relative md:p-5 bg-white rounded-lg transition-shadow duration-200
             ${
               !isEditMode
-                ? "cursor-pointer hover:shadow-md [&_*]:cursor-pointer"
+                ? "cursor-pointer hover:shadow-[0_2px_8px_0_rgba(89,99,232,0.18)] [&_*]:cursor-pointer"
                 : ""
             }
          `}
+        style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
         onMouseDown={(e) => {
           if (!isEditMode) {
             e.preventDefault();
