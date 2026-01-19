@@ -1203,7 +1203,7 @@ export default function FormBuilder() {
           </div>
         </div>
 
-        {!sidebarOpen && (
+        {activeTab === "build" && !sidebarOpen && (
           <div className="flex">
             <AnimatePresence>
               <motion.button
