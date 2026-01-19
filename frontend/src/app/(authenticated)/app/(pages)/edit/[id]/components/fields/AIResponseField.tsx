@@ -754,7 +754,7 @@ export default function AIResponseField({
                     <input
                       value={instruction.content}
                       readOnly
-                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mt-4"
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mb-4 mt-2"
                     />
                   </div>
                 ))}
