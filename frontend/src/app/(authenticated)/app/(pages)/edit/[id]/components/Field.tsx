@@ -1612,41 +1612,33 @@ export default function Field({
                           </button>
                         )}
 
-                        <AnimatePresence>
-                          {(showDescription || field.description) && (
-                            <motion.div
-                              className="relative pb-6 pt-2"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.3 }}
-                            >
-                              <textarea
-                                value={field.description || ""}
-                                onChange={(e) =>
-                                  onUpdateFieldDescription(
-                                    field.id,
-                                    e.target.value,
-                                    isPromptType
-                                  )
-                                }
-                                className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
-                                placeholder="Add a description..."
-                              />
-                              {/* Remove description button */}
-                              {!field.description && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setShowDescription(false)}
-                                  className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                        {(showDescription || field.description) && (
+                          <div className="relative pb-6 pt-2">
+                            <textarea
+                              value={field.description || ""}
+                              onChange={(e) =>
+                                onUpdateFieldDescription(
+                                  field.id,
+                                  e.target.value,
+                                  isPromptType
+                                )
+                              }
+                              className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
+                              placeholder="Add a description..."
+                            />
+                            {/* Remove description button */}
+                            {!field.description && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowDescription(false)}
+                                className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </motion.div>
                     </>
                   )}
