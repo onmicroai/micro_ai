@@ -1361,7 +1361,7 @@ export default function FormBuilder() {
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.18 }}
                           >
-                            <div className="font-semibold text-xl mb-2 text-gray-900">
+                            <div className="font-semibold text-2xl mb-2 text-gray-900">
                               {title || "Untitled App"}
                             </div>
                             <div className="text-sm text-gray-600">
