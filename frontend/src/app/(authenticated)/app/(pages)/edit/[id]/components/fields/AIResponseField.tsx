@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  useLayoutEffect,
+} from "react";
 import { X, Split, CirclePlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
@@ -114,7 +120,7 @@ export default function AIResponseField({
     initialized.current = false;
   }, [field.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (field.instructions && field.instructions.length > 0) {
       setInstructions(
         field.instructions.map((inst, idx) => ({
@@ -219,15 +225,6 @@ export default function AIResponseField({
       return convertedText.replace(/___NBSP___/g, " ");
     },
     [fields]
-  );
-
-  const checkIfEmpty = useCallback(
-    (element: HTMLDivElement | null | undefined) => {
-      if (!element) return true;
-      const contentText = element.textContent?.trim() || "";
-      return contentText === "";
-    },
-    []
   );
 
   const convertTagsToPlaceholders = useCallback(
@@ -765,8 +762,11 @@ export default function AIResponseField({
             ) : (
               <AnimatePresence mode="popLayout">
                 {instructions.map((instruction) => {
-                  const editorElement = editorRefs.current.get(instruction.id);
-                  const isEmpty = checkIfEmpty(editorElement);
+                  const isEmpty =
+                    !instruction.content ||
+                    instruction.content.trim() === "" ||
+                    instruction.content === "<br>";
+
                   const isFocused = focusedInstruction === instruction.id;
 
                   return (
