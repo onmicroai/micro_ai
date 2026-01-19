@@ -718,7 +718,15 @@ export default function AIResponseField({
     : [];
 
   return (
-    <div className="relative bg-white rounded-lg p-0">
+    <div
+      className="relative bg-white rounded-lg p-0"
+      onMouseDown={(e) => {
+        if (isPreviewMode) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
       <div className="space-y-2">
         <div className="space-y-4">
           <div className="space-y-2">

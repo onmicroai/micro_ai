@@ -426,7 +426,7 @@ export default function Field({
           }}
           fields={appFields}
           onChange={onUpdatePromptText}
-          isPreviewMode={isEditMode}
+          isPreviewMode={!isEditMode}
         />
       );
     } else if (field.type === "aiResponse") {
@@ -1252,8 +1252,8 @@ export default function Field({
                         {isGeneratingSample
                           ? "Generating..."
                           : hasCachedSample
-                          ? "Play Sample"
-                          : "Generate Sample"}
+                            ? "Play Sample"
+                            : "Generate Sample"}
                       </span>
                     </Button>
                   </div>
@@ -1472,8 +1472,10 @@ export default function Field({
                 : ""
             }
          `}
-        onClick={() => {
+        onMouseDown={(e) => {
           if (!isEditMode) {
+            e.preventDefault();
+            e.stopPropagation();
             setIsEditMode(true);
           }
         }}
