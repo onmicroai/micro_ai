@@ -1,4 +1,4 @@
-import type { AppJsonV2, Element, ElementInstruction, PhaseType, Prompt } from '@/app/(authenticated)/app/types';
+import type { AppJsonV2, Element, ElementInstruction, Prompt } from '@/app/(authenticated)/app/types';
 
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
 

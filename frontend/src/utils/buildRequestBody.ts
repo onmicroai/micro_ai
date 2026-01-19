@@ -1,4 +1,4 @@
-import { AttachedFile } from '@/app/(authenticated)/app/types';
+import { AttachedFile, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 
@@ -9,11 +9,13 @@ interface AIConfig {
    systemPrompt: string;
 }
 
-const getPageConfig = (page: SurveyPage | null) => {
+const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
    return {
       scoredPhase: page?.scoredPhase || false,
       rubric: page?.rubric || "",
-      minScore: page?.minScore || 0
+      minScore: page?.minScore || 0,
+      scoreExplanation: page?.scoreExplanation ?? true,
+      scoreExplanationMode: page?.scoreExplanationMode ?? "always"
    };
 };
 
@@ -41,7 +43,7 @@ export const buildRequestBody = async (
    requestSkip: boolean,
    userId: number | null,
    aiConfig: AIConfig,
-   pageConfig: ReturnType<typeof getPageConfig>,
+   pageConfig: PageConfigOverride,
    images: Base64Images,
    appHashId: string | undefined,
    attachedFiles: AttachedFile[],
@@ -50,7 +52,9 @@ export const buildRequestBody = async (
    fixedResponseText: string = "",
    noSubmit: boolean = false,
    transcriptionCost?: number,
-   run_uuid?: string
+   run_uuid?: string,
+   scoreExplanation?: boolean,
+   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never"
 ) => {
    const store = useConversationStore.getState();
    const currentConversation = store.currentConversation;
@@ -173,6 +177,8 @@ ${file!.content}
       requestBody.scored_run = pageConfig.scoredPhase;
       requestBody.rubric = pageConfig.rubric;
       requestBody.minimum_score = pageConfig.minScore;
+      requestBody.score_explanation = scoreExplanation ?? pageConfig.scoreExplanation ?? true;
+      requestBody.score_explanation_mode = scoreExplanationMode ?? pageConfig.scoreExplanationMode ?? "always";
    }
 
    if (skipScoredRun) {

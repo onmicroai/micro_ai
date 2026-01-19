@@ -1,4 +1,4 @@
-import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images } from '@/app/(authenticated)/app/types';
+import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import { ConditionalLogic } from "@/app/(authenticated)/app/types";
@@ -76,17 +76,35 @@ const handleAIResponse = async (
                         run_passed: scoreData.run_passed,
                         run_score: scoreData.run_score
                      };
+                     if (typeof scoreData.score_explanation === 'boolean') updates.score_explanation = scoreData.score_explanation;
+                     if (typeof scoreData.score_explanation_mode === 'string') updates.score_explanation_mode = scoreData.score_explanation_mode;
                      if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
                      if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
                      store.updateRun(runId, updates);
                   }
                },
-               onDone: () => {
+               onDone: (meta?: unknown) => {
+                  if (streamCompleted) return;
                   // Finalize run
                   if (runId) {
                      store.updateRun(runId, { status: "completed" });
                      // Add final assistant message
-                     store.addMessage("assistant", accumulated);
+                     if (accumulated.trim()) {
+                        store.addMessage("assistant", accumulated);
+                     }
+                  }
+                  if (runId && meta && typeof meta === "object") {
+                     const updates: any = {};
+                     const metaObj = meta as Record<string, unknown>;
+                     if (typeof metaObj.cost === "number") updates.cost = metaObj.cost;
+                     if (typeof metaObj.credits === "number") updates.credits = metaObj.credits;
+                     if (typeof metaObj.run_passed === "boolean") updates.run_passed = metaObj.run_passed;
+                     if (typeof metaObj.run_score === "string") updates.run_score = metaObj.run_score;
+                     if (typeof metaObj.score_explanation === "boolean") updates.score_explanation = metaObj.score_explanation;
+                     if (typeof metaObj.score_explanation_mode === "string") updates.score_explanation_mode = metaObj.score_explanation_mode;
+                     if (Object.keys(updates).length > 0) {
+                        store.updateRun(runId, updates);
+                     }
                   }
                   setState((state: any) => ({
                      ...state,
@@ -120,6 +138,9 @@ const handleAIResponse = async (
                   resolveDone?.();
                },
             },
+            {
+               endpoint: requestBody?.scored_run ? "/api/microapps/score" : undefined
+            }
          );
 
          // If response is not null, it means backend returned JSON (non-streaming)
@@ -142,7 +163,9 @@ const handleAIResponse = async (
             }
 
             // Add the response message
-            store.addMessage('assistant', promptResponse);
+            if (promptResponse?.trim()) {
+               store.addMessage('assistant', promptResponse);
+            }
             
             await delay(1000);
             
@@ -175,7 +198,9 @@ const handleAIResponse = async (
 
    // Fallback to non-streaming request (for anonymous users or if streaming failed)
    try {
-      const endpoint = !userId ? '/api/microapps/run/anonymous' : '/api/microapps/run';
+      const endpoint = requestBody?.scored_run
+         ? '/api/microapps/score'
+         : (!userId ? '/api/microapps/run/anonymous' : '/api/microapps/run');
       
       let responseData;
       
@@ -229,7 +254,9 @@ const handleAIResponse = async (
       }
 
       // Add the response message
-      store.addMessage('assistant', promptResponse);
+      if (promptResponse?.trim()) {
+         store.addMessage('assistant', promptResponse);
+      }
       
       await delay(1000);
       
@@ -381,8 +408,10 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
-  pageConfigOverride?: ReturnType<typeof getPageConfig>;
+  pageConfigOverride?: PageConfigOverride;
   transcriptionCost?: number;
+  scoreExplanation?: boolean;
+  scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
 }): Promise<SendPromptResponse> => {
 const {
     prompts = null,
@@ -397,7 +426,9 @@ const {
     set = (s: any) => s,
     noSubmit = false,
     pageConfigOverride,
-    transcriptionCost
+    transcriptionCost,
+    scoreExplanation,
+    scoreExplanationMode
   } = options;
 
   let {
@@ -501,8 +532,18 @@ const {
       fixedResponseText,
       noSubmit,
       transcriptionCost,
-      run.id
+      run.id,
+      scoreExplanation,
+      scoreExplanationMode
    );
+   if (run?.id) {
+      const isScoredRun = Boolean(requestBody?.scored_run);
+      store.updateRun(run.id, {
+         score_expected: isScoredRun,
+         score_explanation: requestBody?.score_explanation ?? undefined,
+         score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
+      });
+   }
    const result = await handleAIResponse(requestBody, userId, set);
    return { ...result, run_uuid: run.id };
 };

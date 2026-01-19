@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, SurveyStore, Answers, Prompt, Base64Images } from '@/app/(authenticated)/app/types';
+import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, SurveyStore, Answers, Prompt, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import axios from "axios";
 import { sendPromptsUtil } from '@/utils//sendPrompts';
@@ -410,7 +410,7 @@ export const useSurveyStore = create<SurveyStore>()(
          userId: number | null, 
          requestSkip: boolean = false,
          noSubmit: boolean  = false,
-         pageConfigOverride?: { scoredPhase: boolean; rubric: string; minScore: number }
+         pageConfigOverride?: PageConfigOverride
       ): Promise<SendPromptResponse> => {
          set({ promptLoading: true, sendPromptError: null, promptResponse: null });
          const images = get().images; // Get images from store
