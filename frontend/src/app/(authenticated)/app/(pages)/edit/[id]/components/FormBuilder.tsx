@@ -1161,7 +1161,10 @@ export default function FormBuilder() {
       >
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
           <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto relative">
-            <div className="flex items-center h-full">
+            <div
+              className="flex items-center h-full cursor-pointer"
+              onClick={() => router.push("/dashboard")}
+            >
               <Image
                 src={Logo}
                 alt="Micro AI"
@@ -1258,10 +1261,10 @@ export default function FormBuilder() {
             </div>
           )}
 
-          <div className="flex-1 transition-all duration-300 flex justify-center">
+          <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] px-2 sm:px-4">
               {activeTab === "build" ? (
-                <div className="py-8">
+                <div className="pt-8 pb-16">
                   <>
                     {/* This motion.div animates the App Details card when switching between edit and preview modes,
                       as well as when its layout changes.

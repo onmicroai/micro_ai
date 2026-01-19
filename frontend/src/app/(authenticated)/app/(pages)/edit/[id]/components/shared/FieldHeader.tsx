@@ -101,7 +101,7 @@ export default function FieldHeader({
       tabIndex={0}
       role="button"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <AnimatePresence initial={false} mode="popLayout">
           {!isHidden("dragHandle") && dragHandleProps && (
             <motion.div
@@ -241,7 +241,7 @@ export default function FieldHeader({
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <AnimatePresence initial={false}>
           {!isHidden("required") && (
             <motion.div
