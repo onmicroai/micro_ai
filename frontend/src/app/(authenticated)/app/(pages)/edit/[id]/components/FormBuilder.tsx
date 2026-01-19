@@ -213,6 +213,9 @@ export default function FormBuilder() {
     y: number;
   } | null>(null);
   const [isAppDetailsEditMode, setIsAppDetailsEditMode] = useState(false);
+  const [activeFieldId, setActiveFieldId] = useState<string | undefined>(
+    undefined
+  );
   const cardRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -977,8 +980,8 @@ export default function FormBuilder() {
               isDragActive
                 ? "border-primary-400 bg-primary-50"
                 : isUploading
-                ? "border-primary-300 bg-primary-50"
-                : "border-gray-300 hover:border-primary-600"
+                  ? "border-primary-300 bg-primary-50"
+                  : "border-gray-300 hover:border-primary-600"
             }
             ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}
           `}
@@ -1430,6 +1433,15 @@ export default function FormBuilder() {
                                                 appId={appId}
                                                 dragHandleProps={
                                                   providedDraggable.dragHandleProps
+                                                }
+                                                isActive={
+                                                  activeFieldId === element.id
+                                                }
+                                                onActivate={() =>
+                                                  setActiveFieldId(element.id)
+                                                }
+                                                onDeactivate={() =>
+                                                  setActiveFieldId(undefined)
                                                 }
                                                 onUpdateFieldLabel={(
                                                   fieldId,

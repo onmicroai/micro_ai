@@ -135,6 +135,7 @@ interface FieldProps {
   phaseFields: Element[];
   appFields: Element[];
   appId: number | null;
+  isActive?: boolean;
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onUpdateFieldLabel: (
     fieldId: string,
@@ -214,6 +215,8 @@ interface FieldProps {
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
   isDragging?: boolean;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
 }
 
 export default function Field({
@@ -248,7 +251,10 @@ export default function Field({
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
+  onActivate,
+  onDeactivate,
   isDragging = false,
+  isActive = false,
 }: FieldProps) {
   const { user } = useUserStore();
   const [isEditMode, setIsEditMode] = useState(false);
@@ -294,7 +300,7 @@ export default function Field({
         fieldRef.current &&
         !fieldRef.current.contains(event.target as Node)
       ) {
-        setIsEditMode(false);
+        if (onDeactivate) onDeactivate();
       }
     };
 
@@ -306,7 +312,12 @@ export default function Field({
         capture: true,
       });
     };
-  }, [isEditMode]);
+  }, [isEditMode, onDeactivate]);
+
+  useEffect(() => {
+    if (isActive && !isEditMode) setIsEditMode(true);
+    if (!isActive && isEditMode) setIsEditMode(false);
+  }, [isActive, isEditMode]);
 
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
@@ -1280,7 +1291,7 @@ export default function Field({
       `}
         style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
-          if (!isEditMode) setIsEditMode(true);
+          if (!isEditMode && onActivate) onActivate();
         }}
       >
         {field.conditionalLogic && fieldCondition && (
@@ -1479,10 +1490,10 @@ export default function Field({
          `}
         style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
         onMouseDown={(e) => {
-          if (!isEditMode) {
+          if (!isEditMode && onActivate) {
             e.preventDefault();
             e.stopPropagation();
-            setIsEditMode(true);
+            onActivate();
           }
         }}
       >
