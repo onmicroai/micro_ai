@@ -1242,7 +1242,7 @@ export default function FormBuilder() {
         )}
         <div className="flex-1 flex">
           {sidebarOpen && (
-            <div className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30">
+            <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
                 <span className="text-sm font-medium text-black">
                   App settings
