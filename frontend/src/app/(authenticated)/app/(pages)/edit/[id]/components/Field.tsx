@@ -1483,6 +1483,7 @@ export default function Field({
   return (
     <div ref={fieldRef} className={`relative`}>
       <motion.div
+        layout={!isDragging}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
             ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
          `}
