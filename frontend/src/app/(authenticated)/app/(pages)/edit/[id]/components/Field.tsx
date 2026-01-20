@@ -730,11 +730,13 @@ export default function Field({
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
               <SelectContent>
-                {choices.map((choice, index) => (
-                  <SelectItem key={index} value={choice.value}>
-                    {choice.text}
-                  </SelectItem>
-                ))}
+                {choices
+                  .filter((choice) => choice.value && choice.value !== "")
+                  .map((choice, index) => (
+                    <SelectItem key={index} value={choice.value}>
+                      {choice.text}
+                    </SelectItem>
+                  ))}
                 {field.showOtherItem && (
                   <SelectItem value="other">Other</SelectItem>
                 )}
