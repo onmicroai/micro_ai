@@ -427,6 +427,15 @@ export default function FormBuilder() {
     }
   }, [attachedFiles]);
 
+  // Ensure at least one element exists and open sidebar on mount
+  useEffect(() => {
+    if (Array.isArray(elements) && elements.length === 0) {
+      addElementToApp("text");
+    }
+    setSidebarOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Load collections on mount
   useEffect(() => {
     fetchCollections();
@@ -1373,573 +1382,589 @@ export default function FormBuilder() {
                       </AnimatePresence>
                     </motion.div>
 
-                    <div className="mt-8 space-y-6">
-                      <LayoutGroup>
-                        <Droppable droppableId="all-elements" type="element">
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.droppableProps}
-                              className={`min-h-[200px] transition-colors ${
-                                snapshot.isDraggingOver ? "bg-primary/5" : ""
-                              }`}
-                            >
-                              {(() => {
-                                const visibleElements = Array.isArray(elements)
-                                  ? elements
-                                  : [];
+                    <div className="flex flex-col min-h-[calc(100vh-320px)]">
+                      <div className="flex-1">
+                        <LayoutGroup>
+                          <Droppable droppableId="all-elements" type="element">
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={`min-h-[200px] transition-colors ${
+                                  snapshot.isDraggingOver ? "bg-primary/5" : ""
+                                }`}
+                              >
+                                {(() => {
+                                  const visibleElements = Array.isArray(
+                                    elements,
+                                  )
+                                    ? elements
+                                    : [];
 
-                                return visibleElements.map(
-                                  (element, index, array) => {
-                                    const isLastElement =
-                                      index === array.length - 1;
+                                  return visibleElements.map(
+                                    (element, index, array) => {
+                                      const isLastElement =
+                                        index === array.length - 1;
 
-                                    return (
-                                      <React.Fragment key={element.id}>
-                                        <Draggable
-                                          draggableId={element.id}
-                                          index={index}
-                                        >
-                                          {(
-                                            providedDraggable,
-                                            snapshotDraggable,
-                                          ) => (
-                                            <motion.div
-                                              layout={
-                                                !snapshotDraggable.isDragging
-                                              }
-                                              transition={{
-                                                duration: 0.3,
-                                                ease: "easeInOut",
-                                              }}
-                                              initial={false}
-                                              style={{
-                                                ...providedDraggable
-                                                  .draggableProps.style,
-                                                ...(snapshotDraggable.isDragging
-                                                  ? {}
-                                                  : { transform: "none" }),
-                                              }}
-                                              ref={providedDraggable.innerRef}
-                                              {...providedDraggable.draggableProps}
-                                              className={`${
-                                                snapshotDraggable.isDragging
-                                                  ? "opacity-80"
-                                                  : ""
-                                              }`}
-                                            >
-                                              <Field
-                                                field={element}
-                                                index={index}
-                                                phaseFields={visibleElements}
-                                                appFields={visibleElements}
-                                                appId={appId}
-                                                dragHandleProps={
-                                                  providedDraggable.dragHandleProps
+                                      return (
+                                        <React.Fragment key={element.id}>
+                                          <Draggable
+                                            draggableId={element.id}
+                                            index={index}
+                                          >
+                                            {(
+                                              providedDraggable,
+                                              snapshotDraggable,
+                                            ) => (
+                                              <motion.div
+                                                layout={
+                                                  !snapshotDraggable.isDragging
                                                 }
-                                                isActive={
-                                                  activeFieldId === element.id
-                                                }
-                                                onActivate={() =>
-                                                  setActiveFieldId(element.id)
-                                                }
-                                                onDeactivate={() =>
-                                                  setActiveFieldId(undefined)
-                                                }
-                                                onUpdateFieldLabel={(
-                                                  fieldId,
-                                                  newLabel,
-                                                  isPrompt,
-                                                ) =>
-                                                  updateFieldLabel(
+                                                transition={{
+                                                  duration: 0.3,
+                                                  ease: "easeInOut",
+                                                }}
+                                                initial={false}
+                                                style={{
+                                                  ...providedDraggable
+                                                    .draggableProps.style,
+                                                  ...(snapshotDraggable.isDragging
+                                                    ? {}
+                                                    : { transform: "none" }),
+                                                }}
+                                                ref={providedDraggable.innerRef}
+                                                {...providedDraggable.draggableProps}
+                                                className={`${
+                                                  snapshotDraggable.isDragging
+                                                    ? "opacity-80"
+                                                    : ""
+                                                }`}
+                                              >
+                                                <Field
+                                                  field={element}
+                                                  index={index}
+                                                  phaseFields={visibleElements}
+                                                  appFields={visibleElements}
+                                                  appId={appId}
+                                                  dragHandleProps={
+                                                    providedDraggable.dragHandleProps
+                                                  }
+                                                  isActive={
+                                                    activeFieldId === element.id
+                                                  }
+                                                  onActivate={() =>
+                                                    setActiveFieldId(element.id)
+                                                  }
+                                                  onDeactivate={() =>
+                                                    setActiveFieldId(undefined)
+                                                  }
+                                                  onUpdateFieldLabel={(
                                                     fieldId,
                                                     newLabel,
                                                     isPrompt,
-                                                  )
-                                                }
-                                                onUpdateFieldName={(
-                                                  fieldId,
-                                                  newName,
-                                                  isPrompt,
-                                                ) =>
-                                                  updateFieldName(
+                                                  ) =>
+                                                    updateFieldLabel(
+                                                      fieldId,
+                                                      newLabel,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldName={(
                                                     fieldId,
                                                     newName,
                                                     isPrompt,
-                                                  )
-                                                }
-                                                onUpdateFieldType={(
-                                                  fieldId,
-                                                  newType,
-                                                ) =>
-                                                  updateFieldType(
+                                                  ) =>
+                                                    updateFieldName(
+                                                      fieldId,
+                                                      newName,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldType={(
                                                     fieldId,
                                                     newType,
-                                                  )
-                                                }
-                                                onDeleteField={(
-                                                  fieldId,
-                                                  isPrompt,
-                                                ) =>
-                                                  deleteField(fieldId, isPrompt)
-                                                }
-                                                onUpdateFieldDescription={(
-                                                  fieldId,
-                                                  description,
-                                                  isPrompt,
-                                                ) =>
-                                                  updateFieldDescription(
+                                                  ) =>
+                                                    updateFieldType(
+                                                      fieldId,
+                                                      newType,
+                                                    )
+                                                  }
+                                                  onDeleteField={(
+                                                    fieldId,
+                                                    isPrompt,
+                                                  ) =>
+                                                    deleteField(
+                                                      fieldId,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldDescription={(
                                                     fieldId,
                                                     description,
                                                     isPrompt,
-                                                  )
-                                                }
-                                                onUpdateFieldRequired={(
-                                                  fieldId,
-                                                  required,
-                                                  isPrompt,
-                                                ) =>
-                                                  updateFieldRequired(
+                                                  ) =>
+                                                    updateFieldDescription(
+                                                      fieldId,
+                                                      description,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldRequired={(
                                                     fieldId,
                                                     required,
                                                     isPrompt,
-                                                  )
-                                                }
-                                                onUpdateFieldValidation={(
-                                                  fieldId,
-                                                  minChars,
-                                                  maxChars,
-                                                  isPrompt,
-                                                ) =>
-                                                  updateFieldValidation(
+                                                  ) =>
+                                                    updateFieldRequired(
+                                                      fieldId,
+                                                      required,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldValidation={(
                                                     fieldId,
                                                     minChars,
                                                     maxChars,
                                                     isPrompt,
-                                                  )
-                                                }
-                                                onUpdateFieldDefaultValue={(
-                                                  fieldId,
-                                                  defaultValue,
-                                                ) =>
-                                                  updateFieldDefaultValue(
+                                                  ) =>
+                                                    updateFieldValidation(
+                                                      fieldId,
+                                                      minChars,
+                                                      maxChars,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldDefaultValue={(
                                                     fieldId,
                                                     defaultValue,
-                                                  )
-                                                }
-                                                onUpdateFieldPlaceholder={(
-                                                  fieldId,
-                                                  placeholder,
-                                                ) =>
-                                                  updateFieldPlaceholder(
+                                                  ) =>
+                                                    updateFieldDefaultValue(
+                                                      fieldId,
+                                                      defaultValue,
+                                                    )
+                                                  }
+                                                  onUpdateFieldPlaceholder={(
                                                     fieldId,
                                                     placeholder,
-                                                  )
-                                                }
-                                                onUpdateFieldChoices={(
-                                                  fieldId,
-                                                  choices,
-                                                ) =>
-                                                  updateFieldChoices(
+                                                  ) =>
+                                                    updateFieldPlaceholder(
+                                                      fieldId,
+                                                      placeholder,
+                                                    )
+                                                  }
+                                                  onUpdateFieldChoices={(
                                                     fieldId,
                                                     choices,
-                                                  )
-                                                }
-                                                onUpdateFieldShowOther={(
-                                                  fieldId,
-                                                  showOther,
-                                                ) =>
-                                                  updateFieldShowOther(
+                                                  ) =>
+                                                    updateFieldChoices(
+                                                      fieldId,
+                                                      choices,
+                                                    )
+                                                  }
+                                                  onUpdateFieldShowOther={(
                                                     fieldId,
                                                     showOther,
-                                                  )
-                                                }
-                                                onUpdateFieldSliderProps={(
-                                                  fieldId,
-                                                  updates,
-                                                ) =>
-                                                  updateFieldSliderProps(
+                                                  ) =>
+                                                    updateFieldShowOther(
+                                                      fieldId,
+                                                      showOther,
+                                                    )
+                                                  }
+                                                  onUpdateFieldSliderProps={(
                                                     fieldId,
                                                     updates,
-                                                  )
-                                                }
-                                                onUpdateFieldSliderValue={(
-                                                  fieldId,
-                                                  value,
-                                                ) =>
-                                                  updateFieldSliderValue(
+                                                  ) =>
+                                                    updateFieldSliderProps(
+                                                      fieldId,
+                                                      updates,
+                                                    )
+                                                  }
+                                                  onUpdateFieldSliderValue={(
                                                     fieldId,
                                                     value,
-                                                  )
-                                                }
-                                                onUpdatePromptText={(
-                                                  fieldId,
-                                                  text,
-                                                ) =>
-                                                  updateFieldText(
+                                                  ) =>
+                                                    updateFieldSliderValue(
+                                                      fieldId,
+                                                      value,
+                                                    )
+                                                  }
+                                                  onUpdatePromptText={(
                                                     fieldId,
                                                     text,
-                                                    true,
-                                                  )
-                                                }
-                                                onUpdateRichText={(
-                                                  fieldId,
-                                                  html,
-                                                ) =>
-                                                  updateFieldRichText(
+                                                  ) =>
+                                                    updateFieldText(
+                                                      fieldId,
+                                                      text,
+                                                      true,
+                                                    )
+                                                  }
+                                                  onUpdateRichText={(
                                                     fieldId,
                                                     html,
-                                                    false,
-                                                  )
-                                                }
-                                                onUpdateConditionalLogic={(
-                                                  fieldId,
-                                                  logic,
-                                                ) =>
-                                                  handleUpdateConditionalLogic(
+                                                  ) =>
+                                                    updateFieldRichText(
+                                                      fieldId,
+                                                      html,
+                                                      false,
+                                                    )
+                                                  }
+                                                  onUpdateConditionalLogic={(
                                                     fieldId,
                                                     logic,
-                                                    false,
-                                                  )
-                                                }
-                                                onUpdateAiResponseInstructions={(
-                                                  fieldId,
-                                                  instructions,
-                                                ) =>
-                                                  updateElement(fieldId, {
+                                                  ) =>
+                                                    handleUpdateConditionalLogic(
+                                                      fieldId,
+                                                      logic,
+                                                      false,
+                                                    )
+                                                  }
+                                                  onUpdateAiResponseInstructions={(
+                                                    fieldId,
                                                     instructions,
-                                                  })
-                                                }
-                                                onUpdateScoringSettings={(
-                                                  fieldId,
-                                                  updates,
-                                                ) =>
-                                                  updateElement(
+                                                  ) =>
+                                                    updateElement(fieldId, {
+                                                      instructions,
+                                                    })
+                                                  }
+                                                  onUpdateScoringSettings={(
                                                     fieldId,
                                                     updates,
-                                                  )
-                                                }
-                                                onUpdateImageUploadSettings={(
-                                                  fieldId,
-                                                  settings,
-                                                ) =>
-                                                  updateImageUploadSettings(
+                                                  ) =>
+                                                    updateElement(
+                                                      fieldId,
+                                                      updates,
+                                                    )
+                                                  }
+                                                  onUpdateImageUploadSettings={(
                                                     fieldId,
                                                     settings,
-                                                  )
-                                                }
-                                                onUpdateFieldMaxMessages={(
-                                                  fieldId,
-                                                  maxMessages,
-                                                ) =>
-                                                  updateFieldMaxMessages(
+                                                  ) =>
+                                                    updateImageUploadSettings(
+                                                      fieldId,
+                                                      settings,
+                                                    )
+                                                  }
+                                                  onUpdateFieldMaxMessages={(
                                                     fieldId,
                                                     maxMessages,
-                                                  )
-                                                }
-                                                onUpdateFieldInitialMessage={(
-                                                  fieldId,
-                                                  initialMessage,
-                                                ) =>
-                                                  updateFieldInitialMessage(
+                                                  ) =>
+                                                    updateFieldMaxMessages(
+                                                      fieldId,
+                                                      maxMessages,
+                                                    )
+                                                  }
+                                                  onUpdateFieldInitialMessage={(
                                                     fieldId,
                                                     initialMessage,
-                                                  )
-                                                }
-                                                onUpdateChatbotInstructions={(
-                                                  fieldId,
-                                                  instructions,
-                                                ) =>
-                                                  updateChatbotInstructions(
+                                                  ) =>
+                                                    updateFieldInitialMessage(
+                                                      fieldId,
+                                                      initialMessage,
+                                                    )
+                                                  }
+                                                  onUpdateChatbotInstructions={(
                                                     fieldId,
                                                     instructions,
-                                                  )
-                                                }
-                                                onUpdateTtsProvider={(
-                                                  fieldId,
-                                                  provider,
-                                                ) =>
-                                                  updateTtsProvider(
+                                                  ) =>
+                                                    updateChatbotInstructions(
+                                                      fieldId,
+                                                      instructions,
+                                                    )
+                                                  }
+                                                  onUpdateTtsProvider={(
                                                     fieldId,
                                                     provider,
-                                                  )
-                                                }
-                                                onUpdateTtsVoiceId={(
-                                                  fieldId,
-                                                  voiceId,
-                                                ) =>
-                                                  updateTtsVoiceId(
+                                                  ) =>
+                                                    updateTtsProvider(
+                                                      fieldId,
+                                                      provider,
+                                                    )
+                                                  }
+                                                  onUpdateTtsVoiceId={(
                                                     fieldId,
                                                     voiceId,
-                                                  )
-                                                }
-                                                onUpdateTtsEnabled={(
-                                                  fieldId,
-                                                  enabled,
-                                                ) =>
-                                                  updateTtsEnabled(
+                                                  ) =>
+                                                    updateTtsVoiceId(
+                                                      fieldId,
+                                                      voiceId,
+                                                    )
+                                                  }
+                                                  onUpdateTtsEnabled={(
                                                     fieldId,
                                                     enabled,
-                                                  )
-                                                }
-                                                onUpdateVoiceInstructions={(
-                                                  fieldId,
-                                                  instructions,
-                                                ) =>
-                                                  updateVoiceInstructions(
+                                                  ) =>
+                                                    updateTtsEnabled(
+                                                      fieldId,
+                                                      enabled,
+                                                    )
+                                                  }
+                                                  onUpdateVoiceInstructions={(
                                                     fieldId,
                                                     instructions,
-                                                  )
-                                                }
-                                                onUpdateAvatarUrl={(
-                                                  fieldId,
-                                                  avatarUrl,
-                                                ) =>
-                                                  updateAvatarUrl(
+                                                  ) =>
+                                                    updateVoiceInstructions(
+                                                      fieldId,
+                                                      instructions,
+                                                    )
+                                                  }
+                                                  onUpdateAvatarUrl={(
                                                     fieldId,
                                                     avatarUrl,
-                                                  )
-                                                }
-                                                isDragging={
-                                                  snapshotDraggable.isDragging
-                                                }
+                                                  ) =>
+                                                    updateAvatarUrl(
+                                                      fieldId,
+                                                      avatarUrl,
+                                                    )
+                                                  }
+                                                  isDragging={
+                                                    snapshotDraggable.isDragging
+                                                  }
+                                                />
+                                              </motion.div>
+                                            )}
+                                          </Draggable>
+
+                                          {/* Plus button between cards on its own line with always-visible silver line */}
+                                          {!isLastElement && (
+                                            <div className="relative flex items-center justify-center h-4 my-1 w-full group">
+                                              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
+                                              <button
+                                                className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                tabIndex={-1}
+                                                aria-label="Add section"
+                                                onClick={(e) => {
+                                                  setPopoverPosition({
+                                                    x: e.clientX,
+                                                    y: e.clientY - 400,
+                                                  });
+                                                  setAddSectionOpenFor(
+                                                    `between-${element.id}`,
+                                                  );
+                                                  setInsertAfterIndex(index);
+                                                }}
+                                                type="button"
                                               />
-                                            </motion.div>
-                                          )}
-                                        </Draggable>
-
-                                        {/* Plus button between cards on its own line with always-visible silver line */}
-                                        {!isLastElement && (
-                                          <div className="relative flex items-center justify-center h-4 my-1 w-full group">
-                                            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
-                                            <button
-                                              className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                                              tabIndex={-1}
-                                              aria-label="Add section"
-                                              onClick={(e) => {
-                                                setPopoverPosition({
-                                                  x: e.clientX,
-                                                  y: e.clientY - 400,
-                                                });
-                                                setAddSectionOpenFor(
-                                                  `between-${element.id}`,
-                                                );
-                                                setInsertAfterIndex(index);
-                                              }}
-                                              type="button"
-                                            />
-                                            <Popover
-                                              open={
-                                                addSectionOpenFor ===
-                                                `between-${element.id}`
-                                              }
-                                              onOpenChange={(open) => {
-                                                setAddSectionOpenFor(
-                                                  open
-                                                    ? `between-${element.id}`
-                                                    : null,
-                                                );
-                                                if (!open) {
-                                                  setInsertAfterIndex(null);
+                                              <Popover
+                                                open={
+                                                  addSectionOpenFor ===
+                                                  `between-${element.id}`
                                                 }
-                                              }}
-                                            >
-                                              <PopoverTrigger asChild>
-                                                <Button
-                                                  variant="outline"
-                                                  size="sm"
-                                                  className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
-                                                  onClick={() => {
-                                                    setInsertAfterIndex(index);
-                                                  }}
-                                                >
-                                                  <Plus className="h-3 w-3" />
-                                                </Button>
-                                              </PopoverTrigger>
-                                              <PopoverContent
-                                                align="center"
-                                                side="bottom"
-                                                className="w-72 p-2"
-                                                style={
-                                                  popoverPosition
-                                                    ? {
-                                                        position: "fixed",
-                                                        left: popoverPosition.x,
-                                                      }
-                                                    : undefined
-                                                }
+                                                onOpenChange={(open) => {
+                                                  setAddSectionOpenFor(
+                                                    open
+                                                      ? `between-${element.id}`
+                                                      : null,
+                                                  );
+                                                  if (!open) {
+                                                    setInsertAfterIndex(null);
+                                                  }
+                                                }}
                                               >
-                                                <div className="space-y-1">
-                                                  {availableSections.map(
-                                                    (section) => {
-                                                      const Icon = section.icon;
-                                                      return (
-                                                        <button
-                                                          key={section.id}
-                                                          onClick={() => {
-                                                            addElementToApp(
-                                                              section.id,
-                                                              insertAfterIndex,
-                                                            );
-                                                            setAddSectionOpenFor(
-                                                              null,
-                                                            );
-                                                          }}
-                                                          className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                                        >
-                                                          <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                          <div className="flex-1 min-w-0">
-                                                            <div className="text-xs font-medium text-gray-900">
-                                                              {section.label}
-                                                            </div>
-                                                          </div>
-                                                          <TooltipProvider
-                                                            delayDuration={0}
-                                                          >
-                                                            <Tooltip>
-                                                              <TooltipTrigger
-                                                                asChild
-                                                              >
-                                                                <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                              </TooltipTrigger>
-                                                              <TooltipContent side="right">
-                                                                <p className="max-w-xs text-xs">
-                                                                  {
-                                                                    section.helper
-                                                                  }
-                                                                </p>
-                                                              </TooltipContent>
-                                                            </Tooltip>
-                                                          </TooltipProvider>
-                                                        </button>
+                                                <PopoverTrigger asChild>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
+                                                    onClick={() => {
+                                                      setInsertAfterIndex(
+                                                        index,
                                                       );
-                                                    },
-                                                  )}
-                                                </div>
-                                              </PopoverContent>
-                                            </Popover>
-                                          </div>
-                                        )}
-                                      </React.Fragment>
-                                    );
-                                  },
-                                );
-                              })()}
-                              {provided.placeholder}
-
-                              {/* Add Section button at the end */}
-                              <div className="mt-4 flex justify-start">
-                                <Popover
-                                  open={addSectionOpenFor === "end-button"}
-                                  onOpenChange={(open) => {
-                                    setAddSectionOpenFor(
-                                      open ? "end-button" : null,
-                                    );
-                                    if (!open) {
-                                      setInsertAfterIndex(null);
-                                    }
-                                  }}
-                                >
-                                  <PopoverTrigger asChild>
-                                    <Button
-                                      variant="default"
-                                      size="lg"
-                                      className="bg-primary text-primary-foreground hover:bg-primary-600"
-                                      onClick={() => setInsertAfterIndex(null)}
-                                    >
-                                      <Plus className="h-5 w-5 mr-2" />
-                                      Add Section
-                                    </Button>
-                                  </PopoverTrigger>
-                                  <PopoverContent
-                                    align="start"
-                                    side="bottom"
-                                    className="w-72 p-2"
-                                  >
-                                    <div className="space-y-1">
-                                      {availableSections.map((section) => {
-                                        const Icon = section.icon;
-                                        return (
-                                          <button
-                                            key={section.id}
-                                            onClick={() => {
-                                              addElementToApp(
-                                                section.id,
-                                                insertAfterIndex,
-                                              );
-                                              setAddSectionOpenFor(null);
-                                            }}
-                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                          >
-                                            <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-xs font-medium text-gray-900">
-                                                {section.label}
-                                              </div>
+                                                    }}
+                                                  >
+                                                    <Plus className="h-3 w-3" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent
+                                                  align="center"
+                                                  side="bottom"
+                                                  className="w-72 p-2"
+                                                  style={
+                                                    popoverPosition
+                                                      ? {
+                                                          position: "fixed",
+                                                          left: popoverPosition.x,
+                                                        }
+                                                      : undefined
+                                                  }
+                                                >
+                                                  <div className="space-y-1">
+                                                    {availableSections.map(
+                                                      (section) => {
+                                                        const Icon =
+                                                          section.icon;
+                                                        return (
+                                                          <button
+                                                            key={section.id}
+                                                            onClick={() => {
+                                                              addElementToApp(
+                                                                section.id,
+                                                                insertAfterIndex,
+                                                              );
+                                                              setAddSectionOpenFor(
+                                                                null,
+                                                              );
+                                                            }}
+                                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                                          >
+                                                            <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                              <div className="text-xs font-medium text-gray-900">
+                                                                {section.label}
+                                                              </div>
+                                                            </div>
+                                                            <TooltipProvider
+                                                              delayDuration={0}
+                                                            >
+                                                              <Tooltip>
+                                                                <TooltipTrigger
+                                                                  asChild
+                                                                >
+                                                                  <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="right">
+                                                                  <p className="max-w-xs text-xs">
+                                                                    {
+                                                                      section.helper
+                                                                    }
+                                                                  </p>
+                                                                </TooltipContent>
+                                                              </Tooltip>
+                                                            </TooltipProvider>
+                                                          </button>
+                                                        );
+                                                      },
+                                                    )}
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
                                             </div>
-                                            <TooltipProvider delayDuration={0}>
-                                              <Tooltip>
-                                                <TooltipTrigger asChild>
-                                                  <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                </TooltipTrigger>
-                                                <TooltipContent side="right">
-                                                  <p className="max-w-xs text-xs">
-                                                    {section.helper}
-                                                  </p>
-                                                </TooltipContent>
-                                              </Tooltip>
-                                            </TooltipProvider>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-                                  </PopoverContent>
-                                </Popover>
+                                          )}
+                                        </React.Fragment>
+                                      );
+                                    },
+                                  );
+                                })()}
+                                {provided.placeholder}
+
+                                {/* Add Section button at the end */}
+                                <div className="mt-4 flex justify-start">
+                                  <Popover
+                                    open={addSectionOpenFor === "end-button"}
+                                    onOpenChange={(open) => {
+                                      setAddSectionOpenFor(
+                                        open ? "end-button" : null,
+                                      );
+                                      if (!open) {
+                                        setInsertAfterIndex(null);
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        size="lg"
+                                        className="bg-primary text-primary-foreground hover:bg-primary-600"
+                                        onClick={() =>
+                                          setInsertAfterIndex(null)
+                                        }
+                                      >
+                                        <Plus className="h-5 w-5 mr-2" />
+                                        Add Section
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      align="start"
+                                      side="bottom"
+                                      className="w-72 p-2"
+                                    >
+                                      <div className="space-y-1">
+                                        {availableSections.map((section) => {
+                                          const Icon = section.icon;
+                                          return (
+                                            <button
+                                              key={section.id}
+                                              onClick={() => {
+                                                addElementToApp(
+                                                  section.id,
+                                                  insertAfterIndex,
+                                                );
+                                                setAddSectionOpenFor(null);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                            >
+                                              <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-medium text-gray-900">
+                                                  {section.label}
+                                                </div>
+                                              </div>
+                                              <TooltipProvider
+                                                delayDuration={0}
+                                              >
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent side="right">
+                                                    <p className="max-w-xs text-xs">
+                                                      {section.helper}
+                                                    </p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
                               </div>
-                            </div>
-                          )}
-                        </Droppable>
-                      </LayoutGroup>
-                      <Collapsible
-                        open={isOpen}
-                        onOpenChange={setIsOpen}
-                        className="!mt-8"
-                      >
-                        <Card>
-                          <CollapsibleTrigger asChild>
-                            <Button
-                              variant="ghost"
-                              className="w-full flex items-center justify-between p-4"
-                            >
-                              <span className="text-lg font-semibold">
-                                JSON Preview
-                              </span>
-                              <ChevronDown
-                                className={`h-4 w-4 transition-transform ${
-                                  isOpen ? "transform rotate-180" : ""
-                                }`}
-                              />
-                            </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <div className="p-4 border-t">
-                              <JsonPreview
-                                elements={
-                                  Array.isArray(elements) ? elements : []
-                                }
-                                title={title || ""}
-                                description={description || ""}
-                                collection={collectionId || 0}
-                                privacySettings={privacy}
-                                clonable={clonable}
-                                completedHtml={completedHtml}
-                                attachedFiles={attachedFiles}
-                                aiConfig={aiConfig}
-                              />
-                            </div>
-                          </CollapsibleContent>
-                        </Card>
-                      </Collapsible>
+                            )}
+                          </Droppable>
+                        </LayoutGroup>
+                      </div>
+                      <div className="mt-8">
+                        <Collapsible
+                          open={isOpen}
+                          onOpenChange={setIsOpen}
+                          className="!mt-8"
+                        >
+                          <Card>
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="w-full flex items-center justify-between p-4"
+                              >
+                                <span className="text-lg font-semibold">
+                                  JSON Preview
+                                </span>
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform ${
+                                    isOpen ? "transform rotate-180" : ""
+                                  }`}
+                                />
+                              </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="p-4 border-t">
+                                <JsonPreview
+                                  elements={
+                                    Array.isArray(elements) ? elements : []
+                                  }
+                                  title={title || ""}
+                                  description={description || ""}
+                                  collection={collectionId || 0}
+                                  privacySettings={privacy}
+                                  clonable={clonable}
+                                  completedHtml={completedHtml}
+                                  attachedFiles={attachedFiles}
+                                  aiConfig={aiConfig}
+                                />
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      </div>
                     </div>
                   </>
                 </div>
