@@ -26,7 +26,7 @@ export default function MonitorPreview({
   return (
     <div className="w-full max-w-[1000px] mx-auto pt-8 pb-24">
       {/* Monitor frame */}
-      <div className="bg-gray-200 shadow-lg overflow-hidden shadow-sm rounded-md">
+      <div className="bg-gray-200 shadow-lg overflow-hidden shadow-sm rounded-xl">
         {/* Address bar */}
         <div className="flex items-center gap-2 px-4 py-3 bg-gray-200 border-b border-gray-200">
           {/* Traffic lights */}
@@ -77,7 +77,7 @@ export default function MonitorPreview({
           </div>
         </div>
 
-        <div className="bg-gray-50 min-h-[600px]">{children}</div>
+        <div className="min-h-[600px]">{children}</div>
       </div>
     </div>
   );
