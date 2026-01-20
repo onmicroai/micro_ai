@@ -913,7 +913,7 @@ export default function FormBuilder() {
                 </SelectItem>
               ))
             ) : (
-              <SelectItem value="" disabled>
+              <SelectItem value="no-collections" disabled>
                 {isLoadingCollections
                   ? "Loading collections..."
                   : "No collections available"}
