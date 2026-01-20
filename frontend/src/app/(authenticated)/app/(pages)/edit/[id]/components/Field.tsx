@@ -142,43 +142,43 @@ interface FieldProps {
   onUpdateFieldLabel: (
     fieldId: string,
     newLabel: string,
-    isPrompt: boolean
+    isPrompt: boolean,
   ) => void;
   onUpdateFieldName: (
     fieldId: string,
     newName: string,
-    isPrompt: boolean
+    isPrompt: boolean,
   ) => void;
   onUpdateFieldType?: (fieldId: string, newType: string) => void;
   onDeleteField: (fieldId: string, isPrompt: boolean) => void;
   onUpdateFieldDescription: (
     fieldId: string,
     description: string,
-    isPrompt: boolean
+    isPrompt: boolean,
   ) => void;
   onUpdateFieldRequired: (
     fieldId: string,
     isRequired: boolean,
-    isPrompt: boolean
+    isPrompt: boolean,
   ) => void;
   onUpdateFieldValidation: (
     fieldId: string,
     minChars: number | null,
     maxChars: number | null,
-    isPrompt: boolean
+    isPrompt: boolean,
   ) => void;
   onUpdatePromptText?: (fieldId: string, text: string) => void;
   onUpdateAiResponseInstructions?: (
     fieldId: string,
-    instructions: ElementInstruction[]
+    instructions: ElementInstruction[],
   ) => void;
   onUpdateScoringSettings?: (
     fieldId: string,
-    updates: { rubric?: string; minScore?: number }
+    updates: { rubric?: string; minScore?: number },
   ) => void;
   onUpdateFieldDefaultValue: (
     fieldId: string,
-    defaultValue: string | string[] | number | boolean
+    defaultValue: string | string[] | number | boolean,
   ) => void;
   onUpdateFieldPlaceholder: (fieldId: string, placeholder: string) => void;
   onUpdateFieldChoices: (fieldId: string, choices: Choice[]) => void;
@@ -186,11 +186,11 @@ interface FieldProps {
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
   onUpdateFieldSliderProps: (
     fieldId: string,
-    updates: { minValue?: number; maxValue?: number; step?: number }
+    updates: { minValue?: number; maxValue?: number; step?: number },
   ) => void;
   onUpdateConditionalLogic?: (
     fieldId: string,
-    logic: ConditionalLogic | null
+    logic: ConditionalLogic | null,
   ) => void;
   onUpdateRichText?: (fieldId: string, html: string) => void;
   onUpdateImageUploadSettings?: (
@@ -200,16 +200,16 @@ interface FieldProps {
       maxFiles?: number;
       maxFileSize?: number;
       allowedFileTypes?: string[];
-    }
+    },
   ) => void;
   onUpdateFieldMaxMessages?: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage?: (
     fieldId: string,
-    initialMessage: string
+    initialMessage: string,
   ) => void;
   onUpdateChatbotInstructions?: (
     fieldId: string,
-    chatbotInstructions: string
+    chatbotInstructions: string,
   ) => void;
   onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
@@ -260,7 +260,7 @@ export default function Field({
 }: FieldProps) {
   const { user } = useUserStore();
   const [isValidationExpanded, setValidationExpanded] = useState(
-    !!field.minChars || !!field.maxChars
+    !!field.minChars || !!field.maxChars,
   );
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
@@ -279,7 +279,7 @@ export default function Field({
       // Ignore clicks inside Radix Select content and any open Radix poppers,
       // because their click events are bubbled to the document.
       const poppers = document.querySelectorAll(
-        "[data-radix-popper-content-wrapper]"
+        "[data-radix-popper-content-wrapper]",
       );
       if (poppers.length > 0) {
         return;
@@ -287,7 +287,7 @@ export default function Field({
 
       // Ignore clicks inside conditional logic sidebar
       const conditionalLogicSidebar = document.getElementById(
-        "conditional-logic-sidebar"
+        "conditional-logic-sidebar",
       );
       if (
         conditionalLogicSidebar &&
@@ -314,6 +314,11 @@ export default function Field({
       });
     };
   }, [isActive, onDeactivate]);
+
+  // Sync choices when field.choices changes
+  useEffect(() => {
+    setChoices(field.choices || []);
+  }, [field.choices]);
 
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
@@ -358,7 +363,7 @@ export default function Field({
 
   const handleUpdateOption = (index: number, newText: string) => {
     const newChoices = choices.map((choice, i) =>
-      i === index ? { ...choice, text: newText } : choice
+      i === index ? { ...choice, text: newText } : choice,
     );
     setChoices(newChoices);
     onUpdateFieldChoices(field.id, newChoices);
@@ -368,7 +373,7 @@ export default function Field({
     setSelectedCheckboxes((prev) =>
       prev.includes(optionId)
         ? prev.filter((id) => id !== optionId)
-        : [...prev, optionId]
+        : [...prev, optionId],
     );
   };
 
@@ -396,7 +401,7 @@ export default function Field({
   const handlePreviewInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setPreviewAnswers((prev) => ({
@@ -408,7 +413,7 @@ export default function Field({
   const handlePreviewSetInputValue = (
     name: string,
     value: string | string[] | undefined,
-    otherValue: string
+    otherValue: string,
   ) => {
     setPreviewAnswers((prev) => ({
       ...prev,
@@ -562,7 +567,7 @@ export default function Field({
                         e.preventDefault();
                         onUpdateFieldDefaultValue(
                           field.id,
-                          undefined as unknown as string
+                          undefined as unknown as string,
                         );
                       }
                     }}
@@ -880,7 +885,7 @@ export default function Field({
                     const maxVal = field.maxValue || sliderMax;
                     const boundedValue = Math.min(
                       Math.max(value, minVal),
-                      maxVal
+                      maxVal,
                     );
 
                     setSliderDefault(boundedValue);
@@ -1214,7 +1219,7 @@ export default function Field({
                           if (hasCachedSample && !isGeneratingSample) {
                             // Play cached sample
                             const audio = new Audio(
-                              cachedVoiceSamples[currentCacheKey]
+                              cachedVoiceSamples[currentCacheKey],
                             );
                             audio.play();
                           } else {
@@ -1228,7 +1233,7 @@ export default function Field({
                               "openai",
                               field.selectedVoiceId || "ash",
                               field.voiceInstructions,
-                              user?.id || null
+                              user?.id || null,
                             );
 
                             // Cache the sample
@@ -1382,7 +1387,7 @@ export default function Field({
                           field.id,
                           e.target.value ? parseInt(e.target.value, 10) : null,
                           field.maxChars ?? null,
-                          false
+                          false,
                         )
                       }
                       placeholder="Enter the number"
@@ -1400,7 +1405,7 @@ export default function Field({
                           field.id,
                           field.minChars ?? null,
                           e.target.value ? parseInt(e.target.value, 10) : null,
-                          false
+                          false,
                         )
                       }
                       className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
@@ -1576,7 +1581,7 @@ export default function Field({
                             onUpdateFieldLabel(
                               field.id,
                               e.target.value,
-                              isPromptType
+                              isPromptType,
                             );
                           }}
                           className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
@@ -1608,7 +1613,7 @@ export default function Field({
                                 onUpdateFieldDescription(
                                   field.id,
                                   e.target.value,
-                                  isPromptType
+                                  isPromptType,
                                 )
                               }
                               className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"

@@ -51,8 +51,11 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
     softReset: softResetSurveyStore,
   } = useSurveyStore();
 
-  const { currentConversation, conversations, reset: resetConversations } =
-    useConversationStore();
+  const {
+    currentConversation,
+    conversations,
+    reset: resetConversations,
+  } = useConversationStore();
 
   // Check if there are existing continuation messages for auto-expansion
   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
@@ -98,7 +101,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
 
     return () => {
       try {
-         //controller.abort();
+        //controller.abort();
       } catch {}
     };
   }, [hashId, fetchApp, resetConversations]);
@@ -109,7 +112,9 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
       if (errorStatus && errorStatus >= 400 && errorStatus < 500) {
         toast.error("Page not found.", { theme: "colored" });
       } else {
-        toast.error(`Error fetching app: ${appFetchError}`, { theme: "colored" });
+        toast.error(`Error fetching app: ${appFetchError}`, {
+          theme: "colored",
+        });
       }
     }
   }, [appFetchError]);
@@ -159,7 +164,9 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
       try {
         const roleResult = await checkRole(hashId, userId, signal);
         if (!roleResult.error) {
-          const lowerRoles = roleResult.roles.map((r: string) => r.toLowerCase());
+          const lowerRoles = roleResult.roles.map((r: string) =>
+            r.toLowerCase(),
+          );
           setRoles({
             isOwner: lowerRoles.includes("owner"),
             isAdmin: lowerRoles.includes("admin"),
@@ -167,7 +174,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
           setRolesLoaded(true);
         } else {
           console.warn(
-            "Role check returned error; banner suppressed until retry"
+            "Role check returned error; banner suppressed until retry",
           );
         }
       } catch (error) {
@@ -225,7 +232,9 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
             </h1>
           )}
           {surveyJson?.description && (
-            <p className="mt-1 text-sm/6 text-gray-600">{surveyJson.description}</p>
+            <p className="mt-1 text-sm/6 text-gray-600">
+              {surveyJson.description}
+            </p>
           )}
 
           {loading && (
@@ -334,4 +343,3 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
     </div>
   );
 }
-
