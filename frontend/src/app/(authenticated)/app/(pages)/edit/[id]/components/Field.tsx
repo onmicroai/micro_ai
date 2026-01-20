@@ -221,8 +221,6 @@ interface FieldProps {
   onDeactivate?: () => void;
 }
 
-const FIELD_SHADOW = "0_2px_8px_0_rgba(89,99,232,0.18)";
-
 export default function Field({
   field,
   phaseFields,
@@ -1281,11 +1279,7 @@ export default function Field({
       <div
         ref={fieldRef}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
-         ${
-           isActive
-             ? `shadow-[${FIELD_SHADOW}]`
-             : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
-         }
+         ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
          `}
         style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
@@ -1480,11 +1474,7 @@ export default function Field({
       <motion.div
         layout={!isDragging}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
-            ${
-              isActive
-                ? `shadow-[0_2px_8px_0_rgba(89,99,232,0.18)]` // TODO: Reuse FIELD_SHADOW here
-                : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
-            }
+            ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
          `}
         style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onMouseDown={(e) => {
@@ -1667,6 +1657,7 @@ export default function Field({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                className="[&_*]:cursor-pointer"
               >
                 <div className="space-y-2 mt-4">{renderFieldPreview()}</div>
               </motion.div>
