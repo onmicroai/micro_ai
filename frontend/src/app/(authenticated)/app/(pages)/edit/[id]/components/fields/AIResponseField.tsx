@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useRef, useEffect, useCallback, useState } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useCallback,
+  useState,
+  useLayoutEffect,
+} from "react";
 import { X, Split, CirclePlus } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
@@ -114,7 +120,7 @@ export default function AIResponseField({
     initialized.current = false;
   }, [field.id]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (field.instructions && field.instructions.length > 0) {
       setInstructions(
         field.instructions.map((inst, idx) => ({
@@ -219,15 +225,6 @@ export default function AIResponseField({
       return convertedText.replace(/___NBSP___/g, " ");
     },
     [fields]
-  );
-
-  const checkIfEmpty = useCallback(
-    (element: HTMLDivElement | null | undefined) => {
-      if (!element) return true;
-      const contentText = element.textContent?.trim() || "";
-      return contentText === "";
-    },
-    []
   );
 
   const convertTagsToPlaceholders = useCallback(
@@ -718,7 +715,15 @@ export default function AIResponseField({
     : [];
 
   return (
-    <div className="relative bg-white rounded-lg p-0">
+    <div
+      className="relative bg-white rounded-lg p-0"
+      onMouseDown={(e) => {
+        if (isPreviewMode) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      }}
+    >
       <div className="space-y-2">
         <div className="space-y-4">
           <div className="space-y-2">
@@ -749,7 +754,7 @@ export default function AIResponseField({
                     <input
                       value={instruction.content}
                       readOnly
-                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mt-4"
+                      className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer mb-4 mt-2"
                     />
                   </div>
                 ))}
@@ -757,8 +762,11 @@ export default function AIResponseField({
             ) : (
               <AnimatePresence mode="popLayout">
                 {instructions.map((instruction) => {
-                  const editorElement = editorRefs.current.get(instruction.id);
-                  const isEmpty = checkIfEmpty(editorElement);
+                  const isEmpty =
+                    !instruction.content ||
+                    instruction.content.trim() === "" ||
+                    instruction.content === "<br>";
+
                   const isFocused = focusedInstruction === instruction.id;
 
                   return (

@@ -142,9 +142,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    * @param smooth - Whether to scroll smoothly or instantly.
    */
   const scrollToBottom = (smooth = true) => {
-    messagesEndRef.current?.scrollIntoView({
-      behavior: smooth ? "smooth" : "instant",
-    });
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    if (smooth) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    } else {
+      container.scrollTop = container.scrollHeight;
+    }
   };
 
   // Scroll to bottom when chat history is loaded (initial load ONLY)

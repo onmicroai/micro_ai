@@ -973,13 +973,19 @@ export default function PromptField({
   };
 
   return (
-    <div className="relative bg-white rounded-lg  ">
+    <div className="relative bg-white rounded-lg">
       <div className="space-y-4">
         <div
           id="prompt-editor"
           data-placeholder={getPlaceholderText()}
           ref={editorRef}
           contentEditable={isPreviewMode ? false : true}
+          onMouseDown={(e) => {
+            if (isPreviewMode) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
+          }}
           className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
             ${
               isEmpty ? "empty-editor" : ""
@@ -994,11 +1000,11 @@ export default function PromptField({
           onDragLeave={handleDragLeave}
           suppressContentEditableWarning
           style={{
-            cursor: !isPreviewMode ? "pointer" : "text",
+            cursor: isPreviewMode ? "pointer" : "text",
           }}
         />
         <AnimatePresence>
-          {isPreviewMode && (
+          {!isPreviewMode && (
             <motion.div
               className="flex flex-wrap gap-2"
               initial={{ opacity: 0, y: 10 }}

@@ -101,18 +101,17 @@ export default function FieldHeader({
       tabIndex={0}
       role="button"
     >
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <AnimatePresence initial={false} mode="popLayout">
-          {" "}
           {!isHidden("dragHandle") && dragHandleProps && (
             <motion.div
-              initial={{ opacity: 0, x: -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
+              initial={{ opacity: 0, x: -24, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: "auto" }}
+              exit={{ opacity: 0, x: -24, width: 0 }}
               transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
               {...(!isDragging ? { layout: true } : {})}
               key="drag-handle"
-              className="flex items-center gap-2"
+              className="flex items-center gap-2 overflow-hidden"
             >
               <div
                 {...dragHandleProps}
@@ -126,46 +125,49 @@ export default function FieldHeader({
           {!isHidden("fieldLabel") && field.type && onFieldTypeChange && (
             <motion.div
               key="fieldLabel"
-              initial={{ opacity: 0, x: -24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
+              initial={{ opacity: 0, x: -24, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: "auto" }}
+              exit={{ opacity: 0, x: -24, width: 0 }}
               {...(!isDragging ? { layout: true } : {})}
               transition={{
                 duration: 0.3,
                 ease: [0.4, 0, 0.2, 1],
                 delay: 0.05,
               }}
+              className="overflow-hidden"
             >
-              <Select
-                value={field.type}
-                onValueChange={(value) => {
-                  onFieldTypeChange(value);
-                }}
-              >
-                <SelectTrigger
-                  className="h-auto px-2 py-1 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-0 gap-2 text-sm"
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label="Change field type"
+              <div className="w-max pr-2">
+                <Select
+                  value={field.type}
+                  onValueChange={(value) => {
+                    onFieldTypeChange(value);
+                  }}
                 >
-                  <div className="flex items-center gap-2">
-                    {Icon && <Icon className="h-5 w-5 text-gray-600" />}
-                    <span className="font-medium text-gray-900">{label}</span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  {availableSections.map((type) => {
-                    const TypeIcon = type.icon;
-                    return (
-                      <SelectItem key={type.id} value={type.id}>
-                        <div className="flex items-center gap-2">
-                          <TypeIcon className="h-4 w-4" />
-                          <span>{type.label}</span>
-                        </div>
-                      </SelectItem>
-                    );
-                  })}
-                </SelectContent>
-              </Select>
+                  <SelectTrigger
+                    className="h-auto px-2 py-1 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-0 gap-2 text-sm"
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label="Change field type"
+                  >
+                    <div className="flex items-center gap-2">
+                      {Icon && <Icon className="h-5 w-5 text-gray-600" />}
+                      <span className="font-medium text-gray-900">{label}</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableSections.map((type) => {
+                      const TypeIcon = type.icon;
+                      return (
+                        <SelectItem key={type.id} value={type.id}>
+                          <div className="flex items-center gap-2">
+                            <TypeIcon className="h-4 w-4" />
+                            <span>{type.label}</span>
+                          </div>
+                        </SelectItem>
+                      );
+                    })}
+                  </SelectContent>
+                </Select>
+              </div>
             </motion.div>
           )}
           <Popover open={editOpen} onOpenChange={setEditOpen}>
@@ -176,7 +178,10 @@ export default function FieldHeader({
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -24 }}
                 {...(!isDragging ? { layout: true } : {})}
-                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                transition={{
+                  duration: 0.3,
+                  ease: [0.4, 0, 0.2, 1],
+                }}
                 className="flex items-center "
               >
                 {isPreviewMode ? (
@@ -236,7 +241,7 @@ export default function FieldHeader({
         </AnimatePresence>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 relative">
         <AnimatePresence initial={false}>
           {!isHidden("required") && (
             <motion.div

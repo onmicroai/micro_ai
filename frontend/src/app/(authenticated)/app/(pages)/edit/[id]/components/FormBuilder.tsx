@@ -213,6 +213,9 @@ export default function FormBuilder() {
     y: number;
   } | null>(null);
   const [isAppDetailsEditMode, setIsAppDetailsEditMode] = useState(false);
+  const [activeFieldId, setActiveFieldId] = useState<string | undefined>(
+    undefined
+  );
   const cardRef = useRef<HTMLDivElement>(null);
 
   const {
@@ -977,8 +980,8 @@ export default function FormBuilder() {
               isDragActive
                 ? "border-primary-400 bg-primary-50"
                 : isUploading
-                ? "border-primary-300 bg-primary-50"
-                : "border-gray-300 hover:border-primary-600"
+                  ? "border-primary-300 bg-primary-50"
+                  : "border-gray-300 hover:border-primary-600"
             }
             ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}
           `}
@@ -1158,7 +1161,10 @@ export default function FormBuilder() {
       >
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
           <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto relative">
-            <div className="flex items-center h-full">
+            <div
+              className="flex items-center h-full cursor-pointer"
+              onClick={() => router.push("/dashboard")}
+            >
               <Image
                 src={Logo}
                 alt="Micro AI"
@@ -1203,7 +1209,7 @@ export default function FormBuilder() {
           </div>
         </div>
 
-        {!sidebarOpen && (
+        {activeTab === "build" && !sidebarOpen && (
           <div className="flex">
             <AnimatePresence>
               <motion.button
@@ -1236,7 +1242,7 @@ export default function FormBuilder() {
         )}
         <div className="flex-1 flex">
           {sidebarOpen && (
-            <div className="w-80 bg-white border-r border-gray-300 sticky top-0 self-start h-screen flex flex-col transition-all duration-300 z-30">
+            <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
                 <span className="text-sm font-medium text-black">
                   App settings
@@ -1255,10 +1261,10 @@ export default function FormBuilder() {
             </div>
           )}
 
-          <div className="flex-1 transition-all duration-300 flex justify-center">
+          <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] px-2 sm:px-4">
               {activeTab === "build" ? (
-                <div className="py-8">
+                <div className="pt-8 pb-24">
                   <>
                     {/* This motion.div animates the App Details card when switching between edit and preview modes,
                       as well as when its layout changes.
@@ -1274,13 +1280,8 @@ export default function FormBuilder() {
                           setIsAppDetailsEditMode(true);
                       }}
                       transition={{
-                        layout: {
-                          duration: 0.4,
-                          type: "spring",
-                          bounce: 0,
-                          damping: 25,
-                          stiffness: 300,
-                        },
+                        duration: 0.3,
+                        ease: "easeInOut",
                       }}
                     >
                       <div className="flex items-center gap-2 mb-4">
@@ -1355,7 +1356,7 @@ export default function FormBuilder() {
                             exit={{ opacity: 0, y: 10 }}
                             transition={{ duration: 0.18 }}
                           >
-                            <div className="font-semibold text-xl mb-2 text-gray-900">
+                            <div className="font-semibold text-2xl mb-2 text-gray-900">
                               {title || "Untitled App"}
                             </div>
                             <div className="text-sm text-gray-600">
@@ -1430,6 +1431,15 @@ export default function FormBuilder() {
                                                 appId={appId}
                                                 dragHandleProps={
                                                   providedDraggable.dragHandleProps
+                                                }
+                                                isActive={
+                                                  activeFieldId === element.id
+                                                }
+                                                onActivate={() =>
+                                                  setActiveFieldId(element.id)
+                                                }
+                                                onDeactivate={() =>
+                                                  setActiveFieldId(undefined)
                                                 }
                                                 onUpdateFieldLabel={(
                                                   fieldId,
@@ -1888,7 +1898,7 @@ export default function FormBuilder() {
                       <Collapsible
                         open={isOpen}
                         onOpenChange={setIsOpen}
-                        className="mt-8"
+                        className="!mt-8"
                       >
                         <Card>
                           <CollapsibleTrigger asChild>

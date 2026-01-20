@@ -135,6 +135,9 @@ interface FieldProps {
   phaseFields: Element[];
   appFields: Element[];
   appId: number | null;
+  // Indicates whether the field/card is currently active (in edit mode)
+  // Used to control edit/view state
+  isActive?: boolean;
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onUpdateFieldLabel: (
     fieldId: string,
@@ -214,7 +217,11 @@ interface FieldProps {
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
   isDragging?: boolean;
+  onActivate?: () => void;
+  onDeactivate?: () => void;
 }
+
+const FIELD_SHADOW = "0_2px_8px_0_rgba(89,99,232,0.18)";
 
 export default function Field({
   field,
@@ -248,10 +255,12 @@ export default function Field({
   onUpdateTtsEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
+  onActivate,
+  onDeactivate,
   isDragging = false,
+  isActive = false,
 }: FieldProps) {
   const { user } = useUserStore();
-  const [isEditMode, setIsEditMode] = useState(false);
   const [isValidationExpanded, setValidationExpanded] = useState(
     !!field.minChars || !!field.maxChars
   );
@@ -290,11 +299,11 @@ export default function Field({
       }
 
       if (
-        isEditMode &&
+        isActive &&
         fieldRef.current &&
         !fieldRef.current.contains(event.target as Node)
       ) {
-        setIsEditMode(false);
+        if (onDeactivate) onDeactivate();
       }
     };
 
@@ -306,7 +315,7 @@ export default function Field({
         capture: true,
       });
     };
-  }, [isEditMode]);
+  }, [isActive, onDeactivate]);
 
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
@@ -426,7 +435,7 @@ export default function Field({
           }}
           fields={appFields}
           onChange={onUpdatePromptText}
-          isPreviewMode={isEditMode}
+          isPreviewMode={!isActive}
         />
       );
     } else if (field.type === "aiResponse") {
@@ -453,7 +462,7 @@ export default function Field({
           onConditionalLogicChange={(logic) =>
             onUpdateConditionalLogic?.(field.id, logic)
           }
-          isPreviewMode={!isEditMode}
+          isPreviewMode={!isActive}
         />
       );
     }
@@ -1252,8 +1261,8 @@ export default function Field({
                         {isGeneratingSample
                           ? "Generating..."
                           : hasCachedSample
-                          ? "Play Sample"
-                          : "Generate Sample"}
+                            ? "Play Sample"
+                            : "Generate Sample"}
                       </span>
                     </Button>
                   </div>
@@ -1272,10 +1281,15 @@ export default function Field({
       <div
         ref={fieldRef}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
-        ${!isEditMode ? "cursor-pointer hover:shadow-md" : ""}
-      `}
+         ${
+           isActive
+             ? `shadow-[${FIELD_SHADOW}]`
+             : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
+         }
+         `}
+        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
-          if (!isEditMode) setIsEditMode(true);
+          if (!isActive && onActivate) onActivate();
         }}
       >
         {field.conditionalLogic && fieldCondition && (
@@ -1307,7 +1321,7 @@ export default function Field({
           availableFields={phaseFields}
           dragHandleProps={dragHandleProps ?? undefined}
           hiddenElements={
-            !isEditMode
+            !isActive
               ? [
                   "required",
                   "conditionalLogic",
@@ -1319,7 +1333,7 @@ export default function Field({
               : []
           }
           isDragging={isDragging}
-          isPreviewMode={!isEditMode}
+          isPreviewMode={!isActive}
           conditionalLogic={field.conditionalLogic}
         />
         {renderFieldEdit()}
@@ -1465,16 +1479,19 @@ export default function Field({
     <div ref={fieldRef} className={`relative`}>
       <motion.div
         layout={!isDragging}
-        className={`space-y-2 relative md:p-5 bg-white rounded-lg transition-shadow duration-200
+        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
             ${
-              !isEditMode
-                ? "cursor-pointer hover:shadow-md [&_*]:cursor-pointer"
-                : ""
+              isActive
+                ? `shadow-[0_2px_8px_0_rgba(89,99,232,0.18)]` // TODO: Reuse FIELD_SHADOW here
+                : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
             }
          `}
-        onClick={() => {
-          if (!isEditMode) {
-            setIsEditMode(true);
+        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
+        onMouseDown={(e) => {
+          if (!isActive && onActivate) {
+            e.preventDefault();
+            e.stopPropagation();
+            onActivate();
           }
         }}
       >
@@ -1501,7 +1518,7 @@ export default function Field({
             icon={FIELD_ICONS[field.type]}
             label={FIELD_LABELS[field.type] || field.type}
             field={field}
-            isPreviewMode={!isEditMode}
+            isPreviewMode={!isActive}
             onDelete={() => onDeleteField(field.id, isPromptType)}
             onFieldTypeChange={(newType) =>
               onUpdateFieldType?.(field.id, newType)
@@ -1519,7 +1536,7 @@ export default function Field({
             }
             availableFields={phaseFields}
             hiddenElements={
-              !isEditMode
+              !isActive
                 ? [
                     "required",
                     "conditionalLogic",
@@ -1535,7 +1552,7 @@ export default function Field({
           />
 
           <AnimatePresence mode="wait">
-            {isEditMode && (
+            {isActive && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -1593,41 +1610,33 @@ export default function Field({
                           </button>
                         )}
 
-                        <AnimatePresence>
-                          {(showDescription || field.description) && (
-                            <motion.div
-                              className="relative pb-6 pt-2"
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              transition={{ duration: 0.3 }}
-                            >
-                              <textarea
-                                value={field.description || ""}
-                                onChange={(e) =>
-                                  onUpdateFieldDescription(
-                                    field.id,
-                                    e.target.value,
-                                    isPromptType
-                                  )
-                                }
-                                className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
-                                placeholder="Add a description..."
-                              />
-                              {/* Remove description button */}
-                              {!field.description && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setShowDescription(false)}
-                                  className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                        {(showDescription || field.description) && (
+                          <div className="relative pb-6 pt-2">
+                            <textarea
+                              value={field.description || ""}
+                              onChange={(e) =>
+                                onUpdateFieldDescription(
+                                  field.id,
+                                  e.target.value,
+                                  isPromptType
+                                )
+                              }
+                              className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
+                              placeholder="Add a description..."
+                            />
+                            {/* Remove description button */}
+                            {!field.description && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setShowDescription(false)}
+                                className="absolute top-1 right-0 text-gray-400 hover:text-red-500"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
+                        )}
                       </motion.div>
                     </>
                   )}
@@ -1652,7 +1661,7 @@ export default function Field({
               </motion.div>
             )}
 
-            {!isEditMode && !isSpecialType && (
+            {!isActive && !isSpecialType && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
