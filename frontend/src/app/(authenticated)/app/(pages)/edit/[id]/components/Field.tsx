@@ -315,15 +315,6 @@ export default function Field({
     };
   }, [isActive, onDeactivate]);
 
-  // Sync choices when field.choices changes
-  useEffect(() => {
-    setChoices(
-      (field.choices || []).filter(
-        (choice) => choice.value && choice.value !== "",
-      ),
-    );
-  }, [field.choices]);
-
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
     Record<string, string>
