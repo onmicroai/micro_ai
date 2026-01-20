@@ -315,6 +315,15 @@ export default function Field({
     };
   }, [isActive, onDeactivate]);
 
+  // Sync choices when field.choices changes
+  useEffect(() => {
+    setChoices(
+      (field.choices || []).filter(
+        (choice) => choice.value && choice.value !== "",
+      ),
+    );
+  }, [field.choices]);
+
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
     Record<string, string>
@@ -725,13 +734,11 @@ export default function Field({
                 <SelectValue placeholder="Select an option" />
               </SelectTrigger>
               <SelectContent>
-                {choices
-                  .filter((choice) => choice.value && choice.value !== "")
-                  .map((choice, index) => (
-                    <SelectItem key={index} value={choice.value}>
-                      {choice.text}
-                    </SelectItem>
-                  ))}
+                {choices.map((choice, index) => (
+                  <SelectItem key={index} value={choice.value}>
+                    {choice.text}
+                  </SelectItem>
+                ))}
                 {field.showOtherItem && (
                   <SelectItem value="other">Other</SelectItem>
                 )}
