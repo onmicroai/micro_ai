@@ -135,6 +135,8 @@ interface FieldProps {
   phaseFields: Element[];
   appFields: Element[];
   appId: number | null;
+  // Indicates whether the field/card is currently active (in edit mode)
+  // Used to control edit/view state
   isActive?: boolean;
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
   onUpdateFieldLabel: (
@@ -219,6 +221,8 @@ interface FieldProps {
   onDeactivate?: () => void;
 }
 
+const FIELD_SHADOW = "0_2px_8px_0_rgba(89,99,232,0.18)";
+
 export default function Field({
   field,
   phaseFields,
@@ -257,7 +261,6 @@ export default function Field({
   isActive = false,
 }: FieldProps) {
   const { user } = useUserStore();
-  const [isEditMode, setIsEditMode] = useState(false);
   const [isValidationExpanded, setValidationExpanded] = useState(
     !!field.minChars || !!field.maxChars
   );
@@ -296,7 +299,7 @@ export default function Field({
       }
 
       if (
-        isEditMode &&
+        isActive &&
         fieldRef.current &&
         !fieldRef.current.contains(event.target as Node)
       ) {
@@ -312,12 +315,7 @@ export default function Field({
         capture: true,
       });
     };
-  }, [isEditMode, onDeactivate]);
-
-  useEffect(() => {
-    if (isActive && !isEditMode) setIsEditMode(true);
-    if (!isActive && isEditMode) setIsEditMode(false);
-  }, [isActive, isEditMode]);
+  }, [isActive, onDeactivate]);
 
   // Voice sample caching
   const [cachedVoiceSamples, setCachedVoiceSamples] = useState<
@@ -437,7 +435,7 @@ export default function Field({
           }}
           fields={appFields}
           onChange={onUpdatePromptText}
-          isPreviewMode={!isEditMode}
+          isPreviewMode={!isActive}
         />
       );
     } else if (field.type === "aiResponse") {
@@ -464,7 +462,7 @@ export default function Field({
           onConditionalLogicChange={(logic) =>
             onUpdateConditionalLogic?.(field.id, logic)
           }
-          isPreviewMode={!isEditMode}
+          isPreviewMode={!isActive}
         />
       );
     }
@@ -1283,15 +1281,15 @@ export default function Field({
       <div
         ref={fieldRef}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
-        ${
-          !isEditMode
-            ? "cursor-pointer hover:shadow-[0_2px_8px_0_rgba(89,99,232,0.18)]"
-            : ""
-        }
-      `}
-        style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
+         ${
+           isActive
+             ? `shadow-[${FIELD_SHADOW}]`
+             : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
+         }
+         `}
+        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
-          if (!isEditMode && onActivate) onActivate();
+          if (!isActive && onActivate) onActivate();
         }}
       >
         {field.conditionalLogic && fieldCondition && (
@@ -1323,7 +1321,7 @@ export default function Field({
           availableFields={phaseFields}
           dragHandleProps={dragHandleProps ?? undefined}
           hiddenElements={
-            !isEditMode
+            !isActive
               ? [
                   "required",
                   "conditionalLogic",
@@ -1335,7 +1333,7 @@ export default function Field({
               : []
           }
           isDragging={isDragging}
-          isPreviewMode={!isEditMode}
+          isPreviewMode={!isActive}
           conditionalLogic={field.conditionalLogic}
         />
         {renderFieldEdit()}
@@ -1481,16 +1479,16 @@ export default function Field({
     <div ref={fieldRef} className={`relative`}>
       <motion.div
         layout={!isDragging}
-        className={`space-y-2 relative md:p-5 bg-white rounded-lg transition-shadow duration-200
+        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
             ${
-              !isEditMode
-                ? "cursor-pointer hover:shadow-[0_2px_8px_0_rgba(89,99,232,0.18)] [&_*]:cursor-pointer"
-                : ""
+              isActive
+                ? `shadow-[0_2px_8px_0_rgba(89,99,232,0.18)]` // TODO: Reuse FIELD_SHADOW here
+                : `cursor-pointer hover:shadow-[${FIELD_SHADOW}]`
             }
          `}
-        style={isEditMode ? { borderLeft: "4px solid #5963E8" } : undefined}
+        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onMouseDown={(e) => {
-          if (!isEditMode && onActivate) {
+          if (!isActive && onActivate) {
             e.preventDefault();
             e.stopPropagation();
             onActivate();
@@ -1520,7 +1518,7 @@ export default function Field({
             icon={FIELD_ICONS[field.type]}
             label={FIELD_LABELS[field.type] || field.type}
             field={field}
-            isPreviewMode={!isEditMode}
+            isPreviewMode={!isActive}
             onDelete={() => onDeleteField(field.id, isPromptType)}
             onFieldTypeChange={(newType) =>
               onUpdateFieldType?.(field.id, newType)
@@ -1538,7 +1536,7 @@ export default function Field({
             }
             availableFields={phaseFields}
             hiddenElements={
-              !isEditMode
+              !isActive
                 ? [
                     "required",
                     "conditionalLogic",
@@ -1554,7 +1552,7 @@ export default function Field({
           />
 
           <AnimatePresence mode="wait">
-            {isEditMode && (
+            {isActive && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
@@ -1663,7 +1661,7 @@ export default function Field({
               </motion.div>
             )}
 
-            {!isEditMode && !isSpecialType && (
+            {!isActive && !isSpecialType && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
