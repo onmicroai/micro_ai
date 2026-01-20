@@ -63,6 +63,7 @@ import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import Image from "next/image";
+import MonitorPreview from "./ui/monitor-preview";
 
 // Options for the "Add section" dialog
 const fieldTypes = [
@@ -1943,7 +1944,11 @@ export default function FormBuilder() {
                   </>
                 </div>
               ) : (
-                <AppRuntimeView hashId={hashId} />
+                <MonitorPreview
+                  previewUrl={`${window.location.origin}/app/${hashId}`}
+                >
+                  <AppRuntimeView hashId={hashId} />
+                </MonitorPreview>
               )}
             </div>
           </div>
