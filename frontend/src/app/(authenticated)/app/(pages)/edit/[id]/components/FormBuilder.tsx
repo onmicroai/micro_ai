@@ -202,7 +202,7 @@ export default function FormBuilder() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const [addSectionOpenFor, setAddSectionOpenFor] = useState<string | null>(
-    null
+    null,
   );
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
   const [backgroundTheme] = useState<"white" | "gray">("gray");
@@ -214,7 +214,7 @@ export default function FormBuilder() {
   } | null>(null);
   const [isAppDetailsEditMode, setIsAppDetailsEditMode] = useState(false);
   const [activeFieldId, setActiveFieldId] = useState<string | undefined>(
-    undefined
+    undefined,
   );
   const cardRef = useRef<HTMLDivElement>(null);
 
@@ -262,21 +262,23 @@ export default function FormBuilder() {
       const updatedInstructions = instructions.map((inst, idx) =>
         idx === conditionalSidebarContext.instructionIndex
           ? { ...inst, conditionalLogic: logic }
-          : inst
+          : inst,
       );
 
       await setElements(
         (Array.isArray(elements) ? elements : []).map((el) =>
-          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
-        )
+          el.id === field.id
+            ? { ...el, instructions: updatedInstructions }
+            : el,
+        ),
       );
     } else {
       await setElements(
         (Array.isArray(elements) ? elements : []).map((el) =>
           el.id === conditionalSidebarContext.field.id
             ? { ...el, conditionalLogic: logic }
-            : el
-        )
+            : el,
+        ),
       );
     }
     setConditionalSidebarOpen(false);
@@ -295,21 +297,23 @@ export default function FormBuilder() {
       const updatedInstructions = instructions.map((inst, idx) =>
         idx === conditionalSidebarContext.instructionIndex
           ? { ...inst, conditionalLogic: undefined }
-          : inst
+          : inst,
       );
 
       setElements(
         (Array.isArray(elements) ? elements : []).map((el) =>
-          el.id === field.id ? { ...el, instructions: updatedInstructions } : el
-        )
+          el.id === field.id
+            ? { ...el, instructions: updatedInstructions }
+            : el,
+        ),
       );
     } else {
       setElements(
         (Array.isArray(elements) ? elements : []).map((el) =>
           el.id === conditionalSidebarContext.field.id
             ? { ...el, conditionalLogic: undefined }
-            : el
-        )
+            : el,
+        ),
       );
     }
     setConditionalSidebarOpen(false);
@@ -362,7 +366,7 @@ export default function FormBuilder() {
         setIsUploading(false);
       }
     },
-    [fileUploader, addAttachedFile]
+    [fileUploader, addAttachedFile],
   );
 
   const removeFile = useCallback(
@@ -374,7 +378,7 @@ export default function FormBuilder() {
       }
       await removeAttachedFile(file.original_filename);
     },
-    [uploadedFiles, removeAttachedFile]
+    [uploadedFiles, removeAttachedFile],
   );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -439,10 +443,10 @@ export default function FormBuilder() {
     (elementId: string, updates: Partial<Element>) => {
       const current = Array.isArray(elements) ? elements : [];
       setElements(
-        current.map((el) => (el.id === elementId ? { ...el, ...updates } : el))
+        current.map((el) => (el.id === elementId ? { ...el, ...updates } : el)),
       );
     },
-    [elements, setElements]
+    [elements, setElements],
   );
 
   const deleteElement = useCallback(
@@ -450,7 +454,7 @@ export default function FormBuilder() {
       const current = Array.isArray(elements) ? elements : [];
       setElements(current.filter((el) => el.id !== elementId));
     },
-    [elements, setElements]
+    [elements, setElements],
   );
 
   /**
@@ -529,7 +533,7 @@ export default function FormBuilder() {
   const updateFieldLabel = (
     fieldId: string,
     newLabel: string,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     // For title elements we also mirror label into text for display.
     updateElement(fieldId, { label: newLabel, text: newLabel });
@@ -541,7 +545,7 @@ export default function FormBuilder() {
   const updateFieldName = (
     fieldId: string,
     newName: string,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, { name: newName });
   };
@@ -552,7 +556,7 @@ export default function FormBuilder() {
   const updateFieldRequired = (
     fieldId: string,
     isRequired: boolean,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, { isRequired });
   };
@@ -570,7 +574,7 @@ export default function FormBuilder() {
   const updateFieldDescription = (
     fieldId: string,
     description: string,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, { description });
   };
@@ -583,7 +587,7 @@ export default function FormBuilder() {
     fieldId: string,
     minChars: number | null,
     maxChars: number | null,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, {
       minChars: minChars ?? undefined,
@@ -596,7 +600,7 @@ export default function FormBuilder() {
    */
   const updateFieldDefaultValue = (
     fieldId: string,
-    value: string | string[] | number | boolean
+    value: string | string[] | number | boolean,
   ) => {
     updateElement(fieldId, { defaultValue: value });
   };
@@ -632,7 +636,7 @@ export default function FormBuilder() {
       minValue?: number;
       maxValue?: number;
       step?: number;
-    }
+    },
   ) => {
     updateElement(fieldId, updates);
   };
@@ -726,7 +730,7 @@ export default function FormBuilder() {
   const updateFieldText = (
     fieldId: string,
     text: string,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, { text });
   };
@@ -738,7 +742,7 @@ export default function FormBuilder() {
   const updateFieldRichText = (
     fieldId: string,
     html: string,
-    _isPrompt: boolean = false
+    _isPrompt: boolean = false,
   ) => {
     updateElement(fieldId, { html });
   };
@@ -750,7 +754,7 @@ export default function FormBuilder() {
   const handleUpdateConditionalLogic = (
     fieldId: string,
     logic: ConditionalLogic | null,
-    _isPrompt: boolean
+    _isPrompt: boolean,
   ) => {
     updateElement(fieldId, { conditionalLogic: logic || undefined });
   };
@@ -766,7 +770,7 @@ export default function FormBuilder() {
       maxFiles?: number;
       maxFileSize?: number;
       allowedFileTypes?: string[];
-    }
+    },
   ) => {
     updateElement(fieldId, settings);
   };
@@ -785,7 +789,7 @@ export default function FormBuilder() {
    */
   const updateFieldInitialMessage = (
     fieldId: string,
-    initialMessage: string
+    initialMessage: string,
   ) => {
     updateElement(fieldId, { initialMessage });
   };
@@ -842,8 +846,8 @@ export default function FormBuilder() {
 
     setUploadedFiles((prev) =>
       prev.map((file, i) =>
-        i === index ? { ...file, description: truncatedDescription } : file
-      )
+        i === index ? { ...file, description: truncatedDescription } : file,
+      ),
     );
 
     // Update description in store
@@ -1118,7 +1122,7 @@ export default function FormBuilder() {
                     ...aiConfig,
                     temperature: Math.min(
                       max,
-                      Math.max(min, Number(value.toFixed(2)))
+                      Math.max(min, Number(value.toFixed(2))),
                     ),
                   });
                 }
@@ -1241,7 +1245,7 @@ export default function FormBuilder() {
           </div>
         )}
         <div className="flex-1 flex">
-          {sidebarOpen && (
+          {activeTab === "build" && sidebarOpen && (
             <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
                 <span className="text-sm font-medium text-black">
@@ -1397,7 +1401,7 @@ export default function FormBuilder() {
                                         >
                                           {(
                                             providedDraggable,
-                                            snapshotDraggable
+                                            snapshotDraggable,
                                           ) => (
                                             <motion.div
                                               layout={
@@ -1444,162 +1448,162 @@ export default function FormBuilder() {
                                                 onUpdateFieldLabel={(
                                                   fieldId,
                                                   newLabel,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   updateFieldLabel(
                                                     fieldId,
                                                     newLabel,
-                                                    isPrompt
+                                                    isPrompt,
                                                   )
                                                 }
                                                 onUpdateFieldName={(
                                                   fieldId,
                                                   newName,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   updateFieldName(
                                                     fieldId,
                                                     newName,
-                                                    isPrompt
+                                                    isPrompt,
                                                   )
                                                 }
                                                 onUpdateFieldType={(
                                                   fieldId,
-                                                  newType
+                                                  newType,
                                                 ) =>
                                                   updateFieldType(
                                                     fieldId,
-                                                    newType
+                                                    newType,
                                                   )
                                                 }
                                                 onDeleteField={(
                                                   fieldId,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   deleteField(fieldId, isPrompt)
                                                 }
                                                 onUpdateFieldDescription={(
                                                   fieldId,
                                                   description,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   updateFieldDescription(
                                                     fieldId,
                                                     description,
-                                                    isPrompt
+                                                    isPrompt,
                                                   )
                                                 }
                                                 onUpdateFieldRequired={(
                                                   fieldId,
                                                   required,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   updateFieldRequired(
                                                     fieldId,
                                                     required,
-                                                    isPrompt
+                                                    isPrompt,
                                                   )
                                                 }
                                                 onUpdateFieldValidation={(
                                                   fieldId,
                                                   minChars,
                                                   maxChars,
-                                                  isPrompt
+                                                  isPrompt,
                                                 ) =>
                                                   updateFieldValidation(
                                                     fieldId,
                                                     minChars,
                                                     maxChars,
-                                                    isPrompt
+                                                    isPrompt,
                                                   )
                                                 }
                                                 onUpdateFieldDefaultValue={(
                                                   fieldId,
-                                                  defaultValue
+                                                  defaultValue,
                                                 ) =>
                                                   updateFieldDefaultValue(
                                                     fieldId,
-                                                    defaultValue
+                                                    defaultValue,
                                                   )
                                                 }
                                                 onUpdateFieldPlaceholder={(
                                                   fieldId,
-                                                  placeholder
+                                                  placeholder,
                                                 ) =>
                                                   updateFieldPlaceholder(
                                                     fieldId,
-                                                    placeholder
+                                                    placeholder,
                                                   )
                                                 }
                                                 onUpdateFieldChoices={(
                                                   fieldId,
-                                                  choices
+                                                  choices,
                                                 ) =>
                                                   updateFieldChoices(
                                                     fieldId,
-                                                    choices
+                                                    choices,
                                                   )
                                                 }
                                                 onUpdateFieldShowOther={(
                                                   fieldId,
-                                                  showOther
+                                                  showOther,
                                                 ) =>
                                                   updateFieldShowOther(
                                                     fieldId,
-                                                    showOther
+                                                    showOther,
                                                   )
                                                 }
                                                 onUpdateFieldSliderProps={(
                                                   fieldId,
-                                                  updates
+                                                  updates,
                                                 ) =>
                                                   updateFieldSliderProps(
                                                     fieldId,
-                                                    updates
+                                                    updates,
                                                   )
                                                 }
                                                 onUpdateFieldSliderValue={(
                                                   fieldId,
-                                                  value
+                                                  value,
                                                 ) =>
                                                   updateFieldSliderValue(
                                                     fieldId,
-                                                    value
+                                                    value,
                                                   )
                                                 }
                                                 onUpdatePromptText={(
                                                   fieldId,
-                                                  text
+                                                  text,
                                                 ) =>
                                                   updateFieldText(
                                                     fieldId,
                                                     text,
-                                                    true
+                                                    true,
                                                   )
                                                 }
                                                 onUpdateRichText={(
                                                   fieldId,
-                                                  html
+                                                  html,
                                                 ) =>
                                                   updateFieldRichText(
                                                     fieldId,
                                                     html,
-                                                    false
+                                                    false,
                                                   )
                                                 }
                                                 onUpdateConditionalLogic={(
                                                   fieldId,
-                                                  logic
+                                                  logic,
                                                 ) =>
                                                   handleUpdateConditionalLogic(
                                                     fieldId,
                                                     logic,
-                                                    false
+                                                    false,
                                                   )
                                                 }
                                                 onUpdateAiResponseInstructions={(
                                                   fieldId,
-                                                  instructions
+                                                  instructions,
                                                 ) =>
                                                   updateElement(fieldId, {
                                                     instructions,
@@ -1607,92 +1611,92 @@ export default function FormBuilder() {
                                                 }
                                                 onUpdateScoringSettings={(
                                                   fieldId,
-                                                  updates
+                                                  updates,
                                                 ) =>
                                                   updateElement(
                                                     fieldId,
-                                                    updates
+                                                    updates,
                                                   )
                                                 }
                                                 onUpdateImageUploadSettings={(
                                                   fieldId,
-                                                  settings
+                                                  settings,
                                                 ) =>
                                                   updateImageUploadSettings(
                                                     fieldId,
-                                                    settings
+                                                    settings,
                                                   )
                                                 }
                                                 onUpdateFieldMaxMessages={(
                                                   fieldId,
-                                                  maxMessages
+                                                  maxMessages,
                                                 ) =>
                                                   updateFieldMaxMessages(
                                                     fieldId,
-                                                    maxMessages
+                                                    maxMessages,
                                                   )
                                                 }
                                                 onUpdateFieldInitialMessage={(
                                                   fieldId,
-                                                  initialMessage
+                                                  initialMessage,
                                                 ) =>
                                                   updateFieldInitialMessage(
                                                     fieldId,
-                                                    initialMessage
+                                                    initialMessage,
                                                   )
                                                 }
                                                 onUpdateChatbotInstructions={(
                                                   fieldId,
-                                                  instructions
+                                                  instructions,
                                                 ) =>
                                                   updateChatbotInstructions(
                                                     fieldId,
-                                                    instructions
+                                                    instructions,
                                                   )
                                                 }
                                                 onUpdateTtsProvider={(
                                                   fieldId,
-                                                  provider
+                                                  provider,
                                                 ) =>
                                                   updateTtsProvider(
                                                     fieldId,
-                                                    provider
+                                                    provider,
                                                   )
                                                 }
                                                 onUpdateTtsVoiceId={(
                                                   fieldId,
-                                                  voiceId
+                                                  voiceId,
                                                 ) =>
                                                   updateTtsVoiceId(
                                                     fieldId,
-                                                    voiceId
+                                                    voiceId,
                                                   )
                                                 }
                                                 onUpdateTtsEnabled={(
                                                   fieldId,
-                                                  enabled
+                                                  enabled,
                                                 ) =>
                                                   updateTtsEnabled(
                                                     fieldId,
-                                                    enabled
+                                                    enabled,
                                                   )
                                                 }
                                                 onUpdateVoiceInstructions={(
                                                   fieldId,
-                                                  instructions
+                                                  instructions,
                                                 ) =>
                                                   updateVoiceInstructions(
                                                     fieldId,
-                                                    instructions
+                                                    instructions,
                                                   )
                                                 }
                                                 onUpdateAvatarUrl={(
                                                   fieldId,
-                                                  avatarUrl
+                                                  avatarUrl,
                                                 ) =>
                                                   updateAvatarUrl(
                                                     fieldId,
-                                                    avatarUrl
+                                                    avatarUrl,
                                                   )
                                                 }
                                                 isDragging={
@@ -1717,7 +1721,7 @@ export default function FormBuilder() {
                                                   y: e.clientY - 400,
                                                 });
                                                 setAddSectionOpenFor(
-                                                  `between-${element.id}`
+                                                  `between-${element.id}`,
                                                 );
                                                 setInsertAfterIndex(index);
                                               }}
@@ -1732,7 +1736,7 @@ export default function FormBuilder() {
                                                 setAddSectionOpenFor(
                                                   open
                                                     ? `between-${element.id}`
-                                                    : null
+                                                    : null,
                                                 );
                                                 if (!open) {
                                                   setInsertAfterIndex(null);
@@ -1774,10 +1778,10 @@ export default function FormBuilder() {
                                                           onClick={() => {
                                                             addElementToApp(
                                                               section.id,
-                                                              insertAfterIndex
+                                                              insertAfterIndex,
                                                             );
                                                             setAddSectionOpenFor(
-                                                              null
+                                                              null,
                                                             );
                                                           }}
                                                           className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
@@ -1808,7 +1812,7 @@ export default function FormBuilder() {
                                                           </TooltipProvider>
                                                         </button>
                                                       );
-                                                    }
+                                                    },
                                                   )}
                                                 </div>
                                               </PopoverContent>
@@ -1817,7 +1821,7 @@ export default function FormBuilder() {
                                         )}
                                       </React.Fragment>
                                     );
-                                  }
+                                  },
                                 );
                               })()}
                               {provided.placeholder}
@@ -1828,7 +1832,7 @@ export default function FormBuilder() {
                                   open={addSectionOpenFor === "end-button"}
                                   onOpenChange={(open) => {
                                     setAddSectionOpenFor(
-                                      open ? "end-button" : null
+                                      open ? "end-button" : null,
                                     );
                                     if (!open) {
                                       setInsertAfterIndex(null);
@@ -1860,7 +1864,7 @@ export default function FormBuilder() {
                                             onClick={() => {
                                               addElementToApp(
                                                 section.id,
-                                                insertAfterIndex
+                                                insertAfterIndex,
                                               );
                                               setAddSectionOpenFor(null);
                                             }}
