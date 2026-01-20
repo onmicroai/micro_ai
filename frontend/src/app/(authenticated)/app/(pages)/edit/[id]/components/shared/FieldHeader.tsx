@@ -256,7 +256,7 @@ export default function FieldHeader({
               <Switch
                 checked={isRequired}
                 onCheckedChange={onRequiredChange}
-                className="data-[state=checked]:bg-blue-400 data-[state=unchecked]:bg-gray-400"
+                className="data-[state=unchecked]:bg-gray-400"
                 onClick={(e) => e.stopPropagation()}
               />
               <span className="text-sm text-gray-600">Required</span>
