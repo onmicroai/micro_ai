@@ -26,13 +26,13 @@ const CheckboxQuestion = ({
   disabled,
 }: CheckboxQuestionProps) => {
   const [isOtherSelected, setIsOtherSelected] = useState(
-    answers[element.name]?.value?.includes("other") || false
+    answers[element.name]?.value?.includes("other") || false,
   );
   const [otherValue, setOtherValue] = useState(
-    answers[element.name]?.otherValue || ""
+    answers[element.name]?.otherValue || "",
   );
   const [isNoneSelected, setIsNoneSelected] = useState(
-    answers[element.name]?.value?.includes("none") || false
+    answers[element.name]?.value?.includes("none") || false,
   );
   const selectedAnswers = answers[element.name]?.value || [];
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -54,7 +54,7 @@ const CheckboxQuestion = ({
       const error = errors.find((error) => error.element === elementName);
       return error ? error.error : null;
     },
-    [errors]
+    [errors],
   );
 
   /**
@@ -93,7 +93,7 @@ const CheckboxQuestion = ({
 
       return baseOptions;
     },
-    [noneText, otherLabel]
+    [noneText, otherLabel],
   );
 
   /**
@@ -149,7 +149,7 @@ const CheckboxQuestion = ({
       className={`${
         evaluateVisibility(
           element.conditionalLogic || ({} as ConditionalLogic),
-          answers
+          answers,
         )
           ? ""
           : "hidden"
@@ -177,7 +177,7 @@ const CheckboxQuestion = ({
           hasError ? "text-red-900" : "text-gray-700"
         }`}
       >
-        <div className="space-y-6">
+        <div className="space-y-2">
           {checkboxOptions.map((choice, index) => (
             <div key={`${element.name}-${index}`} className="flex gap-3">
               <div className="flex h-6 shrink-0 items-center">
