@@ -951,8 +951,8 @@ export default function FormBuilder() {
         <textarea
           value={completedHtml}
           onChange={(e) => setCompletedHtml(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 
-            text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
+            text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y mb-4"
           placeholder="Enter your message here"
         />
       </div>
@@ -1079,7 +1079,7 @@ export default function FormBuilder() {
               onChange={(e) =>
                 setAIConfig({ ...aiConfig, systemPrompt: e.target.value })
               }
-              className="w-full rounded-md border border-gray-300 px-3 py-2 
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
                 text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
               placeholder="Enter your prompt here"
             />
@@ -1128,7 +1128,7 @@ export default function FormBuilder() {
                   });
                 }
               }}
-              className="w-full"
+              className="w-full text-sm"
               placeholder={`Enter temperature (${
                 availableModels[aiConfig.aiModel]?.min ?? 0
               }-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
@@ -1148,7 +1148,7 @@ export default function FormBuilder() {
                 const value = e.target.value ? parseInt(e.target.value) : null;
                 setAIConfig({ ...aiConfig, maxResponseTokens: value });
               }}
-              className="w-full"
+              className="w-full text-sm"
               placeholder="Leave empty for no limit"
             />
           </div>
