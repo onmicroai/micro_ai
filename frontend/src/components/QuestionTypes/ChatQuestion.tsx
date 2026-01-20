@@ -120,7 +120,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
   // Count only user messages
   const userMessageCount = messages.filter(
-    (msg) => msg.sender === "user"
+    (msg) => msg.sender === "user",
   ).length;
 
   /**
@@ -248,7 +248,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const handleSend = async (
     message: string,
     wasAudioInput: boolean = false,
-    transcriptionCost?: number
+    transcriptionCost?: number,
   ) => {
     if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
       return;
@@ -321,7 +321,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               element.ttsProvider || "openai",
               element.selectedVoiceId || "alloy",
               element.voiceInstructions,
-              userId
+              userId,
             );
           } catch (error) {
             console.error("Error synthesizing speech:", error);
@@ -377,7 +377,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
       const run = store.currentConversation?.runs.find(
-        (r) => r.id === msg.run_id
+        (r) => r.id === msg.run_id,
       );
       return sum + (run?.credits || 0);
     }
@@ -389,7 +389,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       className={`${
         evaluateVisibility(
           element.conditionalLogic || ({} as ConditionalLogic),
-          answers
+          answers,
         )
           ? ""
           : "hidden"
@@ -413,7 +413,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       {isActive ? (
         <div
           className="border rounded-lg overflow-hidden shadow-sm"
-          style={{ height: "500px", position: "relative" }}
+          style={{ height: "400px", position: "relative" }}
         >
           <div className="flex flex-col h-full">
             {/* Messages Container */}
