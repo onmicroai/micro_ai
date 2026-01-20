@@ -317,7 +317,11 @@ export default function Field({
 
   // Sync choices when field.choices changes
   useEffect(() => {
-    setChoices(field.choices || []);
+    setChoices(
+      (field.choices || []).filter(
+        (choice) => choice.value && choice.value !== "",
+      ),
+    );
   }, [field.choices]);
 
   // Voice sample caching
