@@ -108,7 +108,13 @@ export default function ScoringField({
     if (isPreview) return;
     const newCategories: ScoringCategory[] = [
       ...categories,
-      { criteria: `Category ${categories.length + 1}`, lines: [] },
+      {
+        criteria: `Category ${categories.length + 1}`,
+        lines: [
+          { score: 1, description: "" },
+          { score: 0, description: "" },
+        ],
+      },
     ];
     onChange?.(field.id, { rubric: JSON.stringify(newCategories) });
   };
