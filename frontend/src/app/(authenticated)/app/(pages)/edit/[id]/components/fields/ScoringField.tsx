@@ -86,11 +86,18 @@ export default function ScoringField({
 
   const handleAddLine = (catIdx: number) => {
     if (isPreview) return;
+    const lastScore =
+      categories[catIdx].lines.length > 0
+        ? Number(
+            categories[catIdx].lines[categories[catIdx].lines.length - 1].score,
+          ) || 0
+        : 0;
+    const newScore = lastScore + 1;
     const newCategories = categories.map((cat, i) =>
       i === catIdx
         ? {
             ...cat,
-            lines: [...cat.lines, { score: 0, description: "" }],
+            lines: [...cat.lines, { score: newScore, description: "" }],
           }
         : cat,
     );
