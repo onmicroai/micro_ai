@@ -63,7 +63,7 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
 
   return (
     <tr className="group border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors relative">
-      <td className="p-0 w-32 align-top relative transition-colors">
+      <td className="p-0 w-32 align-middle relative transition-colors text-center">
         {!isPreview ? (
           <>
             <div className="relative w-full h-full">
@@ -85,7 +85,7 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
                     handleLineChange(catIdx, lineIdx, line.description, 0);
                   }
                 }}
-                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:bg-white px-4 py-3 text-sm font-bold resize-none m-0 text-gray-900 placeholder:text-gray-300"
+                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:bg-white px-4 py-3 text-sm font-bold resize-none m-0 text-gray-900 placeholder:text-gray-300 text-center"
                 style={{ minHeight: "48px", boxSizing: "border-box" }}
                 placeholder="0"
               />
@@ -93,7 +93,7 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
             <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-200 group-hover:bg-gray-300 z-10 pointer-events-none" />
           </>
         ) : (
-          <div className="px-4 py-3 font-bold text-sm border-r border-gray-200">
+          <div className="px-4 py-3 font-bold text-sm border-r border-gray-200 flex items-center justify-center h-full min-h-[48px]">
             {line.score}
           </div>
         )}
