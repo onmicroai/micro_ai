@@ -52,6 +52,7 @@ import { synthesizeSpeech } from "@/utils/textToSpeechService";
 import { Play, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import InstructionConditionBox from "./shared/InstructionConditionBox";
+import ScoringField from "@/app/(authenticated)/app/(pages)/edit/[id]/components/fields/ScoringField";
 
 const FIELD_ICONS: Record<
   string,
@@ -486,31 +487,13 @@ export default function Field({
 
     if (field.type === "scoring") {
       return (
-        <div className="space-y-3">
-          <div className="space-y-1">
-            <Label className="text-sm">Minimum score</Label>
-            <Input
-              type="number"
-              value={typeof field.minScore === "number" ? field.minScore : 0}
-              onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, {
-                  minScore: Number(e.target.value || 0),
-                })
-              }
-            />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-sm">Rubric</Label>
-            <Textarea
-              value={field.rubric || ""}
-              placeholder="Enter rubric..."
-              onChange={(e) =>
-                onUpdateScoringSettings?.(field.id, { rubric: e.target.value })
-              }
-              className="min-h-[160px]"
-            />
-          </div>
-        </div>
+        <ScoringField
+          field={field}
+          isPreview={!isActive}
+          onChange={(fieldId, updates) =>
+            onUpdateScoringSettings?.(fieldId, updates)
+          }
+        />
       );
     }
 
@@ -1283,7 +1266,7 @@ export default function Field({
     }
   };
 
-  if (isPromptType) {
+  if (isPromptType || field.type === "scoring") {
     return (
       <div
         ref={fieldRef}
@@ -1435,15 +1418,7 @@ export default function Field({
               {field.text || field.label}
             </h2>
           );
-        case "scoring":
-          return (
-            <div>
-              <div className="font-medium mb-1">Scoring</div>
-              <div className="text-sm text-gray-600">
-                {field.rubric || "No rubric set."}
-              </div>
-            </div>
-          );
+
         default:
           //TODO: Display restrictions labels
           return (
@@ -1481,7 +1456,7 @@ export default function Field({
   return (
     <div ref={fieldRef} className={`relative`}>
       <motion.div
-        layout={!isDragging}
+        layout={!isDragging ? "position" : false}
         className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
             ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
          `}
@@ -1496,7 +1471,10 @@ export default function Field({
       >
         <div className="relative z-10 !mt-0">
           {field.conditionalLogic && fieldCondition && (
-            <motion.div className="mb-4" layout={!isDragging}>
+            <motion.div
+              className="mb-4"
+              layout={!isDragging ? "position" : false}
+            >
               <InstructionConditionBox
                 property={
                   fieldCondition.name ||

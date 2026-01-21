@@ -507,7 +507,18 @@ export default function FormBuilder() {
         instructions: [{ text: "" }],
       }),
       ...(type === "fixedResponse" && { text: "" }),
-      ...(type === "scoring" && { rubric: "", minScore: 0 }),
+      ...(type === "scoring" && {
+        rubric: JSON.stringify([
+          {
+            criteria: "Category 1",
+            lines: [
+              { score: 1, description: "" },
+              { score: 0, description: "" },
+            ],
+          },
+        ]),
+        minScore: 0,
+      }),
       ...(type === "imageUpload" && {
         multiple: false,
         maxFiles: 1,
@@ -1419,6 +1430,8 @@ export default function FormBuilder() {
                                               <motion.div
                                                 layout={
                                                   !snapshotDraggable.isDragging
+                                                    ? "position"
+                                                    : false
                                                 }
                                                 transition={{
                                                   duration: 0.3,
