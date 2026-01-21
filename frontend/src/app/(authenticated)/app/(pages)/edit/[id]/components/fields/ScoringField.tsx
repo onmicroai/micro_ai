@@ -551,6 +551,17 @@ export default function ScoringField({
                     <Trash2 className="h-5 w-5" />
                   </button>
                 </div>
+
+                {rubricText && rubricText.trim().length > 0 && (
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">
+                      Included Instructions
+                    </label>
+                    <div className="w-full border border-gray-200 bg-gray-50 rounded-lg p-3 text-sm text-gray-700 max-h-[120px] overflow-y-auto whitespace-pre-wrap">
+                      {rubricText}
+                    </div>
+                  </div>
+                )}
               </>
             )}
 
@@ -558,16 +569,44 @@ export default function ScoringField({
               <Button variant="outline" onClick={() => setShowAIModal(false)}>
                 Cancel
               </Button>
-              <Button
-                variant="default"
-                className="bg-primary text-white"
-                onClick={() => {
-                  // TODO: Implement generation logic
-                  setShowAIModal(false);
-                }}
-              >
-                Generate rubric
-              </Button>
+
+              <TooltipProvider delayDuration={0}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    {/* Wrapper span needed for tooltip to work on disabled button */}
+                    <span tabIndex={0} className="inline-block">
+                      <Button
+                        variant="default"
+                        className="bg-primary text-white pointer-events-none"
+                        disabled={!rubricText.trim() && !uploadedFile}
+                        style={{
+                          pointerEvents:
+                            !rubricText.trim() && !uploadedFile
+                              ? "none"
+                              : "auto",
+                        }}
+                        onClick={() => {
+                          // TODO: Implement generation logic
+                          setShowAIModal(false);
+                          setRubricText("");
+                          setUploadedFile(null);
+                        }}
+                      >
+                        Generate rubric
+                      </Button>
+                    </span>
+                  </TooltipTrigger>
+
+                  {!rubricText.trim() && !uploadedFile && (
+                    <TooltipContent
+                      side="top"
+                      className="bg-gray-900 text-white border-0"
+                    >
+                      <p>Please enter text or upload a file to continue</p>
+                    </TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
