@@ -34,9 +34,8 @@ export default function ScoringField({
 }: ScoringFieldProps) {
   const [showAIModal, setShowAIModal] = useState(false);
   const [rubricText, setRubricText] = useState("");
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
-
   // Parse rubric from JSON string
   const categories: ScoringCategory[] = (() => {
     try {
@@ -114,15 +113,18 @@ export default function ScoringField({
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setUploadedFile(e.target.files[0]);
+    if (e.target.files && e.target.files.length > 0) {
+      const newFiles = Array.from(e.target.files);
+      setUploadedFiles((prev) => [...prev, ...newFiles]);
     }
+    if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      setUploadedFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newFiles = Array.from(e.dataTransfer.files);
+      setUploadedFiles((prev) => [...prev, ...newFiles]);
     }
   };
 
@@ -130,12 +132,10 @@ export default function ScoringField({
     e.preventDefault();
   };
 
-  const removeFile = () => {
-    setUploadedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
+  const removeFile = (indexToRemove: number) => {
+    setUploadedFiles((prev) => prev.filter((_, i) => i !== indexToRemove));
   };
+
   const triggerFileInput = () => {
     fileInputRef.current?.click();
   };
@@ -316,8 +316,8 @@ export default function ScoringField({
         onClose={() => setShowAIModal(false)}
         rubricText={rubricText}
         setRubricText={setRubricText}
-        uploadedFile={uploadedFile}
-        setUploadedFile={setUploadedFile}
+        uploadedFiles={uploadedFiles}
+        setUploadedFiles={setUploadedFiles}
         fileInputRef={fileInputRef}
         removeFile={removeFile}
         triggerFileInput={triggerFileInput}

@@ -14,10 +14,10 @@ interface RubricAIModalProps {
   onClose: () => void;
   rubricText: string;
   setRubricText: (val: string) => void;
-  uploadedFile: File | null;
-  setUploadedFile?: (file: File | null) => void;
+  uploadedFiles: File[];
+  setUploadedFiles: (files: File[]) => void;
   fileInputRef: React.RefObject<HTMLInputElement>;
-  removeFile: () => void;
+  removeFile: (index: number) => void;
   triggerFileInput: () => void;
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDrop: (e: React.DragEvent) => void;
@@ -29,8 +29,8 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
   onClose,
   rubricText,
   setRubricText,
-  uploadedFile,
-  setUploadedFile,
+  uploadedFiles,
+  setUploadedFiles,
   fileInputRef,
   removeFile,
   triggerFileInput,
@@ -52,7 +52,7 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
 
   if (!open) return null;
 
-  const isGenerateDisabled = !rubricText.trim() && !uploadedFile;
+  const isGenerateDisabled = !rubricText.trim() && uploadedFiles.length === 0;
 
   return (
     <div className="ai-modal-overlay fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
@@ -73,6 +73,7 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
         {/* Hidden file input */}
         <input
           type="file"
+          multiple
           ref={fileInputRef}
           onChange={handleFileSelect}
           accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx"
@@ -80,8 +81,8 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
         />
 
         <p className="text-gray-600 text-sm mb-4">
-          Type your rubric, provide related file or image and AI will prepare an
-          editable scoring table for you.
+          Type your rubric, provide related files or images and AI will prepare
+          an editable scoring table for you.
         </p>
 
         <div className="border-b border-gray-200 my-4" />
@@ -97,66 +98,67 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
             onChange={(e) => setRubricText(e.target.value)}
           />
         </div>
-
-        {!uploadedFile ? (
-          <>
-            <div className="relative flex py-2 items-center mb-4">
+        {uploadedFiles.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <div className="relative flex py-2 items-center">
               <div className="flex-grow border-t border-gray-200"></div>
               <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                Or upload file
+                Attached files ({uploadedFiles.length})
               </span>
               <div className="flex-grow border-t border-gray-200"></div>
             </div>
 
-            <div
-              className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center py-6 hover:bg-gray-100 transition-colors cursor-pointer group"
-              onClick={triggerFileInput}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-            >
-              <div className="bg-white p-2 rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                <UploadCloud className="h-6 w-6 text-primary" />
-              </div>
-              <div className="mt-1 text-gray-900 font-medium text-sm">
-                Click to upload or drag and drop
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                JPG, PNG, PDF, DOCX, XLSX
-              </div>
-            </div>
-          </>
-        ) : (
-          <>
-            <div className="relative flex py-2 items-center mb-4">
-              <div className="flex-grow border-t border-gray-200"></div>
-              <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                Attached file
-              </span>
-              <div className="flex-grow border-t border-gray-200"></div>
-            </div>
-
-            <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white mb-6 shadow-sm">
-              <div className="bg-gray-100 p-2 rounded-lg text-gray-600">
-                <FileText className="h-6 w-6" />
-              </div>
-              <div className="flex-1 overflow-hidden">
-                <div className="text-sm font-medium text-gray-900 truncate">
-                  {uploadedFile.name}
-                </div>
-                <div className="text-xs text-gray-500">
-                  {formatFileSize(uploadedFile.size)}
-                </div>
-              </div>
-              <button
-                onClick={removeFile}
-                className="text-gray-400 hover:text-red-500 p-2 transition-colors"
-                title="Remove file"
+            {uploadedFiles.map((file, index) => (
+              <div
+                key={`${file.name}-${index}`}
+                className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white shadow-sm"
               >
-                <Trash2 className="h-5 w-5" />
-              </button>
-            </div>
-          </>
+                <div className="bg-gray-100 p-2 rounded-lg text-gray-600">
+                  <FileText className="h-5 w-5" />
+                </div>
+                <div className="flex-1 overflow-hidden">
+                  <div className="text-sm font-medium text-gray-900 truncate">
+                    {file.name}
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {formatFileSize(file.size)}
+                  </div>
+                </div>
+                <button
+                  onClick={() => removeFile(index)}
+                  className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                  title="Remove file"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            ))}
+          </div>
         )}
+        <div className="relative flex py-2 items-center mb-4">
+          <div className="flex-grow border-t border-gray-200"></div>
+          <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold uppercase tracking-wider">
+            {uploadedFiles.length > 0 ? "Add more files" : "Or upload files"}
+          </span>
+          <div className="flex-grow border-t border-gray-200"></div>
+        </div>
+
+        <div
+          className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center py-6 hover:bg-gray-100 transition-colors cursor-pointer group"
+          onClick={triggerFileInput}
+          onDragOver={handleDragOver}
+          onDrop={handleDrop}
+        >
+          <div className="bg-white p-2 rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
+            <UploadCloud className="h-6 w-6 text-primary" />
+          </div>
+          <div className="mt-1 text-gray-900 font-medium text-sm">
+            Click to upload or drag and drop
+          </div>
+          <div className="text-xs text-gray-500 mt-1">
+            JPG, PNG, PDF, DOCX, XLSX
+          </div>
+        </div>
 
         <div className="flex justify-end gap-2 mt-6">
           <Button variant="outline" onClick={onClose}>
@@ -178,7 +180,7 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
                       // TODO: Implement generation logic
                       onClose();
                       setRubricText("");
-                      if (setUploadedFile) setUploadedFile(null);
+                      setUploadedFiles([]);
                     }}
                   >
                     Generate rubric
@@ -191,7 +193,7 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
                   side="top"
                   className="bg-gray-900 text-white border-0"
                 >
-                  <p>Please enter text or upload a file to continue</p>
+                  <p>Please enter text or upload related files to continue</p>
                 </TooltipContent>
               )}
             </Tooltip>
