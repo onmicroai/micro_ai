@@ -8,6 +8,7 @@ import {
   HelpCircle,
   UploadCloud,
   X,
+  FileText,
 } from "lucide-react";
 import {
   Tooltip,
@@ -15,6 +16,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "../ui/tooltip";
+import { formatFileSize } from "../../utils/formatFileSize";
 
 interface ScoringLine {
   score: number | "";
@@ -175,6 +177,8 @@ export default function ScoringField({
 }: ScoringFieldProps) {
   const [showAIModal, setShowAIModal] = useState(false);
   const [rubricText, setRubricText] = useState("");
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Parse rubric from JSON string
   const categories: ScoringCategory[] = (() => {
@@ -250,6 +254,33 @@ export default function ScoringField({
     if (isPreview) return;
     const newCategories = categories.filter((_, i) => i !== catIdx);
     onChange?.(field.id, { rubric: JSON.stringify(newCategories) });
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setUploadedFile(e.target.files[0]);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
+      setUploadedFile(e.dataTransfer.files[0]);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const removeFile = () => {
+    setUploadedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+  const triggerFileInput = () => {
+    fileInputRef.current?.click();
   };
 
   // Block background scrolling when AI modal is open
@@ -441,44 +472,87 @@ export default function ScoringField({
               </span>
             </div>
 
-            <p className="text-gray-600 text-sm mb-4">
-              Paste your rubric text below, or upload a file (PDF, Image), and
-              AI will convert it into an editable scoring table.
-            </p>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              accept=".jpg,.jpeg,.png,.pdf,.docx,.xlsx"
+              className="hidden"
+            />
 
-            <div className="border-b border-gray-200 my-4" />
+            {!uploadedFile ? (
+              <>
+                <p className="text-gray-600 text-sm mb-4">
+                  Paste your rubric text below, or upload a file (PDF, Image),
+                  and AI will convert it into an editable scoring table.
+                </p>
 
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Paste rubric text
-              </label>
-              <textarea
-                className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-y min-h-[100px]"
-                placeholder="e.g. 5 points: Excellent understanding of the topic. 3 points: Basic understanding..."
-                value={rubricText}
-                onChange={(e) => setRubricText(e.target.value)}
-              />
-            </div>
+                <div className="border-b border-gray-200 my-4" />
 
-            <div className="relative flex py-2 items-center mb-4">
-              <div className="flex-grow border-t border-gray-200"></div>
-              <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold uppercase tracking-wider">
-                Or upload file
-              </span>
-              <div className="flex-grow border-t border-gray-200"></div>
-            </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Paste rubric text
+                  </label>
+                  <textarea
+                    className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-y min-h-[100px]"
+                    placeholder="e.g. 5 points: Excellent understanding of the topic. 3 points: Basic understanding..."
+                    value={rubricText}
+                    onChange={(e) => setRubricText(e.target.value)}
+                  />
+                </div>
 
-            <div className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center py-6 hover:bg-gray-100 transition-colors cursor-pointer group">
-              <div className="bg-white p-2 rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
-                <UploadCloud className="h-6 w-6 text-primary" />
-              </div>
-              <div className="mt-1 text-gray-900 font-medium text-sm">
-                Click to upload or drag and drop
-              </div>
-              <div className="text-xs text-gray-500 mt-1">
-                JPG, PNG, PDF, DOCX, XLSX
-              </div>
-            </div>
+                <div className="relative flex py-2 items-center mb-4">
+                  <div className="flex-grow border-t border-gray-200"></div>
+                  <span className="flex-shrink-0 mx-4 text-gray-400 text-xs font-semibold uppercase tracking-wider">
+                    Or upload file
+                  </span>
+                  <div className="flex-grow border-t border-gray-200"></div>
+                </div>
+
+                <div
+                  className="border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 flex flex-col items-center justify-center py-6 hover:bg-gray-100 transition-colors cursor-pointer group"
+                  onClick={triggerFileInput}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                >
+                  <div className="bg-white p-2 rounded-full shadow-sm mb-2 group-hover:scale-110 transition-transform">
+                    <UploadCloud className="h-6 w-6 text-primary" />
+                  </div>
+                  <div className="mt-1 text-gray-900 font-medium text-sm">
+                    Click to upload or drag and drop
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    JPG, PNG, PDF, DOCX, XLSX
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-gray-600 text-sm mb-6 mt-4">
+                  Looks good! Ready to generate your rubric.
+                </p>
+
+                <div className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg bg-white mb-6 shadow-sm">
+                  <div className="bg-gray-100 p-2 rounded-lg text-gray-600">
+                    <FileText className="h-6 w-6" />
+                  </div>
+                  <div className="flex-1 overflow-hidden">
+                    <div className="text-sm font-medium text-gray-900 truncate">
+                      {uploadedFile.name}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatFileSize(uploadedFile.size)}
+                    </div>
+                  </div>
+                  <button
+                    onClick={removeFile}
+                    className="text-gray-400 hover:text-red-500 p-2 transition-colors"
+                  >
+                    <Trash2 className="h-5 w-5" />
+                  </button>
+                </div>
+              </>
+            )}
 
             <div className="flex justify-end gap-2 mt-6">
               <Button variant="outline" onClick={() => setShowAIModal(false)}>
