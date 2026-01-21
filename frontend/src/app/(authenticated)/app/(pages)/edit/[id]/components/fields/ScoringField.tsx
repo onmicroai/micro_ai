@@ -483,8 +483,8 @@ export default function ScoringField({
             {!uploadedFile ? (
               <>
                 <p className="text-gray-600 text-sm mb-4">
-                  Paste your rubric text below, or upload a file (PDF, Image),
-                  and AI will convert it into an editable scoring table.
+                  Type your rubric, provide related file or image and AI will
+                  prepare an editable scoring table for you.
                 </p>
 
                 <div className="border-b border-gray-200 my-4" />
