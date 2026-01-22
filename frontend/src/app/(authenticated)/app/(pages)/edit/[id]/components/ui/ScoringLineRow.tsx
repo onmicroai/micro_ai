@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/button";
 import { Trash2 } from "lucide-react";
 import {
@@ -6,7 +6,7 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
-} from "./tooltip";
+} from "../ui/tooltip";
 
 export interface ScoringLine {
   score: number | "";
@@ -39,7 +39,7 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
   const descRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync height of score and description fields
-  const adjustHeight = () => {
+  const adjustHeight = useCallback(() => {
     if (isPreview) return;
 
     const scoreEl = scoreRef.current;
@@ -55,15 +55,15 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
 
     scoreEl.style.height = `${newHeight}px`;
     descEl.style.height = `${newHeight}px`;
-  };
+  }, [isPreview]);
 
   useEffect(() => {
     adjustHeight();
-  }, [line.description]);
+  }, [line.description, adjustHeight]);
 
   return (
     <tr className="group border-b border-gray-200 last:border-0 hover:bg-gray-50 transition-colors relative">
-      <td className="p-0 w-32 align-middle relative transition-colors text-center">
+      <td className="p-0 w-32 align-top relative transition-colors text-center">
         {!isPreview ? (
           <>
             <div className="relative w-full h-full">
@@ -85,8 +85,8 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
                     handleLineChange(catIdx, lineIdx, line.description, 0);
                   }
                 }}
-                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:bg-white px-4 py-3 text-sm font-bold resize-none m-0 text-gray-900 placeholder:text-gray-300 text-center"
-                style={{ minHeight: "48px", boxSizing: "border-box" }}
+                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:bg-white px-4 py-3 text-sm font-bold resize-none m-0 text-gray-900 placeholder:text-gray-300 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none h-[48px]"
+                style={{ boxSizing: "border-box" }}
                 placeholder="0"
               />
             </div>
