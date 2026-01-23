@@ -12,8 +12,6 @@ from apps.microapps.document_parser import DocumentProcessor
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.llm_interface import UnifiedLLMInterface
 import concurrent.futures
-from apps.subscriptions.models import BillingCycle, TopUpToSubscription
-from django.db.models import F
 
 class RubricBuildView(APIView):
     """Generate rubric and log usage for microapp rubric build."""
