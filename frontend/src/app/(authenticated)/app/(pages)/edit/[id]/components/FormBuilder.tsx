@@ -1732,6 +1732,7 @@ export default function FormBuilder() {
                                                   isDragging={
                                                     snapshotDraggable.isDragging
                                                   }
+                                                  appHashId={hashId}
                                                 />
                                               </motion.div>
                                             )}
