@@ -146,7 +146,6 @@ export default function ConditionalLogicSidebar({
     setSelectedOperator("");
     setConditionValue("");
     onClear?.();
-    onClose();
   };
 
   return (
