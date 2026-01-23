@@ -37,8 +37,9 @@ from .views import (
     AudioTranscription,
     AnonymousAudioTranscription,
     TextToSpeech,
-    AnonymousTextToSpeech
+    AnonymousTextToSpeech,
 )
+from .views.rubric_build_views import RubricBuildView
 
 urlpatterns = [
     # Microapp management
@@ -81,4 +82,5 @@ urlpatterns = [
     path('transcribe/anonymous/', AnonymousAudioTranscription.as_view(), name='anonymous-audio-transcription'),
     path('tts/', TextToSpeech.as_view(), name='text-to-speech'),
     path('tts/anonymous/', AnonymousTextToSpeech.as_view(), name='anonymous-text-to-speech'),
+    path('rubric-build/', RubricBuildView.as_view(), name='rubric-build'),
 ]

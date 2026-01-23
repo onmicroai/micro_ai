@@ -140,6 +140,7 @@ interface FieldProps {
   // Used to control edit/view state
   isActive?: boolean;
   dragHandleProps?: DraggableProvidedDragHandleProps | null;
+  appHashId: string;
   onUpdateFieldLabel: (
     fieldId: string,
     newLabel: string,
@@ -227,6 +228,7 @@ export default function Field({
   phaseFields,
   appFields,
   appId,
+  appHashId,
   dragHandleProps,
   onUpdateFieldLabel,
   onUpdateFieldName,
@@ -490,6 +492,7 @@ export default function Field({
         <ScoringField
           field={field}
           isPreview={!isActive}
+          appHashId={appHashId}
           onChange={(fieldId, updates) =>
             onUpdateScoringSettings?.(fieldId, updates)
           }

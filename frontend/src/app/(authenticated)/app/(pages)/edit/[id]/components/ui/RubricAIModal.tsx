@@ -22,6 +22,9 @@ interface RubricAIModalProps {
   handleFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
   handleDrop: (e: React.DragEvent) => void;
   handleDragOver: (e: React.DragEvent) => void;
+  onGenerateRubric: () => void;
+  loading: boolean;
+  error: string | null;
 }
 
 const RubricAIModal: React.FC<RubricAIModalProps> = ({
@@ -30,13 +33,15 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
   rubricText,
   setRubricText,
   uploadedFiles,
-  setUploadedFiles,
   fileInputRef,
   removeFile,
   triggerFileInput,
   handleFileSelect,
   handleDrop,
   handleDragOver,
+  loading,
+  error,
+  onGenerateRubric,
 }) => {
   // Block background scrolling when modal is open
   useEffect(() => {
@@ -172,18 +177,13 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
                   <Button
                     variant="default"
                     className="bg-primary text-white pointer-events-none"
-                    disabled={isGenerateDisabled}
+                    disabled={isGenerateDisabled || loading}
                     style={{
                       pointerEvents: isGenerateDisabled ? "none" : "auto",
                     }}
-                    onClick={() => {
-                      // TODO: Implement generation logic
-                      onClose();
-                      setRubricText("");
-                      setUploadedFiles([]);
-                    }}
+                    onClick={onGenerateRubric}
                   >
-                    Generate rubric
+                    {loading ? "Generating..." : "Generate rubric"}
                   </Button>
                 </span>
               </TooltipTrigger>
@@ -199,6 +199,7 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
             </Tooltip>
           </TooltipProvider>
         </div>
+        {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
       </div>
     </div>
   );

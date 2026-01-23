@@ -10,6 +10,7 @@ import {
 } from "../ui/tooltip";
 import RubricAIModal from "../ui/RubricAIModal";
 import ScoringLineRow, { ScoringLine } from "../ui/ScoringLineRow";
+import axiosInstance from "@/utils/axiosInstance";
 
 interface ScoringCategory {
   criteria: string;
@@ -23,18 +24,53 @@ interface ScoringFieldProps {
     minScore?: number;
     rubric?: string; // JSON string
   };
+  appHashId: string;
   onChange?: (fieldId: string, updates: Partial<any>) => void;
   isPreview?: boolean;
 }
 
+async function generateRubricWithAI({
+  files,
+  prompt,
+  appHashId,
+  signal,
+}: {
+  files: File[];
+  prompt: string;
+  appHashId: string;
+  model?: string;
+  signal?: AbortSignal;
+}): Promise<any> {
+  const formData = new FormData();
+  files.forEach((file) => formData.append("files", file));
+  formData.append("prompt", prompt);
+  formData.append("app_hash_id", appHashId);
+
+  const api = await axiosInstance();
+  const res = await api.post("/api/microapps/rubric-build/", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+    signal,
+  });
+
+  if (res.data.error)
+    throw new Error(res.data.error || "Failed to generate rubric");
+  return res.data.rubric;
+}
 export default function ScoringField({
   field,
   onChange,
+  appHashId,
   isPreview = true,
 }: ScoringFieldProps) {
   const [showAIModal, setShowAIModal] = useState(false);
   const [rubricText, setRubricText] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
+  const [loadingRubric, setLoadingRubric] = useState(false);
+  const [rubricError, setRubricError] = useState<string | null>(null);
+
+  const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   // Parse rubric from JSON string
   const categories: ScoringCategory[] = (() => {
@@ -45,6 +81,52 @@ export default function ScoringField({
     }
   })();
 
+  const handleRubricAIGenerate = async () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setLoadingRubric(true);
+    setRubricError(null);
+    try {
+      const rubric = await generateRubricWithAI({
+        files: uploadedFiles,
+        prompt: rubricText,
+        appHashId,
+        signal: controller.signal,
+      });
+      setShowAIModal(false);
+      setRubricText("");
+      setUploadedFiles([]);
+      onChange?.(field.id, { rubric: JSON.stringify(rubric) });
+    } catch (e: any) {
+      if (e.message === "canceled" || e.code === "ERR_CANCELED") {
+        setRubricError(null);
+      } else {
+        setRubricError(e.message);
+      }
+    } finally {
+      if (abortControllerRef.current === controller) {
+        setLoadingRubric(false);
+        abortControllerRef.current = null;
+      }
+    }
+  };
+
+  const handleCloseModal = () => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
+    setShowAIModal(false);
+    setLoadingRubric(false);
+    setRubricText("");
+    setUploadedFiles([]);
+    setRubricError(null);
+  };
   const handleLineChange = (
     catIdx: number,
     lineIdx: number,
@@ -337,7 +419,7 @@ export default function ScoringField({
 
       <RubricAIModal
         open={showAIModal}
-        onClose={() => setShowAIModal(false)}
+        onClose={handleCloseModal}
         rubricText={rubricText}
         setRubricText={setRubricText}
         uploadedFiles={uploadedFiles}
@@ -348,6 +430,9 @@ export default function ScoringField({
         handleFileSelect={handleFileSelect}
         handleDrop={handleDrop}
         handleDragOver={handleDragOver}
+        onGenerateRubric={handleRubricAIGenerate}
+        loading={loadingRubric}
+        error={rubricError}
       />
     </div>
   );
