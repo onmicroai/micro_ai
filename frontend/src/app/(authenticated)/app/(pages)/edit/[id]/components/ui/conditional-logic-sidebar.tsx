@@ -1,7 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { X } from "lucide-react";
+import {
+  X,
+  FileText,
+  Circle,
+  CircleDot,
+  FileCheck,
+  Equal,
+  EqualNot,
+  CheckCheck,
+  FileX,
+} from "lucide-react";
+
 import { Button } from "../ui/button";
 import {
   Select,
@@ -39,6 +50,19 @@ const DISABLED_FIELD_TYPES = [
   "imageUpload",
   "chat",
 ];
+
+const OPERATOR_ICONS: Record<string, React.ReactNode> = {
+  equals: <Equal className="w-4 h-4 mr-2 text-gray-400" />,
+  not_equals: <EqualNot className="w-4 h-4 mr-2 text-gray-400" />,
+  contains: <CheckCheck className="w-4 h-4 mr-2 text-gray-400" />,
+  not_contains: <X className="w-4 h-4 mr-2 text-gray-400" />,
+  is_empty: <FileX className="w-4 h-4 mr-2 text-gray-400" />,
+  is_not_empty: <FileCheck className="w-4 h-4 mr-2 text-gray-400" />,
+  greater_than: <CircleDot className="w-4 h-4 mr-2 text-gray-400" />,
+  less_than: <Circle className="w-4 h-4 mr-2 text-gray-400" />,
+  greater_than_or_equal: <CircleDot className="w-4 h-4 mr-2 text-gray-400" />,
+  less_than_or_equal: <Circle className="w-4 h-4 mr-2 text-gray-400" />,
+};
 
 export default function ConditionalLogicSidebar({
   isOpen,
@@ -304,7 +328,12 @@ export default function ConditionalLogicSidebar({
                 <SelectContent>
                   {operators.map((op) => (
                     <SelectItem key={op.value} value={op.value}>
-                      {op.label}
+                      <span className="flex items-center">
+                        {OPERATOR_ICONS[op.value] || (
+                          <FileText className="w-4 h-4 mr-2 text-gray-400" />
+                        )}
+                        {op.label}
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
