@@ -15,6 +15,7 @@ import { Label } from "../ui/label";
 import { Element, ConditionalLogic } from "@/app/(authenticated)/app/types";
 import { motion, AnimatePresence } from "framer-motion";
 import { Badge } from "../ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "./tooltip";
 
 interface ConditionalLogicSidebarProps {
   isOpen: boolean;
@@ -27,6 +28,18 @@ interface ConditionalLogicSidebarProps {
   targetFieldName?: string;
 }
 
+const DISABLED_FIELD_TYPES = [
+  "prompt",
+  "aiInstructions",
+  "fixedResponse",
+  "aiResponse",
+  "scoring",
+  "title",
+  "richText",
+  "imageUpload",
+  "chat",
+];
+
 export default function ConditionalLogicSidebar({
   isOpen,
   onClose,
@@ -38,10 +51,10 @@ export default function ConditionalLogicSidebar({
   instructionIndex,
 }: ConditionalLogicSidebarProps) {
   const [selectedSourceField, setSelectedSourceField] = useState<string>(
-    currentLogic?.sourceFieldId || ""
+    currentLogic?.sourceFieldId || "",
   );
   const [selectedOperator, setSelectedOperator] = useState<string>(
-    currentLogic?.operator || ""
+    currentLogic?.operator || "",
   );
   const [conditionValue, setConditionValue] = useState<
     string | number | boolean
@@ -71,7 +84,7 @@ export default function ConditionalLogicSidebar({
       case "slider":
         operators.push(
           { value: "equals", label: "Equals" },
-          { value: "not_equals", label: "Does not equal" }
+          { value: "not_equals", label: "Does not equal" },
         );
         break;
     }
@@ -86,7 +99,7 @@ export default function ConditionalLogicSidebar({
           { value: "contains", label: "Contains" },
           { value: "not_contains", label: "Does not contain" },
           { value: "is_empty", label: "Is empty" },
-          { value: "is_not_empty", label: "Is not empty" }
+          { value: "is_not_empty", label: "Is not empty" },
         );
         break;
 
@@ -95,7 +108,7 @@ export default function ConditionalLogicSidebar({
           { value: "greater_than", label: "Greater than" },
           { value: "less_than", label: "Less than" },
           { value: "greater_than_or_equal", label: "Greater than or equal to" },
-          { value: "less_than_or_equal", label: "Less than or equal to" }
+          { value: "less_than_or_equal", label: "Less than or equal to" },
         );
         break;
     }
@@ -103,12 +116,16 @@ export default function ConditionalLogicSidebar({
     return operators;
   };
 
+  const currentFieldIndex = availableFields.findIndex(
+    (f) => f.name === targetFieldName,
+  );
+
   const operatorNeedsValue = (operator: string) => {
     return !["is_empty", "is_not_empty"].includes(operator);
   };
 
   const selectedField = availableFields.find(
-    (f) => f.id === selectedSourceField
+    (f) => f.id === selectedSourceField,
   );
   const operators = selectedField
     ? getOperatorsForField(selectedField.type)
@@ -189,17 +206,69 @@ export default function ConditionalLogicSidebar({
                 <SelectTrigger id="sourceField">
                   <SelectValue placeholder="Select an item" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-[60]">
                   {availableFields.length === 0 && (
                     <div className="px-3 py-2 text-gray-400 text-sm">
                       No fields available
                     </div>
                   )}
-                  {availableFields.map((field) => (
-                    <SelectItem key={field.id} value={field.id}>
-                      {field.name || field.label || field.id}
-                    </SelectItem>
-                  ))}
+                  {availableFields.map((field, idx) => {
+                    const isTypeDisabled = DISABLED_FIELD_TYPES.includes(
+                      field.type,
+                    );
+                    const isPositionDisabled =
+                      currentFieldIndex !== -1 && idx > currentFieldIndex;
+                    const isDisabled = isTypeDisabled || isPositionDisabled;
+
+                    let tooltipText = "";
+                    if (isTypeDisabled) {
+                      tooltipText =
+                        "This field cannot be used for conditional logic because it does not contain user input.";
+                    } else if (isPositionDisabled) {
+                      tooltipText =
+                        "You can only use fields that appear before this one in the form.";
+                    }
+
+                    if (isDisabled) {
+                      return (
+                        <Tooltip key={field.id}>
+                          <TooltipTrigger asChild>
+                            <div
+                              tabIndex={0}
+                              aria-disabled="true"
+                              className={`
+                                 opacity-60 cursor-default px-2 py-2 rounded flex items-center select-none
+                                 transition-colors
+                                 focus:outline-none focus:ring-2 focus:ring-blue-200
+                                 hover:bg-gray-100 focus:bg-gray-100
+                                 `}
+                              style={{
+                                pointerEvents: "auto",
+                                userSelect: "none",
+                              }}
+                            >
+                              {field.name}
+                              <span className="ml-2 text-xs text-gray-400">
+                                (not available)
+                              </span>
+                            </div>
+                          </TooltipTrigger>
+                          <TooltipContent
+                            side="top"
+                            className="z-[100] bg-gray-900 text-white"
+                            style={{ maxWidth: 220, whiteSpace: "normal" }}
+                          >
+                            {tooltipText}
+                          </TooltipContent>
+                        </Tooltip>
+                      );
+                    }
+                    return (
+                      <SelectItem key={field.id} value={field.id}>
+                        {field.name}
+                      </SelectItem>
+                    );
+                  })}
                 </SelectContent>
               </Select>
             </div>
@@ -234,7 +303,7 @@ export default function ConditionalLogicSidebar({
 
                   {(() => {
                     const sourceField = availableFields.find(
-                      (f) => f.id === selectedSourceField
+                      (f) => f.id === selectedSourceField,
                     );
                     if (!sourceField) return null;
 
@@ -245,13 +314,13 @@ export default function ConditionalLogicSidebar({
                           <Select
                             value={
                               sourceField.choices?.find(
-                                (choice) => choice.text === conditionValue
+                                (choice) => choice.text === conditionValue,
                               )?.value ||
                               (conditionValue === "Other" ? "other" : "")
                             }
                             onValueChange={(value) => {
                               const selectedChoice = sourceField.choices?.find(
-                                (choice) => choice.value === value
+                                (choice) => choice.value === value,
                               );
                               setConditionValue(selectedChoice?.text || value);
                             }}
@@ -279,13 +348,13 @@ export default function ConditionalLogicSidebar({
                           <Select
                             value={
                               sourceField.choices?.find(
-                                (choice) => choice.text === conditionValue
+                                (choice) => choice.text === conditionValue,
                               )?.value ||
                               (conditionValue === "Other" ? "other" : "")
                             }
                             onValueChange={(value) => {
                               const selectedChoice = sourceField.choices?.find(
-                                (choice) => choice.value === value
+                                (choice) => choice.value === value,
                               );
                               setConditionValue(selectedChoice?.text || value);
                             }}
