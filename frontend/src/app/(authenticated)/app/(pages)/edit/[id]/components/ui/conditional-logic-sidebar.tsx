@@ -212,15 +212,20 @@ export default function ConditionalLogicSidebar({
                     </div>
                   )}
                   {availableFields.map((field, idx) => {
+                    const isSelf = field.name === targetFieldName;
                     const isTypeDisabled = DISABLED_FIELD_TYPES.includes(
                       field.type,
                     );
                     const isPositionDisabled =
                       currentFieldIndex !== -1 && idx > currentFieldIndex;
-                    const isDisabled = isTypeDisabled || isPositionDisabled;
+                    const isDisabled =
+                      isTypeDisabled || isPositionDisabled || isSelf;
 
                     let tooltipText = "";
-                    if (isTypeDisabled) {
+                    if (isSelf) {
+                      tooltipText =
+                        "You cannot use this field as a condition for itself.";
+                    } else if (isTypeDisabled) {
                       tooltipText =
                         "This field cannot be used for conditional logic because it does not contain user input.";
                     } else if (isPositionDisabled) {
