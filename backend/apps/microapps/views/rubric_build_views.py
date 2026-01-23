@@ -119,37 +119,6 @@ Generate a comprehensive rubric based on this information."""
                return Response({"error": "Failed to parse rubric from AI response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             credits_spent = response["data"]["credits"]
 
-            credits_to_deduct = credits_spent
-
-            billing_cycle = BillingCycle.objects.filter(
-               user=user,
-               status='open'
-            ).first()
-
-            main_available = billing_cycle.credits_remaining if billing_cycle else 0
-            top_ups = TopUpToSubscription.objects.filter(user=user)
-
-            if billing_cycle and main_available >= credits_to_deduct:
-               billing_cycle.record_usage(credits_to_deduct)
-               credits_to_deduct = 0
-            elif billing_cycle:
-               billing_cycle.record_usage(main_available)
-               credits_to_deduct -= main_available
-
-            if credits_to_deduct > 0:
-               top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
-               for top_up in top_ups_to_update:
-                  if credits_to_deduct <= 0:
-                        break
-                  available_in_topup = top_up.remaining_credits
-                  if available_in_topup >= credits_to_deduct:
-                        top_up.record_usage(credits_to_deduct)
-                        credits_to_deduct = 0
-                  else:
-                        top_up.record_usage(available_in_topup)
-                        credits_to_deduct -= available_in_topup
-
-
             microapp = Microapp.objects.filter(hash_id=app_hash_id).first()
 
             files_data = []
