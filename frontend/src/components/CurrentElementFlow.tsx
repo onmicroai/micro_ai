@@ -229,7 +229,8 @@ export default function CurrentElementFlow({
         }
       );
 
-      if (res.run_passed === false) return;
+      const scoringIsRequired = stopElement.isRequired !== false;
+      if (res.run_passed === false && scoringIsRequired) return;
       advance(stopIndex + 1);
       return;
     }
@@ -316,6 +317,12 @@ export default function CurrentElementFlow({
           currentConversation?.runs
             ?.filter((run) => run.phaseIndex === idx)
             .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
+        const scoringIsRequired =
+          element.type === "scoring" ? element.isRequired !== false : false;
+        const scoringFailed =
+          element.type === "scoring" && runForThisStop
+            ? !passedTheRubricMinScore(runForThisStop)
+            : false;
 
         const revealedFixed =
           element.type === "fixedResponse"
@@ -440,7 +447,7 @@ export default function CurrentElementFlow({
                   <div className="mt-4">
                     <SkeletonLoader />
                   </div>
-                ) : (
+                ) : element.type === "scoring" && scoringIsRequired && scoringFailed ? null : (
                   <div className="mt-4 flex justify-end">
                     <button
                       type="submit"

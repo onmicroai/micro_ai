@@ -518,6 +518,7 @@ export default function FormBuilder() {
           },
         ]),
         minScore: 0,
+        isRequired: true,
       }),
       ...(type === "imageUpload" && {
         multiple: false,

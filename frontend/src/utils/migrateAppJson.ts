@@ -120,7 +120,7 @@ export function migratePhasesToElements(appJson: any): AppJsonV2 {
         type: 'scoring',
         name: `scoring${scoringCount}`,
         label: '',
-        isRequired: false,
+        isRequired: phase?.skipPhase ? false : true,
         rubric: isNonEmptyString(phase?.rubric) ? phase.rubric : '',
         minScore: typeof phase?.minScore === 'number' ? phase.minScore : 0,
       });
