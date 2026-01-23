@@ -3,47 +3,53 @@ import { Button } from "../../components/ui/button";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
 interface InstructionConditionBoxProps {
-  property: string;
+  conditionFieldName: string;
   operator: string;
-  value?: string;
+  value?: string | boolean | number;
   onRemove?: () => void;
-  fieldId?: string;
+  currentFieldName?: string; // Optional for case when condition is shown for instruction
+}
+
+function renderConditionValue(value?: string | boolean | number) {
+  if (value === true || value === "true") return "Yes";
+  if (value === false || value === "false") return "No";
+  return value;
 }
 
 function getTooltipText(
-  fieldId: string | undefined,
-  property: string,
+  conditionFieldName: string,
   operator: string,
-  value?: string
+  currentFieldName?: string,
+  value?: string | boolean | number,
 ) {
   let conditionText: React.ReactNode;
-
+  const formattedValue = renderConditionValue(value);
   switch (operator) {
     case "equals":
       conditionText = (
         <>
-          equals <b>{value}</b>
+          equals <b>{formattedValue}</b>
         </>
       );
       break;
     case "not_equals":
       conditionText = (
         <>
-          does not equal <b>{value}</b>
+          does not equal <b>{formattedValue}</b>
         </>
       );
       break;
     case "contains":
       conditionText = (
         <>
-          contains <b>{value}</b>
+          contains <b>{formattedValue}</b>
         </>
       );
       break;
     case "not_contains":
       conditionText = (
         <>
-          does not contain <b>{value}</b>
+          does not contain <b>{formattedValue}</b>
         </>
       );
       break;
@@ -56,28 +62,28 @@ function getTooltipText(
     case "greater_than":
       conditionText = (
         <>
-          is greater than <b>{value}</b>
+          is greater than <b>{formattedValue}</b>
         </>
       );
       break;
     case "less_than":
       conditionText = (
         <>
-          is less than <b>{value}</b>
+          is less than <b>{formattedValue}</b>
         </>
       );
       break;
     case "greater_than_or_equal":
       conditionText = (
         <>
-          is greater than or equal to <b>{value}</b>
+          is greater than or equal to <b>{formattedValue}</b>
         </>
       );
       break;
     case "less_than_or_equal":
       conditionText = (
         <>
-          is less than or equal to <b>{value}</b>
+          is less than or equal to <b>{formattedValue}</b>
         </>
       );
       break;
@@ -88,18 +94,18 @@ function getTooltipText(
 
   return (
     <>
-      This question <b>{fieldId}</b> will be shown if the answer in question{" "}
-      <b>{property}</b> {conditionText}
+      This question <b>{currentFieldName}</b> will be shown if the answer in
+      question <b>{conditionFieldName}</b> {conditionText}
     </>
   );
 }
 
 export default function InstructionConditionBox({
-  property,
+  conditionFieldName,
   operator,
   value,
   onRemove,
-  fieldId,
+  currentFieldName,
 }: InstructionConditionBoxProps) {
   return (
     <div
@@ -118,7 +124,9 @@ export default function InstructionConditionBox({
         Shows if{" "}
         <Tooltip.Root delayDuration={0}>
           <Tooltip.Trigger asChild>
-            <span className="underline mx-1 cursor-pointer">{property}</span>
+            <span className="underline mx-1 cursor-pointer">
+              {conditionFieldName}
+            </span>
           </Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content
@@ -127,12 +135,19 @@ export default function InstructionConditionBox({
               className="z-50 bg-gray-800 text-white text-xs rounded px-3 py-2 shadow-lg whitespace-pre-line max-w-[260px]"
               sideOffset={6}
             >
-              {getTooltipText(fieldId, property, operator, value)}
+              {getTooltipText(
+                conditionFieldName,
+                operator,
+                currentFieldName,
+                value,
+              )}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>
         {operator.replace(/_/g, " ")}
-        {value ? <span className="ml-1">{value}</span> : null}
+        {value !== undefined && value !== null ? (
+          <span className="ml-1">{renderConditionValue(value)}</span>
+        ) : null}
       </div>
       {onRemove && (
         <Button

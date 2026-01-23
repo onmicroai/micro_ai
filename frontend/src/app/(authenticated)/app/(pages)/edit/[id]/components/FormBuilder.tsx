@@ -287,7 +287,6 @@ export default function FormBuilder() {
 
   const handleClearConditionalLogic = () => {
     if (!conditionalSidebarContext?.field.id) {
-      setConditionalSidebarOpen(false);
       return;
     }
 
@@ -317,7 +316,6 @@ export default function FormBuilder() {
         ),
       );
     }
-    setConditionalSidebarOpen(false);
   };
 
   const fileUploader = createFileUploader(appId?.toString() || "");
