@@ -18,7 +18,6 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('timestamp', models.DateTimeField(auto_now_add=True)),
-                ('session_id', models.CharField(blank=True, default='', max_length=128)),
                 ('rubric_prompt', models.TextField(blank=True, default='')),
                 ('files', models.JSONField(default=list)),
                 ('rubric', models.TextField()),
