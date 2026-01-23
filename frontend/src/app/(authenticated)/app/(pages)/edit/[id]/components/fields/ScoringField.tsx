@@ -86,11 +86,18 @@ export default function ScoringField({
 
   const handleAddLine = (catIdx: number) => {
     if (isPreview) return;
+    const lastScore =
+      categories[catIdx].lines.length > 0
+        ? Number(
+            categories[catIdx].lines[categories[catIdx].lines.length - 1].score,
+          ) || 0
+        : 0;
+    const newScore = lastScore + 1;
     const newCategories = categories.map((cat, i) =>
       i === catIdx
         ? {
             ...cat,
-            lines: [...cat.lines, { score: 0, description: "" }],
+            lines: [...cat.lines, { score: newScore, description: "" }],
           }
         : cat,
     );
@@ -101,7 +108,13 @@ export default function ScoringField({
     if (isPreview) return;
     const newCategories: ScoringCategory[] = [
       ...categories,
-      { criteria: `Category ${categories.length + 1}`, lines: [] },
+      {
+        criteria: `Category ${categories.length + 1}`,
+        lines: [
+          { score: 1, description: "" },
+          { score: 0, description: "" },
+        ],
+      },
     ];
     onChange?.(field.id, { rubric: JSON.stringify(newCategories) });
   };
@@ -180,7 +193,7 @@ export default function ScoringField({
                 onChange?.(field.id, { minScore: 0 });
               }
             }}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             placeholder="Enter minimum score"
           />
         )}
@@ -225,7 +238,6 @@ export default function ScoringField({
             transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
             className="overflow-hidden space-y-3"
           >
-            {" "}
             <div className="flex items-center group/header">
               {!isPreview ? (
                 <div className="flex-1 flex items-center gap-2">
@@ -259,11 +271,23 @@ export default function ScoringField({
                 </span>
               )}
             </div>
-            <div className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm">
+
+            <motion.div
+              layout="position"
+              className={`border rounded-lg overflow-hidden bg-white shadow-sm transition-colors duration-300 ${
+                isPreview
+                  ? "border-gray-200"
+                  : "border-transparent shadow-none rounded-none"
+              }`}
+            >
               <table className="w-full table-fixed border-collapse">
                 <thead>
                   <tr className="bg-gray-50/50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                    <th className="px-4 py-2 text-left font-medium w-32 border-r border-gray-200">
+                    <th
+                      className={`px-4 py-2 text-center font-medium w-32 ${
+                        isPreview ? "border-r border-gray-200" : ""
+                      }`}
+                    >
                       Score
                     </th>
                     <th className="px-4 py-2 text-left font-medium">
@@ -285,7 +309,7 @@ export default function ScoringField({
                   ))}
                 </tbody>
               </table>
-            </div>
+            </motion.div>
             {!isPreview && (
               <button
                 onClick={() => handleAddLine(catIdx)}
