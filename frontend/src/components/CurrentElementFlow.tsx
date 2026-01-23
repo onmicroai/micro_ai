@@ -238,23 +238,11 @@ export default function CurrentElementFlow({
 
   if (!surveyJson) return null;
 
-  if (cursor >= appElements.length) {
-    return (
-      <div className="space-y-4">
-        <div
-          className="prose max-w-none"
-          dangerouslySetInnerHTML={{
-            __html: surveyJson.completedHtml || "You've reached the end.",
-          }}
-        />
-      </div>
-    );
-  }
+  const isComplete = cursor >= appElements.length;
 
-  const visibleElements = appElements.slice(
-    0,
-    Math.min(visibleUntil + 1, appElements.length)
-  );
+  const visibleElements = isComplete
+    ? appElements
+    : appElements.slice(0, Math.min(visibleUntil + 1, appElements.length));
 
   return (
     <form onSubmit={handleRun} className="space-y-6">
@@ -496,7 +484,7 @@ export default function CurrentElementFlow({
       })}
 
       {/* No stop element left → end */}
-      {!stopElement && stopIndex === null && (
+      {!isComplete && !stopElement && stopIndex === null && (
         <div className="mt-6 flex justify-end">
           <button
             type="button"
