@@ -29,6 +29,19 @@ interface ScoringFieldProps {
   isPreview?: boolean;
 }
 
+function isRubricTable(rubric: any): rubric is ScoringCategory[] {
+  return (
+    Array.isArray(rubric) &&
+    rubric.length > 0 &&
+    rubric.every(
+      (cat) =>
+        typeof cat === "object" &&
+        typeof cat.criteria === "string" &&
+        Array.isArray(cat.lines),
+    )
+  );
+}
+
 async function generateRubricWithAI({
   files,
   prompt,
@@ -72,14 +85,19 @@ export default function ScoringField({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Parse rubric from JSON string
-  const categories: ScoringCategory[] = (() => {
-    try {
-      return JSON.parse(field.rubric || "[]");
-    } catch {
-      return [];
-    }
-  })();
+  let parsedRubric: any = [];
+  let isTableRubric = false;
+  try {
+    parsedRubric = JSON.parse(field.rubric || "[]");
+    isTableRubric = isRubricTable(parsedRubric);
+  } catch {
+    parsedRubric = field.rubric || "";
+    isTableRubric = false;
+  }
+
+  const categories: ScoringCategory[] = isTableRubric ? parsedRubric : [];
 
   const handleRubricAIGenerate = async () => {
     if (abortControllerRef.current) {
@@ -311,98 +329,118 @@ export default function ScoringField({
         )}
       </div>
       <AnimatePresence initial={false}>
-        {categories.map((cat, catIdx) => (
-          <motion.div
-            key={catIdx}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-            className="overflow-hidden space-y-3"
-          >
-            <div className="flex items-center group/header">
-              {!isPreview ? (
-                <div className="flex-1 flex items-center gap-2">
-                  <span className="font-bold text-gray-500">{catIdx + 1}.</span>
-                  <input
-                    type="text"
-                    value={cat.criteria}
-                    onChange={(e) => {
-                      const newCategories = categories.map((c, i) =>
-                        i === catIdx ? { ...c, criteria: e.target.value } : c,
-                      );
-                      onChange?.(field.id, {
-                        rubric: JSON.stringify(newCategories),
-                      });
-                    }}
-                    className="font-bold text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary focus:outline-none focus:ring-0 px-0 py-1 text-gray-900 placeholder:text-gray-400 flex-1 transition-colors"
-                    placeholder="Category Name"
-                  />
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleRemoveCategory(catIdx)}
-                    className="opacity-0 group-hover/header:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              ) : (
-                <span className="font-bold text-base text-gray-900">
-                  {catIdx + 1}. {cat.criteria}
-                </span>
-              )}
-            </div>
-
+        {isTableRubric ? (
+          categories.map((cat, catIdx) => (
             <motion.div
-              layout="position"
-              className={`border rounded-lg overflow-hidden bg-white shadow-sm transition-colors duration-300 ${
-                isPreview
-                  ? "border-gray-200"
-                  : "border-transparent shadow-none rounded-none"
-              }`}
+              key={catIdx}
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+              className="overflow-hidden space-y-3"
             >
-              <table className="w-full table-fixed border-collapse">
-                <thead>
-                  <tr className="bg-gray-50/50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
-                    <th
-                      className={`px-4 py-2 text-center font-medium w-32 ${
-                        isPreview ? "border-r border-gray-200" : ""
-                      }`}
-                    >
-                      Score
-                    </th>
-                    <th className="px-4 py-2 text-left font-medium">
-                      Description
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {cat.lines.map((line, lineIdx) => (
-                    <ScoringLineRow
-                      key={lineIdx}
-                      line={line}
-                      catIdx={catIdx}
-                      lineIdx={lineIdx}
-                      handleLineChange={handleLineChange}
-                      handleRemoveLine={handleRemoveLine}
-                      isPreview={isPreview}
+              <div className="flex items-center group/header">
+                {!isPreview ? (
+                  <div className="flex-1 flex items-center gap-2">
+                    <span className="font-bold text-gray-500">
+                      {catIdx + 1}.
+                    </span>
+                    <input
+                      type="text"
+                      value={cat.criteria}
+                      onChange={(e) => {
+                        const newCategories = categories.map((c, i) =>
+                          i === catIdx ? { ...c, criteria: e.target.value } : c,
+                        );
+                        onChange?.(field.id, {
+                          rubric: JSON.stringify(newCategories),
+                        });
+                      }}
+                      className="font-bold text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary focus:outline-none focus:ring-0 px-0 py-1 text-gray-900 placeholder:text-gray-400 flex-1 transition-colors"
+                      placeholder="Category Name"
                     />
-                  ))}
-                </tbody>
-              </table>
-            </motion.div>
-            {!isPreview && (
-              <button
-                onClick={() => handleAddLine(catIdx)}
-                className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 font-medium transition-colors px-1"
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleRemoveCategory(catIdx)}
+                      className="opacity-0 group-hover/header:opacity-100 text-gray-400 hover:text-red-500 transition-opacity"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="font-bold text-base text-gray-900">
+                    {catIdx + 1}. {cat.criteria}
+                  </span>
+                )}
+              </div>
+
+              <motion.div
+                layout="position"
+                className={`border rounded-lg overflow-hidden bg-white shadow-sm transition-colors duration-300 ${
+                  isPreview
+                    ? "border-gray-200"
+                    : "border-transparent shadow-none rounded-none"
+                }`}
               >
-                <Plus className="h-4 w-4" />
-                Add line
-              </button>
-            )}
-          </motion.div>
-        ))}
+                <table className="w-full table-fixed border-collapse">
+                  <thead>
+                    <tr className="bg-gray-50/50 border-b border-gray-200 text-xs text-gray-500 uppercase tracking-wider">
+                      <th
+                        className={`px-4 py-2 text-center font-medium w-32 ${
+                          isPreview ? "border-r border-gray-200" : ""
+                        }`}
+                      >
+                        Score
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium">
+                        Description
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200">
+                    {cat.lines.map((line, lineIdx) => (
+                      <ScoringLineRow
+                        key={lineIdx}
+                        line={line}
+                        catIdx={catIdx}
+                        lineIdx={lineIdx}
+                        handleLineChange={handleLineChange}
+                        handleRemoveLine={handleRemoveLine}
+                        isPreview={isPreview}
+                      />
+                    ))}
+                  </tbody>
+                </table>
+              </motion.div>
+              {!isPreview && (
+                <button
+                  onClick={() => handleAddLine(catIdx)}
+                  className="flex items-center gap-1 text-sm text-primary hover:text-primary/80 font-medium transition-colors px-1"
+                >
+                  <Plus className="h-4 w-4" />
+                  Add line
+                </button>
+              )}
+            </motion.div>
+          ))
+        ) : isPreview ? (
+          <div className="w-full border border-gray-300 rounded-lg p-3 text-sm bg-gray-50 whitespace-pre-line min-h-[120px]">
+            {typeof parsedRubric === "string" ? parsedRubric : ""}
+          </div>
+        ) : (
+          <textarea
+            className="w-full border border-gray-300 rounded-lg p-3 text-sm bg-gray-50"
+            value={typeof parsedRubric === "string" ? parsedRubric : ""}
+            readOnly={false}
+            onChange={(e) => {
+              onChange?.(field.id, { rubric: e.target.value });
+            }}
+            rows={8}
+            style={{ resize: "vertical" }}
+            placeholder="Enter rubric text..."
+          />
+        )}
       </AnimatePresence>
       {!isPreview && (
         <Button
@@ -432,6 +470,9 @@ export default function ScoringField({
         onGenerateRubric={handleRubricAIGenerate}
         loading={loadingRubric}
         error={rubricError}
+        oldRubricText={
+          !isTableRubric && typeof parsedRubric === "string" ? parsedRubric : ""
+        }
       />
     </div>
   );

@@ -34,6 +34,7 @@ interface RubricAIModalProps {
   onGenerateRubric: () => void;
   loading: boolean;
   error: string | null;
+  oldRubricText?: string;
 }
 
 const LOADING_PHASES = {
@@ -57,9 +58,15 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
   loading,
   error,
   onGenerateRubric,
+  oldRubricText,
 }) => {
   const [loadingPhase, setLoadingPhase] = useState(LOADING_PHASES.READING);
 
+  useEffect(() => {
+    if (oldRubricText) {
+      setRubricText(oldRubricText);
+    }
+  }, [oldRubricText, setRubricText]);
   // 1. Loading phase management
   useEffect(() => {
     if (!loading) {
