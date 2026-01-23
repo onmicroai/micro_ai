@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, FormEvent } from "react";
+import { useMemo, useRef, useState, FormEvent, useEffect, useCallback } from "react";
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { validateForm } from "@/utils/validateForms";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
@@ -53,6 +53,7 @@ export default function CurrentElementFlow({
     errors,
     promptLoading,
     setErrors,
+    setElements,
     setImages,
     setInputValue,
     handleInputChange,
@@ -87,25 +88,96 @@ export default function CurrentElementFlow({
     return Array.isArray(els) ? (els as Element[]) : [];
   }, [surveyJson]);
 
+  useEffect(() => {
+    setElements(appElements);
+  }, [appElements, setElements]);
+
+  const visibleElements = useMemo(() => {
+    return appElements
+      .map((element, originalIndex) => {
+        const isVisible = evaluateVisibility(
+          (element.conditionalLogic || {}) as ConditionalLogic,
+          answers as Answers
+        );
+        return isVisible ? { element, originalIndex } : null;
+      })
+      .filter((entry): entry is { element: Element; originalIndex: number } =>
+        Boolean(entry)
+      );
+  }, [appElements, answers]);
+
+  const advance = useCallback(
+    (nextIndex: number) => {
+      if (nextIndex === cursor) return;
+      setErrors([]);
+      previousActiveOriginalIndexRef.current =
+        visibleElements[nextIndex]?.originalIndex ?? null;
+      setCursor(nextIndex);
+      if (nextIndex >= visibleElements.length) {
+        onComplete?.();
+      }
+    },
+    [cursor, onComplete, setErrors, visibleElements.length, visibleElements]
+  );
+
+  const previousActiveOriginalIndexRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (visibleElements.length === 0) {
+      if (cursor !== 0) {
+        advance(0);
+      }
+      previousActiveOriginalIndexRef.current = null;
+      return;
+    }
+
+    const previousOriginalIndex = previousActiveOriginalIndexRef.current;
+    if (previousOriginalIndex !== null) {
+      const newIndex = visibleElements.findIndex(
+        (entry) => entry.originalIndex === previousOriginalIndex
+      );
+
+      if (newIndex === -1) {
+        const nextIndex = visibleElements.findIndex(
+          (entry) => entry.originalIndex > previousOriginalIndex
+        );
+        const targetIndex =
+          nextIndex >= 0 ? nextIndex : visibleElements.length;
+        if (targetIndex !== cursor) {
+          advance(targetIndex);
+          previousActiveOriginalIndexRef.current =
+            visibleElements[targetIndex]?.originalIndex ?? null;
+          return;
+        }
+      } else if (newIndex !== cursor) {
+        setCursor(newIndex);
+        previousActiveOriginalIndexRef.current = previousOriginalIndex;
+        return;
+      }
+    }
+
+    if (cursor > visibleElements.length) {
+      advance(visibleElements.length);
+      previousActiveOriginalIndexRef.current = null;
+      return;
+    }
+
+    previousActiveOriginalIndexRef.current =
+      visibleElements[cursor]?.originalIndex ?? null;
+  }, [advance, cursor, visibleElements]);
+
   const { stopIndex, stopElement, visibleUntil } = useMemo(() => {
     let i = cursor;
-    while (i < appElements.length && !isStopElement(appElements[i])) {
+    while (i < visibleElements.length && !isStopElement(visibleElements[i].element)) {
       i += 1;
     }
-    const hasStop = i < appElements.length && isStopElement(appElements[i]);
+    const hasStop =
+      i < visibleElements.length && isStopElement(visibleElements[i].element);
     const stopIdx = hasStop ? i : null;
-    const stopEl = hasStop ? appElements[i] : null;
-    const until = hasStop ? i : appElements.length - 1;
+    const stopEl = hasStop ? visibleElements[i] : null;
+    const until = hasStop ? i : visibleElements.length - 1;
     return { stopIndex: stopIdx, stopElement: stopEl, visibleUntil: until };
-  }, [appElements, cursor]);
-
-  const advance = (nextIndex: number) => {
-    setErrors([]);
-    setCursor(nextIndex);
-    if (nextIndex >= appElements.length) {
-      onComplete?.();
-    }
-  };
+  }, [cursor, visibleElements]);
 
   const startFixedResponseTypewriter = (id: string, fullText: string) => {
     const nextToken = (fixedResponseRunTokenRef.current[id] || 0) + 1;
@@ -150,15 +222,27 @@ export default function CurrentElementFlow({
     setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
   };
 
+  const getVisibleInstructions = (
+    instructions: Element["instructions"] | undefined
+  ) => {
+    return (instructions || []).filter((inst) =>
+      evaluateVisibility(
+        (inst?.conditionalLogic || {}) as ConditionalLogic,
+        answers as Answers
+      )
+    );
+  };
+
   const handleRun = async (event: FormEvent) => {
     event.preventDefault();
 
     if (!surveyJson) return;
     if (!stopElement || stopIndex === null) return;
 
-    // Validate only the current segment inputs (cursor..stopIndex-1)
-    const segmentInputs = appElements
+    // Validate only the current visible segment inputs (cursor..stopIndex-1)
+    const segmentInputs = visibleElements
       .slice(cursor, stopIndex)
+      .map((entry) => entry.element)
       .filter((el) => !isStopElement(el));
     const newErrors = validateForm(segmentInputs, answers);
     if (newErrors.length > 0) {
@@ -166,34 +250,34 @@ export default function CurrentElementFlow({
       return;
     }
 
-    if (stopElement.type === "fixedResponse") {
-      const text = injectValuesIntoPrompt(stopElement.text || "", answers);
-      setFixedResponsesById((prev) => ({ ...prev, [stopElement.id]: text }));
-      const alreadyDisplayed = fixedResponseDisplayedById[stopElement.id];
-      const isAnimating = fixedResponseAnimatingById[stopElement.id];
+    const stop = stopElement.element;
+
+    if (stop.type === "fixedResponse") {
+      const text = injectValuesIntoPrompt(stop.text || "", answers);
+      setFixedResponsesById((prev) => ({ ...prev, [stop.id]: text }));
+      const alreadyDisplayed = fixedResponseDisplayedById[stop.id];
+      const isAnimating = fixedResponseAnimatingById[stop.id];
       if (alreadyDisplayed === undefined && !isAnimating) {
-        startFixedResponseTypewriter(stopElement.id, text);
+        startFixedResponseTypewriter(stop.id, text);
       }
       return;
     }
 
-    if (stopElement.type === "aiResponse") {
-      const prompts: Prompt[] = (stopElement.instructions || []).map(
-        (inst, idx) => ({
-          id: `${stopElement.id}-p-${idx}`,
-          name: `${stopElement.name}-p-${idx}`,
-          type: "prompt",
-          text: inst.text || "",
-          conditionalLogic: inst.conditionalLogic,
-        })
-      );
+    if (stop.type === "aiResponse") {
+      const visibleInstructions = getVisibleInstructions(stop.instructions);
+      const prompts: Prompt[] = visibleInstructions.map((inst, idx) => ({
+        id: `${stop.id}-p-${idx}`,
+        name: `${stop.name}-p-${idx}`,
+        type: "prompt",
+        text: inst.text || "",
+      }));
 
       const res = await sendPrompts(
         prompts,
         answers,
         appId,
         surveyJson,
-        stopIndex,
+        stopElement.originalIndex,
         userId,
         false
       );
@@ -202,11 +286,11 @@ export default function CurrentElementFlow({
       return;
     }
 
-    if (stopElement.type === "scoring") {
+    if (stop.type === "scoring") {
       const prompt: Prompt[] = [
         {
-          id: `${stopElement.id}-score`,
-          name: `${stopElement.name}-score`,
+          id: `${stop.id}-score`,
+          name: `${stop.name}-score`,
           type: "prompt",
           text: ".",
         },
@@ -217,19 +301,19 @@ export default function CurrentElementFlow({
         answers,
         appId,
         surveyJson,
-        stopIndex,
+        stopElement.originalIndex,
         userId,
         false,
         false,
         {
           scoredPhase: true,
-          rubric: stopElement.rubric || "",
+          rubric: stop.rubric || "",
           minScore:
-            typeof stopElement.minScore === "number" ? stopElement.minScore : 0,
+            typeof stop.minScore === "number" ? stop.minScore : 0,
         }
       );
 
-      const scoringIsRequired = stopElement.isRequired !== false;
+      const scoringIsRequired = stop.isRequired !== false;
       if (res.run_passed === false && scoringIsRequired) return;
       advance(stopIndex + 1);
       return;
@@ -238,21 +322,18 @@ export default function CurrentElementFlow({
 
   if (!surveyJson) return null;
 
-  const isComplete = cursor >= appElements.length;
+  const isComplete = cursor >= visibleElements.length;
 
-  const visibleElements = isComplete
-    ? appElements
-    : appElements.slice(0, Math.min(visibleUntil + 1, appElements.length));
+  const visibleElementsForRender = isComplete
+    ? visibleElements
+    : visibleElements.slice(
+        0,
+        Math.min(visibleUntil + 1, visibleElements.length)
+      );
 
   return (
     <form onSubmit={handleRun} className="space-y-6">
-      {visibleElements.map((element, idx) => {
-        const isVisible = evaluateVisibility(
-          (element.conditionalLogic || {}) as ConditionalLogic,
-          answers as Answers
-        );
-        if (!isVisible) return null;
-
+      {visibleElementsForRender.map(({ element, originalIndex }, idx) => {
         const isLocked = idx < cursor;
         const isActiveStop = stopIndex !== null && idx === stopIndex;
         const isStop = isStopElement(element);
@@ -288,11 +369,11 @@ export default function CurrentElementFlow({
                 handleInputChange={handleInputChange}
                 setInputValue={setInputValue}
                 setImages={setImages}
-                visible={isVisible}
+                visible={true}
                 appId={appId}
                 userId={userId}
                 surveyJson={surveyJson}
-                currentPhaseIndex={stopIndex ?? cursor}
+                currentPhaseIndex={originalIndex}
                 isOwner={isOwner}
                 isAdmin={isAdmin}
               />
@@ -303,7 +384,7 @@ export default function CurrentElementFlow({
         // Stop card rendering (aiResponse/fixedResponse/scoring)
         const runForThisStop =
           currentConversation?.runs
-            ?.filter((run) => run.phaseIndex === idx)
+            ?.filter((run) => run.phaseIndex === originalIndex)
             .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
         const scoringIsRequired =
           element.type === "scoring" ? element.isRequired !== false : false;
@@ -333,13 +414,14 @@ export default function CurrentElementFlow({
 
         const aiPromptPreviewPrompts: Prompt[] =
           element.type === "aiResponse"
-            ? (element.instructions || []).map((inst: any, pIdx: number) => ({
-                id: `${element.id}-preview-${pIdx}`,
-                name: `${element.name}-preview-${pIdx}`,
-                type: "prompt",
-                text: inst?.text || "",
-                conditionalLogic: inst?.conditionalLogic,
-              }))
+            ? getVisibleInstructions(element.instructions).map(
+                (inst: any, pIdx: number) => ({
+                  id: `${element.id}-preview-${pIdx}`,
+                  name: `${element.name}-preview-${pIdx}`,
+                  type: "prompt",
+                  text: inst?.text || "",
+                })
+              )
             : [];
 
         const isBorderlessStopWrapper =
@@ -489,7 +571,7 @@ export default function CurrentElementFlow({
           <button
             type="button"
             className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            onClick={() => advance(appElements.length)}
+            onClick={() => advance(visibleElements.length)}
           >
             Finish
           </button>
