@@ -423,7 +423,6 @@ export default function ScoringField({
         rubricText={rubricText}
         setRubricText={setRubricText}
         uploadedFiles={uploadedFiles}
-        setUploadedFiles={setUploadedFiles}
         fileInputRef={fileInputRef}
         removeFile={removeFile}
         triggerFileInput={triggerFileInput}
