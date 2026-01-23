@@ -233,6 +233,8 @@ export default function ConditionalLogicSidebar({
                         "You can only use fields that appear before this one in the form.";
                     }
 
+                    const chipLabel = field.label || field.name || field.id;
+
                     if (isDisabled) {
                       return (
                         <Tooltip key={field.id}>
@@ -245,13 +247,18 @@ export default function ConditionalLogicSidebar({
                                  transition-colors
                                  focus:outline-none focus:ring-2 focus:ring-blue-200
                                  hover:bg-gray-100 focus:bg-gray-100
-                                 `}
+                              `}
                               style={{
                                 pointerEvents: "auto",
                                 userSelect: "none",
                               }}
                             >
-                              {field.name}
+                              <Badge
+                                variant="default"
+                                className="cursor-move bg-primary-600 text-white align-baseline"
+                              >
+                                {chipLabel}
+                              </Badge>
                               <span className="ml-2 text-xs text-gray-400">
                                 (not available)
                               </span>
@@ -269,7 +276,12 @@ export default function ConditionalLogicSidebar({
                     }
                     return (
                       <SelectItem key={field.id} value={field.id}>
-                        {field.name}
+                        <Badge
+                          variant="default"
+                          className="cursor-move bg-primary-600 text-white align-baseline"
+                        >
+                          {chipLabel}
+                        </Badge>
                       </SelectItem>
                     );
                   })}
