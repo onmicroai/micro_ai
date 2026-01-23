@@ -196,10 +196,10 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
               </div>
 
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
                 onClick={onClose}
-                className="text-gray-400 hover:text-red-600"
+                className="border-primary text-primary hover:bg-primary/10 hover:text-primary transition-colors"
               >
                 Stop generating
               </Button>
