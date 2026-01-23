@@ -489,7 +489,9 @@ export default function ConditionalLogicSidebar({
                 !selectedSourceField ||
                 !selectedOperator ||
                 (operatorNeedsValue(selectedOperator) &&
-                  conditionValue === null)
+                  (conditionValue === "" ||
+                    conditionValue === undefined ||
+                    conditionValue === null))
               }
               className="w-1/2"
             >
