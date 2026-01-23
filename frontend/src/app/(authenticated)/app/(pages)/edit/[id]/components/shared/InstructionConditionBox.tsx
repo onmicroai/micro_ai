@@ -3,18 +3,18 @@ import { Button } from "../../components/ui/button";
 import * as Tooltip from "@radix-ui/react-tooltip";
 
 interface InstructionConditionBoxProps {
-  property: string;
+  conditionFieldName: string;
   operator: string;
   value?: string;
   onRemove?: () => void;
-  fieldId?: string;
+  currentFieldName?: string; // Optional for case when condition is shown for instruction
 }
 
 function getTooltipText(
-  fieldId: string | undefined,
-  property: string,
+  conditionFieldName: string,
   operator: string,
-  value?: string
+  currentFieldName?: string,
+  value?: string,
 ) {
   let conditionText: React.ReactNode;
 
@@ -88,18 +88,18 @@ function getTooltipText(
 
   return (
     <>
-      This question <b>{fieldId}</b> will be shown if the answer in question{" "}
-      <b>{property}</b> {conditionText}
+      This question <b>{currentFieldName}</b> will be shown if the answer in
+      question <b>{conditionFieldName}</b> {conditionText}
     </>
   );
 }
 
 export default function InstructionConditionBox({
-  property,
+  conditionFieldName,
   operator,
   value,
   onRemove,
-  fieldId,
+  currentFieldName,
 }: InstructionConditionBoxProps) {
   return (
     <div
@@ -118,7 +118,9 @@ export default function InstructionConditionBox({
         Shows if{" "}
         <Tooltip.Root delayDuration={0}>
           <Tooltip.Trigger asChild>
-            <span className="underline mx-1 cursor-pointer">{property}</span>
+            <span className="underline mx-1 cursor-pointer">
+              {conditionFieldName}
+            </span>
           </Tooltip.Trigger>
           <Tooltip.Portal>
             <Tooltip.Content
@@ -127,7 +129,12 @@ export default function InstructionConditionBox({
               className="z-50 bg-gray-800 text-white text-xs rounded px-3 py-2 shadow-lg whitespace-pre-line max-w-[260px]"
               sideOffset={6}
             >
-              {getTooltipText(fieldId, property, operator, value)}
+              {getTooltipText(
+                conditionFieldName,
+                operator,
+                currentFieldName,
+                value,
+              )}
             </Tooltip.Content>
           </Tooltip.Portal>
         </Tooltip.Root>

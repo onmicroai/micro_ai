@@ -744,7 +744,7 @@ export default function AIResponseField({
                     {" "}
                     {instruction.conditionalLogic && (
                       <InstructionConditionBox
-                        property={
+                        conditionFieldName={
                           fields.find(
                             (f) =>
                               f.id ===
@@ -796,7 +796,7 @@ export default function AIResponseField({
                           className="mt-6"
                         >
                           <InstructionConditionBox
-                            property={
+                            conditionFieldName={
                               fields.find(
                                 (f) =>
                                   f.id ===

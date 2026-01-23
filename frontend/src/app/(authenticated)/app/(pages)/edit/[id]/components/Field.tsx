@@ -1283,9 +1283,10 @@ export default function Field({
       >
         {field.conditionalLogic && fieldCondition && (
           <InstructionConditionBox
-            property={
+            conditionFieldName={
               fieldCondition.name || fieldCondition.label || fieldCondition.id
             }
+            currentFieldName={field.name || field.label}
             operator={field.conditionalLogic.operator}
             value={
               field.conditionalLogic.value
@@ -1479,7 +1480,7 @@ export default function Field({
               layout={!isDragging ? "position" : false}
             >
               <InstructionConditionBox
-                property={
+                conditionFieldName={
                   fieldCondition.name ||
                   fieldCondition.label ||
                   fieldCondition.id
@@ -1490,7 +1491,7 @@ export default function Field({
                     ? String(field.conditionalLogic.value)
                     : undefined
                 }
-                fieldId={field.id}
+                currentFieldName={field.name}
               />
             </motion.div>
           )}
