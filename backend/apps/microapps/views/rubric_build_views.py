@@ -101,7 +101,7 @@ Generate a comprehensive rubric based on this information."""
             api_params = llm.get_default_params({
                 "messages": messages,
                 "model": model_name,
-                "temperature": 0.7,
+                "temperature": 0.3,
                 "max_tokens": 4000
             })
             response = llm.get_response(api_params)
