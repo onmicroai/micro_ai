@@ -9,7 +9,10 @@
     "start-production": "next start",
     "lint": "next lint",
     "eslint": "eslint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test:migration": "node --test --import tsx tests/migrateAppJson.test.ts",
+    "migration:validate": "tsx ../migration/scripts/validate-migration.ts",
+    "migration:summarize": "tsx ../migration/scripts/summarize-results.ts"
   },
   "lint-staged": {
     "**/*.{js,jsx,ts,tsx}": [
@@ -121,6 +124,7 @@
     "nodemon": "^3.1.4",
     "sass": "^1.77.1",
     "tsc-files": "^1.1.4",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

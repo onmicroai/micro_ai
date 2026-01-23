@@ -2,3 +2,5 @@
 node_modules/
 db_data/
 .cursor/
+migration/resources/*
+migration/reports/*
