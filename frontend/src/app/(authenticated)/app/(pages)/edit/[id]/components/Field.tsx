@@ -1289,8 +1289,9 @@ export default function Field({
             currentFieldName={field.name || field.label}
             operator={field.conditionalLogic.operator}
             value={
-              field.conditionalLogic.value
-                ? String(field.conditionalLogic.value)
+              field.conditionalLogic.value != null &&
+              field.conditionalLogic.value !== undefined
+                ? field.conditionalLogic.value
                 : undefined
             }
           />
@@ -1487,7 +1488,8 @@ export default function Field({
                 }
                 operator={field.conditionalLogic.operator}
                 value={
-                  field.conditionalLogic.value
+                  field.conditionalLogic.value != null &&
+                  field.conditionalLogic.value !== undefined
                     ? String(field.conditionalLogic.value)
                     : undefined
                 }
