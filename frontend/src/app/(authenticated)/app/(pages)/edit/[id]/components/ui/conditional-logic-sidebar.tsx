@@ -478,7 +478,7 @@ export default function ConditionalLogicSidebar({
               type="button"
               variant="outline"
               onClick={handleClear}
-              className="w-1/2"
+              className="w-1/2 border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
             >
               Clear
             </Button>

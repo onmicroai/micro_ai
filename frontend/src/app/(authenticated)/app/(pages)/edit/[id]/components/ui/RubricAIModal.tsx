@@ -323,7 +323,11 @@ const RubricAIModal: React.FC<RubricAIModalProps> = ({
               )}
 
               <div className="flex justify-end gap-2 mt-6">
-                <Button variant="outline" onClick={onClose}>
+                <Button
+                  variant="outline"
+                  onClick={onClose}
+                  className="border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
+                >
                   Cancel
                 </Button>
 

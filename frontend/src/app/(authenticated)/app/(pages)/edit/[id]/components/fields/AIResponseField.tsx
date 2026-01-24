@@ -1022,7 +1022,11 @@ export default function AIResponseField({
               )}
 
               <div className="flex justify-end gap-2 mt-4">
-                <Button variant="outline" onClick={() => setOpenDialog(null)}>
+                <Button
+                  variant="outline"
+                  onClick={() => setOpenDialog(null)}
+                  className="border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
+                >
                   Cancel
                 </Button>
                 <Button

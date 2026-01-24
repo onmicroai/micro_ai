@@ -1298,7 +1298,12 @@ export default function FormBuilder() {
                       ref={cardRef}
                       layout={!isAppDetailsEditMode}
                       initial={false}
-                      className={`mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200 min-h-[160px]`}
+                      className={`relative mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200 min-h-[160px]
+                        ${
+                          isAppDetailsEditMode
+                            ? "shadow-soft before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b before:from-[#5C5EF1] before:to-[#4CFFD4] before:pointer-events-none"
+                            : ""
+                        }`}
                       onClick={() => {
                         if (!isAppDetailsEditMode)
                           setIsAppDetailsEditMode(true);
