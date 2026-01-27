@@ -238,7 +238,6 @@ export default function CurrentElementFlow({
 
     if (!surveyJson) return;
     if (!stopElement || stopIndex === null) return;
-
     // Validate only the current visible segment inputs (cursor..stopIndex-1)
     const segmentInputs = visibleElements
       .slice(cursor, stopIndex)
@@ -530,11 +529,15 @@ export default function CurrentElementFlow({
                         const anim = fixedAnimating;
 
                         // If not revealed yet: allow submit → handleRun starts reveal animation.
-                        if (!hasFull) return;
+                        if (!hasFull) {
+                          e.currentTarget.blur();
+                          return;
+                        }
 
                         // If animating or partially shown: click skips to full reveal (no submit)
                         if (anim || displayed !== full) {
                           e.preventDefault();
+                          e.currentTarget.blur();
                           revealFullFixedResponse(element.id, full);
                           return;
                         }
@@ -542,6 +545,7 @@ export default function CurrentElementFlow({
                         // If fully shown: click advances (no submit)
                         if (displayed === full) {
                           e.preventDefault();
+                          e.currentTarget.blur();
                           advance(idx + 1);
                           return;
                         }
