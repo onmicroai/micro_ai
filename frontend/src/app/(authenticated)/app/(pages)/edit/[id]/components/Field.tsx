@@ -598,7 +598,7 @@ export default function Field({
                 variant="ghost"
                 size="sm"
                 onClick={handleAddOption}
-                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                className="text-primary hover:text-primary-600 hover:bg-primary/10"
               >
                 Add Option
               </Button>
@@ -607,7 +607,7 @@ export default function Field({
                   variant="ghost"
                   size="sm"
                   onClick={() => onUpdateFieldShowOther(field.id, true)}
-                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
                 >
                   Add &apos;Other&apos;
                 </Button>
@@ -686,7 +686,7 @@ export default function Field({
                 variant="ghost"
                 size="sm"
                 onClick={() => handleAddOption()}
-                className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                className="text-primary hover:text-primary-600 hover:bg-primary/10"
               >
                 Add Option
               </Button>
@@ -695,7 +695,7 @@ export default function Field({
                   variant="ghost"
                   size="sm"
                   onClick={() => onUpdateFieldShowOther(field.id, true)}
-                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
                 >
                   Add &apos;Other&apos;
                 </Button>
@@ -771,7 +771,7 @@ export default function Field({
                   variant="ghost"
                   size="sm"
                   onClick={handleAddOption}
-                  className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
                 >
                   Add Option
                 </Button>
@@ -780,7 +780,7 @@ export default function Field({
                     variant="ghost"
                     size="sm"
                     onClick={() => onUpdateFieldShowOther(field.id, true)}
-                    className="text-blue-500 hover:text-blue-700 hover:bg-blue-50"
+                    className="text-primary hover:text-primary-600 hover:bg-primary/10"
                   >
                     Add &apos;Other&apos;
                   </Button>
@@ -1273,10 +1273,14 @@ export default function Field({
     return (
       <div
         ref={fieldRef}
-        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
+        className={`relative space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
          ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
+         ${
+           isActive
+             ? "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b before:from-[#5C5EF1] before:to-[#4CFFD4] before:pointer-events-none"
+             : ""
+         }
          `}
-        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onClick={() => {
           if (!isActive && onActivate) onActivate();
         }}
@@ -1462,10 +1466,14 @@ export default function Field({
     <div ref={fieldRef} className={`relative`}>
       <motion.div
         layout={!isDragging ? "position" : false}
-        className={`space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
+        className={`relative space-y-2 rounded-lg bg-white p-4 transition-shadow duration-200
             ${isActive ? `shadow-soft` : `cursor-pointer hover:shadow-soft`}
+            ${
+              isActive
+                ? "before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b before:from-[#5C5EF1] before:to-[#4CFFD4] before:pointer-events-none"
+                : ""
+            }
          `}
-        style={isActive ? { borderLeft: "4px solid #5963E8" } : undefined}
         onMouseDown={(e) => {
           if (!isActive && onActivate) {
             e.preventDefault();
@@ -1586,7 +1594,7 @@ export default function Field({
                           <button
                             type="button"
                             onClick={() => setShowDescription(true)}
-                            className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors pb-6 pt-2"
+                            className="flex items-center gap-1 text-sm text-primary hover:text-primary-600 font-medium transition-colors pb-6 pt-2"
                           >
                             <CirclePlus size={16} className="mr-1" />
                             Add description

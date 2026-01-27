@@ -230,6 +230,7 @@ export default function FieldHeader({
                       variant="outline"
                       onClick={() => setEditOpen(false)}
                       type="button"
+                      className="border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
                     >
                       Close
                     </Button>
