@@ -29,7 +29,6 @@ import {
 import "./styles.scss";
 import InstructionConditionBox from "../shared/InstructionConditionBox";
 import { useSurveyStore } from "../../store/editSurveyStore";
-import { useTagFocusContext } from "../TagFocusContext";
 
 interface Tag {
   id: string;
@@ -66,7 +65,6 @@ export default function AIResponseField({
   onRequiredChange?: (isRequired: boolean) => void;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
 }) {
-  const { isTagFocusActive } = useTagFocusContext();
   const [instructions, setInstructions] = useState<Instruction[]>([
     { id: "1", content: field.text || "" },
   ]);
@@ -227,7 +225,7 @@ export default function AIResponseField({
       );
       return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields],
+    [fields, isPreviewMode],
   );
 
   const convertTagsToPlaceholders = useCallback(

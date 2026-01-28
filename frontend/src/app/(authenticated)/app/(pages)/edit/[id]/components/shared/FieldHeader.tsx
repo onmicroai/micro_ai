@@ -1,6 +1,6 @@
 "use client";
 
-import { Split, Trash2, GripVertical, Pencil } from "lucide-react";
+import { Split, Trash2, GripVertical, Pencil, X, Check } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
@@ -84,19 +84,34 @@ export default function FieldHeader({
     setNewName(field.name);
   }, [field.name]);
 
+  useEffect(() => {
+    if (editOpen) {
+      setNewName(field.name);
+    }
+  }, [editOpen, field.name]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewName(e.target.value);
-    onRename?.(e.target.value);
+  };
+
+  const handleCancelRename = () => {
+    setNewName(field.name);
+    setEditOpen(false);
+  };
+
+  const handleConfirmRename = () => {
+    onRename?.(newName);
+    setEditOpen(false);
   };
 
   const handleAliasKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      setEditOpen(false);
+      handleCancelRename();
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      setEditOpen(false);
+      handleConfirmRename();
     }
   };
 
@@ -223,21 +238,30 @@ export default function FieldHeader({
                   <div className="text-xs font-medium text-gray-900">
                     Edit name
                   </div>
-                  <Input
-                    className="border rounded px-2 py-1 w-full text-sm"
-                    value={newName}
-                    onChange={handleChange}
-                    onKeyDown={handleAliasKeyDown}
-                    autoFocus
-                  />
-                  <div className="flex justify-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="border rounded px-2 py-1 flex-1 text-sm"
+                      value={newName}
+                      onChange={handleChange}
+                      onKeyDown={handleAliasKeyDown}
+                      autoFocus
+                    />
                     <Button
                       variant="outline"
-                      onClick={() => setEditOpen(false)}
+                      onClick={handleCancelRename}
                       type="button"
-                      className="border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
+                      className="h-8 w-8 p-0 border-gray-300 text-gray-600 hover:bg-gray-50"
+                      aria-label="Discard changes"
                     >
-                      Close
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      onClick={handleConfirmRename}
+                      type="button"
+                      className="h-8 w-8 p-0 bg-primary-600 text-white hover:bg-primary-700"
+                      aria-label="Save changes"
+                    >
+                      <Check className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
