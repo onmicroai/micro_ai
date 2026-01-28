@@ -220,7 +220,7 @@ export default function AIResponseField({
           }" data-tag-label="${
             field.name || field.id
           }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
-            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-blue-700"}" style="margin: 0 0.25em;">${
+            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary hover:text-red"}" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         },

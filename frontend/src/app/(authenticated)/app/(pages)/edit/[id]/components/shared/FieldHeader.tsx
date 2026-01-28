@@ -74,7 +74,7 @@ export default function FieldHeader({
   const { isTagFocusActive } = useTagFocusContext();
   const tagClassName = isTagFocusActive
     ? "text-white bg-primary-600 hover:bg-primary-600"
-    : "border-gray-300 bg-transparent text-blue-700 hover:bg-transparent";
+    : "border-gray-300 bg-transparent text-primary-600 hover:text-primary hover:bg-transparent";
 
   const isHidden = (element: HiddenHeaderElement): boolean => {
     return hiddenElements.includes(element);
