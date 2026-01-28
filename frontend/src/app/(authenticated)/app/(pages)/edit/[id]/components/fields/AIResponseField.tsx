@@ -7,7 +7,7 @@ import React, {
   useState,
   useLayoutEffect,
 } from "react";
-import { X, Split, CirclePlus } from "lucide-react";
+import { X, Split, CirclePlus, HelpCircle } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
@@ -217,14 +217,15 @@ export default function AIResponseField({
             field.id
           }" data-tag-label="${
             field.name || field.id
-          }" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
+          }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
+            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary"}" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         },
       );
       return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields],
+    [fields, isPreviewMode],
   );
 
   const convertTagsToPlaceholders = useCallback(
@@ -296,8 +297,7 @@ export default function AIResponseField({
     tagElement.draggable = true;
     tagElement.setAttribute("data-tag-id", field?.id || label);
     tagElement.setAttribute("data-tag-label", label);
-    tagElement.className =
-      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className = "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;
@@ -898,63 +898,72 @@ export default function AIResponseField({
           )}
 
           {!isPreviewMode && (
-            <div className="flex flex-wrap gap-2">
-              {fields.map((sourceField) => {
-                const fieldIdentifier = sourceField.name || sourceField.id;
-                const tagData = {
-                  id: sourceField.id,
-                  label: sourceField.name || "",
-                };
-                return (
-                  <Badge
-                    key={sourceField.id}
-                    draggable="true"
-                    onDragStart={(event) => {
-                      handleDragStart(event, tagData);
-                      if (focusedInstruction) {
-                        event.dataTransfer.setData(
-                          "focusedInstruction",
-                          focusedInstruction,
-                        );
-                      }
-                    }}
-                    onDragEnd={() => {
-                      if (focusedInstruction) {
-                        const editorElement =
-                          editorRefs.current.get(focusedInstruction);
-                        if (editorElement) {
-                          setTimeout(() => {
-                            editorElement.focus();
-                            restoreSelection(focusedInstruction);
-                          }, 0);
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {fields.map((sourceField) => {
+                  const fieldIdentifier = sourceField.name || sourceField.id;
+                  const tagData = {
+                    id: sourceField.id,
+                    label: sourceField.name || "",
+                  };
+                  return (
+                    <Badge
+                      key={sourceField.id}
+                      draggable="true"
+                      onDragStart={(event) => {
+                        handleDragStart(event, tagData);
+                        if (focusedInstruction) {
+                          event.dataTransfer.setData(
+                            "focusedInstruction",
+                            focusedInstruction,
+                          );
                         }
-                      }
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (focusedInstruction) {
-                        insertTag(tagData, focusedInstruction);
-                        const editorElement =
-                          editorRefs.current.get(focusedInstruction);
-                        if (editorElement) {
-                          setTimeout(() => {
-                            editorElement.focus();
-                            restoreSelection(focusedInstruction);
-                          }, 0);
+                      }}
+                      onDragEnd={() => {
+                        if (focusedInstruction) {
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
                         }
-                      } else if (instructions.length > 0) {
-                        insertTag(tagData, instructions[0].id);
-                      }
-                    }}
-                    variant="default"
-                    className="cursor-move bg-primary-600 text-white align-baseline"
-                    style={{ margin: "0 0.25em" }}
-                  >
-                    {fieldIdentifier}
-                  </Badge>
-                );
-              })}
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (focusedInstruction) {
+                          insertTag(tagData, focusedInstruction);
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
+                        } else if (instructions.length > 0) {
+                          insertTag(tagData, instructions[0].id);
+                        }
+                      }}
+                      variant="default"
+                      className="cursor-move bg-primary-600 text-white align-baseline"
+                      style={{ margin: "0 0.25em" }}
+                    >
+                      {fieldIdentifier}
+                    </Badge>
+                  );
+                })}
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-400">
+                <HelpCircle className="mt-[1px] h-3.5 w-3.5" />
+                <span>
+                  You can drag the tag and drop it into the desired position in
+                  the instructions.
+                </span>
+              </div>
             </div>
           )}
         </div>

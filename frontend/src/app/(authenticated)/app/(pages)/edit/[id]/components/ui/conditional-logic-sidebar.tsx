@@ -184,11 +184,11 @@ export default function ConditionalLogicSidebar({
           className="sticky top-16 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
           style={{ minWidth: 0, maxWidth: 400 }}
         >
-          <div className="px-4 flex items-center justify-between ">
-            <div className="flex flex-col mt-4">
-              <h2 className="text-base font-semibold text-black">
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
+            <div className="flex flex-col">
+              <h2 className="text-base font-medium text-black">
                 Conditional Logic
-              </h2>{" "}
+              </h2>
             </div>
             <Button
               variant="ghost"
@@ -212,7 +212,7 @@ export default function ConditionalLogicSidebar({
                 </span>
                 <Badge
                   variant="secondary"
-                  className="text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-50"
+                  className="border-gray-300 bg-transparent text-primary-600 hover:text-primary hover:bg-transparent text-xs font-normal cursor-pointer flex items-center gap-1"
                 >
                   {targetFieldName}
                 </Badge>

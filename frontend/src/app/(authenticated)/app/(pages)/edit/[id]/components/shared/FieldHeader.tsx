@@ -1,6 +1,6 @@
 "use client";
 
-import { Split, Trash2, GripVertical, Pencil } from "lucide-react";
+import { Split, Trash2, GripVertical, Pencil, X, Check } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
@@ -27,6 +27,7 @@ import {
 import { availableSections } from "../FormBuilder";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSurveyStore } from "../../store/editSurveyStore";
+import { useTagFocusContext } from "../TagFocusContext";
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
@@ -70,6 +71,10 @@ export default function FieldHeader({
 
   const { setConditionalSidebarOpen, setConditionalSidebarContext } =
     useSurveyStore();
+  const { isTagFocusActive } = useTagFocusContext();
+  const tagClassName = isTagFocusActive
+    ? "text-white bg-primary-600 hover:bg-primary-600"
+    : "border-gray-300 bg-transparent text-primary-600 hover:text-primary hover:bg-transparent";
 
   const isHidden = (element: HiddenHeaderElement): boolean => {
     return hiddenElements.includes(element);
@@ -79,19 +84,34 @@ export default function FieldHeader({
     setNewName(field.name);
   }, [field.name]);
 
+  useEffect(() => {
+    if (editOpen) {
+      setNewName(field.name);
+    }
+  }, [editOpen, field.name]);
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewName(e.target.value);
-    onRename?.(e.target.value);
+  };
+
+  const handleCancelRename = () => {
+    setNewName(field.name);
+    setEditOpen(false);
+  };
+
+  const handleConfirmRename = () => {
+    onRename?.(newName);
+    setEditOpen(false);
   };
 
   const handleAliasKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Escape") {
       e.preventDefault();
-      setEditOpen(false);
+      handleCancelRename();
     }
     if (e.key === "Enter") {
       e.preventDefault();
-      setEditOpen(false);
+      handleConfirmRename();
     }
   };
 
@@ -187,7 +207,7 @@ export default function FieldHeader({
                 {isPreviewMode ? (
                   <Badge
                     variant="secondary"
-                    className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-default flex items-center gap-1 cursor-pointer"
+                    className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
                   >
                     {field.name}
                   </Badge>
@@ -202,7 +222,7 @@ export default function FieldHeader({
                     >
                       <Badge
                         variant="secondary"
-                        className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer flex items-center gap-1"
+                        className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
                       >
                         <Pencil className="h-3 w-3" />
                         {field.name}
@@ -218,21 +238,30 @@ export default function FieldHeader({
                   <div className="text-xs font-medium text-gray-900">
                     Edit name
                   </div>
-                  <Input
-                    className="border rounded px-2 py-1 w-full text-sm"
-                    value={newName}
-                    onChange={handleChange}
-                    onKeyDown={handleAliasKeyDown}
-                    autoFocus
-                  />
-                  <div className="flex justify-end gap-2">
+                  <div className="flex items-center gap-2">
+                    <Input
+                      className="border rounded px-2 py-1 flex-1 text-sm"
+                      value={newName}
+                      onChange={handleChange}
+                      onKeyDown={handleAliasKeyDown}
+                      autoFocus
+                    />
                     <Button
                       variant="outline"
-                      onClick={() => setEditOpen(false)}
+                      onClick={handleCancelRename}
                       type="button"
-                      className="border-0 bg-gray-100 text-gray-900 hover:bg-gray-200"
+                      className="h-8 w-8 p-0 border-gray-300 text-gray-600 hover:bg-gray-50"
+                      aria-label="Discard changes"
                     >
-                      Close
+                      <X className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      onClick={handleConfirmRename}
+                      type="button"
+                      className="h-8 w-8 p-0 bg-primary-600 text-white hover:bg-primary-700"
+                      aria-label="Save changes"
+                    >
+                      <Check className="h-4 w-4" />
                     </Button>
                   </div>
                 </div>
