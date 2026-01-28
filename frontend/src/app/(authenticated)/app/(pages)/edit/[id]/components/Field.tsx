@@ -54,6 +54,22 @@ import { motion, AnimatePresence } from "framer-motion";
 import InstructionConditionBox from "./shared/InstructionConditionBox";
 import ScoringField from "@/app/(authenticated)/app/(pages)/edit/[id]/components/fields/ScoringField";
 
+type ActionButtonProps = {
+  children: React.ReactNode;
+  onClick?: () => void;
+  className?: string;
+};
+
+const ActionButton = ({ children, onClick, className = "" }: ActionButtonProps) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className={`flex items-center gap-1 text-sm font-medium text-primary hover:text-primary-600 hover:bg-primary/10 rounded px-2 py-1 transition-colors ${className}`}
+  >
+    {children}
+  </button>
+);
+
 const FIELD_ICONS: Record<
   string,
   React.ComponentType<{ className?: string }>
@@ -275,6 +291,18 @@ export default function Field({
   const [showDescription, setShowDescription] = useState(false);
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
   const fieldRef = React.useRef<HTMLDivElement>(null);
+  const isPromptType =
+    field.type === "prompt" ||
+    field.type === "aiInstructions" ||
+    field.type === "fixedResponse" ||
+    field.type === "aiResponse";
+  const isSpecialType = isPromptType || field.type === "richText";
+  const shouldDefaultLabel =
+    !isSpecialType && field.type !== "title" && field.type !== "scoring";
+  const defaultTextPlaceholder = "Your user can enter a short response here... ";
+  const defaultTextareaPlaceholder =
+    "Your user can enter a longer response here... ";
+ 
 
   // Handle click outside to exit edit mode
   useEffect(() => {
@@ -317,6 +345,24 @@ export default function Field({
       });
     };
   }, [isActive, onDeactivate]);
+
+  const previousActiveRef = React.useRef(isActive);
+  useEffect(() => {
+    if (previousActiveRef.current && !isActive) {
+      const trimmedLabel = field.label?.trim() || "";
+      if (shouldDefaultLabel && trimmedLabel.length === 0) {
+        onUpdateFieldLabel(field.id, "Question", isPromptType);
+      }
+    }
+    previousActiveRef.current = isActive;
+  }, [
+    isActive,
+    field.id,
+    field.label,
+    isPromptType,
+    onUpdateFieldLabel,
+    shouldDefaultLabel,
+  ]);
 
   // Sync choices when field.choices changes
   useEffect(() => {
@@ -398,12 +444,6 @@ export default function Field({
     }
   };
 
-  const isPromptType =
-    field.type === "prompt" ||
-    field.type === "aiInstructions" ||
-    field.type === "fixedResponse" ||
-    field.type === "aiResponse";
-  const isSpecialType = isPromptType || field.type === "richText";
 
   const handlePreviewInputChange = (
     e: React.ChangeEvent<
@@ -502,15 +542,24 @@ export default function Field({
 
     // Handle all other field types
     switch (field.type) {
-      case "text":
+      case "text": {
+        const isDefaultPlaceholder = !field.placeholder;
         return (
           <>
             <Input
-              className="text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+              className={`text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full ${
+                isDefaultPlaceholder ? "cursor-default" : "cursor-text"
+              }`}
               placeholder={
-                field.placeholder ||
-                "Your user can enter a short response here... "
+                field.placeholder || defaultTextPlaceholder
               }
+              readOnly={isDefaultPlaceholder}
+              onFocus={(event) => {
+                if (isDefaultPlaceholder) {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+              }}
               onChange={(e) =>
                 onUpdateFieldPlaceholder(field.id, e.target.value)
               }
@@ -524,16 +573,26 @@ export default function Field({
             )}
           </>
         );
-      case "textarea":
+      }
+      case "textarea": {
+        const isDefaultPlaceholder = !field.placeholder;
         return (
           <Textarea
             placeholder={
-              field.placeholder ||
-              "Your user can enter a longer response here... "
+              field.placeholder || defaultTextareaPlaceholder
             }
+            readOnly={isDefaultPlaceholder}
+            className={isDefaultPlaceholder ? "cursor-default" : "cursor-text"}
+            onFocus={(event) => {
+              if (isDefaultPlaceholder) {
+                event.preventDefault();
+                event.currentTarget.blur();
+              }
+            }}
             onChange={(e) => onUpdateFieldPlaceholder(field.id, e.target.value)}
           />
         );
+      }
       case "radio":
         return (
           <div>
@@ -594,23 +653,13 @@ export default function Field({
               )}
             </RadioGroup>
             <div className="flex space-x-2 mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddOption}
-                className="text-primary hover:text-primary-600 hover:bg-primary/10"
-              >
-                Add Option
-              </Button>
+              <ActionButton onClick={handleAddOption}>Add Option</ActionButton>
               {!field.showOtherItem && (
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <ActionButton
                   onClick={() => onUpdateFieldShowOther(field.id, true)}
-                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
                 >
                   Add &apos;Other&apos;
-                </Button>
+                </ActionButton>
               )}
             </div>
           </div>
@@ -682,23 +731,15 @@ export default function Field({
               </div>
             )}
             <div className="flex space-x-2 mt-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleAddOption()}
-                className="text-primary hover:text-primary-600 hover:bg-primary/10"
-              >
+              <ActionButton onClick={() => handleAddOption()}>
                 Add Option
-              </Button>
+              </ActionButton>
               {!field.showOtherItem && (
-                <Button
-                  variant="ghost"
-                  size="sm"
+                <ActionButton
                   onClick={() => onUpdateFieldShowOther(field.id, true)}
-                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
                 >
                   Add &apos;Other&apos;
-                </Button>
+                </ActionButton>
               )}
             </div>
           </div>
@@ -767,23 +808,15 @@ export default function Field({
               )}
 
               <div className="flex space-x-2 mt-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleAddOption}
-                  className="text-primary hover:text-primary-600 hover:bg-primary/10"
-                >
+                <ActionButton onClick={handleAddOption}>
                   Add Option
-                </Button>
+                </ActionButton>
                 {!field.showOtherItem && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <ActionButton
                     onClick={() => onUpdateFieldShowOther(field.id, true)}
-                    className="text-primary hover:text-primary-600 hover:bg-primary/10"
                   >
                     Add &apos;Other&apos;
-                  </Button>
+                  </ActionButton>
                 )}
               </div>
             </div>
@@ -1341,23 +1374,18 @@ export default function Field({
       return (
         <div className="mt-2">
           {!isValidationExpanded ? (
-            <button
-              type="button"
-              onClick={() => setValidationExpanded(true)}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors"
-            >
+            <ActionButton onClick={() => setValidationExpanded(true)}>
               <CirclePlus size={16} className="mr-1" />
               User input restrictions
-            </button>
+            </ActionButton>
           ) : (
-            <button
-              type="button"
+            <ActionButton
               onClick={() => setValidationExpanded(false)}
-              className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800 font-medium transition-colors mb-2"
+              className="mb-2"
             >
               <CircleMinus size={16} className="mr-1" />
               User input restrictions
-            </button>
+            </ActionButton>
           )}
 
           <AnimatePresence>
@@ -1431,11 +1459,11 @@ export default function Field({
         default:
           //TODO: Display restrictions labels
           return (
-            <RenderQuestion
+              <RenderQuestion
               element={field}
               answers={previewAnswers}
               errors={[]}
-              disabled={false}
+              disabled={true}
               handleInputChange={handlePreviewInputChange}
               setInputValue={handlePreviewSetInputValue}
               setImages={() => {}}

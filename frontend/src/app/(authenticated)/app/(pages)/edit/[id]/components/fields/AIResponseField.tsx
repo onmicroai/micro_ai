@@ -29,6 +29,7 @@ import {
 import "./styles.scss";
 import InstructionConditionBox from "../shared/InstructionConditionBox";
 import { useSurveyStore } from "../../store/editSurveyStore";
+import { useTagFocusContext } from "../TagFocusContext";
 
 interface Tag {
   id: string;
@@ -65,6 +66,7 @@ export default function AIResponseField({
   onRequiredChange?: (isRequired: boolean) => void;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
 }) {
+  const { isTagFocusActive } = useTagFocusContext();
   const [instructions, setInstructions] = useState<Instruction[]>([
     { id: "1", content: field.text || "" },
   ]);
@@ -217,7 +219,8 @@ export default function AIResponseField({
             field.id
           }" data-tag-label="${
             field.name || field.id
-          }" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
+          }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
+            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-blue-700"}" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         },
@@ -296,8 +299,7 @@ export default function AIResponseField({
     tagElement.draggable = true;
     tagElement.setAttribute("data-tag-id", field?.id || label);
     tagElement.setAttribute("data-tag-label", label);
-    tagElement.className =
-      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className = "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;

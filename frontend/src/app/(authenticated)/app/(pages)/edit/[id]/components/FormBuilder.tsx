@@ -64,6 +64,7 @@ import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import Image from "next/image";
 import MonitorPreview from "./ui/monitor-preview";
+import { TagFocusProvider } from "./TagFocusContext";
 
 // Options for the "Add section" dialog
 const fieldTypes = [
@@ -157,6 +158,31 @@ const cardTypes = [
 ];
 
 export const availableSections = [...fieldTypes, ...cardTypes];
+
+const normalizeTagBase = (type: string) =>
+  type.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+const buildDefaultTag = (type: string, usedNames: Set<string>) => {
+  const base = normalizeTagBase(type);
+  let index = 1;
+  while (usedNames.has(`${base}${index}`)) {
+    index += 1;
+  }
+  const name = `${base}${index}`;
+  usedNames.add(name);
+  return name;
+};
+
+const shouldDefaultQuestionLabel = (type: string) =>
+  ![
+    "title",
+    "aiResponse",
+    "fixedResponse",
+    "scoring",
+    "richText",
+    "prompt",
+    "aiInstructions",
+  ].includes(type);
 
 const ACCEPTED_FILE_TYPES = {
   "application/pdf": [".pdf"],
@@ -444,6 +470,42 @@ export default function FormBuilder() {
     fetchLiteLLMModels();
   }, [fetchLiteLLMModels]);
 
+//   useEffect(() => {
+//     const current = Array.isArray(elements) ? elements : [];
+//     const usedNames = new Set<string>();
+//     current.forEach((element) => {
+//       const name = element.name?.trim();
+//       if (name) {
+//         usedNames.add(name.toLowerCase());
+//       }
+//     });
+
+//     let changed = false;
+//     const updated = current.map((element) => {
+//       const name = element.name?.trim();
+//       const label = element.label?.trim();
+//       const nextElement = { ...element };
+//       if (!name) {
+//         changed = true;
+//         nextElement.name = buildDefaultTag(element.type, usedNames);
+//       }
+//       if (!label && shouldDefaultQuestionLabel(element.type)) {
+//         changed = true;
+//         nextElement.label = "Question";
+//       }
+//       return nextElement;
+//     });
+
+//     if (changed) {
+//       setElements(updated);
+//     }
+//   }, [elements, setElements]);
+
+  const activeElement = elements.find((element) => element.id === activeFieldId);
+  const isTagFocusActive =
+    activeElement?.type === "aiResponse" ||
+    activeElement?.type === "fixedResponse";
+
   /**
    * V2 builder: elements are stored as a single ordered list.
    */
@@ -485,13 +547,18 @@ export default function FormBuilder() {
    */
   const addElementToApp = (type: string, insertAfter?: number | null) => {
     const current = Array.isArray(elements) ? elements : [];
-    const existingCount = current.filter((e) => e.type === type).length;
+    const usedNames = new Set(
+      current
+        .map((element) => element.name?.trim().toLowerCase())
+        .filter(Boolean) as string[],
+    );
+    const defaultName = buildDefaultTag(type, usedNames);
 
     const base: Element = {
       id: `${type}-${Date.now()}`,
       type: type as Element["type"],
-      label: "",
-      name: `${type}${existingCount + 1}`,
+      label: shouldDefaultQuestionLabel(type) ? "Question" : "",
+      name: defaultName,
       isRequired: false,
     };
 
@@ -543,6 +610,7 @@ export default function FormBuilder() {
     }
 
     setElements(updated);
+    setActiveFieldId(newElement.id);
     setAddSectionOpenFor(null);
     setInsertAfterIndex(null);
   };
@@ -1177,12 +1245,13 @@ export default function FormBuilder() {
   );
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div
-        className={`min-h-screen ${
-          backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
-        }`}
-      >
+    <TagFocusProvider isTagFocusActive={isTagFocusActive}>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div
+          className={`min-h-screen ${
+            backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
+          }`}
+        >
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
           <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto relative">
             <div
@@ -1268,7 +1337,7 @@ export default function FormBuilder() {
           {activeTab === "build" && sidebarOpen && (
             <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
               <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
-                <span className="text-sm font-medium text-black">
+                <span className="text-base font-medium text-black">
                   App settings
                 </span>
                 <button
@@ -2007,6 +2076,7 @@ export default function FormBuilder() {
           />
         </div>
       </div>
-    </DragDropContext>
+      </DragDropContext>
+    </TagFocusProvider>
   );
 }

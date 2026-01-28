@@ -27,6 +27,7 @@ import {
 import { availableSections } from "../FormBuilder";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSurveyStore } from "../../store/editSurveyStore";
+import { useTagFocusContext } from "../TagFocusContext";
 interface FieldHeaderProps {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
@@ -70,6 +71,10 @@ export default function FieldHeader({
 
   const { setConditionalSidebarOpen, setConditionalSidebarContext } =
     useSurveyStore();
+  const { isTagFocusActive } = useTagFocusContext();
+  const tagClassName = isTagFocusActive
+    ? "text-white bg-primary-600 hover:bg-primary-600"
+    : "border-gray-300 bg-transparent text-blue-700 hover:bg-transparent";
 
   const isHidden = (element: HiddenHeaderElement): boolean => {
     return hiddenElements.includes(element);
@@ -187,7 +192,7 @@ export default function FieldHeader({
                 {isPreviewMode ? (
                   <Badge
                     variant="secondary"
-                    className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-default flex items-center gap-1 cursor-pointer"
+                    className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
                   >
                     {field.name}
                   </Badge>
@@ -202,7 +207,7 @@ export default function FieldHeader({
                     >
                       <Badge
                         variant="secondary"
-                        className="text-xs font-normal border-gray-300 bg-transparent text-blue-700 hover:bg-transparent cursor-pointer flex items-center gap-1"
+                        className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
                       >
                         <Pencil className="h-3 w-3" />
                         {field.name}
