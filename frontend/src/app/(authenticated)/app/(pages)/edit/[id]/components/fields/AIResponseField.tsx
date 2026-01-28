@@ -7,7 +7,7 @@ import React, {
   useState,
   useLayoutEffect,
 } from "react";
-import { X, Split, CirclePlus } from "lucide-react";
+import { X, Split, CirclePlus, HelpCircle } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "../../components/ui/button";
@@ -898,63 +898,72 @@ export default function AIResponseField({
           )}
 
           {!isPreviewMode && (
-            <div className="flex flex-wrap gap-2">
-              {fields.map((sourceField) => {
-                const fieldIdentifier = sourceField.name || sourceField.id;
-                const tagData = {
-                  id: sourceField.id,
-                  label: sourceField.name || "",
-                };
-                return (
-                  <Badge
-                    key={sourceField.id}
-                    draggable="true"
-                    onDragStart={(event) => {
-                      handleDragStart(event, tagData);
-                      if (focusedInstruction) {
-                        event.dataTransfer.setData(
-                          "focusedInstruction",
-                          focusedInstruction,
-                        );
-                      }
-                    }}
-                    onDragEnd={() => {
-                      if (focusedInstruction) {
-                        const editorElement =
-                          editorRefs.current.get(focusedInstruction);
-                        if (editorElement) {
-                          setTimeout(() => {
-                            editorElement.focus();
-                            restoreSelection(focusedInstruction);
-                          }, 0);
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {fields.map((sourceField) => {
+                  const fieldIdentifier = sourceField.name || sourceField.id;
+                  const tagData = {
+                    id: sourceField.id,
+                    label: sourceField.name || "",
+                  };
+                  return (
+                    <Badge
+                      key={sourceField.id}
+                      draggable="true"
+                      onDragStart={(event) => {
+                        handleDragStart(event, tagData);
+                        if (focusedInstruction) {
+                          event.dataTransfer.setData(
+                            "focusedInstruction",
+                            focusedInstruction,
+                          );
                         }
-                      }
-                    }}
-                    onClick={(event) => {
-                      event.preventDefault();
-                      event.stopPropagation();
-                      if (focusedInstruction) {
-                        insertTag(tagData, focusedInstruction);
-                        const editorElement =
-                          editorRefs.current.get(focusedInstruction);
-                        if (editorElement) {
-                          setTimeout(() => {
-                            editorElement.focus();
-                            restoreSelection(focusedInstruction);
-                          }, 0);
+                      }}
+                      onDragEnd={() => {
+                        if (focusedInstruction) {
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
                         }
-                      } else if (instructions.length > 0) {
-                        insertTag(tagData, instructions[0].id);
-                      }
-                    }}
-                    variant="default"
-                    className="cursor-move bg-primary-600 text-white align-baseline"
-                    style={{ margin: "0 0.25em" }}
-                  >
-                    {fieldIdentifier}
-                  </Badge>
-                );
-              })}
+                      }}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        if (focusedInstruction) {
+                          insertTag(tagData, focusedInstruction);
+                          const editorElement =
+                            editorRefs.current.get(focusedInstruction);
+                          if (editorElement) {
+                            setTimeout(() => {
+                              editorElement.focus();
+                              restoreSelection(focusedInstruction);
+                            }, 0);
+                          }
+                        } else if (instructions.length > 0) {
+                          insertTag(tagData, instructions[0].id);
+                        }
+                      }}
+                      variant="default"
+                      className="cursor-move bg-primary-600 text-white align-baseline"
+                      style={{ margin: "0 0.25em" }}
+                    >
+                      {fieldIdentifier}
+                    </Badge>
+                  );
+                })}
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-400">
+                <HelpCircle className="mt-[1px] h-3.5 w-3.5" />
+                <span>
+                  You can drag the tag and drop it into the desired position in
+                  the instructions.
+                </span>
+              </div>
             </div>
           )}
         </div>

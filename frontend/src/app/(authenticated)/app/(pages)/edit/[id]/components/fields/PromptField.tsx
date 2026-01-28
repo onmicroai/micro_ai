@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { Badge } from "../ui/badge";
 import { Element } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
@@ -1010,7 +1011,7 @@ export default function PromptField({
         <AnimatePresence>
           {!isPreviewMode && (
             <motion.div
-              className="flex flex-wrap gap-2"
+              className="space-y-4"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 10 }}
@@ -1038,6 +1039,13 @@ export default function PromptField({
                     </Badge>
                   );
                 })}
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-400">
+                <HelpCircle className="mt-[1px] h-3.5 w-3.5" />
+                <span>
+                  You can drag the tag and drop it into the desired position in
+                  the instructions.
+                </span>
               </div>
             </motion.div>
           )}
