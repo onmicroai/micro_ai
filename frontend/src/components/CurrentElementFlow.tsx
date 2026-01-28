@@ -117,7 +117,7 @@ export default function CurrentElementFlow({
         onComplete?.();
       }
     },
-    [cursor, onComplete, setErrors, visibleElements.length, visibleElements]
+    [cursor, onComplete, setErrors, visibleElements]
   );
 
   const previousActiveOriginalIndexRef = useRef<number | null>(null);
