@@ -37,6 +37,11 @@ export default function PromptField({
   const [previewElement, setPreviewElement] = useState<HTMLElement | null>(
     null
   );
+  const activeTagClasses =
+    "iinline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+  const inactiveTagClasses =
+    "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary hover:text-red";
+  const inlineTagClasses = isPreviewMode? inactiveTagClasses : activeTagClasses;
 
   /**
    * Converts text with {tag_name} placeholders to rich text with interactive tag elements.
@@ -64,7 +69,7 @@ export default function PromptField({
           );
           if (!field) return match;
 
-          return `<span contenteditable="false" draggable="true" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
+          return `<span contenteditable="false" draggable="true" class="${inlineTagClasses}" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         }
@@ -73,7 +78,7 @@ export default function PromptField({
       // Finally, restore the non-breaking spaces
       return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields]
+    [fields, inlineTagClasses]
   );
 
   useEffect(() => {
@@ -284,8 +289,7 @@ export default function PromptField({
     const tagElement = document.createElement("span");
     tagElement.contentEditable = "false";
     tagElement.draggable = true;
-    tagElement.className =
-      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className = inlineTagClasses;
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;
@@ -1027,7 +1031,7 @@ export default function PromptField({
                       onDragStart={(event) => handleDragStart(event, tagData)}
                       onClick={() => insertTag(tagData)}
                       variant="default"
-                      className={`cursor-move bg-primary-600 align-baseline`}
+                      className={`cursor-move bg-primary-600 text-white align-baseline`}
                       style={{ margin: "0 0.25em" }}
                     >
                       {fieldIdentifier}
