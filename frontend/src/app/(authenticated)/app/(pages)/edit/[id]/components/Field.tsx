@@ -291,6 +291,7 @@ export default function Field({
   const [showDescription, setShowDescription] = useState(false);
   const [previewAnswers, setPreviewAnswers] = useState<Record<string, any>>({});
   const fieldRef = React.useRef<HTMLDivElement>(null);
+  const expandedContentRef = React.useRef<HTMLDivElement>(null);
   const isPromptType =
     field.type === "prompt" ||
     field.type === "aiInstructions" ||
@@ -363,6 +364,36 @@ export default function Field({
     onUpdateFieldLabel,
     shouldDefaultLabel,
   ]);
+
+  useEffect(() => {
+    if (!isActive) return;
+
+    const focusFirstInput = () => {
+      const container = expandedContentRef.current;
+      if (!container) return;
+
+      const primaryFocusable = container.querySelector<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), textarea:not([disabled]), select:not([disabled]), [contenteditable="true"]'
+      );
+      if (primaryFocusable) {
+        primaryFocusable.focus({ preventScroll: true });
+        return;
+      }
+
+      const fallbackFocusable = container.querySelector<HTMLElement>(
+        'button:not([disabled])'
+      );
+      if (fallbackFocusable) {
+        fallbackFocusable.focus({ preventScroll: true });
+      }
+    };
+
+    const animationId = requestAnimationFrame(() => {
+      requestAnimationFrame(focusFirstInput);
+    });
+
+    return () => cancelAnimationFrame(animationId);
+  }, [isActive]);
 
   // Sync choices when field.choices changes
   useEffect(() => {
@@ -1364,7 +1395,7 @@ export default function Field({
           isPreviewMode={!isActive}
           conditionalLogic={field.conditionalLogic}
         />
-        {renderFieldEdit()}
+        <div ref={expandedContentRef}>{renderFieldEdit()}</div>
       </div>
     );
   }
@@ -1579,6 +1610,7 @@ export default function Field({
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
               >
                 <motion.div
+                  ref={expandedContentRef}
                   className="space-y-2"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -1686,7 +1718,7 @@ export default function Field({
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
                 transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                className="[&_*]:cursor-pointer"
+                className="pointer-events-none"
               >
                 <div className="space-y-2 mt-4">{renderFieldPreview()}</div>
               </motion.div>

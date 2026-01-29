@@ -170,6 +170,7 @@ export default function ConditionalLogicSidebar({
     setSelectedOperator("");
     setConditionValue("");
     onClear?.();
+    onClose();
   };
 
   return (
@@ -257,7 +258,7 @@ export default function ConditionalLogicSidebar({
                         "You can only use fields that appear before this one in the form.";
                     }
 
-                    const chipLabel = field.label || field.name || field.id;
+                    const chipLabel = field.name || field.id;
 
                     if (isDisabled) {
                       return (

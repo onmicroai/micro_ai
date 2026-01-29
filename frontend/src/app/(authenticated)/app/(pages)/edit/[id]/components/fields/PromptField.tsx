@@ -678,8 +678,7 @@ export default function PromptField({
     preview.style.width = "80px";
     preview.style.margin = "0 0.25em";
     preview.style.padding = "0.125rem 0.5rem";
-    preview.style.height = "1.25rem";
-    preview.innerHTML = "  ";
+    preview.innerHTML = "\u00A0";
     return preview;
   };
 
@@ -985,12 +984,6 @@ export default function PromptField({
           data-placeholder={getPlaceholderText()}
           ref={editorRef}
           contentEditable={isPreviewMode ? false : true}
-          onMouseDown={(e) => {
-            if (isPreviewMode) {
-              e.preventDefault();
-              e.stopPropagation();
-            }
-          }}
           className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
             ${
               isEmpty ? "empty-editor" : ""
@@ -1006,6 +999,7 @@ export default function PromptField({
           suppressContentEditableWarning
           style={{
             cursor: isPreviewMode ? "pointer" : "text",
+            pointerEvents: isPreviewMode ? "none" : "auto",
           }}
         />
         <AnimatePresence>

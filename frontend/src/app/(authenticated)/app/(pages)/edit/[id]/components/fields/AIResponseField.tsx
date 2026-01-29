@@ -494,8 +494,7 @@ export default function AIResponseField({
     preview.style.width = "80px";
     preview.style.margin = "0 0.25em";
     preview.style.padding = "0.125rem 0.5rem";
-    preview.style.height = "1.25rem";
-    preview.innerHTML = " ";
+    preview.innerHTML = "\u00A0";
     return preview;
   };
 

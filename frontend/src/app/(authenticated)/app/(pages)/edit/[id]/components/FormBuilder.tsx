@@ -21,7 +21,7 @@ import {
   ImagePlus,
   MessagesSquare,
   PanelLeft,
-  PanelRightClose,
+  PanelLeftClose,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -503,8 +503,25 @@ export default function FormBuilder() {
 
   const activeElement = elements.find((element) => element.id === activeFieldId);
   const isTagFocusActive =
+    conditionalSidebarOpen ||
     activeElement?.type === "aiResponse" ||
     activeElement?.type === "fixedResponse";
+
+  useEffect(() => {
+    if (!conditionalSidebarOpen) return;
+
+    const contextFieldId = conditionalSidebarContext?.field?.id;
+    if (!contextFieldId) return;
+
+    if (!activeFieldId || activeFieldId !== contextFieldId) {
+      setConditionalSidebarOpen(false);
+    }
+  }, [
+    activeFieldId,
+    conditionalSidebarContext?.field?.id,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+  ]);
 
   /**
    * V2 builder: elements are stored as a single ordered list.
@@ -1279,7 +1296,10 @@ export default function FormBuilder() {
                 Build
               </button>
               <button
-                onClick={() => setActiveTab("preview")}
+                onClick={() => {
+                  setActiveTab("preview");
+                  setConditionalSidebarOpen(false);
+                }}
                 className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
                   activeTab === "preview"
                     ? "bg-white text-primary shadow-sm"
@@ -1345,7 +1365,7 @@ export default function FormBuilder() {
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
                   aria-label="Close sidebar"
                 >
-                  <PanelRightClose className="h-5 w-5 text-gray-600" />
+                  <PanelLeftClose className="h-5 w-5 text-gray-600" />
                 </button>
               </div>
               <div className="flex-1 overflow-y-auto">
