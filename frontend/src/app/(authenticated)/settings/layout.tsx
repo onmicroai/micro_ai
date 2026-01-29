@@ -48,7 +48,7 @@ export default function SettingsLayout({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors
+                      className={`no-underline flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors
                         ${
                           isActive
                             ? "bg-primary text-primary-foreground"

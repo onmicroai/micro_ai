@@ -1269,8 +1269,8 @@ export default function FormBuilder() {
             backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
           }`}
         >
-        <div className="bg-white border-b border-gray-200 sticky top-0 z-40 h-16">
-          <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto relative">
+        <div className="bg-white sticky top-0 z-40 h-16">
+          <div className="flex items-center h-full w-full px-4 relative">
             <div
               className="flex items-center h-full cursor-pointer"
               onClick={() => router.push("/dashboard")}
@@ -1356,7 +1356,7 @@ export default function FormBuilder() {
         <div className="flex-1 flex">
           {activeTab === "build" && sidebarOpen && (
             <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
+              <div className="flex items-center justify-between px-4 py-3 bg-white">
                 <span className="text-base font-medium text-black">
                   App settings
                 </span>
