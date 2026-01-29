@@ -185,7 +185,7 @@ export default function ConditionalLogicSidebar({
           className="sticky top-16 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
           style={{ minWidth: 0, maxWidth: 400 }}
         >
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-300 bg-white">
+          <div className="flex items-center justify-between px-4 py-3 bg-white">
             <div className="flex flex-col">
               <h2 className="text-base font-medium text-black">
                 Conditional Logic
