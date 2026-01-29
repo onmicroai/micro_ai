@@ -5,6 +5,7 @@ import axiosInstance from '@/utils/axiosInstance';
 import { toast } from 'react-toastify';
 import { z } from 'zod';
 import Image from 'next/image';
+import TextInput from '@/components/ui/TextInput';
 import { useUserStore, User } from '@/store/userStore';
 
 /**
@@ -253,15 +254,11 @@ export default function ProfilePage() {
     setPhotoFile(null);
   };
 
-  const renderFieldError = (fieldName: string) => {
+  const getFieldError = (fieldName: string) => {
     if (validatedFields[fieldName] && errors[fieldName] && errors[fieldName].length > 0) {
-      return (
-        <p className="text-sm text-red-500 mt-1">
-          {errors[fieldName][0]}
-        </p>
-      );
+      return errors[fieldName][0];
     }
-    return null;
+    return undefined;
   };
 
   if (loading) {
@@ -309,49 +306,35 @@ export default function ProfilePage() {
           <p className="text-gray-900">{profile?.email}</p>
         </div>
 
-        <div className="grid gap-2">
-          <label htmlFor="first_name" className="text-sm font-medium text-gray-700">
-            First Name
-          </label>
-          <input
-            id="first_name"
-            type="text"
-            name="first_name"
-            value={editedProfile.first_name || ''}
-            onChange={(e) => {
-              setEditedProfile({ ...editedProfile, first_name: e.target.value });
-              setErrors((prev) => ({ ...prev, first_name: [] }));
-            }}
-            onFocus={handleFocus}
-            disabled={saving}
-            className={`px-3 py-2 border rounded-md ${
-              validatedFields.first_name && errors.first_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
-            }`}
-          />
-          {renderFieldError('first_name')}
-        </div>
+        <TextInput
+          id="first_name"
+          type="text"
+          name="first_name"
+          label="First Name"
+          value={editedProfile.first_name || ''}
+          onChange={(e) => {
+            setEditedProfile({ ...editedProfile, first_name: e.target.value });
+            setErrors((prev) => ({ ...prev, first_name: [] }));
+          }}
+          onFocus={handleFocus}
+          disabled={saving}
+          error={getFieldError('first_name')}
+        />
 
-        <div className="grid gap-2">
-          <label htmlFor="last_name" className="text-sm font-medium text-gray-700">
-            Last Name
-          </label>
-          <input
-            id="last_name"
-            type="text"
-            name="last_name"
-            disabled={saving}
-            value={editedProfile.last_name || ''}
-            onChange={(e) => {
-              setEditedProfile({ ...editedProfile, last_name: e.target.value });
-              setErrors((prev) => ({ ...prev, last_name: [] }));
-            }}
-            onFocus={handleFocus}
-            className={`px-3 py-2 border rounded-md ${
-              validatedFields.last_name && errors.last_name ? 'border-red-500 focus:ring-red-500' : 'border-gray-300 focus:ring-primary'
-            }`}
-          />
-          {renderFieldError('last_name')}
-        </div>
+        <TextInput
+          id="last_name"
+          type="text"
+          name="last_name"
+          label="Last Name"
+          disabled={saving}
+          value={editedProfile.last_name || ''}
+          onChange={(e) => {
+            setEditedProfile({ ...editedProfile, last_name: e.target.value });
+            setErrors((prev) => ({ ...prev, last_name: [] }));
+          }}
+          onFocus={handleFocus}
+          error={getFieldError('last_name')}
+        />
 
         <div className="flex gap-4">
           <button

@@ -652,11 +652,12 @@ export default function Field({
                       }
                     }}
                   />
-                  <input
+                  <Input
+                    label="Option"
                     type="text"
                     value={choice.text}
                     onChange={(e) => handleUpdateOption(index, e.target.value)}
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
+                    containerClassName="flex-1"
                   />
                   <Button
                     variant="ghost"
@@ -718,11 +719,12 @@ export default function Field({
                     onUpdateFieldDefaultValue(field.id, newDefaults);
                   }}
                 />
-                <input
+                <Input
+                  label="Option"
                   type="text"
                   value={choice.text}
                   onChange={(e) => handleUpdateOption(index, e.target.value)}
-                  className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
+                  containerClassName="flex-1"
                 />
                 <Button
                   variant="ghost"
@@ -743,12 +745,13 @@ export default function Field({
                 />
                 <Label htmlFor="other-checkbox">Other</Label>
                 {selectedCheckboxes.includes("other") && (
-                  <input
+                  <Input
+                    label="Other option"
                     type="text"
                     value={otherCheckboxValue}
                     onChange={(e) => setOtherCheckboxValue(e.target.value)}
                     placeholder="Enter your option"
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
+                    containerClassName="flex-1"
                   />
                 )}
                 <Button
@@ -807,12 +810,13 @@ export default function Field({
             <div className="mt-4 space-y-2">
               {choices.map((choice, index) => (
                 <div key={index} className="flex items-center space-x-2">
-                  <input
-                    type="text"
-                    value={choice.text}
-                    onChange={(e) => handleUpdateOption(index, e.target.value)}
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
-                  />
+                <Input
+                  label="Option"
+                  type="text"
+                  value={choice.text}
+                  onChange={(e) => handleUpdateOption(index, e.target.value)}
+                  containerClassName="flex-1"
+                />
                   <Button
                     variant="ghost"
                     size="sm"
@@ -1430,11 +1434,8 @@ export default function Field({
               >
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Min characters
-                    </label>
-                    <input
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                    <Input
+                      label="Min characters"
                       type="number"
                       value={field.minChars || ""}
                       onChange={(e) =>
@@ -1449,10 +1450,8 @@ export default function Field({
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Max characters
-                    </label>
-                    <input
+                    <Input
+                      label="Max characters"
                       type="number"
                       value={field.maxChars || ""}
                       onChange={(e) =>
@@ -1463,7 +1462,6 @@ export default function Field({
                           false,
                         )
                       }
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
                       placeholder="Enter the number"
                     />
                   </div>

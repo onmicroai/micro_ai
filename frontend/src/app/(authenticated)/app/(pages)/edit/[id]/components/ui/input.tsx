@@ -1,17 +1,20 @@
 import * as React from 'react';
 
-import { cn } from '../../lib/utils';
+import TextInput, { TextInputProps } from '@/components/ui/TextInput';
 
-const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(
-  ({ className, type, ...props }, ref) => {
+type InputProps = Omit<TextInputProps, 'label'> & { label?: string };
+
+const Input = React.forwardRef<HTMLInputElement, InputProps>(
+  ({ className, label, placeholder, name, ...props }, ref) => {
+    const resolvedLabel = label ?? placeholder ?? name ?? 'Input';
+
     return (
-      <input
-        type={type}
-        className={cn(
-          'flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50',
-          className
-        )}
+      <TextInput
         ref={ref}
+        label={resolvedLabel}
+        placeholder={placeholder}
+        name={name}
+        className={className}
         {...props}
       />
     );

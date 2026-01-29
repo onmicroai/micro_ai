@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import TextInput from '@/components/ui/TextInput';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { DotLottieReact } from '@lottiefiles/dotlottie-react';
@@ -122,39 +123,25 @@ export default function PasswordResetConfirmPage() {
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="new_password1" className="block text-sm font-medium leading-6 text-gray-900">
-              New Password
-            </label>
-            <div className="mt-2">
-              <input
-                id="new_password1"
-                name="new_password1"
-                type="password"
-                required
-                value={formData.new_password1}
-                onChange={(e) => setFormData({ ...formData, new_password1: e.target.value })}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 sm:text-sm/6"
-              />
-            </div>
-          </div>
+          <TextInput
+            id="new_password1"
+            name="new_password1"
+            type="password"
+            required
+            label="New Password"
+            value={formData.new_password1}
+            onChange={(e) => setFormData({ ...formData, new_password1: e.target.value })}
+          />
 
-          <div>
-            <label htmlFor="new_password2" className="block text-sm font-medium leading-6 text-gray-900">
-              Confirm New Password
-            </label>
-            <div className="mt-2">
-              <input
-                id="new_password2"
-                name="new_password2"
-                type="password"
-                required
-                value={formData.new_password2}
-                onChange={(e) => setFormData({ ...formData, new_password2: e.target.value })}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 sm:text-sm/6"
-              />
-            </div>
-          </div>
+          <TextInput
+            id="new_password2"
+            name="new_password2"
+            type="password"
+            required
+            label="Confirm New Password"
+            value={formData.new_password2}
+            onChange={(e) => setFormData({ ...formData, new_password2: e.target.value })}
+          />
 
           {formData.new_password1 && (
             <div className="rounded-md bg-gray-50 p-4">

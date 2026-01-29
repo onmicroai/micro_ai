@@ -1146,23 +1146,17 @@ export default function FormBuilder() {
                     <X className="h-4 w-4 text-gray-500" />
                   </button>
                 </div>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={file.description || ""}
-                    onChange={(e) =>
-                      updateFileDescription(index, e.target.value)
-                    }
-                    placeholder="Add a description so the AI understands the content of this file better (optional)"
-                    maxLength={MAX_DESCRIPTION_LENGTH}
-                    className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
-                      focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                      placeholder:text-gray-400"
-                  />
-                  <div className="absolute right-2 bottom-1 text-xs text-gray-400">
-                    {file.description?.length || 0}/{MAX_DESCRIPTION_LENGTH}
-                  </div>
-                </div>
+                <Input
+                  label="File description"
+                  type="text"
+                  value={file.description || ""}
+                  onChange={(e) =>
+                    updateFileDescription(index, e.target.value)
+                  }
+                  placeholder="Add a description so the AI understands the content of this file better (optional)"
+                  maxLength={MAX_DESCRIPTION_LENGTH}
+                  hint={`${file.description?.length || 0}/${MAX_DESCRIPTION_LENGTH}`}
+                />
               </div>
             ))}
           </div>
@@ -1438,7 +1432,8 @@ export default function FormBuilder() {
                               animate={{ opacity: 1 }}
                               transition={{ delay: 0.1, duration: 0.3 }}
                             >
-                              <input
+                              <Input
+                                label="App title"
                                 type="text"
                                 value={title}
                                 onFocus={() => {
@@ -1446,8 +1441,7 @@ export default function FormBuilder() {
                                 }}
                                 onClick={(e) => e.stopPropagation()}
                                 onChange={(e) => setTitle(e.target.value)}
-                                className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0 text-xl"
-                                style={{ fontSize: 24 }}
+                                className="text-xl font-semibold"
                                 placeholder="Untitled App"
                               />
                               <textarea

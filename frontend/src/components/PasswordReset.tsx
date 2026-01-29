@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from 'react';
+import TextInput from '@/components/ui/TextInput';
 
 interface PasswordResetFormData {
   email: string;
@@ -35,23 +36,16 @@ export default function PasswordReset({ onSubmit, error, isLoading }: PasswordRe
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
-              Email address
-            </label>
-            <div className="mt-2">
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 sm:text-sm/6"
-              />
-            </div>
-          </div>
+          <TextInput
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            label="Email address"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
 
           {error && (
             <div className="rounded-md bg-red-50 p-4 mb-4">

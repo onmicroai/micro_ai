@@ -16,6 +16,7 @@ import {
   Palette,
   X
 } from 'lucide-react';
+import TextInput from '@/components/ui/TextInput';
 import { createImageUploader } from "@/utils/imageUpload";
 import { useDropzone } from 'react-dropzone';
 
@@ -94,15 +95,13 @@ const LinkInput = ({ linkUrl, onLinkUrlChange, onSubmit, onClose }: LinkInputPro
         </div>
         
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            URL
-          </label>
-          <input
+          <TextInput
+            label="URL"
             type="text"
             placeholder="https://example.com"
             value={linkUrl}
             onChange={(e) => onLinkUrlChange(e.target.value)}
-            className="w-full p-2 border border-gray-200 rounded mb-4"
+            containerClassName="mb-4"
           />
           <div className="flex gap-2 justify-end">
             <button
@@ -220,20 +219,13 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, altText, onAltTextChange, onI
         
         <div className="space-y-6">
           {!hasUploadedImage && (
-            <div>
-              <label className="block text-sm/6 font-medium text-gray-900 mb-1">
-                Image URL
-              </label>
-              <input
-                type="text"
-                value={imageUrl}
-                onChange={(e) => onImageUrlChange(e.target.value)}
-                placeholder="https://example.com/image.jpg"
-                className="block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6 
-                  placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600
-                  transition duration-150 ease-in-out"
-              />
-            </div>
+            <TextInput
+              label="Image URL"
+              type="text"
+              value={imageUrl}
+              onChange={(e) => onImageUrlChange(e.target.value)}
+              placeholder="https://example.com/image.jpg"
+            />
           )}
           
           {(hasUploadedImage || imageUrl || isEditing) && (
@@ -258,20 +250,13 @@ const ImageDialog = ({ imageUrl, onImageUrlChange, altText, onAltTextChange, onI
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm/6 font-medium text-gray-900 mb-1">
-                  Alt Text (Alternative text for accessibility)
-                </label>
-                <input
-                  type="text"
-                  value={altText}
-                  onChange={(e) => onAltTextChange(e.target.value)}
-                  placeholder="Describe the image for screen readers"
-                  className="block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6 
-                    placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600
-                    transition duration-150 ease-in-out"
-                />
-              </div>
+              <TextInput
+                label="Alt Text (Alternative text for accessibility)"
+                type="text"
+                value={altText}
+                onChange={(e) => onAltTextChange(e.target.value)}
+                placeholder="Describe the image for screen readers"
+              />
               
               <button
                 onClick={hasUploadedImage ? onSaveImage : onImageUrlSubmit}
@@ -650,13 +635,14 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
                 <div className="mb-2">
                   <HexColorPicker color={customColor} onChange={handleColorChange} />
                 </div>
-                <input
+                <TextInput
+                  label="Hex color"
                   type="text"
                   value={customColor}
                   onChange={(e) => handleColorChange(e.target.value)}
-                  className="w-full p-2 border border-gray-200 rounded text-sm font-mono"
                   pattern="^#[0-9A-Fa-f]{6}$"
                   placeholder="#000000"
+                  className="font-mono"
                 />
               </div>
             </div>

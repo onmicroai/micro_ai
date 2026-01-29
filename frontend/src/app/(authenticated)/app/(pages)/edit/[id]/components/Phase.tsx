@@ -10,6 +10,7 @@ import Field from "./Field";
 import { Droppable } from "@hello-pangea/dnd";
 import { Checkbox } from "./ui/checkbox";
 import { HelpCircle } from "lucide-react";
+import TextInput from "@/components/ui/TextInput";
 import {
   Tooltip,
   TooltipContent,
@@ -370,10 +371,8 @@ export default function Phase({
         {phase.scoredPhase && (
           <div className="space-y-2">
             <div className="space-y-2 mb-4">
-              <label className="text-sm font-medium text-gray-700">
-                Minimum Score
-              </label>
-              <input
+              <TextInput
+                label="Minimum Score"
                 type="number"
                 value={phase.minScore || ""}
                 onChange={(e) =>
@@ -383,9 +382,6 @@ export default function Phase({
                       : undefined,
                   })
                 }
-                className="w-full rounded-md border border-gray-300 
-                  px-3 py-2 text-gray-900 focus:border-primary 
-                  focus:ring-primary"
                 placeholder="Enter minimum score..."
               />
             </div>

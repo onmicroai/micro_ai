@@ -1,6 +1,7 @@
 "use client";
 
 import React, { ChangeEvent } from "react";
+import TextInput from "@/components/ui/TextInput";
 import {
   Element,
   ErrorObject,
@@ -61,48 +62,20 @@ const TextQuestion = ({
           : "hidden"
       }`}
     >
-      <label
-        htmlFor={element.name}
-        className="block text-sm/6 font-medium text-gray-900"
-      >
-        {element.label || element.name}
-        {element.isRequired === true && (
-          <span className="text-red-500 ml-1">*</span>
-        )}
-        {element.readOnly && (
-          <span className="ml-2 text-sm text-gray-500 italic">(read-only)</span>
-        )}
-      </label>
-
-      {element.description && (
-        <p className="mt-1 text-sm/6 text-gray-600">{element.description}</p>
-      )}
-
-      <input
+      <TextInput
         id={element.id}
         name={element.name}
-        className={`
-                  block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6
-                  ${
-                    hasError
-                      ? "outline-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
-                  }
-                  ${
-                    disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-500"
-                      : "bg-white"
-                  }
-                  transition duration-150 ease-in-out
-               `}
+        label={element.label || element.name}
+        required={element.isRequired === true}
+        hint={element.description}
+        error={errorMessage || undefined}
         value={answers[element.name]?.value || ""}
         onChange={handleInputChange}
         onDoubleClick={onDoubleClick}
         placeholder={element.placeholder}
-        disabled={disabled || element.readOnly}
+        disabled={disabled}
+        readOnly={element.readOnly}
       />
-
-      {hasError && <p className="mt-1 text-sm text-red-600">{errorMessage}</p>}
     </div>
   );
 };

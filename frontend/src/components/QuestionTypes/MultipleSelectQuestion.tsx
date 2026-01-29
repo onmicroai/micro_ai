@@ -2,6 +2,7 @@
 
 import React, { ChangeEvent, useState } from "react";
 import Select from "react-select";
+import TextInput from "@/components/ui/TextInput";
 import { ErrorObject, Element, Answers, setInputValue, ConditionalLogic } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 
@@ -179,19 +180,9 @@ const MultipleSelectQuestion: React.FC<MultipleSelectQuestionProps> = ({
          />
 
          {isOtherSelected && !isNoneSelected && (
-            <input
+            <TextInput
+               label="Other"
                type="text"
-               className={`
-                  mt-2 w-full px-3 py-2 rounded-md border
-                  ${hasError 
-                     ? 'border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500' 
-                     : 'border-gray-300 focus:ring-blue-500 focus:border-blue-500'
-                  }
-                  ${disabled || element.readOnly ? 'bg-gray-50 text-gray-500' : 'bg-white'}
-                  shadow-sm
-                  focus:outline-none focus:ring-2
-                  transition duration-150 ease-in-out
-               `}
                value={otherValue}
                onChange={handleOtherInputChange}
                placeholder={otherPlaceholder}

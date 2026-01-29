@@ -17,6 +17,7 @@ import { FaPenToSquare } from 'react-icons/fa6';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cn } from '@/utils/cn';
+import TextInput from '@/components/ui/TextInput';
 import Logo from '@/img/logos/onMicroAI_logo_horiz_color-cropped.svg';
 import { Collection } from '@/app/(authenticated)/(dashboard)/types';
 import UserMenuDropdown from '@/components/modules/user-menu-dropdown/UserMenuDropdown';
@@ -245,7 +246,7 @@ export default function DashboardSidebar({
                 return (
                   <li key={collection.id}>
                     {isEditing ? (
-                      <div className="flex items-center gap-x-2 px-2 py-2">
+                      <div className="flex items-end gap-x-2 px-2 py-2">
                         <span
                           className={cn(
                             'border-primary text-primary dark:border-white/20 dark:text-white',
@@ -254,14 +255,15 @@ export default function DashboardSidebar({
                         >
                           <FolderIcon className="h-4 w-4" />
                         </span>
-                        <input
+                        <TextInput
+                          label="Collection name"
                           type="text"
                           value={editedName}
                           onChange={(e) => setEditedName(e.target.value)}
                           onBlur={() => saveCollectionName(collection.id)}
                           onKeyDown={(e) => handleKeyDown(e, collection.id)}
                           autoFocus
-                          className="flex-1 min-w-0 px-2 py-1 text-sm font-semibold border border-primary rounded focus:ring-2 focus:ring-primary focus:border-transparent dark:bg-gray-800 dark:border-primary dark:text-white"
+                          containerClassName="flex-1 min-w-0"
                         />
                       </div>
                     ) : (

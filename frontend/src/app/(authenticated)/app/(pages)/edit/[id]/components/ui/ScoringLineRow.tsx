@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef } from "react";
 import { Button } from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/button";
 import { Trash2 } from "lucide-react";
+import TextInput from "@/components/ui/TextInput";
 import {
   Tooltip,
   TooltipContent,
@@ -66,30 +67,29 @@ const ScoringLineRow: React.FC<ScoringLineRowProps> = ({
       <td className="p-0 w-32 align-top relative transition-colors text-center">
         {!isPreview ? (
           <>
-            <div className="relative w-full h-full">
-              <input
-                ref={scoreRef}
-                type="number"
-                value={line.score}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  handleLineChange(
-                    catIdx,
-                    lineIdx,
-                    line.description,
-                    val === "" ? "" : Number(val),
-                  );
-                }}
-                onBlur={(e) => {
-                  if (e.target.value === "") {
-                    handleLineChange(catIdx, lineIdx, line.description, 0);
-                  }
-                }}
-                className="w-full h-full bg-transparent border-none outline-none focus:ring-0 focus:bg-white px-4 py-3 text-sm font-bold resize-none m-0 text-gray-900 placeholder:text-gray-300 text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none h-[48px]"
-                style={{ boxSizing: "border-box" }}
-                placeholder="0"
-              />
-            </div>
+            <TextInput
+              ref={scoreRef}
+              label="Score"
+              type="number"
+              value={line.score}
+              onChange={(e) => {
+                const val = e.target.value;
+                handleLineChange(
+                  catIdx,
+                  lineIdx,
+                  line.description,
+                  val === "" ? "" : Number(val),
+                );
+              }}
+              onBlur={(e) => {
+                if (e.target.value === "") {
+                  handleLineChange(catIdx, lineIdx, line.description, 0);
+                }
+              }}
+              placeholder="0"
+              className="text-center font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+              containerClassName="w-full"
+            />
             <div className="absolute right-0 top-0 bottom-0 w-px bg-gray-200 group-hover:bg-gray-300 z-10 pointer-events-none" />
           </>
         ) : (

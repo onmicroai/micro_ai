@@ -7,6 +7,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import TextInput from "@/components/ui/TextInput";
 import axiosInstance from "@/utils/axiosInstance";
 import { toast } from "react-toastify";
 import { z } from "zod";
@@ -138,15 +139,11 @@ export default function ChangePasswordPage() {
    * @param {string} fieldName - The name of the field to render errors for
    * @returns {JSX.Element | null} The rendered error message or null if no errors
    */
-  const renderFieldError = (fieldName: string) => {
+  const getFieldError = (fieldName: string) => {
     if (errors[fieldName] && errors[fieldName].length > 0) {
-      return (
-        <p className="text-sm text-red-500 mt-1">
-          {errors[fieldName][0]}
-        </p>
-      );
+      return errors[fieldName][0];
     }
-    return null;
+    return undefined;
   };
 
   return (
@@ -160,62 +157,44 @@ export default function ChangePasswordPage() {
         </div>
 
         <div className="space-y-4">
-          <div className="grid gap-2">
-            <label htmlFor="old_password" className="text-sm font-medium text-gray-700">
-              Current Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="old_password"
-              name="old_password"
-              type="password"
-              value={formData.old_password}
-              onChange={handleChange}
-              onFocus={handleFocus}
-              disabled={loading}
-              className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 ${
-                formSubmitted && errors.old_password?.length ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {formSubmitted && renderFieldError("old_password")}
-          </div>
+          <TextInput
+            id="old_password"
+            name="old_password"
+            type="password"
+            label="Current Password"
+            required
+            value={formData.old_password}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            disabled={loading}
+            error={formSubmitted ? getFieldError("old_password") : undefined}
+          />
 
-          <div className="grid gap-2">
-            <label htmlFor="new_password1" className="text-sm font-medium text-gray-700">
-              New Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="new_password1"
-              name="new_password1"
-              type="password"
-              value={formData.new_password1}
-              onChange={handleChange}
-              onFocus={handleFocus}
-              disabled={loading}
-              className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 ${
-                formSubmitted && errors.new_password1?.length ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {formSubmitted && renderFieldError("new_password1")}
-          </div>
+          <TextInput
+            id="new_password1"
+            name="new_password1"
+            type="password"
+            label="New Password"
+            required
+            value={formData.new_password1}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            disabled={loading}
+            error={formSubmitted ? getFieldError("new_password1") : undefined}
+          />
 
-          <div className="grid gap-2">
-            <label htmlFor="new_password2" className="text-sm font-medium text-gray-700">
-              Confirm New Password <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="new_password2"
-              name="new_password2"
-              type="password"
-              value={formData.new_password2}
-              onChange={handleChange}
-              onFocus={handleFocus}
-              disabled={loading}
-              className={`flex h-10 w-full rounded-md border px-3 py-2 text-sm placeholder:text-gray-400 disabled:cursor-not-allowed disabled:opacity-50 ${
-                formSubmitted && errors.new_password2?.length ? 'border-red-500' : 'border-gray-300'
-              }`}
-            />
-            {formSubmitted && renderFieldError("new_password2")}
-          </div>
+          <TextInput
+            id="new_password2"
+            name="new_password2"
+            type="password"
+            label="Confirm New Password"
+            required
+            value={formData.new_password2}
+            onChange={handleChange}
+            onFocus={handleFocus}
+            disabled={loading}
+            error={formSubmitted ? getFieldError("new_password2") : undefined}
+          />
         </div>
 
         <div className="flex items-center space-x-4">

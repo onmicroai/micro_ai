@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FaX as X, FaCopy as Copy, FaFloppyDisk, FaCheck } from 'react-icons/fa6';
 import { ShareModalProps } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
+import TextInput from '@/components/ui/TextInput';
 /**
  * AppItem component renders an individual app with actions such as sharing and cloning.
  * 
@@ -317,12 +318,12 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
             <div className="p-6 overflow-y-auto">
             {/* Direct URL input */}
             {showShareUrl && (
-               <div className="flex items-center space-x-2 mb-4">
-                  <input
-                     type="text"
+               <div className="flex items-end space-x-2 mb-4">
+                  <TextInput
+                     label="Share URL"
                      value={getShareUrl()}
                      readOnly
-                     className="flex-1 p-2 border rounded-lg bg-gray-50"
+                     containerClassName="flex-1"
                   />
                   <button 
                      onClick={handleCopyLink}
@@ -362,75 +363,58 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                            <h4 className="font-semibold text-gray-900 mb-3">Step 1: Configure your LMS</h4>
                            <p className="text-gray-600 mb-4">Add these values in your LMS to configure OnMicro.AI as an LTI provider. Your LMS should then generated credentials for you that you&apos;ll use in Step 2.</p>
                            <div className="space-y-3">
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">LTI Version</label>
-                                 <input
-                                    type="text"
-                                    value="1.3"
+                              <TextInput
+                                 label="LTI Version"
+                                 value="1.3"
+                                 readOnly
+                              />
+                              <div className="flex items-end space-x-2">
+                                 <TextInput
+                                    label="Tool Launch URL"
+                                    value={`${window.location.origin}/lti/launch/`}
                                     readOnly
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
+                                    containerClassName="flex-1"
                                  />
+                                 <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/launch/`)}
+                                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                                 >
+                                    <Copy size={16} />
+                                 </button>
                               </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Tool Launch URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/launch/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
-                                    <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/launch/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                                    >
-                                       <Copy size={16} />
-                                    </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Tool Initiate URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/login/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
-                                    <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/login/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                                    >
-                                       <Copy size={16} />
-                                    </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">JWKs URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/jwks/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
-                                    <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/jwks/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                                    >
-                                       <Copy size={16} />
-                                    </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Deep Linking</label>
-                                 <input
-                                    type="text"
-                                    value="False"
+                              <div className="flex items-end space-x-2">
+                                 <TextInput
+                                    label="Tool Initiate URL"
+                                    value={`${window.location.origin}/lti/login/`}
                                     readOnly
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
+                                    containerClassName="flex-1"
                                  />
+                                 <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/login/`)}
+                                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                                 >
+                                    <Copy size={16} />
+                                 </button>
                               </div>
+                              <div className="flex items-end space-x-2">
+                                 <TextInput
+                                    label="JWKs URL"
+                                    value={`${window.location.origin}/lti/jwks/`}
+                                    readOnly
+                                    containerClassName="flex-1"
+                                 />
+                                 <button
+                                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/jwks/`)}
+                                    className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                                 >
+                                    <Copy size={16} />
+                                 </button>
+                              </div>
+                              <TextInput
+                                 label="Deep Linking"
+                                 value="False"
+                                 readOnly
+                              />
                            </div>
                         </div>
 
@@ -442,72 +426,54 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
                            
 
                            <form onSubmit={handleLtiConfigSubmit} className="space-y-4">
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Issuer</label>
-                                 <input
-                                    type="text"
-                                    name="issuer"
-                                    value={ltiConfig.issuer}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Client ID</label>
-                                 <input
-                                    type="text"
-                                    name="client_id"
-                                    value={ltiConfig.client_id}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Auth Login URL</label>
-                                 <input
-                                    type="text"
-                                    name="auth_login_url"
-                                    value={ltiConfig.auth_login_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Auth Token URL</label>
-                                 <input
-                                    type="text"
-                                    name="auth_token_url"
-                                    value={ltiConfig.auth_token_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Keyset URL</label>
-                                 <input
-                                    type="text"
-                                    name="key_set_url"
-                                    value={ltiConfig.key_set_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Deployment ID</label>
-                                 <input
-                                    type="text"
-                                    name="deployment_ids"
-                                    value={ltiConfig.deployment_ids?.length > 0 ? ltiConfig.deployment_ids[0] : ''}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
+                              <TextInput
+                                 label="Issuer"
+                                 type="text"
+                                 name="issuer"
+                                 value={ltiConfig.issuer}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
+                              <TextInput
+                                 label="Client ID"
+                                 type="text"
+                                 name="client_id"
+                                 value={ltiConfig.client_id}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
+                              <TextInput
+                                 label="Auth Login URL"
+                                 type="text"
+                                 name="auth_login_url"
+                                 value={ltiConfig.auth_login_url}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
+                              <TextInput
+                                 label="Auth Token URL"
+                                 type="text"
+                                 name="auth_token_url"
+                                 value={ltiConfig.auth_token_url}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
+                              <TextInput
+                                 label="Keyset URL"
+                                 type="text"
+                                 name="key_set_url"
+                                 value={ltiConfig.key_set_url}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
+                              <TextInput
+                                 label="Deployment ID"
+                                 type="text"
+                                 name="deployment_ids"
+                                 value={ltiConfig.deployment_ids?.length > 0 ? ltiConfig.deployment_ids[0] : ''}
+                                 onChange={handleLtiConfigChange}
+                                 required
+                              />
             <button 
                                  type="submit"
                                  disabled={!hasChanges || isSaving}

@@ -11,6 +11,7 @@ import {
 import RubricAIModal from "../ui/RubricAIModal";
 import ScoringLineRow, { ScoringLine } from "../ui/ScoringLineRow";
 import axiosInstance from "@/utils/axiosInstance";
+import TextInput from "@/components/ui/TextInput";
 
 interface ScoringCategory {
   criteria: string;
@@ -267,37 +268,26 @@ export default function ScoringField({
 
   return (
     <div className={`space-y-6`}>
-      <div className="space-y-1">
-        <label className="text-sm font-medium text-gray-700">
-          Minimum Score
-        </label>
-        {isPreview ? (
-          <div className="w-full border border-gray-100 rounded-md px-3 py-2 text-sm text-gray-500 bg-gray-50">
-            {field.minScore ?? (
-              <span className="italic text-gray-400">Not set</span>
-            )}
-          </div>
-        ) : (
-          <input
-            type="number"
-            value={field.minScore ?? ""}
-            onChange={(e) => {
-              if (isPreview) return;
-              const val = e.target.value;
-              onChange?.(field.id, {
-                minScore: val === "" ? undefined : Number(val),
-              });
-            }}
-            onBlur={(e) => {
-              if (e.target.value === "") {
-                onChange?.(field.id, { minScore: 0 });
-              }
-            }}
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-            placeholder="Enter minimum score"
-          />
-        )}
-      </div>
+      <TextInput
+        label="Minimum Score"
+        type="number"
+        value={field.minScore ?? ""}
+        onChange={(e) => {
+          if (isPreview) return;
+          const val = e.target.value;
+          onChange?.(field.id, {
+            minScore: val === "" ? undefined : Number(val),
+          });
+        }}
+        onBlur={(e) => {
+          if (e.target.value === "") {
+            onChange?.(field.id, { minScore: 0 });
+          }
+        }}
+        placeholder="Enter minimum score"
+        readOnly={isPreview}
+        className="[appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+      />
 
       <div className="flex items-center justify-between mt-6 mb-2">
         <div className="flex items-center gap-2">
@@ -341,11 +331,12 @@ export default function ScoringField({
             >
               <div className="flex items-center group/header">
                 {!isPreview ? (
-                  <div className="flex-1 flex items-center gap-2">
+                  <div className="flex-1 flex items-end gap-2">
                     <span className="font-bold text-gray-500">
                       {catIdx + 1}.
                     </span>
-                    <input
+                    <TextInput
+                      label="Category name"
                       type="text"
                       value={cat.criteria}
                       onChange={(e) => {
@@ -356,8 +347,8 @@ export default function ScoringField({
                           rubric: JSON.stringify(newCategories),
                         });
                       }}
-                      className="font-bold text-base bg-transparent border-b border-transparent hover:border-gray-300 focus:border-primary focus:outline-none focus:ring-0 px-0 py-1 text-gray-900 placeholder:text-gray-400 flex-1 transition-colors"
                       placeholder="Category Name"
+                      containerClassName="flex-1"
                     />
                     <Button
                       variant="ghost"

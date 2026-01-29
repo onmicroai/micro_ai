@@ -6,6 +6,7 @@ import { toast } from "react-toastify";
 import BillingUpdatePolling from "./billing-update-polling";
 import { useRouter } from "next/navigation";
 import { PricingCards } from "@/components/PricingCards";
+import TextInput from "@/components/ui/TextInput";
 
 interface Subscription {
   id: string;
@@ -410,17 +411,15 @@ export default function SubscriptionPage() {
               </div>
               
               <div className="px-6 py-4">
-                <div className="flex gap-3 max-sm:flex-col">
-                  <div className="flex-1">
-                    <input
-                      type="text"
-                      value={couponCode}
-                      onChange={(e) => setCouponCode(e.target.value)}
-                      placeholder="Enter coupon code"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-                      disabled={couponLoading}
-                    />
-                  </div>
+                <div className="flex gap-3 max-sm:flex-col items-end">
+                  <TextInput
+                    label="Coupon code"
+                    value={couponCode}
+                    onChange={(e) => setCouponCode(e.target.value)}
+                    placeholder="Enter coupon code"
+                    disabled={couponLoading}
+                    containerClassName="flex-1"
+                  />
                   <button
                     onClick={handleRedeemCoupon}
                     disabled={couponLoading || !couponCode.trim()}

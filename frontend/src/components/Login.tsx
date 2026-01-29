@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from 'react';
-import { EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import TextInput from '@/components/ui/TextInput';
 
 interface LoginFormData {
   email: string;
@@ -14,7 +14,6 @@ interface LoginProps {
 }
 
 export default function Login({ onSubmit, error }: LoginProps) {
-  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: '',
     password: '',
@@ -45,58 +44,33 @@ export default function Login({ onSubmit, error }: LoginProps) {
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium leading-6 text-gray-900">
-              Email address
-            </label>
-            <div className="mt-2">
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 sm:text-sm/6"
-              />
-            </div>
-          </div>
+          <TextInput
+            id="email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            required
+            label="Email address"
+            value={formData.email}
+            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+          />
 
-          <div>
-            <div className="flex items-center justify-between">
-              <label htmlFor="password" className="block text-sm font-medium leading-6 text-gray-900">
-                Password
-              </label>
-              <div className="text-sm">
-                <a href="/accounts/password/reset" className="font-semibold text-primary-600 hover:text-primary-500">
-                  Forgot password?
-                </a>
-              </div>
+          <div className="space-y-2">
+            <div className="flex justify-end text-sm">
+              <a href="/accounts/password/reset" className="font-semibold text-primary-600 hover:text-primary-500">
+                Forgot password?
+              </a>
             </div>
-            <div className="mt-2 relative">
-              <input
-                id="password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                autoComplete="current-password"
-                required
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                className="block w-full rounded-md bg-white px-3 py-1.5 text-base text-gray-900 outline outline-1 -outline-offset-1 outline-gray-300 placeholder:text-gray-400 focus:outline focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 sm:text-sm/6"
-              />
-              <button
-                type="button"
-                className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-500"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeSlashIcon className="h-5 w-5" aria-hidden="true" />
-                ) : (
-                  <EyeIcon className="h-5 w-5" aria-hidden="true" />
-                )}
-              </button>
-            </div>
+            <TextInput
+              id="password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+              label="Password"
+              value={formData.password}
+              onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+            />
           </div>
 
           {error && (

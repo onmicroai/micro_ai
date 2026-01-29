@@ -1,10 +1,14 @@
 export interface InputProps {
-  type: string;
+  type?: string;
   placeholder?: string;
   control: any;
   name: string;
+  label: string;
+  hint?: string;
+  info?: string;
   defaultValue?: string;
   rules?: object;
-  style?: React.CSSProperties;
+  disabled?: boolean;
+  readOnly?: boolean;
   error?: string | undefined;
 }
