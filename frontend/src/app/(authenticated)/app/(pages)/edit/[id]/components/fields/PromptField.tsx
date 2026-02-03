@@ -39,9 +39,9 @@ export default function PromptField({
     null
   );
   const activeTagClasses =
-    "iinline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    "iinline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm font-normal text-white cursor-move bg-primary-600";
   const inactiveTagClasses =
-    "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary hover:text-red";
+    "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm font-normal border-gray-300 border bg-white text-primary hover:text-red";
   const inlineTagClasses = isPreviewMode? inactiveTagClasses : activeTagClasses;
 
   /**
@@ -984,7 +984,7 @@ export default function PromptField({
           data-placeholder={getPlaceholderText()}
           ref={editorRef}
           contentEditable={isPreviewMode ? false : true}
-          className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
+          className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
             ${
               isEmpty ? "empty-editor" : ""
             } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`}
@@ -1026,7 +1026,7 @@ export default function PromptField({
                       onDragStart={(event) => handleDragStart(event, tagData)}
                       onClick={() => insertTag(tagData)}
                       variant="default"
-                      className={`cursor-move bg-primary-600 text-white align-baseline`}
+                      className="cursor-move bg-primary-600 text-sm font-normal text-white align-baseline"
                       style={{ margin: "0 0.25em" }}
                     >
                       {fieldIdentifier}

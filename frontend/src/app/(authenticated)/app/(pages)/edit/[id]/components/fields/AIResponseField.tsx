@@ -217,8 +217,8 @@ export default function AIResponseField({
             field.id
           }" data-tag-label="${
             field.name || field.id
-          }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
-            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary"}" style="margin: 0 0.25em;">${
+          }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm font-normal text-white cursor-move bg-primary-600"
+            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm font-normal border-gray-300 border bg-white text-primary"}" style="margin: 0 0.25em;">${
             field.name || field.id
           }</span>`;
         },
@@ -297,7 +297,8 @@ export default function AIResponseField({
     tagElement.draggable = true;
     tagElement.setAttribute("data-tag-id", field?.id || label);
     tagElement.setAttribute("data-tag-label", label);
-    tagElement.className = "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className =
+      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm font-normal text-white cursor-move bg-primary-600";
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;
@@ -825,7 +826,7 @@ export default function AIResponseField({
                           }}
                           contentEditable
                           data-placeholder={"Add instruction..."}
-                          className={`w-full h-full outline-none bg-transparent px-3 py-2 pr-20 ${
+                          className={`w-full h-full outline-none bg-transparent px-3 py-2 pr-20 text-sm font-normal ${
                             isEmpty
                               ? "empty-editor before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none"
                               : ""
@@ -948,7 +949,7 @@ export default function AIResponseField({
                         }
                       }}
                       variant="default"
-                      className="cursor-move bg-primary-600 text-white align-baseline"
+                      className="cursor-move bg-primary-600 text-sm font-normal text-white align-baseline"
                       style={{ margin: "0 0.25em" }}
                     >
                       {fieldIdentifier}

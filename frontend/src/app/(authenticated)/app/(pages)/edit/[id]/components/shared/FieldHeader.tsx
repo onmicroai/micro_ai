@@ -164,13 +164,15 @@ export default function FieldHeader({
                   }}
                 >
                   <SelectTrigger
-                    className="h-auto px-2 py-1 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-0 gap-2 text-sm"
+                    className="h-auto px-2 py-1 border-none bg-transparent hover:bg-gray-100 focus:outline-none focus:ring-0 gap-2"
                     onClick={(e) => e.stopPropagation()}
                     aria-label="Change field type"
                   >
                     <div className="flex items-center gap-2">
                       {Icon && <Icon className="h-5 w-5 text-gray-600" />}
-                      <span className="font-medium text-gray-900">{label}</span>
+                      <span className="text-base font-semibold text-gray-900">
+                        {label}
+                      </span>
                     </div>
                   </SelectTrigger>
                   <SelectContent>
@@ -207,7 +209,7 @@ export default function FieldHeader({
                 {isPreviewMode ? (
                   <Badge
                     variant="secondary"
-                    className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
+                    className={`${tagClassName} text-sm font-normal cursor-pointer flex items-center gap-1`}
                   >
                     {field.name}
                   </Badge>
@@ -222,7 +224,7 @@ export default function FieldHeader({
                     >
                       <Badge
                         variant="secondary"
-                        className={`${tagClassName} text-xs font-normal cursor-pointer flex items-center gap-1`}
+                        className={`${tagClassName} text-sm font-normal cursor-pointer flex items-center gap-1`}
                       >
                         <Pencil className="h-3 w-3" />
                         {field.name}

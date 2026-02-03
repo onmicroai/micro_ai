@@ -578,7 +578,7 @@ export default function Field({
         return (
           <>
             <Input
-              className={`text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full ${
+              className={`text-sm font-normal bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full ${
                 isDefaultPlaceholder ? "cursor-default" : "cursor-text"
               }`}
               placeholder={
@@ -1134,7 +1134,7 @@ export default function Field({
                     }
                   }}
                   className="w-full min-h-[100px] rounded-md border border-gray-300 
-                    px-3 py-2 text-gray-900 focus:border-primary 
+                    px-3 py-2 text-sm font-normal text-gray-900 focus:border-primary 
                     focus:ring-primary resize-y"
                   placeholder="Enter instructions for how the chatbot should behave..."
                 />
@@ -1148,7 +1148,7 @@ export default function Field({
                 onChange={(e) =>
                   onUpdateFieldInitialMessage?.(field.id, e.target.value)
                 }
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-normal text-gray-900 focus:border-primary focus:ring-primary"
                 placeholder="Enter initial message..."
               />
             </div>
@@ -1158,7 +1158,7 @@ export default function Field({
                 type="number"
                 min="1"
                 value={field.maxMessages || 10}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm font-normal text-gray-900 focus:border-primary focus:ring-primary"
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (onUpdateFieldMaxMessages && !isNaN(value)) {
@@ -1261,7 +1261,7 @@ export default function Field({
                         }
                       }}
                       placeholder="Enter voice instructions..."
-                      className="min-h-[100px]"
+                      className="min-h-[100px] text-sm font-normal"
                     />
                   </div>
 
@@ -1434,7 +1434,7 @@ export default function Field({
                       Min characters
                     </label>
                     <input
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      className="text-sm font-normal bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
                       type="number"
                       value={field.minChars || ""}
                       onChange={(e) =>
@@ -1463,7 +1463,7 @@ export default function Field({
                           false,
                         )
                       }
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                      className="text-sm font-normal bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
                       placeholder="Enter the number"
                     />
                   </div>
@@ -1640,7 +1640,7 @@ export default function Field({
                               isPromptType,
                             );
                           }}
-                          className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
+                          className="text-sm font-normal bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
                           placeholder="Enter your question..."
                         />
                       </motion.div>

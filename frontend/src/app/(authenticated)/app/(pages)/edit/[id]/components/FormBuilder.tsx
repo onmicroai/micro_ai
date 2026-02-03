@@ -1832,7 +1832,7 @@ export default function FormBuilder() {
 
                                           {/* Plus button between cards on its own line with always-visible silver line */}
                                           {!isLastElement && (
-                                            <div className="relative flex items-center justify-center h-4 my-1 w-full group">
+                                            <div className="relative flex items-center justify-center h-2 my-0.5 w-full group">
                                               <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
                                               <button
                                                 className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
