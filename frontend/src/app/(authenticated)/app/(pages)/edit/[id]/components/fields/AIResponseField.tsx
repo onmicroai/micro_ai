@@ -120,6 +120,14 @@ export default function AIResponseField({
     initialized.current = false;
   }, [field.id]);
 
+  const isInstructionEmpty = useCallback((instruction: Instruction) => {
+    return (
+      !instruction.content ||
+      instruction.content.trim() === "" ||
+      instruction.content === "<br>"
+    );
+  }, []);
+
   useLayoutEffect(() => {
     if (field.instructions && field.instructions.length > 0) {
       setInstructions(
@@ -201,6 +209,33 @@ export default function AIResponseField({
     },
     [onChange, field.id],
   );
+
+  useEffect(() => {
+    // when leaving preview mode, sanitize multiple empty instructions
+    if (!isPreviewMode) return;
+
+    // if there is only one instruction, do nothing, even if it is empty
+    if (instructions.length <= 1) return;
+
+    const nonEmptyInstructions = instructions.filter(
+      (instruction) => !isInstructionEmpty(instruction),
+    );
+
+    // if all instructions are non-empty, do nothing
+    if (nonEmptyInstructions.length === instructions.length) {
+      return;
+    }
+
+    // if there are non empty instructions, drop the empty ones from the UI,
+    // otherwise leave only the first empty instruction so the UI never bloat with empty instructions
+    const nextInstructions =
+      nonEmptyInstructions.length > 0
+        ? nonEmptyInstructions
+        : [instructions[0]];
+
+    setInstructions(nextInstructions);
+    updateFieldText(nextInstructions);
+  }, [instructions, isInstructionEmpty, isPreviewMode, updateFieldText]);
 
   const convertPlaceholdersToTags = useCallback(
     (text: string): string => {
@@ -761,7 +796,7 @@ export default function AIResponseField({
                     <div
                       className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer !mb-4 mt-2"
                       dangerouslySetInnerHTML={{
-                        __html: convertPlaceholdersToTags(instruction.content),
+                        __html: instruction.content ? convertPlaceholdersToTags(instruction.content) : "&nbsp;"
                       }}
                     />
                   </motion.div>
@@ -770,10 +805,7 @@ export default function AIResponseField({
             ) : (
               <AnimatePresence mode="popLayout">
                 {instructions.map((instruction) => {
-                  const isEmpty =
-                    !instruction.content ||
-                    instruction.content.trim() === "" ||
-                    instruction.content === "<br>";
+                  const isEmpty = isInstructionEmpty(instruction);
 
                   const isFocused = focusedInstruction === instruction.id;
 
