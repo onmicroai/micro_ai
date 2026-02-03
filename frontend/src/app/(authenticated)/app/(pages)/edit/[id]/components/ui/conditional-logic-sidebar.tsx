@@ -280,7 +280,7 @@ export default function ConditionalLogicSidebar({
                             >
                               <Badge
                                 variant="default"
-                                className="cursor-move bg-primary-600 text-white align-baseline"
+                                className="bg-primary-600 text-white align-baseline"
                               >
                                 {chipLabel}
                               </Badge>
@@ -303,7 +303,7 @@ export default function ConditionalLogicSidebar({
                       <SelectItem key={field.id} value={field.id}>
                         <Badge
                           variant="default"
-                          className="cursor-move bg-primary-600 text-white align-baseline"
+                          className="bg-primary-600 text-white align-baseline"
                         >
                           {chipLabel}
                         </Badge>
