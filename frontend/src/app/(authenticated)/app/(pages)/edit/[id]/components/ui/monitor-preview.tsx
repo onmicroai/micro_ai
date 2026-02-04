@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import { Copy, Check, User, Menu } from "lucide-react";
-import { Button } from "./button";
 import Image from "next/image";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 
