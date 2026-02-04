@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { toast } from "react-toastify";
 import { useParams, useRouter } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
@@ -275,6 +276,7 @@ export default function FormBuilder() {
     setAttachedFiles,
     conditionalSidebarOpen,
     setConditionalSidebarOpen,
+    setConditionalSidebarContext,
     conditionalSidebarContext,
     saveState,
   } = useSurveyStore();
@@ -337,10 +339,48 @@ export default function FormBuilder() {
     setConditionalSidebarOpen(false);
   };
 
+  const restoreConditionalLogic = async (logic: ConditionalLogic) => {
+    if (!conditionalSidebarContext?.field.id) {
+      return;
+    }
+
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: logic }
+          : inst,
+      );
+
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el,
+        ),
+      );
+    } else {
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: logic }
+            : el,
+        ),
+      );
+    }
+
+    setConditionalSidebarContext({
+      field: conditionalSidebarContext.field,
+      currentLogic: logic,
+      instructionIndex: conditionalSidebarContext.instructionIndex,
+    });
+  };
+
   const handleClearConditionalLogic = () => {
     if (!conditionalSidebarContext?.field.id) {
       return;
     }
+
+    const previousLogic = conditionalSidebarContext.currentLogic;
 
     // Handle instruction conditional logic
     if (conditionalSidebarContext.instructionIndex !== undefined) {
@@ -366,6 +406,35 @@ export default function FormBuilder() {
             ? { ...el, conditionalLogic: undefined }
             : el,
         ),
+      );
+    }
+
+    if (previousLogic) {
+      let didUndo = false;
+      const toastId = toast.info(
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-900">
+            Conditional logic cleared.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (didUndo) return;
+              didUndo = true;
+              toast.dismiss(toastId);
+              void restoreConditionalLogic(previousLogic);
+            }}
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
+            Undo
+          </button>
+        </div>,
+        {
+          autoClose: 5000,
+          closeOnClick: false,
+          closeButton: false,
+          draggable: false,
+        },
       );
     }
   };
@@ -887,7 +956,39 @@ export default function FormBuilder() {
     logic: ConditionalLogic | null,
     _isPrompt: boolean,
   ) => {
+    const currentField = (Array.isArray(elements) ? elements : []).find(
+      (element) => element.id === fieldId,
+    );
+    const previousLogic = currentField?.conditionalLogic;
     updateElement(fieldId, { conditionalLogic: logic || undefined });
+    if (!logic && previousLogic) {
+      let didUndo = false;
+      const toastId = toast.info(
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-900">
+            Conditional logic cleared.
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              if (didUndo) return;
+              didUndo = true;
+              toast.dismiss(toastId);
+              updateElement(fieldId, { conditionalLogic: previousLogic });
+            }}
+            className="text-sm text-primary-600 hover:text-primary-700"
+          >
+            Undo
+          </button>
+        </div>,
+        {
+          autoClose: 5000,
+          closeOnClick: false,
+          closeButton: false,
+          draggable: false,
+        },
+      );
+    }
   };
 
   /**
