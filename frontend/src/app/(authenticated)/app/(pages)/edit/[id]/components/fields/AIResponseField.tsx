@@ -549,7 +549,27 @@ export default function AIResponseField({
     });
   }, [instructions, updateEditorHTML, convertPlaceholdersToTags]);
 
+  const setTagDragImage = (event: React.DragEvent, label: string) => {
+    if (!event.dataTransfer) return;
+    const dragImage = document.createElement("div");
+    dragImage.className =
+      "inline-flex items-center rounded-full border border-transparent px-2.5 py-0.5 text-xs font-semibold bg-primary-600 text-white";
+    dragImage.style.position = "absolute";
+    dragImage.style.top = "-1000px";
+    dragImage.style.left = "-1000px";
+    dragImage.style.pointerEvents = "none";
+    dragImage.style.whiteSpace = "nowrap";
+    dragImage.textContent = label;
+    document.body.appendChild(dragImage);
+    const rect = dragImage.getBoundingClientRect();
+    event.dataTransfer.setDragImage(dragImage, rect.width / 2, rect.height / 2);
+    setTimeout(() => {
+      dragImage.remove();
+    }, 0);
+  };
+
   const handleDragStart = (event: React.DragEvent, tag: Tag) => {
+    setTagDragImage(event, tag.label);
     event.dataTransfer.setData("tag", JSON.stringify(tag));
   };
 
