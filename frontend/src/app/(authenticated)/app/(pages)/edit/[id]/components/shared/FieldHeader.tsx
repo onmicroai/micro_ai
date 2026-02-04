@@ -117,9 +117,8 @@ export default function FieldHeader({
 
   return (
     <div
-      className="flex items-center justify-between w-full cursor-pointer select-none mb-4 min-h-[32px]"
+      className="flex items-center justify-between w-full select-none mb-4 min-h-[32px]"
       tabIndex={0}
-      role="button"
     >
       <div className="flex items-center gap-2 relative">
         <AnimatePresence initial={false} mode="popLayout">

@@ -38,6 +38,44 @@
   }
 }
 
+@layer utilities {
+  .builder-gradient-pulse {
+    background-size: 200% 200%;
+    animation: builderGradientPulse 0.68s ease-in-out infinite;
+  }
+
+  .builder-success-pulse {
+    animation: builderWeightPulse 0.85s ease-in-out infinite;
+  }
+}
+
+@keyframes builderGradientPulse {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.65;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.65;
+  }
+}
+
+@keyframes builderWeightPulse {
+  0% {
+    font-weight: 500;
+  }
+  50% {
+    font-weight: 600;
+  }
+  100% {
+    font-weight: 500;
+  }
+}
+
 * {
   box-sizing: border-box;
   padding: 0;

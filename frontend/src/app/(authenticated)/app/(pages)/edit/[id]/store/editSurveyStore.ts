@@ -25,6 +25,7 @@ const initialState = {
   //debounce state
   saveState: {
     isSaving: false,
+    isDebouncing: false,
     lastSaved: null,
     error: null,
   } as SaveState,
@@ -55,18 +56,31 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     const { appId, saveState, isInitialLoad } = state;
 
     if (!appId || saveState.isSaving) {
+      if (saveState.isDebouncing) {
+        set((state) => ({
+          saveState: { ...state.saveState, isDebouncing: false },
+        }));
+      }
       return;
     }
 
     // If it's the initial load, set the flag to false and return
     if (isInitialLoad === true) {
-      set({ isInitialLoad: false });
+      set((state) => ({
+        isInitialLoad: false,
+        saveState: { ...state.saveState, isDebouncing: false },
+      }));
       return;
     }
 
     try {
       set((state) => ({
-        saveState: { ...state.saveState, isSaving: true, error: null },
+        saveState: {
+          ...state.saveState,
+          isSaving: true,
+          isDebouncing: false,
+          error: null,
+        },
       }));
 
       const api = axiosInstance();
@@ -99,12 +113,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         saveState: {
           ...state.saveState,
           isSaving: false,
+          isDebouncing: false,
           lastSaved: new Date(),
           error: null,
         },
       }));
-
-      toast.success("Changes saved successfully");
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to save";
@@ -112,6 +125,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         saveState: {
           ...state.saveState,
           isSaving: false,
+          isDebouncing: false,
           error: errorMessage,
         },
       }));
@@ -360,6 +374,13 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @returns
      */
     saveToServer: (signal?: AbortSignal) => {
+      set((state) => ({
+        saveState: {
+          ...state.saveState,
+          isDebouncing: true,
+          error: null,
+        },
+      }));
       return Promise.resolve(debouncedSaveToServer(signal));
     },
 

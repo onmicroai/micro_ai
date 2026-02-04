@@ -37,22 +37,18 @@ export default function MonitorPreview({
           </div>
 
           {/* URL bar */}
-          <div className="flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-sm px-3 py-1.5 ml-4">
+          <div
+            className="cursor-pointer flex-1 flex items-center gap-2 bg-white border border-gray-200 rounded-sm px-3 py-1.5 ml-4"
+            onClick={handleCopyUrl}   
+         >
             <span className="text-sm text-primary-600 truncate flex-1">
               {previewUrl}
             </span>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCopyUrl}
-              className="h-6 w-6 p-0 hover:bg-gray-100"
-            >
               {copied ? (
                 <Check className="h-4 w-4 text-green-600" />
               ) : (
                 <Copy className="h-4 w-4 text-primary-600" />
               )}
-            </Button>
           </div>
         </div>
 
