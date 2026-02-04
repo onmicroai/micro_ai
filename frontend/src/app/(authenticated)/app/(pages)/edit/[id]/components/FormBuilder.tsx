@@ -235,6 +235,7 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -275,7 +276,32 @@ export default function FormBuilder() {
     conditionalSidebarOpen,
     setConditionalSidebarOpen,
     conditionalSidebarContext,
+    saveState,
   } = useSurveyStore();
+
+  const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
+  const shouldPulseBuild = activeTab === "build" && isSavingIndicator;
+  const buildLabelClassName = showSaveSuccess
+    ? "inline-block text-primary builder-success-pulse"
+    : shouldPulseBuild
+      ? "inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary builder-gradient-pulse"
+      : activeTab === "build"
+        ? "text-primary"
+        : "text-gray-600 group-hover:text-gray-900";
+  const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+    activeTab === "build" ? "bg-white shadow-sm" : ""
+  }`;
+
+  useEffect(() => {
+    if (!saveState.lastSaved) return;
+    setShowSaveSuccess(true);
+    const timeout = window.setTimeout(() => {
+      setShowSaveSuccess(false);
+    }, 900);
+    return () => {
+      window.clearTimeout(timeout);
+    };
+  }, [saveState.lastSaved]);
   const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
     if (!conditionalSidebarContext?.field.id) {
       setConditionalSidebarOpen(false);
@@ -1287,13 +1313,9 @@ export default function FormBuilder() {
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => setActiveTab("build")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === "build"
-                    ? "bg-white text-primary shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
+                className={buildButtonClassName}
               >
-                Build
+                <span className={buildLabelClassName}>Build</span>
               </button>
               <button
                 onClick={() => {

@@ -461,6 +461,7 @@ export interface SurveyState {
 
 export interface SaveState {
   isSaving: boolean;
+  isDebouncing: boolean;
   lastSaved: Date | null;
   error: string | null;
 }
