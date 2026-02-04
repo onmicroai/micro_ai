@@ -25,7 +25,7 @@ RUN mkdir /code
 WORKDIR /code
 
 # install python requirements
-RUN pip install --upgrade pip wheel pip-tools setuptools build
+RUN pip install --upgrade "pip<24.1" wheel "pip-tools==7.4.1" setuptools build
 
 # copy just requirements and install before rest of code to avoid having to
 # reinstall packages during build every time code changes
