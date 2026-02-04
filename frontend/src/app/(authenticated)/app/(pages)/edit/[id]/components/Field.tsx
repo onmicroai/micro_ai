@@ -1362,6 +1362,9 @@ export default function Field({
                 ? field.conditionalLogic.value
                 : undefined
             }
+            onRemove={
+              isActive ? () => onUpdateConditionalLogic?.(field.id, null) : undefined
+            }
           />
         )}
         <FieldHeader
@@ -1561,6 +1564,11 @@ export default function Field({
                     : undefined
                 }
                 currentFieldName={field.name}
+                onRemove={
+                  isActive
+                    ? () => onUpdateConditionalLogic?.(field.id, null)
+                    : undefined
+                }
               />
             </motion.div>
           )}
