@@ -11,10 +11,10 @@ import Modal from '@/components/modules/custom-prompt-modal/custom-prompt-modal'
 import { SurveyCreatorProps } from '@/app/(authenticated)/app/types';
 import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
-import Link from "next/link";
-import { Video } from 'lucide-react';
+import { BookTextIcon } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied"; 
+import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
 const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) => {
    const api = axiosInstance();
    const appId = useRef<number | null>(null);
@@ -23,7 +23,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
    const collectionId = useRef<number | null>(null);
    const {
-      setPhases,
+      setElements,
       setTitle,
       setDescription,
       setCollectionId,
@@ -50,10 +50,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
          showModal(errorMessage);
       }
    }, [showModal]);
-
-   const getAppUrl = (hashId: string) => {
-      return `/app/${hashId}`;
-   };
 
    /**
     * Fetches the microapp data and sets the store values
@@ -88,16 +84,24 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
             if (typeof appData.app_json === 'string') {
                if (appData.app_json.length === 0) {
-                  //First render after creation
-                  appJson = appData;
+                  //First render after creation - use empty object, phases will be initialized with default
+                  appJson = {};
                } else {
                   appJson = structuredClone(JSON.parse(appData.app_json || "{}"));
                }
             } else {
-               appJson = structuredClone(appData.app_json);
+               appJson = structuredClone(appData.app_json || {});
             }
 
-            setPhases(appJson.phases, true, signal);
+            // Normalize/migrate legacy app_json to v2 elements[] so the editor has a canonical shape available.
+            // (Editor will switch to storing elements[] directly in the next step of the migration.)
+            const v2 = normalizeAppJsonToV2(appJson);
+            if (!Array.isArray(appJson.elements)) {
+               appJson.elements = v2.elements;
+            }
+
+            // Editor is V2: always set elements[] (legacy phases were migrated above).
+            setElements(v2.elements || [], true, signal);
             setTitle(appJson.title || "Untitled App", true, signal);
             setDescription(appJson.description, true, signal);
             setPrivacy(getPrivacyName(appJson.privacySettings), true, signal);
@@ -136,7 +140,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       api, 
       handleAPIErrors,
       setAppId, 
-      setPhases, 
+      setElements,
       setTitle, 
       setDescription, 
       setPrivacy, 
@@ -168,7 +172,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
    const TutorialButton = () => {
       return (
-        <div className="fixed bottom-20 right-6 z-50">
+        <div className="fixed bottom-10 right-6 z-50">
                 <a
                   href="/building-microapps-101"
                   target="_blank"
@@ -177,7 +181,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
                     shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105
                     hover:translate-x-[-8px] group"
                 >
-                  <Video className="h-5 w-5" />
+                  <BookTextIcon className="h-5 w-5" />
                   <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[200px] 
                     transition-all duration-300">
                     Watch Tutorial
@@ -227,18 +231,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
          <>
             <FormBuilder />
             <TutorialButton />
-            <Link 
-               href={getAppUrl(hashId)}
-               id="preview-button"
-               className="fixed bottom-6 right-6 px-6 py-3 shadow-lg z-50
-                  text-primary-foreground
-                  bg-gradient-to-r from-secondary via-primary to-primary
-                  bg-[length:300%_100%] bg-right
-                  hover:bg-left transition-all duration-500
-                  hover:shadow-xl"
-            >
-               Preview
-            </Link>
          </>
          <Modal isOpen={modalInfo.isOpen} onClose={() => setModalInfo({ ...modalInfo, isOpen: false })}>
             <div>{modalInfo.message}</div>

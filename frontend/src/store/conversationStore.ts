@@ -23,12 +23,17 @@ export interface Run {
     satisfaction?: 1 | -1 | null;
     phaseIndex: number;
     session_id: string;
+    score_expected?: boolean;
+    score_explanation?: boolean;
+    score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
     scoreData?: {
         run_score: string;
         run_passed: boolean;
         minimum_score: number;
         rubric: string;
         scored_run: boolean;
+        score_explanation?: boolean;
+        score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
     };
 }
 

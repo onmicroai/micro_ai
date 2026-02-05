@@ -1,8 +1,28 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { DragDropContext } from '@hello-pangea/dnd';
-import { Plus, Trash2, ChevronDown, Upload, X, FileText } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { DragDropContext } from "@hello-pangea/dnd";
+import {
+  Plus,
+  ChevronDown,
+  Upload,
+  X,
+  FileText,
+  Type,
+  AlignLeft,
+  CircleDot,
+  CheckSquare,
+  List,
+  SlidersHorizontal,
+  ToggleLeft,
+  Bot,
+  MessageCircle,
+  ImagePlus,
+  MessagesSquare,
+  PanelLeft,
+  PanelLeftClose,
+} from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
 import {
@@ -10,32 +30,180 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "./ui/collapsible";
-import FieldPalette from './FieldPalette';
-import Phase from './Phase';
-import JsonPreview from './JsonPreview';
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import JsonPreview from "./JsonPreview";
+import Field from "./Field";
+import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { Checkbox } from "./ui/checkbox";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "./ui/select";
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "./ui/select";
 import { Input } from "./ui/input";
-import { useSurveyStore } from '../store/editSurveyStore';
-import { PhaseType, Element, Choice, ConditionalLogic } from '@/app/(authenticated)/app/types';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-import { HelpCircle } from 'lucide-react';
-import { useDropzone } from 'react-dropzone';
+import { useSurveyStore } from "../store/editSurveyStore";
+import AppRuntimeView from "@/components/AppRuntimeView";
+import { showUndoToast } from "@/components/UndoToast";
+import {
+  Element,
+  Choice,
+  ConditionalLogic,
+} from "@/app/(authenticated)/app/types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
+import { HelpCircle } from "lucide-react";
+import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
+import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
+import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
+import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import Image from "next/image";
+import MonitorPreview from "./ui/monitor-preview";
+import { TagFocusProvider } from "./TagFocusContext";
+
+// Options for the "Add section" dialog
+const fieldTypes = [
+  {
+    id: "text",
+    label: "Single Line",
+    icon: Type,
+    helper: "Collect a single line of text input.",
+  },
+  {
+    id: "textarea",
+    label: "Long Text",
+    icon: AlignLeft,
+    helper: "Collect a longer block of text input.",
+  },
+  {
+    id: "richText",
+    label: "Rich Text",
+    icon: FileText,
+    helper: "Display text or images to the user.",
+  },
+  {
+    id: "radio",
+    label: "Radio Buttons",
+    icon: CircleDot,
+    helper: "Collect a single choice from a list of options.",
+  },
+  {
+    id: "checkbox",
+    label: "Checkboxes",
+    icon: CheckSquare,
+    helper: "Collect one or more choices from a list of options.",
+  },
+  {
+    id: "dropdown",
+    label: "Dropdown",
+    icon: List,
+    helper: "Collect a single choice from a dropdown menu.",
+  },
+  {
+    id: "slider",
+    label: "Slider",
+    icon: SlidersHorizontal,
+    helper: "Collect a numeric value from a slider.",
+  },
+  {
+    id: "boolean",
+    label: "Boolean",
+    icon: ToggleLeft,
+    helper: "Collect a true or false value. Often used for conditional logic.",
+  },
+  {
+    id: "imageUpload",
+    label: "Image Upload",
+    icon: ImagePlus,
+    helper: "Collect an image or images from the user.",
+  },
+  {
+    id: "chat",
+    label: "Chatbot",
+    icon: MessagesSquare,
+    helper: "Add a chat interface for users to interact with the AI.",
+  },
+];
+
+const cardTypes = [
+  {
+    id: "title",
+    label: "Title",
+    icon: Type,
+    helper: "Static title text shown to the user.",
+  },
+  {
+    id: "aiResponse",
+    label: "AI Response",
+    icon: Bot,
+    helper: "Stops the flow and runs the AI when the user clicks Run.",
+  },
+  {
+    id: "fixedResponse",
+    label: "Response",
+    icon: MessageCircle,
+    helper: "Stops the flow and shows static text (no AI call).",
+  },
+  {
+    id: "scoring",
+    label: "Scoring",
+    icon: SlidersHorizontal,
+    helper: "Stops the flow and runs rubric scoring when the user clicks Run.",
+  },
+];
+
+export const availableSections = [...fieldTypes, ...cardTypes];
+
+const normalizeTagBase = (type: string) =>
+  type.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
+
+const buildDefaultTag = (type: string, usedNames: Set<string>) => {
+  const base = normalizeTagBase(type);
+  let index = 1;
+  while (usedNames.has(`${base}${index}`)) {
+    index += 1;
+  }
+  const name = `${base}${index}`;
+  usedNames.add(name);
+  return name;
+};
+
+const shouldDefaultQuestionLabel = (type: string) =>
+  ![
+    "title",
+    "aiResponse",
+    "fixedResponse",
+    "scoring",
+    "richText",
+    "prompt",
+    "aiInstructions",
+  ].includes(type);
 
 const ACCEPTED_FILE_TYPES = {
-  'application/pdf': ['.pdf'],
-  'application/vnd.openxmlformats-officedocument.presentationml.presentation': ['.pptx'],
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
-  'application/msword': ['.doc'],
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
-  'application/vnd.ms-excel': ['.xls'],
-  'text/csv': ['.csv'],
-  'text/plain': ['.txt', '.log'],
-  'image/jpeg': ['.jpg', '.jpeg'],
-  'image/png': ['.png'],
-  'image/tiff': ['.tiff'],
-  'image/bmp': ['.bmp']
+  "application/pdf": [".pdf"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
+    ".pptx",
+  ],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
+    ".docx",
+  ],
+  "application/msword": [".doc"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
+    ".xlsx",
+  ],
+  "application/vnd.ms-excel": [".xls"],
+  "text/csv": [".csv"],
+  "text/plain": [".txt", ".log"],
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/tiff": [".tiff"],
+  "image/bmp": [".bmp"],
 };
 
 //TO-DO: Just use the backend max file size
@@ -54,12 +222,33 @@ interface UploadedFile {
 }
 
 export default function FormBuilder() {
+  const params = useParams() ?? {};
+  const router = useRouter();
+  const hashId = (params.id as string) || "";
+
   const [isOpen, setIsOpen] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [addSectionOpenFor, setAddSectionOpenFor] = useState<string | null>(
+    null,
+  );
+  const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
+  const [backgroundTheme] = useState<"white" | "gray">("gray");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
+  const [lastSavedLabel, setLastSavedLabel] = useState("Last saved: just now");
+  const [popoverPosition, setPopoverPosition] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [isAppDetailsEditMode, setIsAppDetailsEditMode] = useState(false);
+  const [activeFieldId, setActiveFieldId] = useState<string | undefined>(
+    undefined,
+  );
+  const cardRef = useRef<HTMLDivElement>(null);
 
   const {
-    phases,
+    elements,
     privacy,
     clonable,
     completedHtml,
@@ -71,7 +260,7 @@ export default function FormBuilder() {
     isLoadingCollections,
     aiConfig,
     attachedFiles,
-    setPhases,
+    setElements,
     setTitle,
     setDescription,
     setCollectionId,
@@ -85,107 +274,290 @@ export default function FormBuilder() {
     fetchLiteLLMModels,
     appId,
     setAttachedFiles,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+    setConditionalSidebarContext,
+    conditionalSidebarContext,
+    saveState,
   } = useSurveyStore();
 
-  const fileUploader = createFileUploader(appId?.toString() || '');
+  const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
+  const buildLabelClassName =
+    activeTab === "build"
+      ? "text-primary"
+      : "text-gray-600 group-hover:text-gray-900";
+  const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+    activeTab === "build" ? "bg-white shadow-sm" : ""
+  }`;
 
-  const handleFileUpload = useCallback(async (file: File) => {
-    if (file.size > MAX_FILE_SIZE) {
-      alert('File size must be less than 5MB');
+  const formatTimeAgo = useCallback((savedAt: Date) => {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - savedAt.getTime()) / 1000),
+    );
+    if (elapsedSeconds < 5) {
+      return "just now";
+    }
+    if (elapsedSeconds < 60) {
+      return `${elapsedSeconds}s ago`;
+    }
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m ago`;
+    }
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return `${elapsedHours}h ago`;
+    }
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d ago`;
+  }, []);
+
+  useEffect(() => {
+    const savedAt = saveState.lastSaved;
+    if (!savedAt) {
+      setLastSavedLabel("Changes saved");
+      return;
+    }
+    const updateLabel = () => {
+      setLastSavedLabel(`Last saved: ${formatTimeAgo(savedAt)}`);
+    };
+    updateLabel();
+    const interval = window.setInterval(updateLabel, 5000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [formatTimeAgo, saveState.lastSaved]);
+  const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
+    if (!conditionalSidebarContext?.field.id) {
+      setConditionalSidebarOpen(false);
       return;
     }
 
-    try {
-      setIsUploading(true);
-      const result = await fileUploader.uploadFile(file);
-      
-      // Extract filename from original_file path
-      const original_filename = result.original_file?.split('/').pop();
-      const text_filename = result.text_file?.split('/').pop();
-      if (!original_filename || !text_filename) {
-        throw new Error('No filename returned from upload');
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: logic }
+          : inst,
+      );
+
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id
+            ? { ...el, instructions: updatedInstructions }
+            : el,
+        ),
+      );
+    } else {
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: logic }
+            : el,
+        ),
+      );
+    }
+    setConditionalSidebarOpen(false);
+  };
+
+  const restoreConditionalLogic = async (logic: ConditionalLogic) => {
+    if (!conditionalSidebarContext?.field.id) {
+      return;
+    }
+
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: logic }
+          : inst,
+      );
+
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id ? { ...el, instructions: updatedInstructions } : el,
+        ),
+      );
+    } else {
+      await setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: logic }
+            : el,
+        ),
+      );
+    }
+
+    setConditionalSidebarContext({
+      field: conditionalSidebarContext.field,
+      currentLogic: logic,
+      instructionIndex: conditionalSidebarContext.instructionIndex,
+    });
+  };
+
+  const handleClearConditionalLogic = () => {
+    if (!conditionalSidebarContext?.field.id) {
+      return;
+    }
+
+    const previousLogic = conditionalSidebarContext.currentLogic;
+
+    // Handle instruction conditional logic
+    if (conditionalSidebarContext.instructionIndex !== undefined) {
+      const field = conditionalSidebarContext.field;
+      const instructions = field.instructions || [];
+      const updatedInstructions = instructions.map((inst, idx) =>
+        idx === conditionalSidebarContext.instructionIndex
+          ? { ...inst, conditionalLogic: undefined }
+          : inst,
+      );
+
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === field.id
+            ? { ...el, instructions: updatedInstructions }
+            : el,
+        ),
+      );
+    } else {
+      setElements(
+        (Array.isArray(elements) ? elements : []).map((el) =>
+          el.id === conditionalSidebarContext.field.id
+            ? { ...el, conditionalLogic: undefined }
+            : el,
+        ),
+      );
+    }
+
+    if (previousLogic) {
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          void restoreConditionalLogic(previousLogic);
+        },
+      });
+    }
+  };
+
+  const fileUploader = createFileUploader(appId?.toString() || "");
+
+  const handleFileUpload = useCallback(
+    async (file: File) => {
+      if (file.size > MAX_FILE_SIZE) {
+        alert("File size must be less than 5MB");
+        return;
       }
 
-      const fileData = {
-        original_filename,
-        text_filename,
-        size: file.size,
-        word_count: result.word_count,
-      };
+      try {
+        setIsUploading(true);
+        const result = await fileUploader.uploadFile(file);
 
-      setUploadedFiles(prev => [...prev, {
-        name: file.name,
-        url: result.url,
-        original_filename,
-        text_filename,
-        size: file.size,
-        word_count: result.word_count
-      }]);
+        // Extract filename from original_file path
+        const original_filename = result.original_file?.split("/").pop();
+        const text_filename = result.text_file?.split("/").pop();
+        if (!original_filename || !text_filename) {
+          throw new Error("No filename returned from upload");
+        }
 
-      await addAttachedFile(fileData);
+        const fileData = {
+          original_filename,
+          text_filename,
+          size: file.size,
+          word_count: result.word_count,
+        };
 
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      alert('Failed to upload file');
-    } finally {
-      setIsUploading(false);
-    }
-  }, [fileUploader, addAttachedFile]);
+        setUploadedFiles((prev) => [
+          ...prev,
+          {
+            name: file.name,
+            url: result.url,
+            original_filename,
+            text_filename,
+            size: file.size,
+            word_count: result.word_count,
+          },
+        ]);
 
-  const removeFile = useCallback(async (index: number) => {
-    const file = uploadedFiles[index];
-    setUploadedFiles(prev => prev.filter((_, i) => i !== index));
-    if (!file.original_filename) {
-      throw new Error('No filename found for file');
-    }
-    await removeAttachedFile(file.original_filename);
-  }, [uploadedFiles, removeAttachedFile]);
+        await addAttachedFile(fileData);
+      } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("Failed to upload file");
+      } finally {
+        setIsUploading(false);
+      }
+    },
+    [fileUploader, addAttachedFile],
+  );
+
+  const removeFile = useCallback(
+    async (index: number) => {
+      const file = uploadedFiles[index];
+      setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
+      if (!file.original_filename) {
+        throw new Error("No filename found for file");
+      }
+      await removeAttachedFile(file.original_filename);
+    },
+    [uploadedFiles, removeAttachedFile],
+  );
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
-      acceptedFiles.forEach(file => handleFileUpload(file));
+      acceptedFiles.forEach((file) => handleFileUpload(file));
     },
     accept: ACCEPTED_FILE_TYPES,
     maxSize: MAX_FILE_SIZE,
-    disabled: isUploading
+    disabled: isUploading,
   });
 
-  // Initialize phases with default phase if phases is empty
   useEffect(() => {
     // Set default AI config values if not present
     if (!aiConfig.aiModel) {
       setAIConfig({
         ...aiConfig,
-        aiModel: 'gpt-4o-mini'
+        aiModel: "gpt-4o-mini",
       });
     }
     if (!aiConfig.temperature) {
       setAIConfig({
         ...aiConfig,
-        temperature: 0.7
+        temperature: 0.7,
       });
     }
-  }, [phases, aiConfig, setPhases, setAIConfig]);
+  }, [aiConfig, setAIConfig]);
 
   // Initialize uploadedFiles from attachedFiles
   useEffect(() => {
     if (attachedFiles && attachedFiles.length > 0) {
       const files = attachedFiles
-        .filter(file => file && file.original_filename)
-        .map(file => ({
-          name: file.original_filename.split('_')[0],
+        .filter((file) => file && file.original_filename)
+        .map((file) => ({
+          name: file.original_filename.split("_")[0],
           original_filename: file.original_filename,
           text_filename: file.text_filename,
           url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.original_filename}`,
           size: file.size,
           word_count: file.word_count,
-          description: file.description
+          description: file.description,
         }));
       setUploadedFiles(files);
     } else {
       setUploadedFiles([]);
     }
   }, [attachedFiles]);
+
+  // Ensure at least one element exists and open sidebar on mount
+  useEffect(() => {
+    if (Array.isArray(elements) && elements.length === 0) {
+      addElementToApp("text");
+    }
+    setSidebarOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Load collections on mount
   useEffect(() => {
@@ -197,888 +569,527 @@ export default function FormBuilder() {
     fetchLiteLLMModels();
   }, [fetchLiteLLMModels]);
 
+//   useEffect(() => {
+//     const current = Array.isArray(elements) ? elements : [];
+//     const usedNames = new Set<string>();
+//     current.forEach((element) => {
+//       const name = element.name?.trim();
+//       if (name) {
+//         usedNames.add(name.toLowerCase());
+//       }
+//     });
+
+//     let changed = false;
+//     const updated = current.map((element) => {
+//       const name = element.name?.trim();
+//       const label = element.label?.trim();
+//       const nextElement = { ...element };
+//       if (!name) {
+//         changed = true;
+//         nextElement.name = buildDefaultTag(element.type, usedNames);
+//       }
+//       if (!label && shouldDefaultQuestionLabel(element.type)) {
+//         changed = true;
+//         nextElement.label = "Question";
+//       }
+//       return nextElement;
+//     });
+
+//     if (changed) {
+//       setElements(updated);
+//     }
+//   }, [elements, setElements]);
+
+  const activeElement = elements.find((element) => element.id === activeFieldId);
+  const isTagFocusActive =
+    conditionalSidebarOpen ||
+    activeElement?.type === "aiResponse" ||
+    activeElement?.type === "fixedResponse";
+
+  useEffect(() => {
+    if (!conditionalSidebarOpen) return;
+
+    const contextFieldId = conditionalSidebarContext?.field?.id;
+    if (!contextFieldId) return;
+
+    if (!activeFieldId || activeFieldId !== contextFieldId) {
+      setConditionalSidebarOpen(false);
+    }
+  }, [
+    activeFieldId,
+    conditionalSidebarContext?.field?.id,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+  ]);
+
+  /**
+   * V2 builder: elements are stored as a single ordered list.
+   */
+  const updateElement = useCallback(
+    (elementId: string, updates: Partial<Element>) => {
+      const current = Array.isArray(elements) ? elements : [];
+      setElements(
+        current.map((el) => (el.id === elementId ? { ...el, ...updates } : el)),
+      );
+    },
+    [elements, setElements],
+  );
+
+  const deleteElement = useCallback(
+    (elementId: string) => {
+      const current = Array.isArray(elements) ? elements : [];
+      const index = current.findIndex((el) => el.id === elementId);
+      if (index === -1) return null;
+      const removed = current[index];
+      setElements(current.filter((el) => el.id !== elementId));
+      return { element: removed, index };
+    },
+    [elements, setElements],
+  );
+
   /**
    * Handles the completion of a drag-and-drop operation within the form builder.
-   * 
-   * @param result - The result object from react-beautiful-dnd containing source and destination information
-   * 
-   * This method is the core of the form builder's drag-and-drop functionality, enabling:
-   * 1. Adding new fields from the palette to a specific phase
-   * 2. Reordering fields within the same phase
-   * 3. Moving fields between different phases
-   * 
-   * It maintains the integrity of the form structure while providing an intuitive
-   * interface for users to build and organize their forms without writing code.
+   * Reorders elements within the single elements[] list.
    */
   const handleDragEnd = (result: any) => {
-    const { source, destination, draggableId } = result;
+    const { source, destination } = result;
 
     if (!destination) return;
+    const current = Array.isArray(elements) ? elements : [];
+    const updated = [...current];
+    const [moved] = updated.splice(source.index, 1);
+    updated.splice(destination.index, 0, moved);
+    setElements(updated);
+  };
 
-    const [sourceType, sourcePhaseId] = source.droppableId.split('-');
-    const [destType, destPhaseId] = destination.droppableId.split('-');
+  /**
+   * Adds a new element into the app (V2 builder).
+   */
+  const addElementToApp = (type: string, insertAfter?: number | null) => {
+    const current = Array.isArray(elements) ? elements : [];
+    const usedNames = new Set(
+      current
+        .map((element) => element.name?.trim().toLowerCase())
+        .filter(Boolean) as string[],
+    );
+    const defaultName = buildDefaultTag(type, usedNames);
 
-    // Handle dropping from palette
-    if (sourceType === 'palette') {
-      const existingFieldsCount = phases.reduce((count: number, phase: PhaseType) => {
-        const elementCount = phase.elements?.filter(f => f.type === draggableId).length ?? 0;
-        const promptCount = phase.prompts?.filter(f => f.type === draggableId).length ?? 0;
-        return count + elementCount + promptCount;
-      }, 0);
+    const base: Element = {
+      id: `${type}-${Date.now()}`,
+      type: type as Element["type"],
+      label: shouldDefaultQuestionLabel(type) ? "Question" : "",
+      name: defaultName,
+      isRequired: false,
+    };
 
-      const newField = {
-        id: `${draggableId}-${Date.now()}`,
-        type: draggableId as Element['type'],
-        label: '',
-        name: `${draggableId}${existingFieldsCount + 1}`,
-        isRequired: false,
-        // Add default values for image upload fields
-        ...(draggableId === 'imageUpload' && {
-          multiple: false,
-          maxFiles: 1,
-          maxFileSize: 5,
-          allowedFileTypes: ['image/jpeg', 'image/png'],
-        }),
-        // Add default values for chat fields
-        ...(draggableId === 'chat' && {
-          maxMessages: 10,
-          initialMessage: 'Hello! How can I help you today?',
-          enableTts: false,
-          ttsProvider: 'openai',
-          selectedVoiceId: '',
-          voiceInstructions: '',
-          avatarUrl: '',
-        }),
-      };
+    const newElement: Element = {
+      ...base,
+      ...(type === "title" && {
+        label: "Title",
+        text: "Title",
+      }),
+      ...(type === "aiResponse" && {
+        instructions: [{ text: "" }],
+      }),
+      ...(type === "fixedResponse" && { text: "" }),
+      ...(type === "scoring" && {
+        rubric: JSON.stringify([
+          {
+            criteria: "Category 1",
+            lines: [
+              { score: 1, description: "" },
+              { score: 0, description: "" },
+            ],
+          },
+        ]),
+        minScore: 0,
+        isRequired: true,
+      }),
+      ...(type === "imageUpload" && {
+        multiple: false,
+        maxFiles: 1,
+        maxFileSize: 5,
+        allowedFileTypes: ["image/jpeg", "image/png"],
+      }),
+      ...(type === "chat" && {
+        maxMessages: 10,
+        initialMessage: "Hello! How can I help you today?",
+        enableTts: false,
+        ttsProvider: "openai",
+        selectedVoiceId: "",
+        voiceInstructions: "",
+        avatarUrl: "",
+      }),
+    };
 
-      const updatedPhases = phases.map((phase: PhaseType) => {
-        if (Number(phase.id) === Number(destPhaseId)) {
-          if (destType === 'fields') {
-            const elements = [...(phase.elements || [])];
-            elements.splice(destination.index, 0, newField);
-            return {
-              ...phase,
-              elements
-            };
-          } else {
-            const prompts = [...(phase.prompts || [])];
-            prompts.splice(destination.index, 0, newField);
-            return {
-              ...phase,
-              prompts
-            };
-          }
-        }
-        return phase;
-      });
-      
-      setPhases(updatedPhases);
-
+    const updated = [...current];
+    if (insertAfter !== null && insertAfter !== undefined) {
+      updated.splice(insertAfter + 1, 0, newElement);
+    } else {
+      updated.push(newElement);
     }
 
-    // Handle reordering within the same list
-    if (source.droppableId === destination.droppableId) {
-      
-      const updatedPhases = phases.map((phase: PhaseType) => {
-        if (Number(phase.id) === Number(sourcePhaseId)) {
-          const items = sourceType === 'fields' ? [...phase.elements] : [...phase.prompts];
-          const [removed] = items.splice(source.index, 1);
-          items.splice(destination.index, 0, removed);
-          return {
-            ...phase,
-            [sourceType === 'fields' ? 'elements' : 'prompts']: items
-          };
-        }
-        return phase;
-      });
-      
-      setPhases(updatedPhases);
-    }
+    setElements(updated);
+    setActiveFieldId(newElement.id);
+    setAddSectionOpenFor(null);
+    setInsertAfterIndex(null);
   };
 
   /**
-   * Adds a new phase to the form builder.
-   * 
-   * This method is crucial for creating multi-step forms and surveys, allowing
-   * users to organize their content into logical sections. Each phase represents
-   * a distinct step in the user journey, with its own set of fields and prompts.
-   * 
-   * The method automatically assigns an incremental ID and default title to maintain
-   * consistency and provide a good starting point for customization.
+   * Updates the label of an element.
    */
-  const addPhase = () => {
-    const newPhaseNumber = (phases?.length || 0) + 1;
-    setPhases([...(phases || []), { 
-      id: String(newPhaseNumber), 
-      name: `phase${newPhaseNumber}`,
-      title: `Phase ${newPhaseNumber}`, 
-      description: '', 
-      elements: [], 
-      prompts: [],
-      skipPhase: false,
-      scoredPhase: false,
-      rubric: '',
-      minScore: 0
-    }]);
-    
+  const updateFieldLabel = (
+    fieldId: string,
+    newLabel: string,
+    _isPrompt: boolean = false,
+  ) => {
+    // For title elements we also mirror label into text for display.
+    updateElement(fieldId, { label: newLabel, text: newLabel });
   };
 
   /**
-   * Removes a phase from the form builder.
-   * 
-   * @param phaseId - The ID of the phase to remove
-   * 
-   * This method enables users to delete unwanted phases, helping to streamline
-   * the form structure. It's essential for maintaining a clean and focused user
-   * experience by removing unnecessary steps in the form flow.
+   * Updates the internal name/identifier of an element.
    */
-  const removePhase = (phaseId: string) => {
-    setPhases(phases.filter((phase: PhaseType) => phase.id !== phaseId));
-  };
-
-  /**
-   * Updates the title of a specific phase.
-   * 
-   * @param phaseId - The ID of the phase to update
-   * @param newTitle - The new title for the phase
-   * 
-   * Clear and descriptive phase titles are essential for both form creators and
-   * end-users to understand the purpose of each section. This method allows
-   * customization of phase names to better reflect their content and function
-   * within the overall form flow.
-   */
-  const updatePhaseName = (phaseId: string, newTitle: string) => {
-    const updatedPhases = phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return { ...phase, title: newTitle };
-      }
-      return phase;
-    });
-    setPhases(updatedPhases); 
-  };
-
-  /**
-   * Updates the label of a field within a specific phase.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param newLabel - The new label for the field
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Field labels are critical for user experience as they provide context and instructions
-   * to form users. This method allows form creators to customize these labels to improve
-   * clarity and guide users through the form completion process effectively.
-   */
-  const updateFieldLabel = (phaseId: string, fieldId: string, newLabel: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.map(field => 
-          field.id === fieldId ? { ...field, label: newLabel } : field
-        );
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
-  };
-
-  /**
-   * Updates the internal name/identifier of a field.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param newName - The new internal name for the field
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Field names serve as unique identifiers for data processing and API interactions.
-   * This method ensures that each field has a proper identifier for data collection,
-   * validation, and submission, which is essential for accurate data handling and
-   * integration with backend systems.
-   */
-  const updateFieldName = (phaseId: string, fieldId: string, newName: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.map(field => 
-          field.id === fieldId ? { ...field, name: newName } : field
-        );
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
+  const updateFieldName = (
+    fieldId: string,
+    newName: string,
+    _isPrompt: boolean = false,
+  ) => {
+    updateElement(fieldId, { name: newName });
   };
 
   /**
    * Sets whether a field is required for form submission.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param isRequired - Whether the field is required (true) or optional (false)
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Required fields ensure that users provide necessary information before proceeding.
-   * This method helps form creators enforce data completeness and quality by preventing
-   * submissions with missing critical information, improving the overall reliability
-   * of collected data.
    */
-  const updateFieldRequired = (phaseId: string, fieldId: string, isRequired: boolean, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.map(field => 
-          field.id === fieldId ? { ...field, isRequired } : field
-        );
-        return {
-          ...phase,
-          // Right now, we only allow elements to be required. 
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
+  const updateFieldRequired = (
+    fieldId: string,
+    isRequired: boolean,
+    _isPrompt: boolean = false,
+  ) => {
+    updateElement(fieldId, { isRequired });
   };
 
   /**
-   * Removes a field from a specific phase.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to remove
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * This method allows form creators to remove unnecessary or redundant fields,
-   * helping to streamline the form and improve user experience. It's essential for
-   * maintaining a clean, focused interface that collects only relevant information
-   * and reduces user friction.
+   * Removes an element.
    */
-  const deleteField = (phaseId: string, fieldId: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.filter(field => field.id !== fieldId);
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
+  const deleteField = (fieldId: string, _isPrompt: boolean = false) => {
+    const deleted = deleteElement(fieldId);
+    if (!deleted) return;
+    showUndoToast({
+      message: "Field deleted.",
+      onUndo: () => {
+        const latestElements = Array.isArray(useSurveyStore.getState().elements)
+          ? useSurveyStore.getState().elements
+          : [];
+        if (latestElements.some((el) => el.id === deleted.element.id)) {
+          return;
+        }
+        const restored = [...latestElements];
+        const insertIndex = Math.min(deleted.index, restored.length);
+        restored.splice(insertIndex, 0, deleted.element);
+        void setElements(restored);
+      },
+    });
   };
 
   /**
    * Updates the description of a field within a specific phase.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param description - The new description for the field
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Field descriptions provide additional context and guidance beyond the label,
-   * helping users understand exactly what information is being requested and why.
-   * This method enables form creators to add detailed instructions, examples, or
-   * explanations that improve form clarity and completion accuracy.
    */
-  const updateFieldDescription = (phaseId: string, fieldId: string, description: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.map(field => 
-          field.id === fieldId ? { ...field, description } : field
-        );
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
+  const updateFieldDescription = (
+    fieldId: string,
+    description: string,
+    _isPrompt: boolean = false,
+  ) => {
+    updateElement(fieldId, { description });
   };
 
   /**
    * Sets character count validation rules for text-based fields.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param minChars - The minimum number of characters required (null for no minimum)
-   * @param maxChars - The maximum number of characters allowed (null for no maximum)
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Input validation is crucial for ensuring data quality and guiding users to provide
-   * appropriate responses. This method allows form creators to set character limits
-   * that enforce response length requirements, which is particularly important for
-   * text fields where response size may impact data processing or storage.
+   * Now works with the flattened view by finding the phase automatically.
    */
   const updateFieldValidation = (
-    phaseId: string, 
-    fieldId: string, 
-    minChars: number | null, 
-    maxChars: number | null, 
-    isPrompt: boolean = false
+    fieldId: string,
+    minChars: number | null,
+    maxChars: number | null,
+    _isPrompt: boolean = false,
   ) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        const arrayToUpdate = isPrompt ? phase.prompts : phase.elements;
-        const updatedArray = arrayToUpdate.map(field => 
-          field.id === fieldId ? { 
-            ...field, 
-            minChars: minChars ?? undefined,
-            maxChars: maxChars ?? undefined
-          } : field
-        );
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: updatedArray
-        };
-      }
-      return phase;
-    }));
-  };
-
-  /**
-   * Updates multiple properties of a phase at once.
-   * 
-   * @param phaseId - The ID of the phase to update
-   * @param updates - An object containing the properties to update and their new values
-   * 
-   * This method provides a flexible way to modify multiple phase properties in a single
-   * operation, improving code efficiency and reducing state updates. It's particularly
-   * useful for complex phase configurations like scoring settings, skip logic, or when
-   * updating related properties that should change together.
-   */
-  const updatePhase = (phaseId: string, updates: Partial<PhaseType>) => {
-    setPhases(phases.map((phase: PhaseType) => 
-      phase.id === phaseId 
-        ? { ...phase, ...updates }
-        : phase
-    ));
+    updateElement(fieldId, {
+      minChars: minChars ?? undefined,
+      maxChars: maxChars ?? undefined,
+    });
   };
 
   /**
    * Sets the default value for a field.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param value - The default value to set (can be string, array, number, or boolean)
-   * 
-   * Default values improve user experience by pre-populating fields with common or
-   * expected responses. This method allows form creators to set initial values that
-   * can speed up form completion, demonstrate the expected input format, or reflect
-   * the most common response, reducing user effort and potential errors.
    */
   const updateFieldDefaultValue = (
-    phaseId: string, 
-    fieldId: string, 
-    value: string | string[] | number | boolean
+    fieldId: string,
+    value: string | string[] | number | boolean,
   ) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map(field =>
-            field.id === fieldId ? { ...field, defaultValue: value } : field
-          )
-        };
-      }
-      return phase;
-    }));
+    updateElement(fieldId, { defaultValue: value });
   };
 
   /**
    * Sets the placeholder text for a field.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param placeholder - The placeholder text to display
-   * 
-   * Placeholders provide subtle guidance to users about the expected input format
-   * or content without taking up additional space. This method enables form creators
-   * to add helpful examples or formatting hints that appear when the field is empty,
-   * improving form usability and reducing input errors.
    */
-  const updateFieldPlaceholder = (phaseId: string, fieldId: string, placeholder: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, placeholder } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldPlaceholder = (fieldId: string, placeholder: string) => {
+    updateElement(fieldId, { placeholder });
   };
 
   /**
    * Updates the available choices for selection-type fields (radio, checkbox, dropdown).
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param choices - Array of choice objects with value and text properties
-   * 
-   * Selection fields require a predefined set of options for users to choose from.
-   * This method allows form creators to define, modify, or expand these options,
-   * which is essential for creating structured data collection with consistent
-   * response categories that can be easily analyzed and processed.
    */
-  const updateFieldChoices = (phaseId: string, fieldId: string, choices: Choice[]) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, choices } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldChoices = (fieldId: string, choices: Choice[]) => {
+    updateElement(fieldId, { choices });
   };
 
   /**
    * Toggles the "Other" option for selection-type fields.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param showOther - Whether to show an "Other" option (true) or not (false)
-   * 
-   * The "Other" option is crucial for capturing responses that don't fit predefined
-   * categories, preventing data loss and ensuring comprehensive feedback collection.
-   * This method allows form creators to enable this option when they want to collect
-   * unexpected or unique responses that weren't anticipated in the choice list.
    */
-  const updateFieldShowOther = (phaseId: string, fieldId: string, showOther: boolean) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, showOtherItem: showOther } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldShowOther = (fieldId: string, showOther: boolean) => {
+    updateElement(fieldId, { showOtherItem: showOther });
   };
 
   /**
    * Updates the configuration properties of a slider field.
-   * 
-   * @param phaseId - The ID of the phase containing the slider field
-   * @param fieldId - The ID of the slider field to update
-   * @param updates - Object containing slider properties to update (min, max, step values)
-   * 
-   * Slider fields require specific configuration to define their range and granularity.
-   * This method allows form creators to customize these parameters to match the specific
-   * measurement needs of their form, ensuring that users can provide precise numeric
-   * responses within appropriate boundaries.
+   * Now works with the flattened view by finding the phase automatically.
    */
   const updateFieldSliderProps = (
-    phaseId: string, 
-    fieldId: string, 
+    fieldId: string,
     updates: {
       minValue?: number;
       maxValue?: number;
       step?: number;
-    }
+    },
   ) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, ...updates } : field
-          )
-        };
-      }
-      return phase;
-    }));
+    updateElement(fieldId, updates);
   };
 
   /**
    * Sets the default value for a slider field.
-   * 
-   * @param phaseId - The ID of the phase containing the slider field
-   * @param fieldId - The ID of the slider field to update
-   * @param value - The numeric value to set as default
-   * 
-   * Setting an appropriate default value for sliders helps users understand the
-   * expected range and provides a starting point for their response. This method
-   * allows form creators to position the slider at a meaningful initial position,
-   * which can represent a neutral point, average value, or recommended setting.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldSliderValue = (phaseId: string, fieldId: string, value: number) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, defaultValue: value } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldSliderValue = (fieldId: string, value: number) => {
+    updateElement(fieldId, { defaultValue: value });
   };
 
   /**
-   * Updates the text content of a text-based field across all phases.
-   * 
-   * @param fieldId - The ID of the field to update
-   * @param text - The new text content
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * This method is essential for updating static text elements and prompts that provide
-   * instructions, context, or explanatory content to users. Unlike other field updates
-   * that target a specific phase, this method searches across all phases to find and
-   * update the field, ensuring consistent text content throughout the form.
+   * Updates the type of a field, preserving common properties and resetting type-specific ones.
    */
-  const updateFieldText = (fieldId: string, text: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
-      
-      if (fieldExists) {
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
-            field.id === fieldId ? { ...field, text } : field
-          )
-        };
-      }
-      
-      return phase;
-    }));
+  const updateFieldType = (fieldId: string, newType: string) => {
+    const element = elements.find((el) => el.id === fieldId);
+    if (!element) return;
+
+    const baseProperties: any = {
+      type: newType,
+      id: element.id,
+      name: element.name,
+      label: element.label,
+      description: element.description,
+      isRequired: element.isRequired,
+      conditionalLogic: element.conditionalLogic,
+    };
+
+    const typeSpecificDefaults: any = {};
+
+    switch (newType) {
+      case "radio":
+      case "checkbox":
+      case "dropdown":
+        typeSpecificDefaults.choices = [
+          { value: "Option 1", text: "Option 1" },
+          { value: "Option 2", text: "Option 2" },
+        ];
+        typeSpecificDefaults.showOther = false;
+        break;
+      case "slider":
+        typeSpecificDefaults.minValue = 0;
+        typeSpecificDefaults.maxValue = 100;
+        typeSpecificDefaults.step = 1;
+        typeSpecificDefaults.defaultValue = 50;
+        break;
+      case "boolean":
+        typeSpecificDefaults.defaultValue = false;
+        break;
+      case "chat":
+        typeSpecificDefaults.maxMessages = 10;
+        typeSpecificDefaults.initialMessage = "Hello! How can I help you?";
+        typeSpecificDefaults.ttsEnabled = false;
+        typeSpecificDefaults.selectedVoiceId = "ash";
+        typeSpecificDefaults.ttsProvider = "openai";
+        break;
+      case "imageUpload":
+        typeSpecificDefaults.multiple = false;
+        typeSpecificDefaults.maxFiles = 5;
+        typeSpecificDefaults.maxFileSize = 5242880; // 5MB
+        break;
+      case "richText":
+        typeSpecificDefaults.html = "<p>Enter your content here...</p>";
+        break;
+      case "aiResponse":
+        typeSpecificDefaults.text = "";
+        typeSpecificDefaults.instructions = [];
+        break;
+      case "fixedResponse":
+        typeSpecificDefaults.text = "";
+        break;
+      case "scoring":
+        typeSpecificDefaults.rubric = "";
+        typeSpecificDefaults.minScore = 0;
+        break;
+      case "text":
+      case "textarea":
+        typeSpecificDefaults.placeholder = "";
+        typeSpecificDefaults.defaultValue = "";
+        break;
+    }
+
+    updateElement(fieldId, { ...baseProperties, ...typeSpecificDefaults });
   };
 
   /**
-   * Updates the HTML content of a rich text field across all phases.
-   * 
-   * @param fieldId - The ID of the field to update
-   * @param html - The new HTML content
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Rich text fields enable advanced formatting, embedded media, and complex layouts
-   * that enhance the visual presentation and clarity of form content. This method
-   * allows form creators to update formatted content across all phases, ensuring
-   * consistent styling and presentation throughout the user experience.
+   * Updates the text content of a text-based field.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldRichText = (fieldId: string, html: string, isPrompt: boolean = false) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      // Only update fields in phases that contain the field with the matching ID
-      const fieldExists = phase[isPrompt ? 'prompts' : 'elements'].some((field: Element) => field.id === fieldId);
-      
-      if (fieldExists) {
-        return {
-          ...phase,
-          [isPrompt ? 'prompts' : 'elements']: phase[isPrompt ? 'prompts' : 'elements'].map((field: Element) =>
-            field.id === fieldId ? { ...field, html } : field
-          ),
-        };
-      }
-      
-      return phase;
-    }));
+  const updateFieldText = (
+    fieldId: string,
+    text: string,
+    _isPrompt: boolean = false,
+  ) => {
+    updateElement(fieldId, { text });
+  };
+
+  /**
+   * Updates the HTML content of a rich text field.
+   * Now works with the flattened view by finding the phase automatically.
+   */
+  const updateFieldRichText = (
+    fieldId: string,
+    html: string,
+    _isPrompt: boolean = false,
+  ) => {
+    updateElement(fieldId, { html });
   };
 
   /**
    * Updates the conditional display logic for a field.
-   * 
-   * @param phaseId - The ID of the phase containing the field
-   * @param fieldId - The ID of the field to update
-   * @param logic - The conditional logic configuration or null to remove conditions
-   * @param isPrompt - Whether the field is a prompt (true) or an element (false)
-   * 
-   * Conditional logic enables dynamic form behavior by showing or hiding fields based
-   * on user responses to other fields. This method allows form creators to implement
-   * complex branching logic that creates personalized form experiences, reduces form
-   * complexity, and ensures users only see relevant questions.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const handleUpdateConditionalLogic = (phaseId: string, fieldId: string, logic: ConditionalLogic | null, isPrompt: boolean) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id !== phaseId) return phase;
-
-      const collection = isPrompt ? 'prompts' : 'elements';
-      const items = phase[collection].map((item: Element) => {
-        if (item.id !== fieldId) return item;
-        return {
-          ...item,
-          conditionalLogic: logic || undefined
-        };
+  const handleUpdateConditionalLogic = (
+    fieldId: string,
+    logic: ConditionalLogic | null,
+    _isPrompt: boolean,
+  ) => {
+    const currentField = (Array.isArray(elements) ? elements : []).find(
+      (element) => element.id === fieldId,
+    );
+    const previousLogic = currentField?.conditionalLogic;
+    updateElement(fieldId, { conditionalLogic: logic || undefined });
+    if (!logic && previousLogic) {
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          updateElement(fieldId, { conditionalLogic: previousLogic });
+        },
       });
-
-      return {
-        ...phase,
-        [collection]: items
-      };
-    }));
+    }
   };
 
   /**
    * Updates the configuration for image upload fields.
-   * 
-   * @param phaseId - The ID of the phase containing the image upload field
-   * @param fieldId - The ID of the image upload field to update
-   * @param settings - Object containing image upload settings (multiple, maxFiles, maxFileSize, allowedFileTypes)
-   * 
-   * Image upload fields require specific configuration to control what users can upload.
-   * This method allows form creators to define file type restrictions, size limits, and
-   * quantity constraints that ensure uploaded images meet technical requirements and
-   * prevent abuse or excessive resource consumption.
+   * Now works with the flattened view by finding the phase automatically.
    */
   const updateImageUploadSettings = (
-    phaseId: string, 
-    fieldId: string, 
+    fieldId: string,
     settings: {
       multiple?: boolean;
       maxFiles?: number;
       maxFileSize?: number;
       allowedFileTypes?: string[];
-    }
+    },
   ) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field) => {
-            if (field.id === fieldId) {
-              return {
-                ...field,
-                ...settings,
-              };
-            }
-            return field;
-          }),
-        };
-      }
-      return phase;
-    }));
+    updateElement(fieldId, settings);
   };
 
   /**
    * Sets the maximum number of messages allowed in a chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param maxMessages - The maximum number of messages allowed
-   * 
-   * Chat fields need limits to prevent excessive resource usage and maintain performance.
-   * This method allows form creators to set appropriate boundaries for conversation length,
-   * ensuring the chat interaction remains focused and efficient while preventing potential
-   * abuse or system overload from unlimited exchanges.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldMaxMessages = (phaseId: string, fieldId: string, maxMessages: number) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, maxMessages } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldMaxMessages = (fieldId: string, maxMessages: number) => {
+    updateElement(fieldId, { maxMessages });
   };
 
   /**
    * Sets the initial message displayed in a chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param initialMessage - The message to display at the start of the chat
-   * 
-   * The initial message sets the tone and direction for chat interactions, providing
-   * context and guidance to users. This method allows form creators to customize the
-   * opening message to establish the purpose of the chat, set expectations, or provide
-   * specific instructions that help users engage effectively with the chat interface.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateFieldInitialMessage = (phaseId: string, fieldId: string, initialMessage: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, initialMessage } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateFieldInitialMessage = (
+    fieldId: string,
+    initialMessage: string,
+  ) => {
+    updateElement(fieldId, { initialMessage });
   };
 
   /**
    * Updates the chatbot instructions for a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param instructions - The new instructions for the chatbot
-   * 
-   * This method is essential for configuring the AI behavior in chat components,
-   * allowing survey creators to define how the chatbot should respond to users.
-   * The instructions provide context and guidance to the AI model, ensuring
-   * it delivers appropriate and relevant responses within the chat interface.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateChatbotInstructions = (phaseId: string, fieldId: string, instructions: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, chatbotInstructions: instructions } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateChatbotInstructions = (fieldId: string, instructions: string) => {
+    updateElement(fieldId, { chatbotInstructions: instructions });
   };
 
   /**
    * Updates the TTS provider setting for a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param provider - The TTS provider to use (currently 'openai')
-   * 
-   * This method allows form creators to choose between different TTS providers
-   * for audio synthesis in chat interactions, enabling customization of voice
-   * quality and characteristics based on the specific needs of the chat interface.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateTtsProvider = (phaseId: string, fieldId: string, provider: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, ttsProvider: provider } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateTtsProvider = (fieldId: string, provider: string) => {
+    updateElement(fieldId, { ttsProvider: provider });
   };
 
   /**
    * Updates the selected voice ID for TTS in a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param voiceId - The voice ID to use for audio synthesis
-   * 
-   * This method enables form creators to select specific voices when using
-   * a TTS provider that has voice options, allowing for customization of the audio
-   * characteristics and personality of the chatbot's spoken responses.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateTtsVoiceId = (phaseId: string, fieldId: string, voiceId: string) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { 
-              ...field, 
-              selectedVoiceId: voiceId,
-              ttsProvider: 'openai' //TODO: Support other TTS providers
-            } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateTtsVoiceId = (fieldId: string, voiceId: string) => {
+    updateElement(fieldId, {
+      selectedVoiceId: voiceId,
+      ttsProvider: "openai", //TODO: Support other TTS providers
+    });
   };
 
   /**
    * Toggles TTS functionality for a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param enabled - Whether TTS should be enabled (true) or disabled (false)
-   * 
-   * This method allows form creators to enable or disable text-to-speech
-   * functionality for chat interactions, providing control over whether
-   * AI responses should be converted to audio or remain text-only.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateTtsEnabled = (phaseId: string, fieldId: string, enabled: boolean) => {
-    setPhases(phases.map((phase: PhaseType) => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map((field: Element) =>
-            field.id === fieldId ? { ...field, enableTts: enabled } : field
-          )
-        };
-      }
-      return phase;
-    }));
+  const updateTtsEnabled = (fieldId: string, enabled: boolean) => {
+    updateElement(fieldId, { enableTts: enabled });
   };
 
   /**
    * Updates the voice instructions for custom voice design in a specific chat field.
-   * 
-   * @param phaseId - The ID of the phase containing the chat field
-   * @param fieldId - The ID of the chat field to update
-   * @param instructions - The voice characteristic instructions for AI voice generation
-   * 
-   * This method allows form creators to specify custom voice characteristics when
-   * using the "Design your own Voice" option, enabling personalized voice synthesis
-   * based on detailed descriptions of desired vocal properties.
+   * Now works with the flattened view by finding the phase automatically.
    */
-  const updateVoiceInstructions = (phaseId: string, fieldId: string, instructions: string) => {
-    setPhases(phases.map(phase => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map(field => {
-            if (field.id === fieldId) {
-              return {
-                ...field,
-                voiceInstructions: instructions
-              };
-            }
-            return field;
-          })
-        };
-      }
-      return phase;
-    }));
+  const updateVoiceInstructions = (fieldId: string, instructions: string) => {
+    updateElement(fieldId, { voiceInstructions: instructions });
   };
 
-  const updateAvatarUrl = (phaseId: string, fieldId: string, avatarUrl: string) => {
-    setPhases(phases.map(phase => {
-      if (phase.id === phaseId) {
-        return {
-          ...phase,
-          elements: phase.elements.map(field => {
-            if (field.id === fieldId) {
-              return {
-                ...field,
-                avatarUrl
-              };
-            }
-            return field;
-          })
-        };
-      }
-      return phase;
-    }));
+  const updateAvatarUrl = (fieldId: string, avatarUrl: string) => {
+    updateElement(fieldId, { avatarUrl });
   };
 
   const updateFileDescription = (index: number, description: string) => {
     const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
 
-    setUploadedFiles(prev => prev.map((file, i) => 
-      i === index ? { ...file, description: truncatedDescription } : file
-    ));
+    setUploadedFiles((prev) =>
+      prev.map((file, i) =>
+        i === index ? { ...file, description: truncatedDescription } : file,
+      ),
+    );
 
     // Update description in store
     const file = uploadedFiles[index];
     if (file) {
-      const updatedFiles = attachedFiles.map(attachedFile => {
+      const updatedFiles = attachedFiles.map((attachedFile) => {
         return attachedFile.original_filename === file.original_filename
           ? { ...attachedFile, description: truncatedDescription }
           : attachedFile;
@@ -1087,515 +1098,1145 @@ export default function FormBuilder() {
     }
   };
 
-  return (
-    <DragDropContext onDragEnd={handleDragEnd}>
-      <div className="container mx-auto py-8 px-4 max-w-7xl">
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <h3 className="text-sm font-medium text-gray-500">App Details</h3>
-            <TooltipProvider delayDuration={0}>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-                </TooltipTrigger>
-                <TooltipContent side="right" sideOffset={5}>
-                  <p className="w-[200px] text-sm">
-                    Provide a name and a description for your app that will be displayed to users.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
+  useEffect(() => {
+    if (!isAppDetailsEditMode) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (cardRef.current && !cardRef.current.contains(event.target as Node)) {
+        setIsAppDetailsEditMode(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [isAppDetailsEditMode]);
+
+  // Render Additional App Settings content (moved to sidebar)
+  const renderAdditionalAppSettings = () => (
+    <div className="space-y-4">
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-left">Collection</label>
+        <Select
+          value={collectionId?.toString() || ""}
+          onValueChange={(value) => setCollectionId(parseInt(value))}
+          disabled={isLoadingCollections}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue
+              placeholder={
+                isLoadingCollections
+                  ? "Loading collections..."
+                  : "Select a collection"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            {collections?.length > 0 ? (
+              collections.map((collection) => (
+                <SelectItem
+                  key={collection.value}
+                  value={collection.value.toString()}
+                >
+                  {collection.text}
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-collections" disabled>
+                {isLoadingCollections
+                  ? "Loading collections..."
+                  : "No collections available"}
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-left">
+          Privacy Settings
+        </label>
+        <Select value={privacy} onValueChange={(value) => setPrivacy(value)}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Select privacy setting" />
+          </SelectTrigger>
+          <SelectContent className="bg-white">
+            <SelectItem value="private">Private</SelectItem>
+            <SelectItem value="public">Public</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <Checkbox
+          id="clonable"
+          checked={clonable}
+          onCheckedChange={(checked) => setClonable(checked as boolean)}
+        />
+        <label
+          htmlFor="clonable"
+          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed 
+            peer-disabled:opacity-70 text-left"
+        >
+          Allow others to clone this app
+        </label>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-left">
+          Completion Message
+        </label>
+        <textarea
+          value={completedHtml}
+          onChange={(e) => setCompletedHtml(e.target.value)}
+          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
+            text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y mb-4"
+          placeholder="Enter your message here"
+        />
+      </div>
+
+      <div className="border-t border-gray-200 pt-4">
+        <div className="flex items-center gap-2 mb-4">
+          <h3 className="text-sm font-medium text-left uppercase text-gray-500">
+            Attached Files
+          </h3>
+          <TooltipProvider delayDuration={0}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" sideOffset={5}>
+                <p className="w-[200px] text-sm">
+                  Upload files that will be available to users of your app.
+                  Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+
+        <div
+          {...getRootProps()}
+          className={`
+            mt-2 border-2 border-dashed rounded-lg p-4 transition-colors duration-150 ease-in-out
+            ${
+              isDragActive
+                ? "border-primary-400 bg-primary-50"
+                : isUploading
+                  ? "border-primary-300 bg-primary-50"
+                  : "border-gray-300 hover:border-primary-600"
+            }
+            ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}
+          `}
+        >
+          <input {...getInputProps()} />
+          <div className="text-center">
+            <Upload
+              className={`mx-auto h-8 w-8 ${
+                isDragActive || isUploading
+                  ? "text-primary-400"
+                  : "text-gray-400"
+              }`}
+            />
+            <p className="mt-2 text-sm text-gray-600">
+              {isDragActive
+                ? "Drop files here"
+                : "Drag and drop files here, or click to select files"}
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              PDF, PPT, DOC, TXT, CSV, JSON, MD
+            </p>
+            <p className="mt-1 text-xs text-gray-500">Max file size: 50MB</p>
+            {isUploading && (
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
+                <span className="text-sm text-gray-600">Uploading...</span>
+              </div>
+            )}
           </div>
         </div>
-        <div className="space-y-6 mb-8">
-          <input
-            type="text"
-            value={title}
-            onFocus={() => {
-              if (title === "Untitled App") setTitle("");
-            }}
-            onChange={(e) => setTitle(e.target.value)}
-            className="text-3xl font-bold bg-transparent 
-              border-2 border-dashed border-gray-200 hover:border-gray-400 
-              focus:border-gray-600 rounded-lg px-4 py-2 transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-primary/20 w-full cursor-text
-              placeholder:text-gray-400"
-            placeholder="Untitled App"
-          />
-          
-          <textarea
-            value={description}
-            onFocus={() => {
-              if (description === "Tell the user what your app does...") setDescription("");
-            }}
-            onChange={(e) => setDescription(e.target.value)}
-            className="text-lg bg-transparent w-full 
-              border-2 border-dashed border-gray-200 hover:border-gray-400 
-              focus:border-gray-600 rounded-lg px-4 py-2 transition-all duration-200
-              focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[100px] 
-              resize-y cursor-text placeholder:text-gray-400"
-            placeholder="Tell the user what your app does..."
-          />
 
-          <Collapsible>
-            <CollapsibleTrigger asChild>
-              <Button variant="ghost" className="w-full flex items-center justify-between p-2 -mt-2">
-                <div className="flex items-center gap-2 mb-4">
-                <span className="text-sm font-medium">Additional App Settings</span>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={5}>
-                        <p className="text-sm">
-                          Optional settings to customize the privacy settings and AI behavior in your app. 
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <ChevronDown className="h-4 w-4 text-gray-500" />
-              </Button>
-            </CollapsibleTrigger>
-            
-            <CollapsibleContent className="space-y-4 pt-2">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Collection</label>
-                  <Select
-                    value={collectionId?.toString() || ''}
-                    onValueChange={(value) => setCollectionId(parseInt(value))}
-                    disabled={isLoadingCollections}
+        {uploadedFiles.length > 0 && (
+          <div className="mt-4 space-y-2">
+            {uploadedFiles.map((file, index) => (
+              <div key={index} className="space-y-2">
+                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-gray-400" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {(file.size / 1024 / 1024).toFixed(2)} MB
+                        {file.word_count && ` • ${file.word_count} words`}
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => removeFile(index)}
+                    className="p-1 hover:bg-gray-200 rounded-full transition-colors"
                   >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={
-                        isLoadingCollections 
-                          ? "Loading collections..." 
-                          : "Select a collection"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      {collections?.length > 0 ? (
-                        collections.map((collection) => (
-                          <SelectItem 
-                            key={collection.value} 
-                            value={collection.value.toString()}
-                          >
-                            {collection.text}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <SelectItem value="" disabled>
-                          {isLoadingCollections 
-                            ? "Loading collections..." 
-                            : "No collections available"}
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                    <X className="h-4 w-4 text-gray-500" />
+                  </button>
                 </div>
-
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Privacy Settings</label>
-                  <Select
-                    value={privacy}
-                    onValueChange={(value) => setPrivacy(value)}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select privacy setting" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-white">
-                      <SelectItem value="private">Private</SelectItem>
-                      <SelectItem value="public">Public</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="clonable"
-                  checked={clonable}
-                  onCheckedChange={(checked) => setClonable(checked as boolean)}
-                />
-                <label
-                  htmlFor="clonable"
-                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed 
-                    peer-disabled:opacity-70"
-                >
-                  Allow others to clone this app
-                </label>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Completion Message</label>
-                <input
-                  type="text"
-                  value={completedHtml}
-                  onChange={(e) => setCompletedHtml(e.target.value)}
-                  className="w-full rounded-md border border-gray-300 px-3 py-2 
-                    text-gray-900 focus:border-primary focus:ring-primary"
-                  placeholder="Message to show when the form is completed"
-                />
-              </div>
-
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-sm font-medium">Attached Files</h3>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={5}>
-                        <p className="w-[200px] text-sm">
-                          Upload files that will be available to users of your app. Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-
-                <div
-                  {...getRootProps()}
-                  className={`
-                    mt-2 border-2 border-dashed rounded-lg p-6 transition-colors duration-150 ease-in-out
-                    ${isDragActive ? 'border-primary-400 bg-primary-50' : isUploading ? 'border-primary-300 bg-primary-50' : 'border-gray-300 hover:border-primary-600'}
-                    ${isUploading ? 'cursor-not-allowed' : 'cursor-pointer'}
-                  `}
-                >
-                  <input {...getInputProps()} />
-                  <div className="text-center">
-                    <Upload className={`mx-auto h-12 w-12 ${isDragActive || isUploading ? 'text-primary-400' : 'text-gray-400'}`} />
-                    <p className="mt-2 text-sm text-gray-600">
-                      {isDragActive ? "Drop files here" : "Drag and drop files here, or click to select files"}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500">
-                      PDF, PPT, DOC, TXT, CSV, JSON, MD (Max 50MB)
-                    </p>
-                    {isUploading && (
-                      <div className="mt-4 flex items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
-                        <span className="text-sm text-gray-600">Uploading...</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {uploadedFiles.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {uploadedFiles.map((file, index) => (
-                      <div key={index} className="space-y-2">
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-5 w-5 text-gray-400" />
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">{file.name}</p>
-                              <p className="text-xs text-gray-500">
-                                {(file.size / 1024 / 1024).toFixed(2)} MB
-                                {file.word_count && ` • ${file.word_count} words`}
-                              </p>
-                            </div>
-                          </div>
-                          <button
-                            onClick={() => removeFile(index)}
-                            className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-                          >
-                            <X className="h-4 w-4 text-gray-500" />
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={file.description || ''}
-                            onChange={(e) => updateFileDescription(index, e.target.value)}
-                            placeholder="Add a description so the AI understands the content of this file better (optional)"
-                            maxLength={MAX_DESCRIPTION_LENGTH}
-                            className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
-                              focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                              placeholder:text-gray-400"
-                          />
-                          <div className="absolute right-2 bottom-1 text-xs text-gray-400">
-                            {(file.description?.length || 0)}/{MAX_DESCRIPTION_LENGTH}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4 border-t border-gray-200 pt-4">
-                <h3 className="text-sm font-medium">AI Configuration</h3>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">System Prompt</label>
-                    <textarea
-                      value={aiConfig.systemPrompt}
-                      onChange={(e) => setAIConfig({ ...aiConfig, systemPrompt: e.target.value })}
-                      className="w-full rounded-md border border-gray-300 px-3 py-2 
-                        text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
-                      placeholder="Enter system prompt for the AI model..."
-                    />
-                  </div>
-                  
-                  <div className="grid grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">AI Model</label>
-                      <Select
-                        value={aiConfig.aiModel}
-                        onValueChange={(value) => setAIConfig({ ...aiConfig, aiModel: value })}
-                        // disabled={isLoadingModels}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select AI model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Object.keys(availableModels).map((modelName) => (
-                            <SelectItem key={modelName} value={modelName}>
-                              {modelName}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Temperature</label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min={availableModels[aiConfig.aiModel || 'gpt-4o-mini']?.min ?? 0}
-                        max={availableModels[aiConfig.aiModel || 'gpt-4o-mini']?.max ?? 2}
-                        value={aiConfig.temperature}
-                        onChange={(e) => {
-                          const value = parseFloat(e.target.value);
-                          if (!isNaN(value)) {
-                            const min = availableModels[aiConfig.aiModel]?.min ?? 0;
-                            const max = availableModels[aiConfig.aiModel]?.max ?? 2;
-                            setAIConfig({
-                              ...aiConfig,
-                              temperature: Math.min(max, Math.max(min, Number(value.toFixed(2))))
-                            });
-                          }
-                        }}
-                        className="w-full"
-                        placeholder={`Enter temperature (${availableModels[aiConfig.aiModel]?.min ?? 0}-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Max Response Tokens</label>
-                      <Input
-                        type="number"
-                        step="1"
-                        min="1"
-                        value={aiConfig.maxResponseTokens || ''}
-                        onChange={(e) => {
-                          const value = e.target.value ? parseInt(e.target.value) : null;
-                          setAIConfig({ ...aiConfig, maxResponseTokens: value });
-                        }}
-                        className="w-full"
-                        placeholder="Leave empty for no limit"
-                      />
-                    </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={file.description || ""}
+                    onChange={(e) =>
+                      updateFileDescription(index, e.target.value)
+                    }
+                    placeholder="Add a description so the AI understands the content of this file better (optional)"
+                    maxLength={MAX_DESCRIPTION_LENGTH}
+                    className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
+                      focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
+                      placeholder:text-gray-400"
+                  />
+                  <div className="absolute right-2 bottom-1 text-xs text-gray-400">
+                    {file.description?.length || 0}/{MAX_DESCRIPTION_LENGTH}
                   </div>
                 </div>
               </div>
-            </CollapsibleContent>
-          </Collapsible>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4 border-t border-gray-200 pt-4">
+        <h3 className="text-sm font-medium text-left uppercase text-gray-500">
+          AI Configuration
+        </h3>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-left">
+              System Prompt
+            </label>
+            <textarea
+              value={aiConfig.systemPrompt}
+              onChange={(e) =>
+                setAIConfig({ ...aiConfig, systemPrompt: e.target.value })
+              }
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
+                text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
+              placeholder="Enter your prompt here"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-left">AI Model</label>
+            <Select
+              value={aiConfig.aiModel}
+              onValueChange={(value) =>
+                setAIConfig({ ...aiConfig, aiModel: value })
+              }
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select AI model" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.keys(availableModels).map((modelName) => (
+                  <SelectItem key={modelName} value={modelName}>
+                    {modelName}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-left">Temperature</label>
+            <Input
+              type="number"
+              step="0.01"
+              min={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.min ?? 0}
+              max={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.max ?? 2}
+              value={aiConfig.temperature}
+              onChange={(e) => {
+                const value = parseFloat(e.target.value);
+                if (!isNaN(value)) {
+                  const min = availableModels[aiConfig.aiModel]?.min ?? 0;
+                  const max = availableModels[aiConfig.aiModel]?.max ?? 2;
+                  setAIConfig({
+                    ...aiConfig,
+                    temperature: Math.min(
+                      max,
+                      Math.max(min, Number(value.toFixed(2))),
+                    ),
+                  });
+                }
+              }}
+              className="w-full text-sm"
+              placeholder={`Enter temperature (${
+                availableModels[aiConfig.aiModel]?.min ?? 0
+              }-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium text-left">
+              Max Response Tokens
+            </label>
+            <Input
+              type="number"
+              step="1"
+              min="1"
+              value={aiConfig.maxResponseTokens || ""}
+              onChange={(e) => {
+                const value = e.target.value ? parseInt(e.target.value) : null;
+                setAIConfig({ ...aiConfig, maxResponseTokens: value });
+              }}
+              className="w-full text-sm"
+              placeholder="Leave empty for no limit"
+            />
+          </div>
         </div>
+      </div>
+    </div>
+  );
 
-        <div className="grid grid-cols-12 gap-8">
-          <div className="col-span-3">
-            <div className="sticky top-8 transition-all duration-200 hover:translate-y-[-2px]">
-              <FieldPalette />
+  return (
+    <TagFocusProvider isTagFocusActive={isTagFocusActive}>
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <div
+          className={`min-h-screen ${
+            backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
+          }`}
+        >
+        <div className="bg-white sticky top-0 z-40 h-16">
+          <div className="flex items-center h-full w-full px-4 relative">
+            <div
+              className="flex items-center h-full cursor-pointer"
+              onClick={() => router.push("/dashboard")}
+            >
+              <Image
+                src={Logo}
+                alt="Micro AI"
+                width={175}
+                height={56}
+                className="w-[175px] h-[56px] object-contain"
+                priority
+              />
+            </div>
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-lg p-1">
+              <button
+                onClick={() => setActiveTab("build")}
+                className={buildButtonClassName}
+              >
+                <span className={buildLabelClassName}>Build</span>
+              </button>
+              <button
+                onClick={() => {
+                  setActiveTab("preview");
+                  setConditionalSidebarOpen(false);
+                }}
+                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  activeTab === "preview"
+                    ? "bg-white text-primary shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                Preview
+              </button>
+            </div>
+            <div className="ml-auto flex items-center gap-3">
+              <div
+                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 w-[190px] whitespace-nowrap"
+                aria-live="polite"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isSavingIndicator ? "bg-yellow-500" : "bg-emerald-500"
+                  }`}
+                />
+                <span className="overflow-hidden text-clip tabular-nums">
+                  {isSavingIndicator ? "Saving..." : lastSavedLabel}
+                </span>
+              </div>
+              <Button
+                variant="ghost"
+                onClick={() => router.push("/dashboard")}
+                className="text-primary hover:text-primary/80 flex items-center gap-2 text-sm"
+              >
+                <X className="h-4 w-4 mr-1" />
+                <span>Back to Home page</span>
+              </Button>
             </div>
           </div>
-
-          <div className="col-span-9 space-y-8">
-            {Array.isArray(phases) && phases.map((phase: PhaseType) => (
-              <Card key={phase.id} className="p-6 shadow-sm hover:shadow-md transition-all duration-200">
-                <div className="flex items-center gap-2 mb-4">
-                  <h3 className="text-sm font-medium text-gray-500">Phase</h3>
-                  <TooltipProvider delayDuration={0}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="right" sideOffset={5}>
-                        <p className="w-[200px] text-sm">
-                          A phase is a &ldquo;turn&rdquo; in the conversation with AI, where the user provides inputs and the AI provides a response. Give your phase a title and optionally, a description.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center gap-4">
-                    <input
-                      type="text"
-                      value={phase.title}
-                      onChange={(e) => updatePhaseName(phase.id, e.target.value)}
-                      onFocus={(e) => {
-                        if (/^Phase \d+$/.test(phase.title)) {
-                          e.target.select();
-                        }
-                      }}
-                      className="text-xl font-semibold bg-transparent flex-1
-                        border-2 border-dashed border-gray-200 hover:border-gray-400 
-                        focus:border-gray-600 rounded-lg px-4 py-2 transition-all duration-200
-                        focus:outline-none focus:ring-2 focus:ring-primary/20 cursor-text"
-                      placeholder="Enter Phase Name"
-                    />
-                    {phases.length > 1 && (
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => removePhase(phase.id)}
-                        className="hover:scale-105 transition-transform duration-200"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  <textarea
-                    value={phase.description}
-                    onChange={(e) => updatePhase(phase.id, { description: e.target.value })}
-                    className="w-full text-gray-600 bg-transparent
-                      border-2 border-dashed border-gray-200 hover:border-gray-400 
-                      focus:border-gray-600 rounded-lg px-4 py-2 transition-all duration-200
-                      focus:outline-none focus:ring-2 focus:ring-primary/20 min-h-[80px] 
-                      resize-y cursor-text placeholder:text-gray-400"
-                    placeholder="Enter a description for this phase..."
-                  />
-                  
-                  <Phase
-                    appPhases={phases} 
-                    phase={phase}
-                    onUpdatePhase={updatePhase}
-                    onUpdateFieldLabel={(fieldId, newLabel, isPrompt) => 
-                      updateFieldLabel(phase.id, fieldId, newLabel, isPrompt)
-                    }
-                    onUpdateFieldName={(fieldId, newName, isPrompt) =>
-                      updateFieldName(phase.id, fieldId, newName, isPrompt)
-                    }
-                    onDeleteField={(fieldId, isPrompt) =>
-                      deleteField(phase.id, fieldId, isPrompt)
-                    }
-                    onUpdateFieldDescription={(fieldId, description, isPrompt) =>
-                      updateFieldDescription(phase.id, fieldId, description, isPrompt)
-                    }
-                    onUpdateFieldRequired={(fieldId: string, required: boolean, isPrompt: boolean) =>
-                      updateFieldRequired(phase.id, fieldId, required, isPrompt)
-                    }
-                    onUpdateFieldValidation={(fieldId, minChars, maxChars, isPrompt) =>
-                      updateFieldValidation(phase.id, fieldId, minChars, maxChars, isPrompt)
-                    }
-                    onUpdateFieldDefaultValue={(fieldId, defaultValue) =>
-                      updateFieldDefaultValue(phase.id, fieldId, defaultValue)
-                    }
-                    onUpdateFieldPlaceholder={(fieldId, placeholder) =>
-                      updateFieldPlaceholder(phase.id, fieldId, placeholder)
-                    }
-                    onUpdateFieldChoices={(fieldId, choices) =>
-                      updateFieldChoices(phase.id, fieldId, choices)
-                    }
-                    onUpdateFieldShowOther={(fieldId, showOther) =>
-                      updateFieldShowOther(phase.id, fieldId, showOther)
-                    }
-                    onUpdateFieldSliderProps={(fieldId, updates) =>
-                      updateFieldSliderProps(phase.id, fieldId, updates)
-                    }
-                    onUpdateFieldSliderValue={(fieldId, value) =>
-                      updateFieldSliderValue(phase.id, fieldId, value)
-                    }
-                    onUpdatePromptText={(fieldId, text) =>
-                      updateFieldText(fieldId, text, true)
-                    }
-                    onUpdateRichText={(fieldId, html) =>
-                      updateFieldRichText(fieldId, html, false)
-                    }
-                    onUpdateConditionalLogic={(fieldId, logic, isPrompt) =>
-                      handleUpdateConditionalLogic(phase.id, fieldId, logic, isPrompt)
-                    }
-                    onUpdateImageUploadSettings={(fieldId, settings) => 
-                      updateImageUploadSettings(phase.id, fieldId, settings)
-                    }
-                    onUpdateFieldMaxMessages={(fieldId, maxMessages) =>
-                      updateFieldMaxMessages(phase.id, fieldId, maxMessages)
-                    }
-                    onUpdateFieldInitialMessage={(fieldId, initialMessage) =>
-                      updateFieldInitialMessage(phase.id, fieldId, initialMessage)
-                    }
-                    onUpdateChatbotInstructions={(fieldId, instructions) =>
-                      updateChatbotInstructions(phase.id, fieldId, instructions)
-                    }
-                    onUpdateTtsProvider={(fieldId, provider) =>
-                      updateTtsProvider(phase.id, fieldId, provider)
-                    }
-                    onUpdateTtsVoiceId={(fieldId, voiceId) =>
-                      updateTtsVoiceId(phase.id, fieldId, voiceId)
-                    }
-                    onUpdateTtsEnabled={(fieldId, enabled) =>
-                      updateTtsEnabled(phase.id, fieldId, enabled)
-                    }
-                    onUpdateVoiceInstructions={(fieldId, instructions) =>
-                      updateVoiceInstructions(phase.id, fieldId, instructions)
-                    }
-                    onUpdateAvatarUrl={(fieldId, avatarUrl) =>
-                      updateAvatarUrl(phase.id, fieldId, avatarUrl)
-                    }
-                    appId={appId}
-                  />
-                </div>
-              </Card>
-            ))}
-            
-            <Button 
-              onClick={addPhase} 
-              id="add-phase-button"
-              className="w-full bg-primary text-primary-foreground gap-2 mt-4 hover:bg-primary-600 transition-transform"
-            >
-              <Plus className="h-4 w-4" />
-              Add Phase
-            </Button>
-
-            <Collapsible
-              open={isOpen}
-              onOpenChange={setIsOpen}
-              className="mt-8"
-            >
-              <Card>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full flex items-center justify-between p-4">
-                    <span className="text-lg font-semibold">JSON Preview</span>
-                    <ChevronDown className={`h-4 w-4 transition-transform ${isOpen ? 'transform rotate-180' : ''}`} />
-                  </Button>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <div className="p-4 border-t">
-                    <JsonPreview 
-                      phases={phases}
-                      title={title || ''}
-                      description={description || ''}
-                      collection={collectionId || 0}
-                      privacySettings={privacy}
-                      clonable={clonable}
-                      completedHtml={completedHtml}
-                      attachedFiles={attachedFiles}
-                      aiConfig={aiConfig}
-                    />
-                  </div>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          </div>
         </div>
 
+        {activeTab === "build" && !sidebarOpen && (
+          <div className="flex">
+            <AnimatePresence>
+              <motion.button
+                key="sidebar-open"
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -10 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                onClick={() => setSidebarOpen(true)}
+                className={`
+                  fixed left-6 top-[96px] z-30 flex items-center
+                  bg-white p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
+                  ${
+                    !conditionalSidebarOpen
+                      ? "xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50 xl:gap-2"
+                      : ""
+                  }
+                  `}
+                aria-label="Open sidebar"
+              >
+                {!conditionalSidebarOpen && (
+                  <span className="hidden xl:inline text-[16px] font-semibold text-black whitespace-nowrap mb-1">
+                    App settings
+                  </span>
+                )}
+                <PanelLeft className="h-6 w-6 text-gray-400" />
+              </motion.button>
+            </AnimatePresence>
+          </div>
+        )}
+        <div className="flex-1 flex">
+          {activeTab === "build" && sidebarOpen && (
+            <div className="w-80 bg-white sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
+              <div className="flex items-center justify-between px-4 py-3 bg-white">
+                <span className="text-base font-medium text-black">
+                  App settings
+                </span>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  aria-label="Close sidebar"
+                >
+                  <PanelLeftClose className="h-5 w-5 text-gray-600" />
+                </button>
+              </div>
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 pb-20">{renderAdditionalAppSettings()}</div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 flex justify-center">
+            <div className="w-full max-w-[900px] px-2 sm:px-4">
+              {activeTab === "build" ? (
+                <div className="pt-8 pb-24">
+                  <>
+                    {/* This motion.div animates the App Details card when switching between edit and preview modes,
+                      as well as when its layout changes.
+                      The 'layout' prop enables smooth transitions for position and size changes,
+                      and the custom spring transition provides a natural, responsive feel. */}
+                    <motion.div
+                      ref={cardRef}
+                      layout={!isAppDetailsEditMode}
+                      initial={false}
+                      className={`relative mb-4 rounded-lg bg-white p-5 group transition-shadow duration-200 min-h-[160px]
+                        ${
+                          isAppDetailsEditMode
+                            ? "shadow-soft before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b before:from-[#5C5EF1] before:to-[#4CFFD4] before:pointer-events-none"
+                            : ""
+                        }`}
+                      onClick={() => {
+                        if (!isAppDetailsEditMode)
+                          setIsAppDetailsEditMode(true);
+                      }}
+                      transition={{
+                        duration: 0.3,
+                        ease: "easeInOut",
+                      }}
+                    >
+                      <div className="flex items-center gap-2 mb-4">
+                        <h3 className="text-sm font-medium text-gray-500">
+                          App Details
+                        </h3>
+                        <TooltipProvider delayDuration={0}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                            </TooltipTrigger>
+                            <TooltipContent side="right" sideOffset={5}>
+                              <p className="w-[200px] text-sm">
+                                Provide a name and a description for your app
+                                that will be displayed to users.
+                              </p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </div>
+
+                      <AnimatePresence mode="wait">
+                        {isAppDetailsEditMode ? (
+                          <motion.div
+                            key="edit"
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{
+                              duration: 0.4,
+                              ease: [0.4, 0, 0.2, 1],
+                            }}
+                          >
+                            <motion.div
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ delay: 0.1, duration: 0.3 }}
+                            >
+                              <input
+                                type="text"
+                                value={title}
+                                onFocus={() => {
+                                  if (title === "Untitled App") setTitle("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setTitle(e.target.value)}
+                                className="font-semibold bg-transparent border border-gray-200 px-4 py-2 w-full mb-4 focus:outline-none focus:border-gray-200 focus:ring-0 text-xl"
+                                style={{ fontSize: 24 }}
+                                placeholder="Untitled App"
+                              />
+                              <textarea
+                                value={description}
+                                onFocus={() => {
+                                  if (
+                                    description ===
+                                    "Tell the user what your app does..."
+                                  )
+                                    setDescription("");
+                                }}
+                                onClick={(e) => e.stopPropagation()}
+                                onChange={(e) => setDescription(e.target.value)}
+                                className="text-sm bg-transparent w-full border border-gray-200 px-4 py-2 min-h-[100px] resize-y focus:outline-none focus:border-gray-200 focus:ring-0"
+                                placeholder="Tell the user what your app does..."
+                              />
+                            </motion.div>
+                          </motion.div>
+                        ) : (
+                          <motion.div
+                            key="preview"
+                            initial={{ opacity: 0, y: -10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 10 }}
+                            transition={{ duration: 0.18 }}
+                          >
+                            <div className="font-semibold text-2xl mb-2 text-gray-900">
+                              {title || "Untitled App"}
+                            </div>
+                            <div className="text-sm text-gray-600">
+                              {description ||
+                                "Here you can write the description about your app"}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+
+                    <div className="flex flex-col min-h-[calc(100vh-320px)]">
+                      <div className="flex-1">
+                        <LayoutGroup>
+                          <Droppable droppableId="all-elements" type="element">
+                            {(provided, snapshot) => (
+                              <div
+                                ref={provided.innerRef}
+                                {...provided.droppableProps}
+                                className={`min-h-[200px] transition-colors ${
+                                  snapshot.isDraggingOver ? "bg-primary/5" : ""
+                                }`}
+                              >
+                                {(() => {
+                                  const visibleElements = Array.isArray(
+                                    elements,
+                                  )
+                                    ? elements
+                                    : [];
+
+                                  return visibleElements.map(
+                                    (element, index, array) => {
+                                      const isLastElement =
+                                        index === array.length - 1;
+
+                                      return (
+                                        <React.Fragment key={element.id}>
+                                          <Draggable
+                                            draggableId={element.id}
+                                            index={index}
+                                          >
+                                            {(
+                                              providedDraggable,
+                                              snapshotDraggable,
+                                            ) => (
+                                              <motion.div
+                                                layout={
+                                                  !snapshotDraggable.isDragging
+                                                    ? "position"
+                                                    : false
+                                                }
+                                                transition={{
+                                                  duration: 0.3,
+                                                  ease: "easeInOut",
+                                                }}
+                                                initial={false}
+                                                style={{
+                                                  ...providedDraggable
+                                                    .draggableProps.style,
+                                                  ...(snapshotDraggable.isDragging
+                                                    ? {}
+                                                    : { transform: "none" }),
+                                                }}
+                                                ref={providedDraggable.innerRef}
+                                                {...providedDraggable.draggableProps}
+                                                className={`${
+                                                  snapshotDraggable.isDragging
+                                                    ? "opacity-80"
+                                                    : ""
+                                                }`}
+                                              >
+                                                <Field
+                                                  field={element}
+                                                  index={index}
+                                                  phaseFields={visibleElements}
+                                                  appFields={visibleElements}
+                                                  appId={appId}
+                                                  dragHandleProps={
+                                                    providedDraggable.dragHandleProps
+                                                  }
+                                                  isActive={
+                                                    activeFieldId === element.id
+                                                  }
+                                                  onActivate={() =>
+                                                    setActiveFieldId(element.id)
+                                                  }
+                                                  onDeactivate={() =>
+                                                    setActiveFieldId(undefined)
+                                                  }
+                                                  onUpdateFieldLabel={(
+                                                    fieldId,
+                                                    newLabel,
+                                                    isPrompt,
+                                                  ) =>
+                                                    updateFieldLabel(
+                                                      fieldId,
+                                                      newLabel,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldName={(
+                                                    fieldId,
+                                                    newName,
+                                                    isPrompt,
+                                                  ) =>
+                                                    updateFieldName(
+                                                      fieldId,
+                                                      newName,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldType={(
+                                                    fieldId,
+                                                    newType,
+                                                  ) =>
+                                                    updateFieldType(
+                                                      fieldId,
+                                                      newType,
+                                                    )
+                                                  }
+                                                  onDeleteField={(
+                                                    fieldId,
+                                                    isPrompt,
+                                                  ) =>
+                                                    deleteField(
+                                                      fieldId,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldDescription={(
+                                                    fieldId,
+                                                    description,
+                                                    isPrompt,
+                                                  ) =>
+                                                    updateFieldDescription(
+                                                      fieldId,
+                                                      description,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldRequired={(
+                                                    fieldId,
+                                                    required,
+                                                    isPrompt,
+                                                  ) =>
+                                                    updateFieldRequired(
+                                                      fieldId,
+                                                      required,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldValidation={(
+                                                    fieldId,
+                                                    minChars,
+                                                    maxChars,
+                                                    isPrompt,
+                                                  ) =>
+                                                    updateFieldValidation(
+                                                      fieldId,
+                                                      minChars,
+                                                      maxChars,
+                                                      isPrompt,
+                                                    )
+                                                  }
+                                                  onUpdateFieldDefaultValue={(
+                                                    fieldId,
+                                                    defaultValue,
+                                                  ) =>
+                                                    updateFieldDefaultValue(
+                                                      fieldId,
+                                                      defaultValue,
+                                                    )
+                                                  }
+                                                  onUpdateFieldPlaceholder={(
+                                                    fieldId,
+                                                    placeholder,
+                                                  ) =>
+                                                    updateFieldPlaceholder(
+                                                      fieldId,
+                                                      placeholder,
+                                                    )
+                                                  }
+                                                  onUpdateFieldChoices={(
+                                                    fieldId,
+                                                    choices,
+                                                  ) =>
+                                                    updateFieldChoices(
+                                                      fieldId,
+                                                      choices,
+                                                    )
+                                                  }
+                                                  onUpdateFieldShowOther={(
+                                                    fieldId,
+                                                    showOther,
+                                                  ) =>
+                                                    updateFieldShowOther(
+                                                      fieldId,
+                                                      showOther,
+                                                    )
+                                                  }
+                                                  onUpdateFieldSliderProps={(
+                                                    fieldId,
+                                                    updates,
+                                                  ) =>
+                                                    updateFieldSliderProps(
+                                                      fieldId,
+                                                      updates,
+                                                    )
+                                                  }
+                                                  onUpdateFieldSliderValue={(
+                                                    fieldId,
+                                                    value,
+                                                  ) =>
+                                                    updateFieldSliderValue(
+                                                      fieldId,
+                                                      value,
+                                                    )
+                                                  }
+                                                  onUpdatePromptText={(
+                                                    fieldId,
+                                                    text,
+                                                  ) =>
+                                                    updateFieldText(
+                                                      fieldId,
+                                                      text,
+                                                      true,
+                                                    )
+                                                  }
+                                                  onUpdateRichText={(
+                                                    fieldId,
+                                                    html,
+                                                  ) =>
+                                                    updateFieldRichText(
+                                                      fieldId,
+                                                      html,
+                                                      false,
+                                                    )
+                                                  }
+                                                  onUpdateConditionalLogic={(
+                                                    fieldId,
+                                                    logic,
+                                                  ) =>
+                                                    handleUpdateConditionalLogic(
+                                                      fieldId,
+                                                      logic,
+                                                      false,
+                                                    )
+                                                  }
+                                                  onUpdateAiResponseInstructions={(
+                                                    fieldId,
+                                                    instructions,
+                                                  ) =>
+                                                    updateElement(fieldId, {
+                                                      instructions,
+                                                    })
+                                                  }
+                                                  onUpdateScoringSettings={(
+                                                    fieldId,
+                                                    updates,
+                                                  ) =>
+                                                    updateElement(
+                                                      fieldId,
+                                                      updates,
+                                                    )
+                                                  }
+                                                  onUpdateImageUploadSettings={(
+                                                    fieldId,
+                                                    settings,
+                                                  ) =>
+                                                    updateImageUploadSettings(
+                                                      fieldId,
+                                                      settings,
+                                                    )
+                                                  }
+                                                  onUpdateFieldMaxMessages={(
+                                                    fieldId,
+                                                    maxMessages,
+                                                  ) =>
+                                                    updateFieldMaxMessages(
+                                                      fieldId,
+                                                      maxMessages,
+                                                    )
+                                                  }
+                                                  onUpdateFieldInitialMessage={(
+                                                    fieldId,
+                                                    initialMessage,
+                                                  ) =>
+                                                    updateFieldInitialMessage(
+                                                      fieldId,
+                                                      initialMessage,
+                                                    )
+                                                  }
+                                                  onUpdateChatbotInstructions={(
+                                                    fieldId,
+                                                    instructions,
+                                                  ) =>
+                                                    updateChatbotInstructions(
+                                                      fieldId,
+                                                      instructions,
+                                                    )
+                                                  }
+                                                  onUpdateTtsProvider={(
+                                                    fieldId,
+                                                    provider,
+                                                  ) =>
+                                                    updateTtsProvider(
+                                                      fieldId,
+                                                      provider,
+                                                    )
+                                                  }
+                                                  onUpdateTtsVoiceId={(
+                                                    fieldId,
+                                                    voiceId,
+                                                  ) =>
+                                                    updateTtsVoiceId(
+                                                      fieldId,
+                                                      voiceId,
+                                                    )
+                                                  }
+                                                  onUpdateTtsEnabled={(
+                                                    fieldId,
+                                                    enabled,
+                                                  ) =>
+                                                    updateTtsEnabled(
+                                                      fieldId,
+                                                      enabled,
+                                                    )
+                                                  }
+                                                  onUpdateVoiceInstructions={(
+                                                    fieldId,
+                                                    instructions,
+                                                  ) =>
+                                                    updateVoiceInstructions(
+                                                      fieldId,
+                                                      instructions,
+                                                    )
+                                                  }
+                                                  onUpdateAvatarUrl={(
+                                                    fieldId,
+                                                    avatarUrl,
+                                                  ) =>
+                                                    updateAvatarUrl(
+                                                      fieldId,
+                                                      avatarUrl,
+                                                    )
+                                                  }
+                                                  isDragging={
+                                                    snapshotDraggable.isDragging
+                                                  }
+                                                  appHashId={hashId}
+                                                />
+                                              </motion.div>
+                                            )}
+                                          </Draggable>
+
+                                          {/* Plus button between cards on its own line with always-visible silver line */}
+                                          {!isLastElement && (
+                                            <div className="relative flex items-center justify-center h-4 my-1 w-full group">
+                                              <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-px bg-gray-300 transition-opacity duration-200 opacity-0 group-hover:opacity-100" />{" "}
+                                              <button
+                                                className="absolute left-0 w-full h-4 bg-transparent border-none outline-none cursor-pointer z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                tabIndex={-1}
+                                                aria-label="Add section"
+                                                onClick={(e) => {
+                                                  setPopoverPosition({
+                                                    x: e.clientX,
+                                                    y: e.clientY - 400,
+                                                  });
+                                                  setAddSectionOpenFor(
+                                                    `between-${element.id}`,
+                                                  );
+                                                  setInsertAfterIndex(index);
+                                                }}
+                                                type="button"
+                                              />
+                                              <Popover
+                                                open={
+                                                  addSectionOpenFor ===
+                                                  `between-${element.id}`
+                                                }
+                                                onOpenChange={(open) => {
+                                                  setAddSectionOpenFor(
+                                                    open
+                                                      ? `between-${element.id}`
+                                                      : null,
+                                                  );
+                                                  if (!open) {
+                                                    setInsertAfterIndex(null);
+                                                  }
+                                                }}
+                                              >
+                                                <PopoverTrigger asChild>
+                                                  <Button
+                                                    variant="outline"
+                                                    size="sm"
+                                                    className="absolute top-1/2 -translate-y-1/2 -left-5 h-6 w-6 rounded-full p-0 bg-gray-100 border-2 border-gray-300 hover:border-gray-400 hover:bg-primary/5 z-10 transition-opacity duration-200 opacity-0 group-hover:opacity-100"
+                                                    onClick={() => {
+                                                      setInsertAfterIndex(
+                                                        index,
+                                                      );
+                                                    }}
+                                                  >
+                                                    <Plus className="h-3 w-3" />
+                                                  </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent
+                                                  align="center"
+                                                  side="bottom"
+                                                  className="w-72 p-2"
+                                                  style={
+                                                    popoverPosition
+                                                      ? {
+                                                          position: "fixed",
+                                                          left: popoverPosition.x,
+                                                        }
+                                                      : undefined
+                                                  }
+                                                >
+                                                  <div className="space-y-1">
+                                                    {availableSections.map(
+                                                      (section) => {
+                                                        const Icon =
+                                                          section.icon;
+                                                        return (
+                                                          <button
+                                                            key={section.id}
+                                                            onClick={() => {
+                                                              addElementToApp(
+                                                                section.id,
+                                                                insertAfterIndex,
+                                                              );
+                                                              setAddSectionOpenFor(
+                                                                null,
+                                                              );
+                                                            }}
+                                                            className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                                          >
+                                                            <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                            <div className="flex-1 min-w-0">
+                                                              <div className="text-xs font-medium text-gray-900">
+                                                                {section.label}
+                                                              </div>
+                                                            </div>
+                                                            <TooltipProvider
+                                                              delayDuration={0}
+                                                            >
+                                                              <Tooltip>
+                                                                <TooltipTrigger
+                                                                  asChild
+                                                                >
+                                                                  <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                                </TooltipTrigger>
+                                                                <TooltipContent side="right">
+                                                                  <p className="max-w-xs text-xs">
+                                                                    {
+                                                                      section.helper
+                                                                    }
+                                                                  </p>
+                                                                </TooltipContent>
+                                                              </Tooltip>
+                                                            </TooltipProvider>
+                                                          </button>
+                                                        );
+                                                      },
+                                                    )}
+                                                  </div>
+                                                </PopoverContent>
+                                              </Popover>
+                                            </div>
+                                          )}
+                                        </React.Fragment>
+                                      );
+                                    },
+                                  );
+                                })()}
+                                {provided.placeholder}
+
+                                {/* Add Section button at the end */}
+                                <div className="mt-4 flex justify-start">
+                                  <Popover
+                                    open={addSectionOpenFor === "end-button"}
+                                    onOpenChange={(open) => {
+                                      setAddSectionOpenFor(
+                                        open ? "end-button" : null,
+                                      );
+                                      if (!open) {
+                                        setInsertAfterIndex(null);
+                                      }
+                                    }}
+                                  >
+                                    <PopoverTrigger asChild>
+                                      <Button
+                                        variant="default"
+                                        size="lg"
+                                        className="bg-primary text-primary-foreground hover:bg-primary-600"
+                                        onClick={() =>
+                                          setInsertAfterIndex(null)
+                                        }
+                                      >
+                                        <Plus className="h-5 w-5 mr-2" />
+                                        Add Section
+                                      </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent
+                                      align="start"
+                                      side="bottom"
+                                      className="w-72 p-2"
+                                    >
+                                      <div className="space-y-1">
+                                        {availableSections.map((section) => {
+                                          const Icon = section.icon;
+                                          return (
+                                            <button
+                                              key={section.id}
+                                              onClick={() => {
+                                                addElementToApp(
+                                                  section.id,
+                                                  insertAfterIndex,
+                                                );
+                                                setAddSectionOpenFor(null);
+                                              }}
+                                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                            >
+                                              <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                              <div className="flex-1 min-w-0">
+                                                <div className="text-xs font-medium text-gray-900">
+                                                  {section.label}
+                                                </div>
+                                              </div>
+                                              <TooltipProvider
+                                                delayDuration={0}
+                                              >
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                  </TooltipTrigger>
+                                                  <TooltipContent side="right">
+                                                    <p className="max-w-xs text-xs">
+                                                      {section.helper}
+                                                    </p>
+                                                  </TooltipContent>
+                                                </Tooltip>
+                                              </TooltipProvider>
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
+                                    </PopoverContent>
+                                  </Popover>
+                                </div>
+                              </div>
+                            )}
+                          </Droppable>
+                        </LayoutGroup>
+                      </div>
+                      <div className="mt-8">
+                        <Collapsible
+                          open={isOpen}
+                          onOpenChange={setIsOpen}
+                          className="!mt-8"
+                        >
+                          <Card>
+                            <CollapsibleTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                className="w-full flex items-center justify-between p-4"
+                              >
+                                <span className="text-lg font-semibold">
+                                  JSON Preview
+                                </span>
+                                <ChevronDown
+                                  className={`h-4 w-4 transition-transform ${
+                                    isOpen ? "transform rotate-180" : ""
+                                  }`}
+                                />
+                              </Button>
+                            </CollapsibleTrigger>
+                            <CollapsibleContent>
+                              <div className="p-4 border-t">
+                                <JsonPreview
+                                  elements={
+                                    Array.isArray(elements) ? elements : []
+                                  }
+                                  title={title || ""}
+                                  description={description || ""}
+                                  collection={collectionId || 0}
+                                  privacySettings={privacy}
+                                  clonable={clonable}
+                                  completedHtml={completedHtml}
+                                  attachedFiles={attachedFiles}
+                                  aiConfig={aiConfig}
+                                />
+                              </div>
+                            </CollapsibleContent>
+                          </Card>
+                        </Collapsible>
+                      </div>
+                    </div>
+                  </>
+                </div>
+              ) : (
+                <MonitorPreview
+                  previewUrl={`${window.location.origin}/app/${hashId}`}
+                >
+                  <AppRuntimeView hashId={hashId} />
+                </MonitorPreview>
+              )}
+            </div>
+          </div>
+          <ConditionalLogicSidebar
+            isOpen={conditionalSidebarOpen}
+            onClose={() => setConditionalSidebarOpen(false)}
+            onSave={handleSaveConditionalLogic}
+            onClear={handleClearConditionalLogic}
+            availableFields={Array.isArray(elements) ? elements : []}
+            currentLogic={conditionalSidebarContext?.currentLogic}
+            targetFieldName={conditionalSidebarContext?.field.name}
+            instructionIndex={conditionalSidebarContext?.instructionIndex}
+          />
+        </div>
       </div>
-    </DragDropContext>
+      </DragDropContext>
+    </TagFocusProvider>
   );
 }

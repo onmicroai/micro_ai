@@ -1,27 +1,27 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { usePathname } from 'next/navigation';
-import { User, Lock, CreditCard } from 'lucide-react';
-import NavBarClientSwitch from '@/components/layout/navbar/NavBarClientSwitch';
-import { ToastContainer } from 'react-toastify';
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { User, Lock, CreditCard } from "lucide-react";
+import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
+import { ToastContainer } from "react-toastify";
 
 const menuItems = [
   {
-    title: 'Profile',
-    href: '/settings/profile',
-    icon: User
+    title: "Profile",
+    href: "/settings/profile",
+    icon: User,
   },
   {
-    title: 'Password',
-    href: '/settings/password',
-    icon: Lock
+    title: "Password",
+    href: "/settings/password",
+    icon: Lock,
   },
   {
-    title: 'Subscription',
-    href: '/settings/subscription',
-    icon: CreditCard
-  }
+    title: "Subscription",
+    href: "/settings/subscription",
+    icon: CreditCard,
+  },
 ];
 
 export default function SettingsLayout({
@@ -48,10 +48,11 @@ export default function SettingsLayout({
                     <Link
                       key={item.href}
                       href={item.href}
-                      className={`flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors
-                        ${isActive 
-                          ? 'bg-primary text-primary-foreground' 
-                          : 'text-gray-600 hover:bg-gray-100'
+                      className={`no-underline flex items-center space-x-3 px-3 py-2 rounded-lg transition-colors
+                        ${
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : "text-gray-600 hover:bg-gray-100"
                         }`}
                     >
                       <Icon className="w-5 h-5" />
@@ -73,4 +74,4 @@ export default function SettingsLayout({
       </div>
     </>
   );
-} 
+}

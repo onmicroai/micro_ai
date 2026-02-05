@@ -537,6 +537,32 @@ class UnifiedLLMInterface:
             log.error(f"Error building instruction: {str(e)}")
             return messages
 
+    def build_score_explanation_instruction(self, data: Dict[str, Any], messages: list, score_json: str) -> list:
+        """
+        Build a user-friendly score explanation instruction message.
+        
+        Args:
+            data: Dictionary containing request data including rubric
+            messages: List of existing conversation messages
+            score_json: The JSON string output from the scoring pass
+            
+        Returns:
+            Updated list of messages with explanation instruction appended
+        """
+        try:
+            instruction = (
+                "Explain the score in plain, user-friendly language. "
+                "Use the rubric below and the score JSON to justify the result, but do not output JSON. "
+                "Call out what I did well and what can be improved, and why the score is what it is. "
+                f"Rubric: {str(data.get('rubric'))}. "
+                f"Score JSON: {score_json}."
+            )
+            messages.append({"role": "user", "content": instruction})
+            return messages
+        except Exception as e:
+            log.error(f"Error building score explanation instruction: {str(e)}")
+            return messages
+
     def transcribe_audio(self, audio_file: bytes) -> Dict[str, Any]:
         """
         Transcribe audio using LiteLLM's Whisper implementation.
