@@ -236,7 +236,7 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [lastSavedLabel, setLastSavedLabel] = useState("Last saved: just now");
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -282,28 +282,52 @@ export default function FormBuilder() {
   } = useSurveyStore();
 
   const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
-  const shouldPulseBuild = activeTab === "build" && isSavingIndicator;
-  const buildLabelClassName = showSaveSuccess
-    ? "inline-block text-primary builder-success-pulse"
-    : shouldPulseBuild
-      ? "inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary builder-gradient-pulse"
-      : activeTab === "build"
-        ? "text-primary"
-        : "text-gray-600 group-hover:text-gray-900";
+  const buildLabelClassName =
+    activeTab === "build"
+      ? "text-primary"
+      : "text-gray-600 group-hover:text-gray-900";
   const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
     activeTab === "build" ? "bg-white shadow-sm" : ""
   }`;
 
+  const formatTimeAgo = useCallback((savedAt: Date) => {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - savedAt.getTime()) / 1000),
+    );
+    if (elapsedSeconds < 5) {
+      return "just now";
+    }
+    if (elapsedSeconds < 60) {
+      return `${elapsedSeconds}s ago`;
+    }
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m ago`;
+    }
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return `${elapsedHours}h ago`;
+    }
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d ago`;
+  }, []);
+
   useEffect(() => {
-    if (!saveState.lastSaved) return;
-    setShowSaveSuccess(true);
-    const timeout = window.setTimeout(() => {
-      setShowSaveSuccess(false);
-    }, 900);
-    return () => {
-      window.clearTimeout(timeout);
+    const savedAt = saveState.lastSaved;
+    if (!savedAt) {
+      setLastSavedLabel("Changes saved");
+      return;
+    }
+    const updateLabel = () => {
+      setLastSavedLabel(`Last saved: ${formatTimeAgo(savedAt)}`);
     };
-  }, [saveState.lastSaved]);
+    updateLabel();
+    const interval = window.setInterval(updateLabel, 5000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [formatTimeAgo, saveState.lastSaved]);
   const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
     if (!conditionalSidebarContext?.field.id) {
       setConditionalSidebarOpen(false);
@@ -1412,14 +1436,27 @@ export default function FormBuilder() {
                 Preview
               </button>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-3">
+              <div
+                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 w-[190px] whitespace-nowrap"
+                aria-live="polite"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isSavingIndicator ? "bg-yellow-500" : "bg-emerald-500"
+                  }`}
+                />
+                <span className="overflow-hidden text-clip tabular-nums">
+                  {isSavingIndicator ? "Saving..." : lastSavedLabel}
+                </span>
+              </div>
               <Button
                 variant="ghost"
                 onClick={() => router.push("/dashboard")}
-                className="text-primary hover:text-primary/80 flex items-center gap-2"
+                className="text-primary hover:text-primary/80 flex items-center gap-2 text-sm"
               >
                 <X className="h-4 w-4 mr-1" />
-                <span className="text-base">Back to Home page</span>
+                <span>Back to Home page</span>
               </Button>
             </div>
           </div>
