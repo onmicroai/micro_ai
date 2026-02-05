@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { toast } from "react-toastify";
 import { useParams, useRouter } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
@@ -46,6 +45,7 @@ import {
 import { Input } from "./ui/input";
 import { useSurveyStore } from "../store/editSurveyStore";
 import AppRuntimeView from "@/components/AppRuntimeView";
+import { showUndoToast } from "@/components/UndoToast";
 import {
   Element,
   Choice,
@@ -236,7 +236,7 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
-  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
+  const [lastSavedLabel, setLastSavedLabel] = useState("Last saved: just now");
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -282,28 +282,52 @@ export default function FormBuilder() {
   } = useSurveyStore();
 
   const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
-  const shouldPulseBuild = activeTab === "build" && isSavingIndicator;
-  const buildLabelClassName = showSaveSuccess
-    ? "inline-block text-primary builder-success-pulse"
-    : shouldPulseBuild
-      ? "inline-block text-transparent bg-clip-text bg-gradient-to-r from-primary via-secondary to-primary builder-gradient-pulse"
-      : activeTab === "build"
-        ? "text-primary"
-        : "text-gray-600 group-hover:text-gray-900";
+  const buildLabelClassName =
+    activeTab === "build"
+      ? "text-primary"
+      : "text-gray-600 group-hover:text-gray-900";
   const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
     activeTab === "build" ? "bg-white shadow-sm" : ""
   }`;
 
+  const formatTimeAgo = useCallback((savedAt: Date) => {
+    const elapsedSeconds = Math.max(
+      0,
+      Math.floor((Date.now() - savedAt.getTime()) / 1000),
+    );
+    if (elapsedSeconds < 5) {
+      return "just now";
+    }
+    if (elapsedSeconds < 60) {
+      return `${elapsedSeconds}s ago`;
+    }
+    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
+    if (elapsedMinutes < 60) {
+      return `${elapsedMinutes}m ago`;
+    }
+    const elapsedHours = Math.floor(elapsedMinutes / 60);
+    if (elapsedHours < 24) {
+      return `${elapsedHours}h ago`;
+    }
+    const elapsedDays = Math.floor(elapsedHours / 24);
+    return `${elapsedDays}d ago`;
+  }, []);
+
   useEffect(() => {
-    if (!saveState.lastSaved) return;
-    setShowSaveSuccess(true);
-    const timeout = window.setTimeout(() => {
-      setShowSaveSuccess(false);
-    }, 900);
-    return () => {
-      window.clearTimeout(timeout);
+    const savedAt = saveState.lastSaved;
+    if (!savedAt) {
+      setLastSavedLabel("Changes saved");
+      return;
+    }
+    const updateLabel = () => {
+      setLastSavedLabel(`Last saved: ${formatTimeAgo(savedAt)}`);
     };
-  }, [saveState.lastSaved]);
+    updateLabel();
+    const interval = window.setInterval(updateLabel, 5000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [formatTimeAgo, saveState.lastSaved]);
   const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
     if (!conditionalSidebarContext?.field.id) {
       setConditionalSidebarOpen(false);
@@ -410,32 +434,12 @@ export default function FormBuilder() {
     }
 
     if (previousLogic) {
-      let didUndo = false;
-      const toastId = toast.info(
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-900">
-            Conditional logic cleared.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (didUndo) return;
-              didUndo = true;
-              toast.dismiss(toastId);
-              void restoreConditionalLogic(previousLogic);
-            }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Undo
-          </button>
-        </div>,
-        {
-          autoClose: 5000,
-          closeOnClick: false,
-          closeButton: false,
-          draggable: false,
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          void restoreConditionalLogic(previousLogic);
         },
-      );
+      });
     }
   };
 
@@ -634,7 +638,11 @@ export default function FormBuilder() {
   const deleteElement = useCallback(
     (elementId: string) => {
       const current = Array.isArray(elements) ? elements : [];
+      const index = current.findIndex((el) => el.id === elementId);
+      if (index === -1) return null;
+      const removed = current[index];
       setElements(current.filter((el) => el.id !== elementId));
+      return { element: removed, index };
     },
     [elements, setElements],
   );
@@ -765,7 +773,23 @@ export default function FormBuilder() {
    * Removes an element.
    */
   const deleteField = (fieldId: string, _isPrompt: boolean = false) => {
-    deleteElement(fieldId);
+    const deleted = deleteElement(fieldId);
+    if (!deleted) return;
+    showUndoToast({
+      message: "Field deleted.",
+      onUndo: () => {
+        const latestElements = Array.isArray(useSurveyStore.getState().elements)
+          ? useSurveyStore.getState().elements
+          : [];
+        if (latestElements.some((el) => el.id === deleted.element.id)) {
+          return;
+        }
+        const restored = [...latestElements];
+        const insertIndex = Math.min(deleted.index, restored.length);
+        restored.splice(insertIndex, 0, deleted.element);
+        void setElements(restored);
+      },
+    });
   };
 
   /**
@@ -962,32 +986,12 @@ export default function FormBuilder() {
     const previousLogic = currentField?.conditionalLogic;
     updateElement(fieldId, { conditionalLogic: logic || undefined });
     if (!logic && previousLogic) {
-      let didUndo = false;
-      const toastId = toast.info(
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-900">
-            Conditional logic cleared.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (didUndo) return;
-              didUndo = true;
-              toast.dismiss(toastId);
-              updateElement(fieldId, { conditionalLogic: previousLogic });
-            }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Undo
-          </button>
-        </div>,
-        {
-          autoClose: 5000,
-          closeOnClick: false,
-          closeButton: false,
-          draggable: false,
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          updateElement(fieldId, { conditionalLogic: previousLogic });
         },
-      );
+      });
     }
   };
 
@@ -1432,14 +1436,27 @@ export default function FormBuilder() {
                 Preview
               </button>
             </div>
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-3">
+              <div
+                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 w-[190px] whitespace-nowrap"
+                aria-live="polite"
+              >
+                <span
+                  className={`h-2 w-2 rounded-full ${
+                    isSavingIndicator ? "bg-yellow-500" : "bg-emerald-500"
+                  }`}
+                />
+                <span className="overflow-hidden text-clip tabular-nums">
+                  {isSavingIndicator ? "Saving..." : lastSavedLabel}
+                </span>
+              </div>
               <Button
                 variant="ghost"
                 onClick={() => router.push("/dashboard")}
-                className="text-primary hover:text-primary/80 flex items-center gap-2"
+                className="text-primary hover:text-primary/80 flex items-center gap-2 text-sm"
               >
                 <X className="h-4 w-4 mr-1" />
-                <span className="text-base">Back to Home page</span>
+                <span>Back to Home page</span>
               </Button>
             </div>
           </div>
@@ -1478,7 +1495,7 @@ export default function FormBuilder() {
         )}
         <div className="flex-1 flex">
           {activeTab === "build" && sidebarOpen && (
-            <div className="w-80 bg-white border-r border-gray-300 sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
+            <div className="w-80 bg-white sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
               <div className="flex items-center justify-between px-4 py-3 bg-white">
                 <span className="text-base font-medium text-black">
                   App settings

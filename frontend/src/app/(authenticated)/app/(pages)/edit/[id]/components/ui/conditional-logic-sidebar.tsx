@@ -213,7 +213,7 @@ export default function ConditionalLogicSidebar({
                 </span>
                 <Badge
                   variant="secondary"
-                  className="border-gray-300 bg-transparent text-primary-600 hover:text-primary hover:bg-transparent text-xs font-normal cursor-pointer flex items-center gap-1"
+                  className="text-white bg-primary-600 hover:bg-primary-600 text-xs font-normal flex items-center gap-1"
                 >
                   {targetFieldName}
                 </Badge>
