@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { toast } from "react-toastify";
 import { useParams, useRouter } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
@@ -46,6 +45,7 @@ import {
 import { Input } from "./ui/input";
 import { useSurveyStore } from "../store/editSurveyStore";
 import AppRuntimeView from "@/components/AppRuntimeView";
+import { showUndoToast } from "@/components/UndoToast";
 import {
   Element,
   Choice,
@@ -410,32 +410,12 @@ export default function FormBuilder() {
     }
 
     if (previousLogic) {
-      let didUndo = false;
-      const toastId = toast.info(
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-900">
-            Conditional logic cleared.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (didUndo) return;
-              didUndo = true;
-              toast.dismiss(toastId);
-              void restoreConditionalLogic(previousLogic);
-            }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Undo
-          </button>
-        </div>,
-        {
-          autoClose: 5000,
-          closeOnClick: false,
-          closeButton: false,
-          draggable: false,
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          void restoreConditionalLogic(previousLogic);
         },
-      );
+      });
     }
   };
 
@@ -634,7 +614,11 @@ export default function FormBuilder() {
   const deleteElement = useCallback(
     (elementId: string) => {
       const current = Array.isArray(elements) ? elements : [];
+      const index = current.findIndex((el) => el.id === elementId);
+      if (index === -1) return null;
+      const removed = current[index];
       setElements(current.filter((el) => el.id !== elementId));
+      return { element: removed, index };
     },
     [elements, setElements],
   );
@@ -765,7 +749,23 @@ export default function FormBuilder() {
    * Removes an element.
    */
   const deleteField = (fieldId: string, _isPrompt: boolean = false) => {
-    deleteElement(fieldId);
+    const deleted = deleteElement(fieldId);
+    if (!deleted) return;
+    showUndoToast({
+      message: "Field deleted.",
+      onUndo: () => {
+        const latestElements = Array.isArray(useSurveyStore.getState().elements)
+          ? useSurveyStore.getState().elements
+          : [];
+        if (latestElements.some((el) => el.id === deleted.element.id)) {
+          return;
+        }
+        const restored = [...latestElements];
+        const insertIndex = Math.min(deleted.index, restored.length);
+        restored.splice(insertIndex, 0, deleted.element);
+        void setElements(restored);
+      },
+    });
   };
 
   /**
@@ -962,32 +962,12 @@ export default function FormBuilder() {
     const previousLogic = currentField?.conditionalLogic;
     updateElement(fieldId, { conditionalLogic: logic || undefined });
     if (!logic && previousLogic) {
-      let didUndo = false;
-      const toastId = toast.info(
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-900">
-            Conditional logic cleared.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (didUndo) return;
-              didUndo = true;
-              toast.dismiss(toastId);
-              updateElement(fieldId, { conditionalLogic: previousLogic });
-            }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Undo
-          </button>
-        </div>,
-        {
-          autoClose: 5000,
-          closeOnClick: false,
-          closeButton: false,
-          draggable: false,
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          updateElement(fieldId, { conditionalLogic: previousLogic });
         },
-      );
+      });
     }
   };
 

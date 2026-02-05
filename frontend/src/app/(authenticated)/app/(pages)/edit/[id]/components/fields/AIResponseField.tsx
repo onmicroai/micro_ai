@@ -26,10 +26,10 @@ import {
   ConditionalLogic,
   AIResponseInstruction,
 } from "@/app/(authenticated)/app/types";
-import { toast } from "react-toastify";
 import "./styles.scss";
 import InstructionConditionBox from "../shared/InstructionConditionBox";
 import { useSurveyStore } from "../../store/editSurveyStore";
+import { showUndoToast } from "@/components/UndoToast";
 
 interface Tag {
   id: string;
@@ -206,38 +206,18 @@ export default function AIResponseField({
     setInstructions(updatedInstructions);
     updateFieldText(updatedInstructions);
     if (previousLogic) {
-      let didUndo = false;
-      const toastId = toast.info(
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-900">
-            Conditional logic cleared.
-          </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (didUndo) return;
-              didUndo = true;
-              toast.dismiss(toastId);
-              const restoredInstructions = instructions.map((inst) =>
-                inst.id === instructionId
-                  ? { ...inst, conditionalLogic: previousLogic }
-                  : inst,
-              );
-              setInstructions(restoredInstructions);
-              updateFieldText(restoredInstructions);
-            }}
-            className="text-sm text-primary-600 hover:text-primary-700"
-          >
-            Undo
-          </button>
-        </div>,
-        {
-          autoClose: 5000,
-          closeOnClick: false,
-          closeButton: false,
-          draggable: false,
+      showUndoToast({
+        message: "Conditional logic cleared.",
+        onUndo: () => {
+          const restoredInstructions = instructions.map((inst) =>
+            inst.id === instructionId
+              ? { ...inst, conditionalLogic: previousLogic }
+              : inst,
+          );
+          setInstructions(restoredInstructions);
+          updateFieldText(restoredInstructions);
         },
-      );
+      });
     }
   };
 
