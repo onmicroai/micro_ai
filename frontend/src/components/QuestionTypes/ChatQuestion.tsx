@@ -578,26 +578,41 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   )}
                 </div>
                 {element.enableTts && userMessageCount < MESSAGE_LIMIT && (
-                  <div
-                    className={`flex-shrink-0 ${
-                      recorder.isRecording
-                        ? "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto"
-                        : ""
-                    }`}
-                  >
-                    <VoiceRecorder
-                      onRecordingComplete={handleRecordingComplete}
-                      recorderControls={recorder}
-                      downloadFileExtension="webm"
-                      showVisualizer={false}
-                      classes={{
-                        AudioRecorderClass:
-                          "!p-0 !bg-transparent !shadow-none hover:!bg-gray-100",
-                        AudioRecorderPauseResumeClass: "!p-2",
-                        AudioRecorderDiscardClass: "!p-2",
+                  <>
+                    <input
+                      type="file"
+                      accept="audio/*"
+                      className="hidden"
+                      data-testid="chat-audio-upload-input"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          handleRecordingComplete(file);
+                          e.target.value = "";
+                        }
                       }}
                     />
-                  </div>
+                    <div
+                      className={`flex-shrink-0 ${
+                        recorder.isRecording
+                          ? "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto"
+                          : ""
+                      }`}
+                    >
+                      <VoiceRecorder
+                        onRecordingComplete={handleRecordingComplete}
+                        recorderControls={recorder}
+                        downloadFileExtension="webm"
+                        showVisualizer={false}
+                        classes={{
+                          AudioRecorderClass:
+                            "!p-0 !bg-transparent !shadow-none hover:!bg-gray-100",
+                          AudioRecorderPauseResumeClass: "!p-2",
+                          AudioRecorderDiscardClass: "!p-2",
+                        }}
+                      />
+                    </div>
+                  </>
                 )}
               </div>
             </div>

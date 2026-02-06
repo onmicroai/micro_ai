@@ -19,6 +19,7 @@ from .user_views import (
 
 from .run_views import (
     RunList,
+    RunDetailByUuid,
     AnonymousRunList,
     AIModelRoute,
     LiteLLMModelConfigurations,
@@ -65,6 +66,7 @@ __all__ = [
     
     # Run views
     'RunList',
+    'RunDetailByUuid',
     'AnonymousRunList',
     'AIModelRoute',
     'LiteLLMModelConfigurations',
