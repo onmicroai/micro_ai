@@ -3,7 +3,7 @@ import { test as setup } from "@playwright/test";
 setup("auth", async ({ page }) => {
   await page.goto("/accounts/login");
 
-  // If you got redirected, you're already logged in.
+  // If you got redirected, you're already logged in
   if (!page.url().includes("/accounts/login")) {
     await page.context().storageState({ path: "playwright/.auth/state.json" });
     return;
