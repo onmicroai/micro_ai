@@ -6,7 +6,7 @@ import {
   verifyRunsPersistedAndCharged,
 } from "./utils/runVerification";
 
-test("All fields types app test", async ({ page, request }) => {
+test("Basic fields types app test", async ({ page, request }) => {
   const runUuids = collectRunUuids(page, { includeAnonymous: true });
 
   const name = "John";

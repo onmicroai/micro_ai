@@ -50,7 +50,10 @@ export async function verifyRunsPersistedAndCharged(
   options: {
     apiBaseUrl: string;
     page?: Page;
-    expect: (actual: unknown, message?: string) => ReturnType<typeof import("@playwright/test").expect>;
+    expect: (
+      actual: unknown,
+      message?: string
+    ) => ReturnType<typeof import("@playwright/test").expect>;
     settleDelayMs?: number;
   }
 ): Promise<void> {
@@ -63,7 +66,11 @@ export async function verifyRunsPersistedAndCharged(
   for (const runUuid of runUuids) {
     const url = `${apiBaseUrl}/api/microapps/run/${runUuid}/`;
     let res = await request.get(url);
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS && res.status() === 404; attempt++) {
+    for (
+      let attempt = 1;
+      attempt <= MAX_ATTEMPTS && res.status() === 404;
+      attempt++
+    ) {
       if (attempt < MAX_ATTEMPTS && page) {
         await page.waitForTimeout(RETRY_DELAY_MS);
       }
