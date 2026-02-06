@@ -12,13 +12,8 @@ export default defineConfig({
   workers: process.env.CI ? 1 : undefined,
   // Multiple reporters: HTML for viewing, JSON for parsing, JUnit for CI, list for console
   reporter: process.env.CI
-    ? [
-        ["html", { outputFolder: "playwright-report" }],
-        ["json", { outputFile: "playwright-report/results.json" }],
-        ["junit", { outputFile: "playwright-report/junit.xml" }],
-        ["list"],
-      ]
-    : [["html"], ["list"]],
+    ? [["html", { outputFolder: "playwright-report" }], ["list"], ["github"]]
+    : [["html"], ["list"], ["github"]],
 
   use: {
     baseURL: TEST_BASE_URL,
