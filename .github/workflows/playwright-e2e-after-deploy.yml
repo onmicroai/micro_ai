@@ -1,6 +1,5 @@
-# Run Playwright E2E after deployment succeeds:
-#   - Development deploy (dev branch) success → run tests against DEV (E2E_DEV_*).
-#   - Production deploy (master branch) success → run tests against PROD (E2E_PROD_*).
+# Run Playwright E2E after DEVELOPMENT deployment succeeds only.
+# CI/CD Staging (Prod Server) will NOT trigger this workflow.
 
 name: Playwright E2E After Deploy
 
@@ -8,17 +7,13 @@ on:
   workflow_run:
     workflows:
       - "CI/CD Development(Dev Server)"
-      - "CI/CD Staging (Prod Server)"
     types:
       - completed
-    branches:
-      - dev
-      - master
 
 jobs:
   playwright:
-    name: E2E vs deployed env
-    # Only run when the deployment workflow succeeded (dev or prod)
+    name: E2E vs deployed DEV env
+    # Only run when the DEV deployment workflow succeeded
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -53,16 +48,6 @@ jobs:
           CI: true
           PLAYWRIGHT_BASE_URL: https://dev.onmicro.ai
           PLAYWRIGHT_API_BASE_URL: https://dev.onmicro.ai
-
-      # Production deploy succeeded → run E2E against prod
-      - name: Run Playwright (prod)
-        if: github.event.workflow_run.name == 'CI/CD Staging (Prod Server)'
-        working-directory: ./frontend
-        run: npx playwright test || exit 1
-        env:
-          CI: true
-          PLAYWRIGHT_BASE_URL: https://onmicro.ai
-          PLAYWRIGHT_API_BASE_URL: https://onmicro.ai
 
       - name: Upload Playwright report
         if: always()
