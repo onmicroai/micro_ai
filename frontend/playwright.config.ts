@@ -20,7 +20,7 @@ export default defineConfig({
     trace: "on-first-retry",
     // Capture screenshot and video on failure for better debugging
     screenshot: "only-on-failure",
-    video: "retain-on-failure",
+    video: "on",
   },
 
   projects: [
