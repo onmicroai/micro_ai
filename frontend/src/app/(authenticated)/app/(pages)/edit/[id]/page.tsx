@@ -214,7 +214,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    if (loading || isAuthorized === null) {
       return (
          <>
-            <SkeletonLoader /> 
+            <SkeletonLoader variant="builder" />
          </>
       );
    }

@@ -236,7 +236,6 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
-  const [lastSavedLabel, setLastSavedLabel] = useState("Last saved: just now");
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -246,6 +245,7 @@ export default function FormBuilder() {
     undefined,
   );
   const cardRef = useRef<HTMLDivElement>(null);
+  const lastBuildSidebarOpenRef = useRef(false);
 
   const {
     elements,
@@ -289,45 +289,24 @@ export default function FormBuilder() {
   const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
     activeTab === "build" ? "bg-white shadow-sm" : ""
   }`;
-
-  const formatTimeAgo = useCallback((savedAt: Date) => {
-    const elapsedSeconds = Math.max(
-      0,
-      Math.floor((Date.now() - savedAt.getTime()) / 1000),
-    );
-    if (elapsedSeconds < 5) {
-      return "just now";
+  const handleTabChange = (tab: "build" | "preview") => {
+    if (tab === activeTab) return;
+    if (tab === "preview") {
+      lastBuildSidebarOpenRef.current = sidebarOpen;
+      setSidebarOpen(false);
+      setConditionalSidebarOpen(false);
     }
-    if (elapsedSeconds < 60) {
-      return `${elapsedSeconds}s ago`;
+    if (tab === "build") {
+      setSidebarOpen(lastBuildSidebarOpenRef.current);
     }
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-    if (elapsedMinutes < 60) {
-      return `${elapsedMinutes}m ago`;
-    }
-    const elapsedHours = Math.floor(elapsedMinutes / 60);
-    if (elapsedHours < 24) {
-      return `${elapsedHours}h ago`;
-    }
-    const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays}d ago`;
-  }, []);
+    setActiveTab(tab);
+  };
 
   useEffect(() => {
-    const savedAt = saveState.lastSaved;
-    if (!savedAt) {
-      setLastSavedLabel("Changes saved");
-      return;
+    if (activeTab === "build") {
+      lastBuildSidebarOpenRef.current = sidebarOpen;
     }
-    const updateLabel = () => {
-      setLastSavedLabel(`Last saved: ${formatTimeAgo(savedAt)}`);
-    };
-    updateLabel();
-    const interval = window.setInterval(updateLabel, 5000);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [formatTimeAgo, saveState.lastSaved]);
+  }, [activeTab, sidebarOpen]);
   const handleSaveConditionalLogic = async (logic: ConditionalLogic) => {
     if (!conditionalSidebarContext?.field.id) {
       setConditionalSidebarOpen(false);
@@ -1415,41 +1394,42 @@ export default function FormBuilder() {
                 priority
               />
             </div>
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => setActiveTab("build")}
-                className={buildButtonClassName}
-              >
-                <span className={buildLabelClassName}>Build</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab("preview");
-                  setConditionalSidebarOpen(false);
-                }}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === "preview"
-                    ? "bg-white text-primary shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Preview
-              </button>
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <div className="relative flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => handleTabChange("build")}
+                  className={buildButtonClassName}
+                >
+                  <span className={buildLabelClassName}>Build</span>
+                </button>
+                <button
+                  onClick={() => handleTabChange("preview")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === "preview"
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Preview
+                </button>
+              </div>
+                <AnimatePresence>
+                  {isSavingIndicator && (
+                    <motion.span
+                      key="saving-label"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-700 whitespace-nowrap"
+                      aria-live="polite"
+                    >
+                      Saving...
+                    </motion.span>
+                  )}
+                </AnimatePresence>
             </div>
             <div className="ml-auto flex items-center gap-3">
-              <div
-                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 w-[190px] whitespace-nowrap"
-                aria-live="polite"
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    isSavingIndicator ? "bg-yellow-500" : "bg-emerald-500"
-                  }`}
-                />
-                <span className="overflow-hidden text-clip tabular-nums">
-                  {isSavingIndicator ? "Saving..." : lastSavedLabel}
-                </span>
-              </div>
               <Button
                 variant="ghost"
                 onClick={() => router.push("/dashboard")}
@@ -1494,25 +1474,36 @@ export default function FormBuilder() {
           </div>
         )}
         <div className="flex-1 flex">
-          {activeTab === "build" && sidebarOpen && (
-            <div className="w-80 bg-white sticky top-16 self-start h-screen flex flex-col transition-all duration-300 z-30">
-              <div className="flex items-center justify-between px-4 py-3 bg-white">
-                <span className="text-base font-medium text-black">
-                  App settings
-                </span>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  aria-label="Close sidebar"
-                >
-                  <PanelLeftClose className="h-5 w-5 text-gray-600" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-y-auto">
-                <div className="p-4 pb-20">{renderAdditionalAppSettings()}</div>
-              </div>
-            </div>
-          )}
+          <AnimatePresence>
+            {activeTab === "build" && sidebarOpen && (
+              <motion.div
+                initial={{ width: 0, opacity: 0, x: -12 }}
+                animate={{ width: 320, opacity: 1, x: 0 }}
+                exit={{ width: 0, opacity: 0, x: -12 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                className="w-80 bg-white sticky top-16 self-start h-screen flex flex-col z-30 overflow-hidden"
+                style={{ minWidth: 0 }}
+              >
+                <div className="flex items-center justify-between px-4 py-3 bg-white">
+                  <span className="text-base font-medium text-black">
+                    App settings
+                  </span>
+                  <button
+                    onClick={() => setSidebarOpen(false)}
+                    className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                    aria-label="Close sidebar"
+                  >
+                    <PanelLeftClose className="h-5 w-5 text-gray-600" />
+                  </button>
+                </div>
+                <div className="flex-1 overflow-y-auto">
+                  <div className="p-4 pb-20">
+                    {renderAdditionalAppSettings()}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="flex-1 flex justify-center">
             <div className="w-full max-w-[900px] px-2 sm:px-4">
