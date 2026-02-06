@@ -2,53 +2,53 @@
   "cookies": [
     {
       "name": "sessionid",
-      "value": "w9ei487l6ja0s8x37irwqh8cjw0x515b",
-      "domain": "localhost",
+      "value": "u7pq1yp3t0jmlrudigahfyarlymz1qp4",
+      "domain": "dev.onmicro.ai",
       "path": "/admin/",
-      "expires": 1771575545.016242,
+      "expires": 1771584721.609505,
       "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     },
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MDk3MDc0NSwiaWF0IjoxNzcwMzY1OTQ1LCJqdGkiOiJiMTRhMjRkY2JmMGY0MmU4OWJjYzUwMGY4Y2RkNzUyMyIsInVzZXJfaWQiOiIxIn0.78dKx4jVR2_63ItGpJakUXY6IfDrfmwPZn6AlUZj-MhCpo54Kgny2RQ8uUhjjUT8FHx3EE4A4RJFWFBziegF3Q",
-      "domain": "localhost",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MDk3OTkyMSwiaWF0IjoxNzcwMzc1MTIxLCJqdGkiOiI3ZTJkMzVkYzU4YTM0ZmIwOTFkNGZhN2JlNzdlODFlNSIsInVzZXJfaWQiOiI4NSJ9.wqWTow7p91NlqhIdA0szOziWWryqtEqErNI6wr7UB5iggEFOxybWQvLmpu5hAdXwpYmfTkX9bkHJ6kE5G1xv3w",
+      "domain": "dev.onmicro.ai",
       "path": "/",
-      "expires": 1770970745.016173,
+      "expires": 1770979921.609273,
       "httpOnly": true,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     },
     {
       "name": "csrftoken",
-      "value": "i6wUroa3zdalg0kZR28KnKVlFYxr3vKC",
-      "domain": "localhost",
+      "value": "yDQLCA30HaVw8xmnRxnaIQIZExgeOgDB",
+      "domain": "dev.onmicro.ai",
       "path": "/",
-      "expires": 1801815545.016233,
+      "expires": 1801824721.609451,
       "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     },
     {
       "name": "access_token",
-      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcwMzY5NTQ0LCJpYXQiOjE3NzAzNjU5NDUsImp0aSI6ImU1ODhkNzk2NDBhNDRiN2JhMmRmMTdkMjJlYTY5YzhiIiwidXNlcl9pZCI6IjEifQ.NqVSiQCI3nY_-kHATKcM5axfU17ShAYd2MkXK6Z9sRfxERNqmcJMJYdKQsxf1YxiXxGMnB9rQXAmq7KOXkSJwQ",
-      "domain": "localhost",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcwMzc4NzIxLCJpYXQiOjE3NzAzNzUxMjEsImp0aSI6IjEwMmQ4NmY2ODFkMzQ4OGY4NDEwMTU0YWU0NjdjN2Y5IiwidXNlcl9pZCI6Ijg1In0.qlCg5GszeMPuZmoK8CNY2mvwAzwhjvmOui7sTDS0-39TRCxnqc2RK8yZ_KaNzpdGSFNVsFK98Z7s3vCDZIIgPg",
+      "domain": "dev.onmicro.ai",
       "path": "/",
-      "expires": 1770369545,
+      "expires": 1770378721,
       "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     },
     {
       "name": "access_token_expiration",
-      "value": "2026-02-06T09:19:05.011792Z",
-      "domain": "localhost",
+      "value": "2026-02-06T11:52:01.591958Z",
+      "domain": "dev.onmicro.ai",
       "path": "/",
-      "expires": 1770369545,
+      "expires": 1770378721,
       "httpOnly": false,
-      "secure": false,
-      "sameSite": "Lax"
+      "secure": true,
+      "sameSite": "None"
     }
   ],
   "origins": []

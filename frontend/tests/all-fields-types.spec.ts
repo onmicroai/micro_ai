@@ -20,7 +20,10 @@ test("All fields types app test", async ({ page, request }) => {
 
   await page.goto(TEST_APP_URL);
 
-  await page.locator("#text-1769714154258").fill(name);
+  // Name field: find label, then get the parent div, then find input inside it
+  const nameContainer = page.getByText("What is your name?").locator("..");
+  await nameContainer.locator("input").fill(name);
+
   await page
     .getByRole("textbox", { name: "What are your hobbies?" })
     .fill(hobbies);
