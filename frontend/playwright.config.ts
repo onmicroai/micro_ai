@@ -10,11 +10,22 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: "html",
+  // Multiple reporters: HTML for viewing, JSON for parsing, JUnit for CI, list for console
+  reporter: process.env.CI
+    ? [
+        ["html", { outputFolder: "playwright-report" }],
+        ["json", { outputFile: "playwright-report/results.json" }],
+        ["junit", { outputFile: "playwright-report/junit.xml" }],
+        ["list"],
+      ]
+    : [["html"], ["list"]],
 
   use: {
     baseURL: TEST_BASE_URL,
     trace: "on-first-retry",
+    // Capture screenshot and video on failure for better debugging
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
   },
 
   projects: [
