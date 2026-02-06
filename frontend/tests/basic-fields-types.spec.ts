@@ -20,13 +20,39 @@ test("Basic fields types app test", async ({ page, request }) => {
 
   await page.goto(TEST_APP_URL);
 
-  // Name field: find label, then get the parent div, then find input inside it
-  const nameContainer = page.getByText("What is your name?").locator("..");
-  await nameContainer.locator("input").fill(name);
+  // Name field: find by label, then locate input in same container
+  const nameLabel = page.getByText("What is your name?");
+  await nameLabel.waitFor({ state: "visible" });
+  const nameInput = nameLabel.locator("..").locator("input").first();
 
-  await page
-    .getByRole("textbox", { name: "What are your hobbies?" })
-    .fill(hobbies);
+  // Use pressSequentially which is better for React controlled inputs
+  await nameInput.click();
+  await nameInput.fill(""); // Clear first
+  await nameInput.pressSequentially(name, { delay: 20 });
+  // Verify the input has the value
+  await expect(nameInput).toHaveValue(name);
+  // Trigger additional events to ensure React state updates
+  await nameInput.press("Tab"); // Tab away to trigger blur
+  await page.waitForTimeout(300);
+
+  // Hobbies field
+  const hobbiesLabel = page.getByText("What are your hobbies?");
+  await hobbiesLabel.waitFor({ state: "visible" });
+  const hobbiesInput = hobbiesLabel
+    .locator("..")
+    .locator("textarea")
+    .or(page.getByRole("textbox", { name: "What are your hobbies?" }))
+    .first();
+
+  // Use pressSequentially which is better for React controlled inputs
+  await hobbiesInput.click();
+  await hobbiesInput.fill(""); // Clear first
+  await hobbiesInput.pressSequentially(hobbies, { delay: 20 });
+  // Verify the textarea has the value
+  await expect(hobbiesInput).toHaveValue(hobbies);
+  // Trigger additional events to ensure React state updates
+  await hobbiesInput.press("Tab"); // Tab away to trigger blur
+  await page.waitForTimeout(300);
 
   await page.getByRole("radio", { name: nativeLanguage }).check();
   await page.getByRole("checkbox", { name: pets }).check();
@@ -61,6 +87,21 @@ test("Basic fields types app test", async ({ page, request }) => {
 
   // Next/Image renders a real <img> eventually
   await expect(preview.locator('img[alt^="Upload"]')).toHaveCount(1);
+
+  // Wait a bit more before submitting to ensure form state is fully updated
+  await page.waitForTimeout(500);
+
+  // Verify inputs still have values right before submitting (ensures React state is synced)
+  const nameInputFinal = page
+    .getByText("What is your name?")
+    .locator("..")
+    .locator("input")
+    .first();
+  await expect(nameInputFinal).toHaveValue(name);
+  const hobbiesInputFinal = page.getByRole("textbox", {
+    name: "What are your hobbies?",
+  });
+  await expect(hobbiesInputFinal).toHaveValue(hobbies);
 
   //=======================================================================
 
