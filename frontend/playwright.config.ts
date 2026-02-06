@@ -1,3 +1,6 @@
+// Load .env before tests/constants so process.env.NEXT_PUBLIC_* etc. are available in tests
+import "dotenv/config";
+
 import { defineConfig, devices } from "@playwright/test";
 import { TEST_BASE_URL } from "tests/constants";
 

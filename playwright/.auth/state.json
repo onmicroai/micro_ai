@@ -2,50 +2,50 @@
   "cookies": [
     {
       "name": "sessionid",
-      "value": "8k8gs9pzeuovphqh2j1m7neqelbpljj3",
+      "value": "w9ei487l6ja0s8x37irwqh8cjw0x515b",
       "domain": "localhost",
       "path": "/admin/",
-      "expires": 1771549866.844791,
+      "expires": 1771575545.016242,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "refresh_token",
-      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MDk0NTA2NiwiaWF0IjoxNzcwMzQwMjY2LCJqdGkiOiJjZGJmMjljYjhjNzE0MWRiOWZhNDk4MjBmNjA1NzdiMyIsInVzZXJfaWQiOiIxIn0.UvcDwfUVB0_EsedsrLgqREx-eVjVnWDhYg-6xM97Gyek_KBJs_He9cKn8f_DHGDZb4h8IWy1RckTnW5IytEKPQ",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MDk3MDc0NSwiaWF0IjoxNzcwMzY1OTQ1LCJqdGkiOiJiMTRhMjRkY2JmMGY0MmU4OWJjYzUwMGY4Y2RkNzUyMyIsInVzZXJfaWQiOiIxIn0.78dKx4jVR2_63ItGpJakUXY6IfDrfmwPZn6AlUZj-MhCpo54Kgny2RQ8uUhjjUT8FHx3EE4A4RJFWFBziegF3Q",
       "domain": "localhost",
       "path": "/",
-      "expires": 1770945066.844668,
+      "expires": 1770970745.016173,
       "httpOnly": true,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "csrftoken",
-      "value": "DqFbGJC4T5txhWOLxAWTlamONJFsWJqc",
+      "value": "i6wUroa3zdalg0kZR28KnKVlFYxr3vKC",
       "domain": "localhost",
       "path": "/",
-      "expires": 1801789866.844769,
+      "expires": 1801815545.016233,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "access_token",
-      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcwMzQzODY2LCJpYXQiOjE3NzAzNDAyNjYsImp0aSI6IjQ1YTg3YzY5MTAyOTRlMjU5ZGZmYmMzNDI3NGMxOGU2IiwidXNlcl9pZCI6IjEifQ.2WKRr1Da0nq1EingIPiOJP9r4V-3Ay7XqRS6RPLpS1wm_VWPNGZTFXoxmXyd_1gqaEyvz3oQg756lGQH7Y7mpg",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcwMzY5NTQ0LCJpYXQiOjE3NzAzNjU5NDUsImp0aSI6ImU1ODhkNzk2NDBhNDRiN2JhMmRmMTdkMjJlYTY5YzhiIiwidXNlcl9pZCI6IjEifQ.NqVSiQCI3nY_-kHATKcM5axfU17ShAYd2MkXK6Z9sRfxERNqmcJMJYdKQsxf1YxiXxGMnB9rQXAmq7KOXkSJwQ",
       "domain": "localhost",
       "path": "/",
-      "expires": 1770343866,
+      "expires": 1770369545,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
     },
     {
       "name": "access_token_expiration",
-      "value": "2026-02-06T02:11:06.839924Z",
+      "value": "2026-02-06T09:19:05.011792Z",
       "domain": "localhost",
       "path": "/",
-      "expires": 1770343866,
+      "expires": 1770369545,
       "httpOnly": false,
       "secure": false,
       "sameSite": "Lax"
