@@ -236,7 +236,6 @@ export default function FormBuilder() {
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
-  const [lastSavedLabel, setLastSavedLabel] = useState("Last saved: just now");
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -303,44 +302,6 @@ export default function FormBuilder() {
     setActiveTab(tab);
   };
 
-  const formatTimeAgo = useCallback((savedAt: Date) => {
-    const elapsedSeconds = Math.max(
-      0,
-      Math.floor((Date.now() - savedAt.getTime()) / 1000),
-    );
-    if (elapsedSeconds < 5) {
-      return "just now";
-    }
-    if (elapsedSeconds < 60) {
-      return `${elapsedSeconds}s ago`;
-    }
-    const elapsedMinutes = Math.floor(elapsedSeconds / 60);
-    if (elapsedMinutes < 60) {
-      return `${elapsedMinutes}m ago`;
-    }
-    const elapsedHours = Math.floor(elapsedMinutes / 60);
-    if (elapsedHours < 24) {
-      return `${elapsedHours}h ago`;
-    }
-    const elapsedDays = Math.floor(elapsedHours / 24);
-    return `${elapsedDays}d ago`;
-  }, []);
-
-  useEffect(() => {
-    const savedAt = saveState.lastSaved;
-    if (!savedAt) {
-      setLastSavedLabel("Changes saved");
-      return;
-    }
-    const updateLabel = () => {
-      setLastSavedLabel(`Last saved: ${formatTimeAgo(savedAt)}`);
-    };
-    updateLabel();
-    const interval = window.setInterval(updateLabel, 5000);
-    return () => {
-      window.clearInterval(interval);
-    };
-  }, [formatTimeAgo, saveState.lastSaved]);
   useEffect(() => {
     if (activeTab === "build") {
       lastBuildSidebarOpenRef.current = sidebarOpen;
@@ -1433,38 +1394,42 @@ export default function FormBuilder() {
                 priority
               />
             </div>
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center bg-gray-100 rounded-lg p-1">
-              <button
-                onClick={() => handleTabChange("build")}
-                className={buildButtonClassName}
-              >
-                <span className={buildLabelClassName}>Build</span>
-              </button>
-              <button
-                onClick={() => handleTabChange("preview")}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                  activeTab === "preview"
-                    ? "bg-white text-primary shadow-sm"
-                    : "text-gray-600 hover:text-gray-900"
-                }`}
-              >
-                Preview
-              </button>
+            <div className="absolute left-1/2 -translate-x-1/2">
+              <div className="relative flex items-center bg-gray-100 rounded-lg p-1">
+                <button
+                  onClick={() => handleTabChange("build")}
+                  className={buildButtonClassName}
+                >
+                  <span className={buildLabelClassName}>Build</span>
+                </button>
+                <button
+                  onClick={() => handleTabChange("preview")}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    activeTab === "preview"
+                      ? "bg-white text-primary shadow-sm"
+                      : "text-gray-600 hover:text-gray-900"
+                  }`}
+                >
+                  Preview
+                </button>
+              </div>
+                <AnimatePresence>
+                  {isSavingIndicator && (
+                    <motion.span
+                      key="saving-label"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2 }}
+                      className="absolute left-full ml-3 top-1/2 -translate-y-1/2 text-xs font-medium text-gray-700 whitespace-nowrap"
+                      aria-live="polite"
+                    >
+                      Saving...
+                    </motion.span>
+                  )}
+                </AnimatePresence>
             </div>
             <div className="ml-auto flex items-center gap-3">
-              <div
-                className="flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1 text-sm text-gray-700 w-[190px] whitespace-nowrap"
-                aria-live="polite"
-              >
-                <span
-                  className={`h-2 w-2 rounded-full ${
-                    isSavingIndicator ? "bg-yellow-500" : "bg-emerald-500"
-                  }`}
-                />
-                <span className="overflow-hidden text-clip tabular-nums">
-                  {isSavingIndicator ? "Saving..." : lastSavedLabel}
-                </span>
-              </div>
               <Button
                 variant="ghost"
                 onClick={() => router.push("/dashboard")}
