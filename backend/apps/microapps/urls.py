@@ -19,6 +19,7 @@ from .views import (
     
     # Run views
     RunList,
+    RunDetailByUuid,
     ScoreRunList,
     AnonymousRunList,
     LiteLLMModelConfigurations,
@@ -63,6 +64,7 @@ urlpatterns = [
     
     # AI Model execution
     path('run', RunList.as_view(), name="run_model"),
+    path('run/<str:run_uuid>/', RunDetailByUuid.as_view(), name="run_detail_by_uuid"),
     path('score', ScoreRunList.as_view(), name="score_model"),
     path('run/anonymous', AnonymousRunList.as_view(), name="anonymous_run_model"),
     path('models/litellm-configuration/', LiteLLMModelConfigurations.as_view(), name="litellm_models_configuration"),

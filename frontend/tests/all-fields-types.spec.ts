@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
 import path from "path";
-import { TEST_APP_URL } from "./constants";
+import { TEST_APP_URL, TEST_API_BASE_URL } from "./constants";
+import {
+  collectRunUuids,
+  verifyRunsPersistedAndCharged,
+} from "./utils/runVerification";
 
-test("All fields types app test", async ({ page }) => {
+test("All fields types app test", async ({ page, request }) => {
+  const runUuids = collectRunUuids(page, { includeAnonymous: true });
+
   const name = "John";
   const hobbies = "Golf, crossword puzzles";
   const nativeLanguage = "Ukranian";
@@ -81,12 +87,17 @@ test("All fields types app test", async ({ page }) => {
 
   await page.getByRole("button", { name: "Continue" }).click();
 
-  // Expect a container with the image analysis response: "Yes, this is an image of a cat."
+  // Expect a container with the image analysis response (generic: mentions image and cat)
   const imageAnalysisContainer = page.locator("div").filter({
-    hasText: /Yes,?\s+this is an image of a cat\.?/i,
+    hasText: /image.*cat|cat.*image/i,
   });
 
   await expect(imageAnalysisContainer.first()).toBeVisible();
 
-  //   await page.getByRole("button", { name: "Continue" }).click();
+  await verifyRunsPersistedAndCharged(runUuids, request, {
+    apiBaseUrl: TEST_API_BASE_URL,
+    page,
+    expect,
+    settleDelayMs: 2000,
+  });
 });

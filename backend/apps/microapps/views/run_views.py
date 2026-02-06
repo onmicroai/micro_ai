@@ -585,6 +585,34 @@ class RunList(APIView, UsageTrackingMixin):
 
 
 @extend_schema_view(
+    get=extend_schema(
+        responses={200: RunGetSerializer},
+        summary="Get a run record by run_uuid (e.g. for e2e test verification)",
+    ),
+)
+class RunDetailByUuid(APIView):
+    """Return a single run by run_uuid. Used by e2e tests to verify runs were persisted."""
+    permission_classes = [AllowAny]
+
+    def get(self, request, run_uuid, *args, **kwargs):
+        try:
+            run_uuid = (run_uuid or "").strip()
+            run = Run.objects.filter(run_uuid__iexact=run_uuid).first()
+            if not run:
+                return Response(
+                    {"error": "Run not found", "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+            serializer = RunGetSerializer(run)
+            return Response(
+                {"data": serializer.data, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return handle_exception(e)
+
+
+@extend_schema_view(
     post=extend_schema(request=RunPostSerializer, responses={200: RunGetSerializer}, summary="Score a response and stream explanation")
 )
 class ScoreRunList(RunList):

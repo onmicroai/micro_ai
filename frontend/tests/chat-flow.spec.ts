@@ -8,7 +8,11 @@
  */
 import { test, expect } from "@playwright/test";
 import path from "path";
-import { TEST_APP_URL } from "./constants";
+import { TEST_APP_URL, TEST_API_BASE_URL } from "./constants";
+import {
+  collectRunUuids,
+  verifyRunsPersistedAndCharged,
+} from "./utils/runVerification";
 
 const SIMULATED_VOICE_MESSAGE_TEXT =
   "I want to have a conversation about the space";
@@ -34,19 +38,20 @@ function wordMatchRatio(transcribed: string, expectedWords: string[]): number {
 test.describe("Chat audio flow (transcribe → run → tts)", () => {
   test("simulated voice message: transcribe, run, and tts succeed", async ({
     page,
+    request,
   }) => {
+    const runUuids = collectRunUuids(page);
+
     const transcribeRequestPromise = page.waitForRequest(
       (req) =>
-        (req.url().includes("/api/microapps/transcribe/") ||
-          req.url().includes("/api/microapps/transcribe/anonymous/")) &&
+        req.url().includes("/api/microapps/transcribe/") &&
         req.method() === "POST",
       { timeout: 30000 }
     );
 
     const transcribeResponsePromise = page.waitForResponse(
       (res) =>
-        (res.url().includes("/api/microapps/transcribe/") ||
-          res.url().includes("/api/microapps/transcribe/anonymous/")) &&
+        res.url().includes("/api/microapps/transcribe/") &&
         res.request().method() === "POST" &&
         res.status() === 200,
       { timeout: 30000 }
@@ -54,16 +59,13 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
 
     const runRequestPromise = page.waitForRequest(
       (req) =>
-        (req.url().includes("/api/microapps/run") ||
-          req.url().includes("/api/microapps/run/anonymous")) &&
-        req.method() === "POST",
+        req.url().includes("/api/microapps/run") && req.method() === "POST",
       { timeout: 30000 }
     );
 
     const ttsResponsePromise = page.waitForResponse(
       (res) =>
-        (res.url().includes("/api/microapps/tts/") ||
-          res.url().includes("/api/microapps/tts/anonymous/")) &&
+        res.url().includes("/api/microapps/tts/") &&
         res.request().method() === "POST" &&
         res.status() === 200,
       { timeout: 30000 }
@@ -133,5 +135,12 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
       ttsContentType.toLowerCase().includes("audio"),
       `TTS response should be audio. Got content-type: ${ttsContentType}`
     ).toBe(true);
+
+    await verifyRunsPersistedAndCharged(runUuids, request, {
+      apiBaseUrl: TEST_API_BASE_URL,
+      page,
+      expect,
+      settleDelayMs: 2000,
+    });
   });
 });

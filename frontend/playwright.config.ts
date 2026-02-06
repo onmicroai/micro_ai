@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TEST_BASE_URL } from "tests/constants";
 
 export default defineConfig({
   testDir: "./tests",
@@ -9,7 +10,7 @@ export default defineConfig({
   reporter: "html",
 
   use: {
-    baseURL: "http://localhost",
+    baseURL: TEST_BASE_URL,
     trace: "on-first-retry",
   },
 
