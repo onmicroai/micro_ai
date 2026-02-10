@@ -13,6 +13,15 @@ import { fetchAvailableModelsSingleton } from "../utils/fetchAvailableModels";
 import { fetchLiteLLMModelsSingleton } from "../utils/fetchLiteLLMModels";
 import { updateMicroappCollection } from "../utils/updateMicroappCollection";
 
+const LOG_PREFIX = "[app-settings-models]";
+const logModelsDebug = (event: string, payload?: Record<string, unknown>) => {
+  if (payload) {
+    console.log(`${LOG_PREFIX} ${event}`, payload);
+    return;
+  }
+  console.log(`${LOG_PREFIX} ${event}`);
+};
+
 const initialState = {
   elements: [],
   title: "",
@@ -472,16 +481,57 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * Fetches the models from LiteLLM
      */
     fetchLiteLLMModels: async () => {
+      const stateBeforeFetch = get();
+      logModelsDebug("store-fetchLiteLLMModels-start", {
+        appId: stateBeforeFetch.appId,
+        previousAvailableModelsCount: Object.keys(
+          stateBeforeFetch.availableModels || {}
+        ).length,
+        selectedAiModel: stateBeforeFetch.aiConfig?.aiModel,
+      });
       set({ isLoadingModels: true });
       try {
         let models = await fetchLiteLLMModelsInitial();
         if (models === null) {
           models = {} as ModelTemperatureRanges;
         }
+        const modelKeys = Object.keys(models);
+        const selectedModel = get().aiConfig?.aiModel;
+        logModelsDebug("store-fetchLiteLLMModels-received", {
+          fetchedModelsCount: modelKeys.length,
+          sampleModelKeys: modelKeys.slice(0, 5),
+          selectedAiModel: selectedModel,
+          selectedModelExistsInModels: Boolean(
+            selectedModel && modelKeys.includes(selectedModel)
+          ),
+        });
         set({ availableModels: models, isLoadingModels: false });
+        const stateAfterSet = get();
+        const afterKeys = Object.keys(stateAfterSet.availableModels || {});
+        logModelsDebug("store-fetchLiteLLMModels-set-complete", {
+          isLoadingModels: stateAfterSet.isLoadingModels,
+          availableModelsCount: afterKeys.length,
+          sampleModelKeys: afterKeys.slice(0, 5),
+          selectedAiModel: stateAfterSet.aiConfig?.aiModel,
+          selectedModelExistsInModels: Boolean(
+            stateAfterSet.aiConfig?.aiModel &&
+              afterKeys.includes(stateAfterSet.aiConfig.aiModel)
+          ),
+        });
       } catch (error) {
         console.error("Failed to fetch LiteLLM models:", error);
+        logModelsDebug("store-fetchLiteLLMModels-error", {
+          errorMessage: error instanceof Error ? error.message : String(error),
+        });
         set({ isLoadingModels: false });
+      } finally {
+        const stateAfterFetch = get();
+        logModelsDebug("store-fetchLiteLLMModels-end", {
+          isLoadingModels: stateAfterFetch.isLoadingModels,
+          availableModelsCount: Object.keys(
+            stateAfterFetch.availableModels || {}
+          ).length,
+        });
       }
     },
 
