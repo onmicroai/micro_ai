@@ -210,14 +210,6 @@ const ACCEPTED_FILE_TYPES = {
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB max file size
 
 const MAX_DESCRIPTION_LENGTH = 200;
-const LOG_PREFIX = "[app-settings-models]";
-const logModelsDebug = (event: string, payload?: Record<string, unknown>) => {
-  if (payload) {
-    console.log(`${LOG_PREFIX} ${event}`, payload);
-    return;
-  }
-  console.log(`${LOG_PREFIX} ${event}`);
-};
 
 interface UploadedFile {
   name: string;
@@ -290,8 +282,6 @@ export default function FormBuilder() {
   } = useSurveyStore();
 
   const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
-  const aiModelOptions = Object.keys(availableModels || {});
-  const aiModelOptionsSignature = aiModelOptions.join("|");
   const buildLabelClassName =
     activeTab === "build"
       ? "text-primary"
@@ -555,44 +545,8 @@ export default function FormBuilder() {
 
   //Load models on mount - using LiteLLM by default
   useEffect(() => {
-    logModelsDebug("formbuilder-trigger-fetchLiteLLMModels", {
-      hashId,
-      selectedAiModel: useSurveyStore.getState().aiConfig?.aiModel,
-    });
-    void fetchLiteLLMModels().catch((error) => {
-      logModelsDebug("formbuilder-fetchLiteLLMModels-rejected", {
-        hashId,
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-    });
-  }, [fetchLiteLLMModels, hashId]);
-
-  useEffect(() => {
-    logModelsDebug("formbuilder-availableModels-changed", {
-      hashId,
-      optionsCount: aiModelOptions.length,
-      sampleOptions: aiModelOptions.slice(0, 5),
-      selectedAiModel: aiConfig.aiModel,
-    });
-  }, [aiModelOptionsSignature, aiModelOptions.length, hashId, aiConfig.aiModel]);
-
-  useEffect(() => {
-    if (!aiConfig.aiModel) {
-      logModelsDebug("formbuilder-selected-model-empty", {
-        hashId,
-        optionsCount: aiModelOptions.length,
-      });
-      return;
-    }
-    if (!aiModelOptions.includes(aiConfig.aiModel)) {
-      logModelsDebug("formbuilder-selected-model-missing-from-options", {
-        hashId,
-        selectedAiModel: aiConfig.aiModel,
-        optionsCount: aiModelOptions.length,
-        sampleOptions: aiModelOptions.slice(0, 5),
-      });
-    }
-  }, [aiConfig.aiModel, aiModelOptionsSignature, aiModelOptions.length, hashId]);
+    fetchLiteLLMModels();
+  }, [fetchLiteLLMModels]);
 
 //   useEffect(() => {
 //     const current = Array.isArray(elements) ? elements : [];
@@ -1357,19 +1311,11 @@ export default function FormBuilder() {
                 <SelectValue placeholder="Select AI model" />
               </SelectTrigger>
               <SelectContent>
-                {(() => {
-                  logModelsDebug("formbuilder-render-ai-model-options", {
-                    hashId,
-                    optionsCount: aiModelOptions.length,
-                    selectedAiModel: aiConfig.aiModel,
-                    sampleOptions: aiModelOptions.slice(0, 5),
-                  });
-                  return aiModelOptions.map((modelName) => (
+                {Object.keys(availableModels).map((modelName) => (
                   <SelectItem key={modelName} value={modelName}>
                     {modelName}
                   </SelectItem>
-                  ));
-                })()}
+                ))}
               </SelectContent>
             </Select>
           </div>
