@@ -35,8 +35,8 @@ export function fetchUserCollectionsSingleton(): () => Promise<FormattedCollecti
       }
 
       return new Promise<FormattedCollectionItem[] | null>((resolve) => {
+         pendingRequests.push(resolve);
          if (isFetching) {
-            pendingRequests.push(resolve);
             return;
          }
 
