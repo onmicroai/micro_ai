@@ -29,6 +29,7 @@ import {
   ConditionalLogic,
   ElementInstruction,
   Choice,
+  HiddenHeaderElement,
 } from "@/app/(authenticated)/app/types";
 import { useUserStore } from "@/store/userStore";
 import FieldHeader from "./shared/FieldHeader";
@@ -549,13 +550,7 @@ export default function Field({
     }
 
     if (field.type === "title") {
-      return (
-        <Input
-          placeholder="Enter title..."
-          value={field.text || field.label || ""}
-          onChange={(e) => onUpdateFieldLabel(field.id, e.target.value, false)}
-        />
-      );
+      return null;
     }
 
     if (field.type === "scoring") {
@@ -1382,18 +1377,21 @@ export default function Field({
           }
           availableFields={phaseFields}
           dragHandleProps={dragHandleProps ?? undefined}
-          hiddenElements={
-            !isActive
+          hiddenElements={(() => {
+            const baseHidden: HiddenHeaderElement[] = !isActive
               ? [
                   "required",
                   "conditionalLogic",
                   "fieldTypeSelector",
                   "fieldLabel",
-                  "dragHandle",
                   "delete",
                 ]
-              : []
-          }
+              : [];
+            if (field.type === "title") {
+              return [...baseHidden, "rename", "required"];
+            }
+            return baseHidden;
+          })()}
           isDragging={isDragging}
           isPreviewMode={!isActive}
           conditionalLogic={field.conditionalLogic}
@@ -1485,9 +1483,12 @@ export default function Field({
       switch (field.type) {
         case "title":
           return (
-            <h2 className="text-base font-semibold">
-              {field.text || field.label}
-            </h2>
+            <div>
+              <h2 className="text-base font-semibold">{field.text || field.label}</h2>
+              {field.description && (
+                <p className="mt-1 text-sm text-gray-600">{field.description}</p>
+              )}
+            </div>
           );
 
         default:
@@ -1593,18 +1594,21 @@ export default function Field({
               onUpdateConditionalLogic?.(field.id, logic)
             }
             availableFields={phaseFields}
-            hiddenElements={
-              !isActive
+            hiddenElements={(() => {
+              const baseHidden: HiddenHeaderElement[] = !isActive
                 ? [
                     "required",
                     "conditionalLogic",
                     "fieldTypeSelector",
                     "fieldLabel",
-                    "dragHandle",
                     "delete",
                   ]
-                : []
-            }
+                : [];
+              if (field.type === "title") {
+                return [...baseHidden, "rename", "required"];
+              }
+              return baseHidden;
+            })()}
             isDragging={isDragging}
             conditionalLogic={field.conditionalLogic}
           />
@@ -1632,10 +1636,10 @@ export default function Field({
                         transition={{ delay: 0.15, duration: 0.3 }}
                       >
                         <Label className="text-sm font-medium mb-1 block">
-                          Question
+                          {field.type === "title" ? "Title" : "Question"}
                         </Label>
                         <Input
-                          value={field.label || ""}
+                          value={field.text || field.label || ""}
                           onFocus={() => {
                             if (!field.label) {
                               onUpdateFieldLabel(field.id, "", isPromptType);
@@ -1648,8 +1652,16 @@ export default function Field({
                               isPromptType,
                             );
                           }}
-                          className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full cursor-text"
-                          placeholder="Enter your question..."
+                          className={`bg-transparent border border-gray-200 px-4 py-2 transition-colors focus:outline-none focus:ring-0 w-full cursor-text ${
+                            field.type === "title"
+                              ? "font-semibold text-xl focus:border-gray-200"
+                              : "text-md focus:border-gray-600"
+                          }`}
+                          placeholder={
+                            field.type === "title"
+                              ? "Enter title..."
+                              : "Enter your question..."
+                          }
                         />
                       </motion.div>
 
@@ -1665,7 +1677,9 @@ export default function Field({
                             className="flex items-center gap-1 text-sm text-primary hover:text-primary-600 font-medium transition-colors pb-6 pt-2"
                           >
                             <CirclePlus size={16} className="mr-1" />
-                            Add description
+                            {field.type === "title"
+                              ? "Add title description"
+                              : "Add description"}
                           </button>
                         )}
 
@@ -1680,8 +1694,16 @@ export default function Field({
                                   isPromptType,
                                 )
                               }
-                              className="text-sm text-gray-600 bg-transparent w-full border border-gray-200 hover:border-gray-400 focus:border-gray-600 rounded px-2 py-1 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text"
-                              placeholder="Add a description..."
+                              className={`bg-transparent w-full border border-gray-200 px-4 py-2 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text ${
+                                field.type === "title"
+                                  ? "text-sm text-gray-600 focus:border-gray-200"
+                                  : "text-sm text-gray-600 hover:border-gray-400 focus:border-gray-600 rounded"
+                              }`}
+                              placeholder={
+                                field.type === "title"
+                                  ? "Let users know what awaits them next."
+                                  : "Add a description..."
+                              }
                             />
                             {/* Remove description button */}
                             {!field.description && (
@@ -1700,14 +1722,16 @@ export default function Field({
                     </>
                   )}
 
-                  <motion.div
-                    className="mt-3"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: 0.25, duration: 0.3 }}
-                  >
-                    {renderFieldEdit()}
-                  </motion.div>
+                  {field.type !== "title" && (
+                    <motion.div
+                      className="mt-3"
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.25, duration: 0.3 }}
+                    >
+                      {renderFieldEdit()}
+                    </motion.div>
+                  )}
 
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}

@@ -34,29 +34,22 @@ export function migratePhasesToElements(appJson: any): AppJsonV2 {
   phases.forEach((phase: any, phaseIdx: number) => {
     const phaseId = phase?.id ?? String(phaseIdx + 1);
 
-    // Phase title → static title element
-    if (isNonEmptyString(phase?.title)) {
+    const phaseTitle = isNonEmptyString(phase?.title) ? phase.title : '';
+    const phaseDescription = isNonEmptyString(phase?.description) ? phase.description : '';
+
+    // Migrate legacy phase header into a single title element:
+    // phase.title -> title text, phase.description -> title description.
+    if (phaseTitle || phaseDescription) {
+      const migratedTitle = phaseTitle || phaseDescription;
       titleCount += 1;
       elements.push({
         id: `title-${phaseId}`,
         type: 'title',
         name: `title${titleCount}`,
-        label: phase.title,
+        label: migratedTitle,
         isRequired: false,
-        text: phase.title,
-      });
-    }
-
-    // Phase description → static title element (or richText later)
-    if (isNonEmptyString(phase?.description)) {
-      titleCount += 1;
-      elements.push({
-        id: `title-${phaseId}-description`,
-        type: 'title',
-        name: `title${titleCount}`,
-        label: phase.description,
-        isRequired: false,
-        text: phase.description,
+        text: migratedTitle,
+        ...(phaseTitle && phaseDescription ? { description: phaseDescription } : {}),
       });
     }
 

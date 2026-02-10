@@ -131,6 +131,8 @@ export default function FieldHeader({
               {...(!isDragging ? { layout: true } : {})}
               key="drag-handle"
               className="flex items-center gap-2 overflow-hidden"
+              onMouseDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
             >
               <div
                 {...dragHandleProps}
@@ -138,6 +140,27 @@ export default function FieldHeader({
                 onClick={(e) => e.stopPropagation()}
               >
                 <GripVertical className="h-5 w-5" />
+              </div>
+            </motion.div>
+          )}
+          {field.type === "title" && isHidden("fieldLabel") && (
+            <motion.div
+              key="fieldLabelStatic"
+              initial={{ opacity: 0, x: -24, width: 0 }}
+              animate={{ opacity: 1, x: 0, width: "auto" }}
+              exit={{ opacity: 0, x: -24, width: 0 }}
+              {...(!isDragging ? { layout: true } : {})}
+              transition={{
+                duration: 0.3,
+                ease: [0.4, 0, 0.2, 1],
+                delay: 0.05,
+              }}
+              className="overflow-hidden"
+            >
+              <div className="w-max pr-2">
+                <div className="h-auto px-2 py-1 bg-transparent text-sm flex items-center cursor-default pointer-events-none select-none">
+                  <span className="font-medium text-gray-900">{label}</span>
+                </div>
               </div>
             </motion.div>
           )}
