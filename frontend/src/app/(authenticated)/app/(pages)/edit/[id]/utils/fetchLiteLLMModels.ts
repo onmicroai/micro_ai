@@ -44,11 +44,12 @@ export const fetchLiteLLMModelsSingleton = (): () => Promise<ModelTemperatureRan
       }
 
       return new Promise<ModelTemperatureRanges | null>((resolve) => {
+         pendingRequests.push(resolve);
          if (isFetching) {
             logModelsDebug("request-deduped-queued", {
-               queuedBeforePush: pendingRequests.length,
+               queuedBeforePush: pendingRequests.length - 1,
+               queuedAfterPush: pendingRequests.length,
             });
-            pendingRequests.push(resolve);
             return;
          }
 
