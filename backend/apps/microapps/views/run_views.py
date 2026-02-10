@@ -60,6 +60,11 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 class RunList(APIView, UsageTrackingMixin):
     permission_classes = [AllowAny]
     ai_score = ""
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [IsAuthenticated()]
+        return [AllowAny()]
     score_result = True
     app_hash_id = ""
     response_type = ""
