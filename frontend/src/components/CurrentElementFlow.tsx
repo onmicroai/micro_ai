@@ -347,6 +347,15 @@ export default function CurrentElementFlow({
               >
                 {element.text || element.label}
               </h2>
+              {element.description && (
+                <p
+                  className={`mt-1 text-sm/6 ${
+                    isLocked ? "text-gray-500" : "text-gray-600"
+                  }`}
+                >
+                  {element.description}
+                </p>
+              )}
             </div>
           );
         }
