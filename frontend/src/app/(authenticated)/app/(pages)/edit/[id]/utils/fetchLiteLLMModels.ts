@@ -29,8 +29,8 @@ export const fetchLiteLLMModelsSingleton = (): () => Promise<ModelTemperatureRan
       }
 
       return new Promise<ModelTemperatureRanges | null>((resolve) => {
-         pendingRequests.push(resolve);
          if (isFetching) {
+            pendingRequests.push(resolve);
             return;
          }
 
