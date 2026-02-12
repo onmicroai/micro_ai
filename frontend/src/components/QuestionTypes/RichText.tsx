@@ -11,7 +11,41 @@ interface RichTextQuestionProps {
   disabled: boolean;
 }
 
+const mergeResizeStylesIntoImageTag = (html: string): string => {
+  if (!html) return html;
+
+  return html.replace(/<img\b([^>]*)>/gi, (fullMatch, rawAttrs: string) => {
+    const findAttr = (name: string) => {
+      const match = rawAttrs.match(new RegExp(`${name}=(["'])(.*?)\\1`, "i"));
+      return match ? match[2] : "";
+    };
+
+    const existingStyle = findAttr("style");
+    const containerStyle = findAttr("containerstyle");
+    const wrapperStyle = findAttr("wrapperstyle");
+
+    if (!containerStyle && !wrapperStyle) {
+      return fullMatch;
+    }
+
+    const mergedStyle = [existingStyle, wrapperStyle, containerStyle]
+      .filter(Boolean)
+      .join("; ")
+      .trim();
+
+    const attrsWithoutResizeMetadata = rawAttrs
+      .replace(/\scontainerstyle=(["']).*?\1/gi, "")
+      .replace(/\swrapperstyle=(["']).*?\1/gi, "")
+      .replace(/\sstyle=(["']).*?\1/gi, "");
+
+    const styleAttr = mergedStyle ? ` style="${mergedStyle}"` : "";
+    return `<img${attrsWithoutResizeMetadata}${styleAttr}>`;
+  });
+};
+
 const RichTextQuestion = ({ element, disabled }: RichTextQuestionProps) => {
+  const runtimeHtml = mergeResizeStylesIntoImageTag(element.html || "");
+
   return (
     <div key={element.name} className={`${disabled ? "opacity-75" : ""}`}>
       {element.label && (
@@ -23,6 +57,7 @@ const RichTextQuestion = ({ element, disabled }: RichTextQuestionProps) => {
 
       <div
         className="
+               rich-text-content
                prose max-w-none mt-2
                [&>p]:text-sm/6 [&>p]:text-gray-600 [&>p]:mt-1 [&>p]:mb-2 
                [&>ul]:list-disc [&>ul]:pl-4 [&>ul]:text-sm [&>ul]:text-gray-600 
@@ -35,7 +70,7 @@ const RichTextQuestion = ({ element, disabled }: RichTextQuestionProps) => {
                [&>code]:bg-gray-100 [&>code]:px-1 [&>code]:rounded
                [&>pre]:bg-gray-100 [&>pre]:p-4 [&>pre]:rounded
             "
-        dangerouslySetInnerHTML={{ __html: element.html || "" }}
+        dangerouslySetInnerHTML={{ __html: runtimeHtml }}
       />
     </div>
   );
