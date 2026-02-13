@@ -46,6 +46,7 @@ interface AIResponseFieldProps {
   field: Prompt;
   fields: Element[];
   isPreviewMode?: boolean;
+  onRequestActivate?: () => void;
   onChange?: (
     fieldId: string,
     content: string,
@@ -62,6 +63,7 @@ export default function AIResponseField({
   fields,
   onChange,
   isPreviewMode = false,
+  onRequestActivate,
 }: AIResponseFieldProps & {
   onRequiredChange?: (isRequired: boolean) => void;
   onConditionalLogicChange?: (logic: ConditionalLogic | null) => void;
@@ -170,13 +172,22 @@ export default function AIResponseField({
       (inst) => inst.id === instructionId,
     );
     const instruction = instructions[instructionIdx];
+    const openSidebar = () => {
+      setConditionalSidebarContext({
+        field: field,
+        currentLogic: instruction?.conditionalLogic,
+        instructionIndex: instructionIdx,
+      });
+      setConditionalSidebarOpen(true);
+    };
 
-    setConditionalSidebarContext({
-      field: field,
-      currentLogic: instruction?.conditionalLogic,
-      instructionIndex: instructionIdx,
-    });
-    setConditionalSidebarOpen(true);
+    if (isPreviewMode) {
+      onRequestActivate?.();
+      requestAnimationFrame(openSidebar);
+      return;
+    }
+
+    openSidebar();
   };
 
   const handleSaveCondition = () => {
@@ -854,9 +865,7 @@ export default function AIResponseField({
                             : undefined
                         }
                         onOpenCondition={
-                          isPreviewMode
-                            ? undefined
-                            : () => handleOpenConditionDialog(instruction.id)
+                          () => handleOpenConditionDialog(instruction.id)
                         }
                         onRemove={
                           isPreviewMode

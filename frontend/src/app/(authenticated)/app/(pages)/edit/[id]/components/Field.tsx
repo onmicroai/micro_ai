@@ -581,6 +581,7 @@ export default function Field({
             onUpdateConditionalLogic?.(field.id, logic)
           }
           isPreviewMode={!isActive}
+          onRequestActivate={onActivate}
         />
       );
     }
