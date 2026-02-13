@@ -1,6 +1,6 @@
 "use client";
 
-import { Split, Trash2, GripVertical, Pencil, X, Check } from "lucide-react";
+import { Split, Trash2, GripVertical, Pencil, X, Check, HelpCircle } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
@@ -17,6 +17,12 @@ import {
   SelectItem,
   SelectTrigger,
 } from "../../components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "../../components/ui/tooltip";
 
 import { Input } from "../../components/ui/input";
 import {
@@ -72,6 +78,7 @@ export default function FieldHeader({
   const { setConditionalSidebarOpen, setConditionalSidebarContext } =
     useSurveyStore();
   const { isTagFocusActive } = useTagFocusContext();
+  const isScoringField = field.type === "scoring";
   const tagClassName = isTagFocusActive
     ? "text-white bg-primary-600 hover:bg-primary-600"
     : "border-gray-300 bg-transparent text-primary-600 hover:text-primary hover:bg-transparent";
@@ -311,7 +318,26 @@ export default function FieldHeader({
                 className="data-[state=unchecked]:bg-gray-400"
                 onClick={(e) => e.stopPropagation()}
               />
-              <span className="text-sm text-gray-600">Required</span>
+              {isScoringField ? (
+                <TooltipProvider delayDuration={900}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1 text-sm text-gray-600 cursor-help">
+                        <span>Require minimum score</span>
+                        <HelpCircle className="h-3.5 w-3.5 text-gray-400" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p>
+                        When enabled, users must meet the minimum score to continue.
+                        When disabled, they can continue even if they do not pass.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              ) : (
+                <span className="text-sm text-gray-600">Required</span>
+              )}
             </motion.div>
           )}
 

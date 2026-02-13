@@ -33,6 +33,7 @@ export default function PromptField({
 }: TagEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(field.text || "");
+  const isFixedResponse = field.type === "fixedResponse";
   const lastRangeRef = useRef<Range | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
   const [previewElement, setPreviewElement] = useState<HTMLElement | null>(
@@ -58,6 +59,7 @@ export default function PromptField({
    */
   const convertPlaceholdersToTags = useCallback(
     (text: string): string => {
+      if (isFixedResponse) return text;
       // First, preserve any existing non-breaking spaces
       const preservedText = text.replace(/\u00A0/g, "___NBSP___");
 
@@ -79,7 +81,7 @@ export default function PromptField({
       // Finally, restore the non-breaking spaces
       return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields, inlineTagClasses]
+    [fields, inlineTagClasses, isFixedResponse]
   );
 
   useEffect(() => {
@@ -186,6 +188,7 @@ export default function PromptField({
    */
   const convertTagsToPlaceholders = useCallback(
     (html: string): string => {
+      if (isFixedResponse) return html;
       // Create a temporary div to work with the HTML
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = html;
@@ -207,7 +210,7 @@ export default function PromptField({
       // Get the result, preserving non-breaking spaces
       return tempDiv.innerHTML;
     },
-    [fields]
+    [fields, isFixedResponse]
   );
 
   /**
@@ -266,7 +269,9 @@ export default function PromptField({
     saveSelection();
     checkIfEmpty(target);
 
-    const placeholderContent = convertTagsToPlaceholders(newContent);
+    const placeholderContent = isFixedResponse
+      ? newContent
+      : convertTagsToPlaceholders(newContent);
 
     if (placeholderContent !== content) {
       setContent(placeholderContent);
@@ -636,7 +641,9 @@ export default function PromptField({
     saveSelection();
 
     const newContent = editorRef.current.innerHTML;
-    const placeholderContent = convertTagsToPlaceholders(newContent);
+    const placeholderContent = isFixedResponse
+      ? newContent
+      : convertTagsToPlaceholders(newContent);
 
     checkIfEmpty(editorRef.current);
 
@@ -926,6 +933,7 @@ export default function PromptField({
   }, [checkIfEmpty]);
 
   useEffect(() => {
+    if (isFixedResponse) return;
     const editorElement = editorRef.current;
     if (editorElement) {
       editorElement.addEventListener("dragstart", handleEditorTagDragStart);
@@ -961,7 +969,7 @@ export default function PromptField({
         document.removeEventListener("drop", handleDocumentDrop);
       };
     }
-  }, [handleEditorTagDragStart, handleEditorTagDragEnd]);
+  }, [handleEditorTagDragStart, handleEditorTagDragEnd, isFixedResponse]);
 
   /**
    * Handles click events inside the editor.
@@ -996,34 +1004,51 @@ export default function PromptField({
     });
   };
 
+  const fixedResponseContainerClass = isPreviewMode
+    ? ""
+    : "relative w-full box-border bg-white rounded-lg border focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200";
+  const defaultEditorClass =
+    `min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
+      isEmpty ? "empty-editor" : ""
+    } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
+  const fixedResponseEditorClass = isPreviewMode
+    ? `w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 leading-relaxed break-words whitespace-pre-line cursor-pointer ${
+        isEmpty ? "empty-editor" : ""
+      } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`
+    : `w-full h-full outline-none bg-transparent px-3 py-2 ${
+        isEmpty ? "empty-editor" : ""
+      } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
+
   return (
     <div className="relative bg-white rounded-lg">
       <div className="space-y-4">
-        <div
-          id="prompt-editor"
-          data-placeholder={getPlaceholderText()}
-          ref={editorRef}
-          contentEditable={isPreviewMode ? false : true}
-          className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-            ${
-              isEmpty ? "empty-editor" : ""
-            } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`}
-          onInput={handleInput}
-          onClick={handleClick}
-          onKeyDown={handleKeyDown}
-          onFocus={handleFocus}
-          onBlur={saveSelection}
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          suppressContentEditableWarning
-          style={{
-            cursor: isPreviewMode ? "pointer" : "text",
-            pointerEvents: isPreviewMode ? "none" : "auto",
-          }}
-        />
+        <div className={isFixedResponse ? fixedResponseContainerClass : ""}>
+          <div
+            id="prompt-editor"
+            data-placeholder={getPlaceholderText()}
+            ref={editorRef}
+            contentEditable={isPreviewMode ? false : true}
+            className={isFixedResponse ? fixedResponseEditorClass : defaultEditorClass}
+            onInput={handleInput}
+            onClick={handleClick}
+            onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
+            onBlur={saveSelection}
+            onDrop={isFixedResponse ? undefined : handleDrop}
+            onDragOver={isFixedResponse ? undefined : handleDragOver}
+            onDragLeave={isFixedResponse ? undefined : handleDragLeave}
+            suppressContentEditableWarning
+            style={{
+              cursor: isPreviewMode ? "pointer" : "text",
+              pointerEvents: isPreviewMode ? "none" : "auto",
+              minHeight: isFixedResponse ? "40px" : undefined,
+              wordWrap: isFixedResponse ? "break-word" : undefined,
+              overflowWrap: isFixedResponse ? "break-word" : undefined,
+            }}
+          />
+        </div>
         <AnimatePresence>
-          {!isPreviewMode && (
+          {!isPreviewMode && !isFixedResponse && (
             <motion.div
               className="space-y-4"
               initial={{ opacity: 0, y: 10 }}

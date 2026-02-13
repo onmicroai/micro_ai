@@ -7,6 +7,7 @@ interface InstructionConditionBoxProps {
   operator: string;
   value?: string | boolean | number;
   onRemove?: () => void;
+  onOpenCondition?: () => void;
   currentFieldName?: string; // Optional for case when condition is shown for instruction
 }
 
@@ -105,15 +106,30 @@ export default function InstructionConditionBox({
   operator,
   value,
   onRemove,
+  onOpenCondition,
   currentFieldName,
 }: InstructionConditionBoxProps) {
+  const isClickable = Boolean(onOpenCondition);
+
   return (
     <div
-      className="flex items-center justify-between px-3"
+      className={`flex items-center justify-between px-3 ${
+        isClickable ? "cursor-pointer" : ""
+      }`}
       style={{
         height: 30,
         background: "linear-gradient(90deg, #E1E3FF80 0%, #FFFFFF00 100%)",
         border: "1px solid #5963E8",
+      }}
+      role={isClickable ? "button" : undefined}
+      tabIndex={isClickable ? 0 : undefined}
+      onClick={onOpenCondition}
+      onKeyDown={(event) => {
+        if (!onOpenCondition) return;
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onOpenCondition();
+        }
       }}
     >
       <div
@@ -153,7 +169,10 @@ export default function InstructionConditionBox({
         <Button
           variant="ghost"
           size="sm"
-          onClick={onRemove}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
           className="h-6 w-6 p-0"
           style={{ color: "#5963E8" }}
         >
