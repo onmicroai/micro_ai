@@ -32,6 +32,7 @@ interface ChatQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
   appId: number;
   userId: number | null;
   surveyJson: any;
@@ -54,6 +55,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
   appId,
   userId,
   surveyJson,
@@ -383,21 +385,19 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     }
     return sum;
   }, 0);
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers,
+    );
+  const questionText = element.text || element.label || element.name;
 
   return (
-    <div
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers,
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
-      {element.label && (
+    <div className={`${isVisible ? "" : "hidden"}`}>
+      {questionText && (
         <label className="block text-sm font-medium text-gray-700 mb-2">
-          {element.label}
+          {questionText}
           {element.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}

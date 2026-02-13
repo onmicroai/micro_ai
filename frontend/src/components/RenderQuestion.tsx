@@ -25,6 +25,7 @@ interface RenderElementProps {
    visible: boolean;
    errors: ErrorObject[];
    disabled: boolean;
+   skipVisibilityCheck?: boolean;
    completedPhase?: boolean;
    appId: number;
    userId: number | null;
@@ -43,6 +44,7 @@ const RenderQuestion = ({
    visible,
    errors,
    disabled,
+   skipVisibilityCheck = false,
    appId,
    userId,
    surveyJson,
@@ -63,6 +65,7 @@ const RenderQuestion = ({
                handleInputChange={handleInputChange}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -74,6 +77,7 @@ const RenderQuestion = ({
                handleInputChange={handleInputChange}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
       
@@ -85,6 +89,7 @@ const RenderQuestion = ({
                setInputValue={setInputValue}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -96,6 +101,7 @@ const RenderQuestion = ({
                   setInputValue={setInputValue}
                   errors={errors}
                   disabled={disabled}
+                  skipVisibilityCheck={skipVisibilityCheck}
                />
             );
 
@@ -107,6 +113,7 @@ const RenderQuestion = ({
                setInputValue={setInputValue}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -118,6 +125,7 @@ const RenderQuestion = ({
                setInputValue={setInputValue}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -129,6 +137,7 @@ const RenderQuestion = ({
                setInputValue={setInputValue}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -139,6 +148,7 @@ const RenderQuestion = ({
                answers={answers}
                errors={errors}
                disabled={disabled}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -151,6 +161,7 @@ const RenderQuestion = ({
                errors={errors}
                disabled={disabled}
                answers={answers}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 
@@ -168,6 +179,7 @@ const RenderQuestion = ({
                currentPhaseIndex={currentPhaseIndex}
                isOwner={isOwner}
                isAdmin={isAdmin}
+               skipVisibilityCheck={skipVisibilityCheck}
             />
          );
 

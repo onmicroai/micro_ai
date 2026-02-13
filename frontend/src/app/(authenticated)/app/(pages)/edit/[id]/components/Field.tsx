@@ -1552,6 +1552,7 @@ export default function Field({
               answers={previewAnswers}
               errors={[]}
               disabled={true}
+              skipVisibilityCheck={true}
               handleInputChange={handlePreviewInputChange}
               setInputValue={handlePreviewSetInputValue}
               setImages={() => {}}

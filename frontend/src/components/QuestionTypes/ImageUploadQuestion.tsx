@@ -18,6 +18,7 @@ interface ImageUploadQuestionProps {
   setImages: (updater: (prev: Base64Images) => Base64Images) => void;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
   completedPhase?: boolean;
   answers: Answers;
 }
@@ -167,6 +168,7 @@ const ImageUploadQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   const handleUrlChange = (index: number, value: string) => {
     setImageUrls((prev) => {
@@ -256,9 +258,9 @@ const ImageUploadQuestion = ({
 
   return (
     <div className="space-y-2">
-      {element.label && (
+      {questionText && (
         <label className="block text-sm font-medium text-gray-700">
-          {element.label}
+          {questionText}
           {element.isRequired && <span className="text-red-500 ml-1">*</span>}
           <span className="ml-2 text-gray-500">
             ({getTotalItemsCount()}/{maxFiles})
