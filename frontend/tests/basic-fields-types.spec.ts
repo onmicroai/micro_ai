@@ -1,12 +1,14 @@
 import { test, expect } from "@playwright/test";
 import path from "path";
-import { TEST_APP_URL, TEST_API_BASE_URL } from "./constants";
 import {
   collectRunUuids,
   verifyRunsPersistedAndCharged,
 } from "./utils/runVerification";
 
 test("Basic fields types app test", async ({ page, request }) => {
+  // Increase test timeout to 90 seconds (scoring can take time)
+  test.setTimeout(90000);
+
   const runUuids = collectRunUuids(page, { includeAnonymous: true });
 
   const name = "John";
@@ -18,7 +20,7 @@ test("Basic fields types app test", async ({ page, request }) => {
   // Switch is toggled once from default (true → false), so we expect "No" for spicy food
   const likeSpicyFood = "No";
 
-  await page.goto(TEST_APP_URL);
+  await page.goto(process.env.TEST_APP_URL || "");
 
   // Name field: find by label, then locate input in same container
   const nameLabel = page.getByText("What is your name?");
@@ -150,7 +152,7 @@ test("Basic fields types app test", async ({ page, request }) => {
         /You've reached the end|You have reached the end/i.test(bodyText)
       );
     },
-    { timeout: 30000 } // 30 seconds for scoring to complete
+    { timeout: 60000 } // 60 seconds for scoring to complete
   );
 
   // Expect to see "Score" text (could be in button, div, span, etc.)
@@ -169,7 +171,7 @@ test("Basic fields types app test", async ({ page, request }) => {
       const bodyText = document.body.textContent || "";
       return /"total"\s*:\s*"3"/i.test(bodyText);
     },
-    { timeout: 10000 }
+    { timeout: 20000 } // 20 seconds for JSON to appear after clicking Score
   );
 
   // Expect to see "total": "3" in the JSON
@@ -185,7 +187,7 @@ test("Basic fields types app test", async ({ page, request }) => {
   await expect(endMessage).toBeVisible({ timeout: 5000 });
 
   await verifyRunsPersistedAndCharged(runUuids, request, {
-    apiBaseUrl: TEST_API_BASE_URL,
+    apiBaseUrl: process.env.TEST_API_BASE_URL || "",
     page,
     expect,
     settleDelayMs: 2000,

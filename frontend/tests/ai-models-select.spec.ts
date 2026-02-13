@@ -1,8 +1,7 @@
 import { test, expect } from "@playwright/test";
-import { TEST_APP_EDIT_URL } from "./constants";
 
 test("AI models select test", async ({ page }) => {
-  await page.goto(TEST_APP_EDIT_URL);
+  await page.goto(process.env.TEST_APP_EDIT_URL || "");
 
   // Wait for the page to load and find the label "AI Model" (or "AI models" - case insensitive)
   const aiModelLabel = page.getByText(/AI models?/i).first();
