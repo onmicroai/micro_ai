@@ -90,10 +90,6 @@ const handleAIResponse = async (
                   // Finalize run
                   if (runId) {
                      store.updateRun(runId, { status: "completed" });
-                     // Add final assistant message
-                     if (accumulated.trim()) {
-                        store.addMessage("assistant", accumulated);
-                     }
                   }
                   if (runId && meta && typeof meta === "object") {
                      const updates: any = {};

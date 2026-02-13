@@ -60,7 +60,7 @@ export default function CurrentElementFlow({
     sendPrompts,
   } = useSurveyStore();
 
-  const { currentConversation } = useConversationStore();
+  const { currentConversation, removeRunsFromPhaseIndex } = useConversationStore();
   /**
    * cursor: start index of the active segment (everything before is completed/locked).
    */
@@ -345,6 +345,56 @@ export default function CurrentElementFlow({
     stopElement.element.isRequired !== false &&
     !!activeStopRun &&
     !passedTheRubricMinScore(activeStopRun);
+  const rewindFlowFromEditedField = useCallback(
+    (fieldName: string): boolean => {
+      if (!activeStopIsRequiredScoringFailed) return false;
+
+      const editedFieldOriginalIndex = visibleElements.find(
+        (entry) => !isStopElement(entry.element) && entry.element.name === fieldName,
+      )?.originalIndex;
+      if (editedFieldOriginalIndex === undefined) return false;
+
+      const restartStopIndex = visibleElements.findIndex(
+        (entry) =>
+          entry.originalIndex >= editedFieldOriginalIndex &&
+          isStopElement(entry.element),
+      );
+      if (restartStopIndex === -1) return false;
+
+      const restartOriginalIndex = visibleElements[restartStopIndex].originalIndex;
+      removeRunsFromPhaseIndex(restartOriginalIndex);
+
+      const clearByElementIndex = <T extends Record<string, any>>(source: T): T => {
+        const removableIds = new Set(
+          appElements
+            .filter(
+              (el, originalIndex) =>
+                originalIndex >= restartOriginalIndex &&
+                (el.type === "fixedResponse" || el.type === "scoring"),
+            )
+            .map((el) => el.id),
+        );
+        return Object.fromEntries(
+          Object.entries(source).filter(([id]) => !removableIds.has(id)),
+        ) as T;
+      };
+      setFixedResponsesById((prev) => clearByElementIndex(prev));
+      setFixedResponseDisplayedById((prev) => clearByElementIndex(prev));
+      setFixedResponseAnimatingById((prev) => clearByElementIndex(prev));
+      setRetryDirtyStopIds((prev) => clearByElementIndex(prev));
+      setErrors([]);
+      previousActiveOriginalIndexRef.current = restartOriginalIndex;
+      setCursor(restartStopIndex);
+      return true;
+    },
+    [
+      activeStopIsRequiredScoringFailed,
+      appElements,
+      removeRunsFromPhaseIndex,
+      setErrors,
+      visibleElements,
+    ],
+  );
   const markActiveScoringRetryDirty = useCallback(() => {
     if (!activeStopIsRequiredScoringFailed) return;
     const activeScoringStopId =
@@ -355,7 +405,10 @@ export default function CurrentElementFlow({
     );
   }, [activeStopIsRequiredScoringFailed, stopElement]);
   const handleInputChangeWithRetryMark: typeof handleInputChange = (e) => {
-    markActiveScoringRetryDirty();
+    const wasRewound = rewindFlowFromEditedField(e.target.name);
+    if (!wasRewound) {
+      markActiveScoringRetryDirty();
+    }
     handleInputChange(e);
   };
   const setInputValueWithRetryMark: typeof setInputValue = (
@@ -364,7 +417,10 @@ export default function CurrentElementFlow({
     otherValue,
     type,
   ) => {
-    markActiveScoringRetryDirty();
+    const wasRewound = rewindFlowFromEditedField(name);
+    if (!wasRewound) {
+      markActiveScoringRetryDirty();
+    }
     setInputValue(name, value, otherValue, type);
   };
 

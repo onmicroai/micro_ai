@@ -64,6 +64,7 @@ interface ConversationStore {
   getConversation: (conversationId: string) => Conversation | null;
   addRun: (run: Run) => string;
   updateRun: (runId: string, updates: Partial<Run>) => void;
+  removeRunsFromPhaseIndex: (startPhaseIndex: number) => void;
   addMessage: (role: Message['role'], content: string) => void;
   setCurrentConversation: (conversationId: string) => void;
   updateConversationTitle: (title: string) => void;
@@ -161,6 +162,33 @@ export const useConversationStore = create<ConversationStore>()(
           const updatedConversation: Conversation = {
             ...state.currentConversation,
             runs: updatedRuns,
+            metadata: {
+              ...state.currentConversation.metadata!,
+              updatedAt: Date.now(),
+            },
+          };
+
+          return {
+            ...state,
+            currentConversation: updatedConversation,
+            conversations: state.conversations.map((conv) =>
+              conv.id === updatedConversation.id ? updatedConversation : conv
+            ),
+          };
+        });
+      },
+
+      removeRunsFromPhaseIndex: (startPhaseIndex: number) => {
+        set((state) => {
+          if (!state.currentConversation) return state;
+
+          const filteredRuns = state.currentConversation.runs.filter(
+            (run) => run.phaseIndex < startPhaseIndex
+          );
+
+          const updatedConversation: Conversation = {
+            ...state.currentConversation,
+            runs: filteredRuns,
             metadata: {
               ...state.currentConversation.metadata!,
               updatedAt: Date.now(),
