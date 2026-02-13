@@ -8,7 +8,6 @@
  */
 import { test, expect } from "@playwright/test";
 import path from "path";
-import { TEST_APP_URL, TEST_API_BASE_URL } from "./constants";
 import {
   collectRunUuids,
   verifyRunsPersistedAndCharged,
@@ -71,7 +70,7 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
       { timeout: 30000 }
     );
 
-    await page.goto(TEST_APP_URL);
+    await page.goto(process.env.TEST_APP_URL || "");
 
     const chatInput = page.getByTestId("chat-audio-upload-input");
     await expect(chatInput).toBeAttached({ timeout: 15000 });
@@ -137,7 +136,7 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
     ).toBe(true);
 
     await verifyRunsPersistedAndCharged(runUuids, request, {
-      apiBaseUrl: TEST_API_BASE_URL,
+      apiBaseUrl: process.env.TEST_API_BASE_URL || "",
       page,
       expect,
       settleDelayMs: 2000,

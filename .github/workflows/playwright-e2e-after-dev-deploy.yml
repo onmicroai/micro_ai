@@ -1,7 +1,7 @@
 # Run Playwright E2E after DEVELOPMENT deployment succeeds only.
 # CI/CD Staging (Prod Server) will NOT trigger this workflow.
 
-name: Playwright E2E After Deploy
+name: Playwright E2E After DEV Deploy
 
 on:
   workflow_run:
@@ -46,6 +46,7 @@ jobs:
         run: npx playwright test || exit 1
         env:
           CI: true
+          TARGET_ENV: dev
           PLAYWRIGHT_BASE_URL: https://dev.onmicro.ai
           PLAYWRIGHT_API_BASE_URL: https://dev.onmicro.ai
 
@@ -55,7 +56,7 @@ jobs:
         run: |
           echo "## 🎭 Playwright E2E Test Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [ -f playwright-report/results.json ]; then
             # Parse JSON and extract summary (requires node)
             if command -v node &> /dev/null; then
@@ -90,7 +91,7 @@ jobs:
               " >> $GITHUB_STEP_SUMMARY || echo "Could not parse test results JSON" >> $GITHUB_STEP_SUMMARY
             fi
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
           echo "- **HTML Report:** Available in \`playwright-html-report-after-deploy\` artifact" >> $GITHUB_STEP_SUMMARY
