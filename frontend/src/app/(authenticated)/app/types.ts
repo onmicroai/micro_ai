@@ -43,6 +43,8 @@ export type PageConfigOverride = {
   minScore: number;
   scoreExplanation?: boolean;
   scoreExplanationMode?: ScoreExplanationMode;
+  scoreFeedbackEnabled?: boolean;
+  scoreFeedbackInstructions?: string;
 };
 
 export type sendPrompts = (
@@ -130,6 +132,8 @@ export interface SurveyPage {
   minScore: number;
   scoreExplanation?: boolean;
   scoreExplanationMode?: ScoreExplanationMode;
+  scoreFeedbackEnabled?: boolean;
+  scoreFeedbackInstructions?: string;
   skipPhase: boolean;
 }
 
@@ -238,6 +242,8 @@ export interface Element {
    */
   rubric?: string;
   minScore?: number;
+  scoreFeedbackEnabled?: boolean;
+  scoreFeedbackInstructions?: string;
 
   // Text input specific
   minChars?: number;

@@ -722,8 +722,19 @@ class ScoreRunList(RunList):
                 self.score_result = score_response["score_result"]
                 explanation_requested = data.get("score_explanation", True)
                 explanation_mode = data.get("score_explanation_mode", "always")
+                feedback_enabled_raw = data.get("score_feedback_enabled", True)
+                feedback_enabled = (
+                    str(feedback_enabled_raw).lower() not in {"false", "0", "off", "no"}
+                    if isinstance(feedback_enabled_raw, str)
+                    else bool(feedback_enabled_raw)
+                )
+                feedback_instructions = str(
+                    data.get("score_feedback_instructions", "") or ""
+                )
 
                 def should_explain() -> bool:
+                    if not feedback_enabled:
+                        return False
                     if not explanation_requested:
                         return False
                     if explanation_mode == "never":
@@ -745,6 +756,8 @@ class ScoreRunList(RunList):
                             "scored_run": True,
                             "score_explanation": explanation_requested,
                             "score_explanation_mode": explanation_mode,
+                            "score_feedback_enabled": feedback_enabled,
+                            "score_feedback_instructions": feedback_instructions,
                         }
                         yield f"event: score\ndata: {json.dumps(score_payload)}\n\n"
 
@@ -775,6 +788,8 @@ class ScoreRunList(RunList):
                                 "run_uuid": save_result.get("run_uuid") if save_result else data.get("run_uuid"),
                                 "score_explanation": explanation_requested,
                                 "score_explanation_mode": explanation_mode,
+                                "score_feedback_enabled": feedback_enabled,
+                                "score_feedback_instructions": feedback_instructions,
                             }
                             yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
                             return
@@ -840,6 +855,8 @@ class ScoreRunList(RunList):
                             "run_uuid": save_result.get("run_uuid") if save_result else data.get("run_uuid"),
                             "score_explanation": explanation_requested,
                             "score_explanation_mode": explanation_mode,
+                            "score_feedback_enabled": feedback_enabled,
+                            "score_feedback_instructions": feedback_instructions,
                         }
                         yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
 

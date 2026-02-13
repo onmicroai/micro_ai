@@ -78,6 +78,8 @@ const handleAIResponse = async (
                      };
                      if (typeof scoreData.score_explanation === 'boolean') updates.score_explanation = scoreData.score_explanation;
                      if (typeof scoreData.score_explanation_mode === 'string') updates.score_explanation_mode = scoreData.score_explanation_mode;
+                     if (typeof scoreData.score_feedback_enabled === 'boolean') updates.score_feedback_enabled = scoreData.score_feedback_enabled;
+                     if (typeof scoreData.score_feedback_instructions === 'string') updates.score_feedback_instructions = scoreData.score_feedback_instructions;
                      if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
                      if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
                      store.updateRun(runId, updates);
@@ -102,6 +104,8 @@ const handleAIResponse = async (
                      if (typeof metaObj.run_score === "string") updates.run_score = metaObj.run_score;
                      if (typeof metaObj.score_explanation === "boolean") updates.score_explanation = metaObj.score_explanation;
                      if (typeof metaObj.score_explanation_mode === "string") updates.score_explanation_mode = metaObj.score_explanation_mode;
+                     if (typeof metaObj.score_feedback_enabled === "boolean") updates.score_feedback_enabled = metaObj.score_feedback_enabled;
+                     if (typeof metaObj.score_feedback_instructions === "string") updates.score_feedback_instructions = metaObj.score_feedback_instructions;
                      if (Object.keys(updates).length > 0) {
                         store.updateRun(runId, updates);
                      }
@@ -542,6 +546,8 @@ const {
          score_expected: isScoredRun,
          score_explanation: requestBody?.score_explanation ?? undefined,
          score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
+         score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,
+         score_feedback_instructions: requestBody?.score_feedback_instructions ?? undefined,
       });
    }
    const result = await handleAIResponse(requestBody, userId, set);

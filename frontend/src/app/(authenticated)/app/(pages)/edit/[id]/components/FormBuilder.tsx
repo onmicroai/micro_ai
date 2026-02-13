@@ -682,6 +682,8 @@ export default function FormBuilder() {
           },
         ]),
         minScore: 0,
+        scoreFeedbackEnabled: true,
+        scoreFeedbackInstructions: "",
         isRequired: true,
       }),
       ...(type === "imageUpload" && {
@@ -917,6 +919,8 @@ export default function FormBuilder() {
       case "scoring":
         typeSpecificDefaults.rubric = "";
         typeSpecificDefaults.minScore = 0;
+        typeSpecificDefaults.scoreFeedbackEnabled = true;
+        typeSpecificDefaults.scoreFeedbackInstructions = "";
         break;
       case "text":
       case "textarea":

@@ -26,6 +26,8 @@ export interface Run {
     score_expected?: boolean;
     score_explanation?: boolean;
     score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+    score_feedback_enabled?: boolean;
+    score_feedback_instructions?: string;
     scoreData?: {
         run_score: string;
         run_passed: boolean;
@@ -34,6 +36,8 @@ export interface Run {
         scored_run: boolean;
         score_explanation?: boolean;
         score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+        score_feedback_enabled?: boolean;
+        score_feedback_instructions?: string;
     };
 }
 

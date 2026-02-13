@@ -15,7 +15,9 @@ const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
       rubric: page?.rubric || "",
       minScore: page?.minScore || 0,
       scoreExplanation: page?.scoreExplanation ?? true,
-      scoreExplanationMode: page?.scoreExplanationMode ?? "always"
+      scoreExplanationMode: page?.scoreExplanationMode ?? "always",
+      scoreFeedbackEnabled: page?.scoreFeedbackEnabled ?? true,
+      scoreFeedbackInstructions: page?.scoreFeedbackInstructions ?? "",
    };
 };
 
@@ -179,6 +181,8 @@ ${file!.content}
       requestBody.minimum_score = pageConfig.minScore;
       requestBody.score_explanation = scoreExplanation ?? pageConfig.scoreExplanation ?? true;
       requestBody.score_explanation_mode = scoreExplanationMode ?? pageConfig.scoreExplanationMode ?? "always";
+      requestBody.score_feedback_enabled = pageConfig.scoreFeedbackEnabled ?? true;
+      requestBody.score_feedback_instructions = pageConfig.scoreFeedbackInstructions ?? "";
    }
 
    if (skipScoredRun) {

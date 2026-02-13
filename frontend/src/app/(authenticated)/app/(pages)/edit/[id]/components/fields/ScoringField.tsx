@@ -23,6 +23,8 @@ interface ScoringFieldProps {
     name: string;
     minScore?: number;
     rubric?: string; // JSON string
+    scoreFeedbackEnabled?: boolean;
+    scoreFeedbackInstructions?: string;
   };
   appHashId: string;
   onChange?: (fieldId: string, updates: Partial<any>) => void;
@@ -85,6 +87,7 @@ export default function ScoringField({
 
   const abortControllerRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const feedbackEnabled = field.scoreFeedbackEnabled ?? true;
 
   // Parse rubric from JSON string
   let parsedRubric: any = [];
@@ -296,6 +299,66 @@ export default function ScoringField({
             className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
             placeholder="Enter minimum score"
           />
+        )}
+      </div>
+
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium text-gray-700">
+            Enable feedback
+          </label>
+          {isPreview ? (
+            <span className="text-sm text-gray-500">
+              {feedbackEnabled ? "Enabled" : "Disabled"}
+            </span>
+          ) : (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={feedbackEnabled}
+              onClick={() =>
+                onChange?.(field.id, { scoreFeedbackEnabled: !feedbackEnabled })
+              }
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                feedbackEnabled ? "bg-primary" : "bg-gray-300"
+              }`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
+                  feedbackEnabled ? "translate-x-5" : "translate-x-1"
+                }`}
+              />
+            </button>
+          )}
+        </div>
+
+        {feedbackEnabled && (
+          <div className="space-y-1">
+            <label className="text-sm font-medium text-gray-700">
+              Feedback instructions
+            </label>
+            {isPreview ? (
+              <div className="w-full border border-gray-100 rounded-md px-3 py-2 text-sm text-gray-500 bg-gray-50 whitespace-pre-wrap">
+                {field.scoreFeedbackInstructions?.trim() || (
+                  <span className="italic text-gray-400">
+                    Default instructions
+                  </span>
+                )}
+              </div>
+            ) : (
+              <textarea
+                value={field.scoreFeedbackInstructions || ""}
+                onChange={(e) =>
+                  onChange?.(field.id, {
+                    scoreFeedbackInstructions: e.target.value,
+                  })
+                }
+                className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                rows={3}
+                placeholder="Optional: override the default feedback instruction."
+              />
+            )}
+          </div>
         )}
       </div>
 

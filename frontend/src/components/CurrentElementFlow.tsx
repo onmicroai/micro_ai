@@ -81,6 +81,9 @@ export default function CurrentElementFlow({
   const [fixedResponseAnimatingById, setFixedResponseAnimatingById] = useState<
     Record<string, boolean>
   >({});
+  const [retryDirtyStopIds, setRetryDirtyStopIds] = useState<Record<string, boolean>>(
+    {},
+  );
   const fixedResponseRunTokenRef = useRef<Record<string, number>>({});
 
   const appElements = useMemo(() => {
@@ -309,8 +312,16 @@ export default function CurrentElementFlow({
           rubric: stop.rubric || "",
           minScore:
             typeof stop.minScore === "number" ? stop.minScore : 0,
+          scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
+          scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         }
       );
+      setRetryDirtyStopIds((prev) => {
+        if (!prev[stop.id]) return prev;
+        const next = { ...prev };
+        delete next[stop.id];
+        return next;
+      });
 
       const scoringIsRequired = stop.isRequired !== false;
       if (res.run_passed === false && scoringIsRequired) return;
@@ -322,6 +333,40 @@ export default function CurrentElementFlow({
   if (!surveyJson) return null;
 
   const isComplete = cursor >= visibleElements.length;
+  const activeStopOriginalIndex = stopElement?.originalIndex ?? null;
+  const activeStopRun =
+    activeStopOriginalIndex === null
+      ? null
+      : currentConversation?.runs
+          ?.filter((run) => run.phaseIndex === activeStopOriginalIndex)
+          .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
+  const activeStopIsRequiredScoringFailed =
+    stopElement?.element.type === "scoring" &&
+    stopElement.element.isRequired !== false &&
+    !!activeStopRun &&
+    !passedTheRubricMinScore(activeStopRun);
+  const markActiveScoringRetryDirty = useCallback(() => {
+    if (!activeStopIsRequiredScoringFailed) return;
+    const activeScoringStopId =
+      stopElement?.element.type === "scoring" ? stopElement.element.id : null;
+    if (!activeScoringStopId) return;
+    setRetryDirtyStopIds((prev) =>
+      prev[activeScoringStopId] ? prev : { ...prev, [activeScoringStopId]: true },
+    );
+  }, [activeStopIsRequiredScoringFailed, stopElement]);
+  const handleInputChangeWithRetryMark: typeof handleInputChange = (e) => {
+    markActiveScoringRetryDirty();
+    handleInputChange(e);
+  };
+  const setInputValueWithRetryMark: typeof setInputValue = (
+    name,
+    value,
+    otherValue,
+    type,
+  ) => {
+    markActiveScoringRetryDirty();
+    setInputValue(name, value, otherValue, type);
+  };
 
   const visibleElementsForRender = isComplete
     ? visibleElements
@@ -333,7 +378,7 @@ export default function CurrentElementFlow({
   return (
     <form onSubmit={handleRun} className="space-y-6">
       {visibleElementsForRender.map(({ element, originalIndex }, idx) => {
-        const isLocked = idx < cursor;
+        const isLocked = activeStopIsRequiredScoringFailed ? false : idx < cursor;
         const isActiveStop = stopIndex !== null && idx === stopIndex;
         const isStop = isStopElement(element);
 
@@ -374,8 +419,8 @@ export default function CurrentElementFlow({
                 }}
                 answers={answers as any}
                 disabled={isLocked}
-                handleInputChange={handleInputChange}
-                setInputValue={setInputValue}
+                handleInputChange={handleInputChangeWithRetryMark}
+                setInputValue={setInputValueWithRetryMark}
                 setImages={setImages}
                 visible={true}
                 appId={appId}
@@ -390,15 +435,20 @@ export default function CurrentElementFlow({
         }
 
         // Stop card rendering (aiResponse/fixedResponse/scoring)
-        const runForThisStop =
+        const latestRunForThisStop =
           currentConversation?.runs
             ?.filter((run) => run.phaseIndex === originalIndex)
             .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
+        const hideRunForDirtyRetry =
+          element.type === "scoring" &&
+          isActiveStop &&
+          retryDirtyStopIds[element.id] === true;
+        const runForThisStop = hideRunForDirtyRetry ? null : latestRunForThisStop;
         const scoringIsRequired =
           element.type === "scoring" ? element.isRequired !== false : false;
         const scoringFailed =
-          element.type === "scoring" && runForThisStop
-            ? !passedTheRubricMinScore(runForThisStop)
+          element.type === "scoring" && latestRunForThisStop
+            ? !passedTheRubricMinScore(latestRunForThisStop)
             : false;
 
         const revealedFixed =
@@ -525,7 +575,7 @@ export default function CurrentElementFlow({
                   <div className="mt-4">
                     <SkeletonLoader />
                   </div>
-                ) : element.type === "scoring" && scoringIsRequired && scoringFailed ? null : (
+                ) : (
                   <div className="mt-4 flex justify-end">
                     <button
                       type="submit"
@@ -565,7 +615,9 @@ export default function CurrentElementFlow({
                       {element.type === "aiResponse"
                         ? "Continue"
                         : element.type === "scoring"
-                        ? "Continue"
+                        ? scoringIsRequired && scoringFailed
+                          ? "Submit again"
+                          : "Continue"
                         : revealedFixed
                         ? "Continue"
                         : "Continue"}
