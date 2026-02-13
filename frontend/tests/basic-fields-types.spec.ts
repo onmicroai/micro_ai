@@ -138,6 +138,52 @@ test("Basic fields types app test", async ({ page, request }) => {
 
   await expect(imageAnalysisContainer.first()).toBeVisible();
 
+  // Click Continue after image analysis
+  await page.getByRole("button", { name: "Continue" }).click();
+
+  // Wait for the score/end screen to load - scoring can take time, so use longer timeout
+  await page.waitForFunction(
+    () => {
+      const bodyText = document.body.textContent || "";
+      return (
+        /Score/i.test(bodyText) &&
+        /You've reached the end|You have reached the end/i.test(bodyText)
+      );
+    },
+    { timeout: 30000 } // 30 seconds for scoring to complete
+  );
+
+  // Expect to see "Score" text (could be in button, div, span, etc.)
+  const scoreElement = page
+    .locator("*")
+    .filter({ hasText: /^Score$/i })
+    .first();
+  await expect(scoreElement).toBeVisible({ timeout: 10000 });
+
+  // Click on "Score" to expand/show the score details
+  await scoreElement.click();
+
+  // Wait for the JSON score content to appear after clicking
+  await page.waitForFunction(
+    () => {
+      const bodyText = document.body.textContent || "";
+      return /"total"\s*:\s*"3"/i.test(bodyText);
+    },
+    { timeout: 10000 }
+  );
+
+  // Expect to see "total": "3" in the JSON
+  const scoreContent = page.locator("*").filter({
+    hasText: /"total"\s*:\s*"3"/i,
+  });
+  await expect(scoreContent.first()).toBeVisible({ timeout: 5000 });
+
+  // Expect to see "You've reached the end" text
+  const endMessage = page
+    .getByText(/You've reached the end|You have reached the end/i)
+    .first();
+  await expect(endMessage).toBeVisible({ timeout: 5000 });
+
   await verifyRunsPersistedAndCharged(runUuids, request, {
     apiBaseUrl: TEST_API_BASE_URL,
     page,
