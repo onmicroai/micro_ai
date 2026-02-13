@@ -1490,6 +1490,20 @@ export default function Field({
               )}
             </div>
           );
+        case "richText":
+          return (
+            <div className="relative overflow-hidden rounded-md border border-gray-200 bg-gray-50">
+              <div
+                className="prose prose-sm max-w-none px-4 py-3 text-gray-700 [&_*]:my-0 [&_img]:max-h-36 [&_img]:w-auto [&_img]:max-w-full"
+                style={{
+                  maxHeight: "8.5rem",
+                  overflow: "hidden",
+                }}
+                dangerouslySetInnerHTML={{ __html: field.html || "" }}
+              />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-gray-50 to-transparent" />
+            </div>
+          );
 
         default:
           //TODO: Display restrictions labels
@@ -1744,7 +1758,7 @@ export default function Field({
               </motion.div>
             )}
 
-            {!isActive && !isSpecialType && (
+            {!isActive && (!isSpecialType || field.type === "richText") && (
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}

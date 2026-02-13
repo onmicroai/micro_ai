@@ -1,3 +1,20 @@
+/* Shared image sizing behavior for editor + runtime render */
+.tiptap,
+.rich-text-content {
+  .image-resizer {
+    display: inline-block;
+    max-width: 100%;
+    vertical-align: top;
+  }
+
+  .image-resizer img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+  }
+}
+
 /* Basic editor styles */
 .tiptap {
   min-height: 200px;
@@ -75,8 +92,14 @@
   }
 
   img {
+    display: block;
     max-width: 100%;
     height: auto;
+  }
+
+  .ProseMirror-selectednode img {
+    outline: 2px solid rgba(59, 130, 246, 0.45);
+    outline-offset: 2px;
   }
 
   blockquote {
