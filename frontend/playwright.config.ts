@@ -1,8 +1,18 @@
 // Load .env before tests/constants so process.env.NEXT_PUBLIC_* etc. are available in tests
-import "dotenv/config";
-
 import { defineConfig, devices } from "@playwright/test";
-import { TEST_BASE_URL } from "tests/constants";
+import dotenv from "dotenv";
+import path from "path";
+import fs from "fs";
+
+const targetEnv = process.env.TARGET_ENV || "local";
+const envFile = `.env.${targetEnv}`;
+const envPath = path.resolve(__dirname, envFile);
+if (fs.existsSync(envPath)) {
+  dotenv.config({ path: envPath });
+  console.log(`[Playwright] Loading environment from: ${envFile}`);
+} else {
+  console.log(`[Playwright] Env file not found: ${envFile}, using process.env`);
+}
 
 export default defineConfig({
   testDir: "./tests",
@@ -16,7 +26,7 @@ export default defineConfig({
     : [["html"], ["list"], ["github"]],
 
   use: {
-    baseURL: TEST_BASE_URL,
+    baseURL: process.env.TEST_BASE_URL,
     trace: "on-first-retry",
     // Capture screenshot and video on failure for better debugging
     screenshot: "only-on-failure",
