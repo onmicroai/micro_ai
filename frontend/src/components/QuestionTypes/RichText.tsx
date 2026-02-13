@@ -9,6 +9,7 @@ interface RichTextQuestionProps {
   answers: Answers;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const mergeResizeStylesIntoImageTag = (html: string): string => {
@@ -45,12 +46,13 @@ const mergeResizeStylesIntoImageTag = (html: string): string => {
 
 const RichTextQuestion = ({ element, disabled }: RichTextQuestionProps) => {
   const runtimeHtml = mergeResizeStylesIntoImageTag(element.html || "");
+  const questionText = element.text || element.label || element.name;
 
   return (
     <div key={element.name} className={`${disabled ? "opacity-75" : ""}`}>
-      {element.label && (
+      {questionText && (
         <label className="block text-sm/6 font-medium text-gray-900">
-          {element.label}
+          {questionText}
           {element.isRequired && <span className="text-red-500 ml-1">*</span>}
         </label>
       )}

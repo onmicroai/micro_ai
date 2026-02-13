@@ -16,6 +16,7 @@ interface CheckboxQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const CheckboxQuestion = ({
@@ -24,6 +25,7 @@ const CheckboxQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: CheckboxQuestionProps) => {
   const [isOtherSelected, setIsOtherSelected] = useState(
     answers[element.name]?.value?.includes("other") || false,
@@ -37,6 +39,7 @@ const CheckboxQuestion = ({
   const selectedAnswers = answers[element.name]?.value || [];
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
   const otherPlaceholder = element.otherPlaceholder || "Other (describe)";
   const otherLabel = element.otherText || "Other";
   const noneText = element.noneText || "None";
@@ -142,24 +145,20 @@ const CheckboxQuestion = ({
   useEffect(() => {
     setErrorMessage(getErrorMessage(element.name));
   }, [errors, element.name, getErrorMessage]);
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers,
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers,
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}

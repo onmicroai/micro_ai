@@ -20,6 +20,7 @@ interface TextAreaQuestionProps {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const TextAreaQuestion = ({
@@ -28,6 +29,7 @@ const TextAreaQuestion = ({
   handleInputChange,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: TextAreaQuestionProps) => {
   /**
    * Extracts the error message for a given question.
@@ -41,6 +43,7 @@ const TextAreaQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Automatically adjusts the textarea height based on content
@@ -138,24 +141,20 @@ const TextAreaQuestion = ({
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={` ${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={` ${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}

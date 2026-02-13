@@ -17,6 +17,7 @@ interface DropdownQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const DropdownQuestion = ({
@@ -25,6 +26,7 @@ const DropdownQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: DropdownQuestionProps) => {
   const otherPlaceholder = element.otherPlaceholder || "Please specify";
   const otherLabel = element.otherText || "Other";
@@ -48,6 +50,7 @@ const DropdownQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Handles the change event for the other input field.
@@ -99,24 +102,20 @@ const DropdownQuestion = ({
     setIsOtherSelected(value === "other");
     setInputValue(element.name, value, otherValue, "dropdown");
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}

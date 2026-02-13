@@ -16,6 +16,7 @@ interface RadioQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const RadioQuestion = ({
@@ -24,6 +25,7 @@ const RadioQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: RadioQuestionProps) => {
   const [isOtherSelected, setIsOtherSelected] = useState(
     answers[element.name]?.value === "other"
@@ -50,6 +52,7 @@ const RadioQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Handles the change event for the "Other" input.
@@ -119,24 +122,20 @@ const RadioQuestion = ({
     const radioOptionsList = getRadioOptions(element, noneLabel, otherLabel);
     setRadioOptions(radioOptionsList);
   }, [element, noneLabel, otherLabel]);
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
