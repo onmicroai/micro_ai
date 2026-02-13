@@ -32,6 +32,7 @@ import {
   HiddenHeaderElement,
 } from "@/app/(authenticated)/app/types";
 import { useUserStore } from "@/store/userStore";
+import { useSurveyStore } from "../store/editSurveyStore";
 import FieldHeader from "./shared/FieldHeader";
 import Image from "next/image";
 import {
@@ -279,6 +280,12 @@ export default function Field({
   isActive = false,
 }: FieldProps) {
   const { user } = useUserStore();
+  const {
+    conditionalSidebarContext,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+    setConditionalSidebarContext,
+  } = useSurveyStore();
   const [isValidationExpanded, setValidationExpanded] = useState(
     !!field.minChars || !!field.maxChars,
   );
@@ -353,7 +360,7 @@ export default function Field({
     if (previousActiveRef.current && !isActive) {
       const trimmedLabel = field.label?.trim() || "";
       if (shouldDefaultLabel && trimmedLabel.length === 0) {
-        onUpdateFieldLabel(field.id, "Question", isPromptType);
+        onUpdateFieldLabel(field.id, field.type === "chat" ? "Label" : "Question", isPromptType);
       }
     }
     previousActiveRef.current = isActive;
@@ -414,6 +421,35 @@ export default function Field({
   const fieldCondition =
     field.conditionalLogic &&
     phaseFields.find((f) => f.id === field.conditionalLogic?.sourceFieldId);
+
+  const handleOpenFieldConditionSidebar = () => {
+    if (!field.conditionalLogic) return;
+
+    if (!isActive && onActivate) {
+      onActivate();
+    }
+
+    requestAnimationFrame(() => {
+      setConditionalSidebarContext({
+        field,
+        currentLogic: field.conditionalLogic,
+        instructionIndex: undefined,
+      });
+      setConditionalSidebarOpen(true);
+    });
+  };
+
+  const handleRemoveFieldCondition = () => {
+    onUpdateConditionalLogic?.(field.id, null);
+
+    if (
+      conditionalSidebarOpen &&
+      conditionalSidebarContext?.field?.id === field.id &&
+      conditionalSidebarContext?.instructionIndex === undefined
+    ) {
+      setConditionalSidebarOpen(false);
+    }
+  };
 
   // Create a cache key for the current voice configuration
   const getVoiceCacheKey = () => {
@@ -1357,9 +1393,8 @@ export default function Field({
                 ? field.conditionalLogic.value
                 : undefined
             }
-            onRemove={
-              isActive ? () => onUpdateConditionalLogic?.(field.id, null) : undefined
-            }
+            onOpenCondition={handleOpenFieldConditionSidebar}
+            onRemove={isActive ? handleRemoveFieldCondition : undefined}
           />
         )}
         <FieldHeader
@@ -1389,6 +1424,9 @@ export default function Field({
               : [];
             if (field.type === "title") {
               return [...baseHidden, "rename", "required"];
+            }
+            if (field.type === "fixedResponse" || field.type === "aiResponse") {
+              return [...baseHidden, "required"];
             }
             return baseHidden;
           })()}
@@ -1578,12 +1616,9 @@ export default function Field({
                     ? String(field.conditionalLogic.value)
                     : undefined
                 }
+                onOpenCondition={handleOpenFieldConditionSidebar}
                 currentFieldName={field.name}
-                onRemove={
-                  isActive
-                    ? () => onUpdateConditionalLogic?.(field.id, null)
-                    : undefined
-                }
+                onRemove={isActive ? handleRemoveFieldCondition : undefined}
               />
             </motion.div>
           )}
@@ -1621,6 +1656,9 @@ export default function Field({
               if (field.type === "title") {
                 return [...baseHidden, "rename", "required"];
               }
+              if (field.type === "fixedResponse" || field.type === "aiResponse" || field.type === "chat" || field.type === "richText") {
+                return [...baseHidden, "required"];
+              }
               return baseHidden;
             })()}
             isDragging={isDragging}
@@ -1650,7 +1688,7 @@ export default function Field({
                         transition={{ delay: 0.15, duration: 0.3 }}
                       >
                         <Label className="text-sm font-medium mb-1 block">
-                          {field.type === "title" ? "Title" : "Question"}
+                          {field.type === "title" ? "Title" : field.type === "chat" ? "Label" : "Question"}
                         </Label>
                         <Input
                           value={field.text || field.label || ""}
@@ -1674,6 +1712,8 @@ export default function Field({
                           placeholder={
                             field.type === "title"
                               ? "Enter title..."
+                              : field.type === "chat"
+                              ? "Enter label..."
                               : "Enter your question..."
                           }
                         />

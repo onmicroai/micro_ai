@@ -83,8 +83,12 @@ export default function AIResponseField({
   const [focusedInstruction, setFocusedInstruction] = useState<string | null>(
     null,
   );
-  const { setConditionalSidebarOpen, setConditionalSidebarContext } =
-    useSurveyStore();
+  const {
+    conditionalSidebarContext,
+    conditionalSidebarOpen,
+    setConditionalSidebarOpen,
+    setConditionalSidebarContext,
+  } = useSurveyStore();
 
   useEffect(() => {
     const handleGlobalClick = (event: MouseEvent) => {
@@ -196,6 +200,9 @@ export default function AIResponseField({
   };
 
   const handleRemoveInstructionCondition = (instructionId: string) => {
+    const instructionIndex = instructions.findIndex(
+      (inst) => inst.id === instructionId,
+    );
     const targetInstruction = instructions.find(
       (inst) => inst.id === instructionId,
     );
@@ -205,6 +212,14 @@ export default function AIResponseField({
     );
     setInstructions(updatedInstructions);
     updateFieldText(updatedInstructions);
+    if (
+      instructionIndex !== -1 &&
+      conditionalSidebarOpen &&
+      conditionalSidebarContext?.field?.id === field.id &&
+      conditionalSidebarContext?.instructionIndex === instructionIndex
+    ) {
+      setConditionalSidebarOpen(false);
+    }
     if (previousLogic) {
       showUndoToast({
         message: "Conditional logic cleared.",
@@ -838,6 +853,11 @@ export default function AIResponseField({
                             ? String(instruction.conditionalLogic.value)
                             : undefined
                         }
+                        onOpenCondition={
+                          isPreviewMode
+                            ? undefined
+                            : () => handleOpenConditionDialog(instruction.id)
+                        }
                         onRemove={
                           isPreviewMode
                             ? undefined
@@ -893,6 +913,9 @@ export default function AIResponseField({
                               instruction.conditionalLogic.value
                                 ? String(instruction.conditionalLogic.value)
                                 : undefined
+                            }
+                            onOpenCondition={() =>
+                              handleOpenConditionDialog(instruction.id)
                             }
                             onRemove={
                               isPreviewMode

@@ -183,6 +183,7 @@ const shouldDefaultQuestionLabel = (type: string) =>
     "richText",
     "prompt",
     "aiInstructions",
+    "chat"
   ].includes(type);
 
 const ACCEPTED_FILE_TYPES = {
@@ -582,8 +583,7 @@ export default function FormBuilder() {
   const activeElement = elements.find((element) => element.id === activeFieldId);
   const isTagFocusActive =
     conditionalSidebarOpen ||
-    activeElement?.type === "aiResponse" ||
-    activeElement?.type === "fixedResponse";
+    activeElement?.type === "aiResponse";
 
   useEffect(() => {
     if (!conditionalSidebarOpen) return;
@@ -908,9 +908,11 @@ export default function FormBuilder() {
       case "aiResponse":
         typeSpecificDefaults.text = "";
         typeSpecificDefaults.instructions = [];
+        typeSpecificDefaults.isRequired = false;
         break;
       case "fixedResponse":
         typeSpecificDefaults.text = "";
+        typeSpecificDefaults.isRequired = false;
         break;
       case "scoring":
         typeSpecificDefaults.rubric = "";
