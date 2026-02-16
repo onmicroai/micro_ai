@@ -1,5 +1,4 @@
 # Run Playwright E2E after DEVELOPMENT deployment succeeds only.
-# CI/CD Staging (Prod Server) will NOT trigger this workflow.
 
 name: Playwright E2E After DEV Deploy
 
@@ -39,6 +38,20 @@ jobs:
         working-directory: ./frontend
         run: npx playwright install --with-deps
 
+      # Download .env file from dev server (same as deployment workflow uses)
+      - name: Download .env file from dev server
+        if: github.event.workflow_run.name == 'CI/CD Development(Dev Server)'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY_DEV }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP_DEV }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Download .env file from server (same location as deployment workflow)
+          ssh ubuntu@${{ secrets.SERVER_IP_DEV }} 'if [ -f "/opt/secrets/.env" ]; then cat /opt/secrets/.env; elif [ -f "/docker/volumes/micro_ai/.env" ]; then cat /docker/volumes/micro_ai/.env; else echo "# .env file not found on server"; fi' > ./frontend/.env
+
+          echo "✅ Downloaded .env file from dev server"
+
       # Development deploy succeeded → run E2E against dev
       - name: Run Playwright (dev)
         if: github.event.workflow_run.name == 'CI/CD Development(Dev Server)'
@@ -47,8 +60,6 @@ jobs:
         env:
           CI: true
           TARGET_ENV: dev
-          PLAYWRIGHT_BASE_URL: https://dev.onmicro.ai
-          PLAYWRIGHT_API_BASE_URL: https://dev.onmicro.ai
 
       - name: Generate test summary
         if: always()
