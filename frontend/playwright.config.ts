@@ -4,14 +4,22 @@ import dotenv from "dotenv";
 import path from "path";
 import fs from "fs";
 
-const targetEnv = process.env.TARGET_ENV || "local";
-const envFile = `.env.${targetEnv}`;
-const envPath = path.resolve(__dirname, envFile);
+// Load .env file if it exists (downloaded from server in CI workflows)
+const envPath = path.resolve(__dirname, ".env");
 if (fs.existsSync(envPath)) {
   dotenv.config({ path: envPath });
-  console.log(`[Playwright] Loading environment from: ${envFile}`);
+  console.log(`[Playwright] Loading environment from: .env`);
 } else {
-  console.log(`[Playwright] Env file not found: ${envFile}, using process.env`);
+  // Fallback to .env.{TARGET_ENV} for local development
+  const targetEnv = process.env.TARGET_ENV || "local";
+  const envFile = `.env.${targetEnv}`;
+  const fallbackEnvPath = path.resolve(__dirname, envFile);
+  if (fs.existsSync(fallbackEnvPath)) {
+    dotenv.config({ path: fallbackEnvPath });
+    console.log(`[Playwright] Loading environment from: ${envFile}`);
+  } else {
+    console.log(`[Playwright] Env file not found: .env or ${envFile}, using process.env`);
+  }
 }
 
 export default defineConfig({
