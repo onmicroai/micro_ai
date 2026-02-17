@@ -43,7 +43,9 @@ export default function PromptField({
     "iinline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
   const inactiveTagClasses =
     "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary hover:text-red";
-  const inlineTagClasses = isPreviewMode? inactiveTagClasses : activeTagClasses;
+  const inlineTagClasses = isPreviewMode
+    ? inactiveTagClasses
+    : activeTagClasses;
 
   /**
    * Converts text with {tag_name} placeholders to rich text with interactive tag elements.
@@ -1006,11 +1008,11 @@ export default function PromptField({
 
   const fixedResponseContainerClass = isPreviewMode
     ? ""
-    : "relative w-full box-border bg-white rounded-lg border focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200";
-  const defaultEditorClass =
-    `min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-      isEmpty ? "empty-editor" : ""
-    } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
+    : "relative w-full box-border bg-white rounded-lg border border-gray-300 focus-within:border-primary-600 focus-within:ring-inset transition-all duration-200";
+
+  const defaultEditorClass = `min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-primary-600 focus:border-transparent ${
+    isEmpty ? "empty-editor" : ""
+  } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
   const fixedResponseEditorClass = isPreviewMode
     ? `w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 leading-relaxed break-words whitespace-pre-line cursor-pointer ${
         isEmpty ? "empty-editor" : ""
@@ -1028,7 +1030,9 @@ export default function PromptField({
             data-placeholder={getPlaceholderText()}
             ref={editorRef}
             contentEditable={isPreviewMode ? false : true}
-            className={isFixedResponse ? fixedResponseEditorClass : defaultEditorClass}
+            className={
+              isFixedResponse ? fixedResponseEditorClass : defaultEditorClass
+            }
             onInput={handleInput}
             onClick={handleClick}
             onKeyDown={handleKeyDown}

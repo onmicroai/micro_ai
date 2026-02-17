@@ -9,6 +9,7 @@ import {
   ConditionalLogic,
 } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
+import { Input } from "../basic/input";
 
 interface RadioQuestionProps {
   element: Element;
@@ -204,24 +205,9 @@ const RadioQuestion = ({
       </div>
 
       {isOtherSelected && (
-        <input
+        <Input
           type="text"
-          className={`
-                  mt-2 w-full px-3 py-2 rounded-md border
-                  ${
-                    hasError
-                      ? "border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                  }
-                  ${
-                    disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-500"
-                      : "bg-white"
-                  }
-                  shadow-sm
-                  focus:outline-none focus:ring-2
-                  transition duration-150 ease-in-out
-               `}
+          className={`mt-2`}
           value={otherValue}
           onChange={handleOtherInputChange}
           placeholder={otherPlaceholder}

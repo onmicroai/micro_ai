@@ -11,6 +11,7 @@ import {
 import { useDropzone } from "react-dropzone";
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
+import { Input } from "../basic/input";
 
 interface ImageUploadQuestionProps {
   element: Element;
@@ -305,28 +306,13 @@ const ImageUploadQuestion = ({
           <div className="space-y-2 mt-4">
             {imageUrls.map((url, index) => (
               <div key={index} className="relative">
-                <input
+                <Input
                   type="url"
                   value={url}
                   onChange={(e) => handleUrlChange(index, e.target.value)}
                   disabled={disabled || getTotalItemsCount() >= maxFiles}
                   placeholder="Paste image URL here"
-                  className={`
-                    w-full px-3 py-2 pr-8 rounded-md border
-                    ${
-                      hasError
-                        ? "border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                        : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                    }
-                    ${
-                      disabled || getTotalItemsCount() >= maxFiles
-                        ? "bg-gray-50 text-gray-500"
-                        : "bg-white"
-                    }
-                    shadow-sm
-                    focus:outline-none focus:ring-2
-                    transition duration-150 ease-in-out
-                  `}
+                  error={hasError}
                 />
                 {url && !disabled && (
                   <button

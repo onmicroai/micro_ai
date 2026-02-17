@@ -1,6 +1,14 @@
 "use client";
 
-import { Split, Trash2, GripVertical, Pencil, X, Check, HelpCircle } from "lucide-react";
+import {
+  Split,
+  Trash2,
+  GripVertical,
+  Pencil,
+  X,
+  Check,
+  HelpCircle,
+} from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
 import { Switch } from "../../components/ui/switch";
@@ -24,7 +32,7 @@ import {
   TooltipTrigger,
 } from "../../components/ui/tooltip";
 
-import { Input } from "../../components/ui/input";
+import { Input } from "../../../../../../../../components/basic/input";
 import {
   ConditionalLogic,
   Element,
@@ -329,8 +337,9 @@ export default function FieldHeader({
                     </TooltipTrigger>
                     <TooltipContent side="top" className="max-w-xs">
                       <p>
-                        When enabled, users must meet the minimum score to continue.
-                        When disabled, they can continue even if they do not pass.
+                        When enabled, users must meet the minimum score to
+                        continue. When disabled, they can continue even if they
+                        do not pass.
                       </p>
                     </TooltipContent>
                   </Tooltip>

@@ -2,9 +2,9 @@
 
 import { CirclePlus, CircleMinus, Repeat2, User } from "lucide-react";
 import React, { useEffect, useState } from "react";
-import { Input } from "./ui/input";
+import { Input } from "../../../../../../../components/basic/input";
+import { Textarea } from "../../../../../../../components/basic/textarea";
 import { Label } from "./ui/label";
-import { Textarea } from "./ui/textarea";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import RenderQuestion from "@/components/RenderQuestion";
 import { Checkbox } from "./ui/checkbox";
@@ -62,7 +62,11 @@ type ActionButtonProps = {
   className?: string;
 };
 
-const ActionButton = ({ children, onClick, className = "" }: ActionButtonProps) => (
+const ActionButton = ({
+  children,
+  onClick,
+  className = "",
+}: ActionButtonProps) => (
   <button
     type="button"
     onClick={onClick}
@@ -162,43 +166,43 @@ interface FieldProps {
   onUpdateFieldLabel: (
     fieldId: string,
     newLabel: string,
-    isPrompt: boolean,
+    isPrompt: boolean
   ) => void;
   onUpdateFieldName: (
     fieldId: string,
     newName: string,
-    isPrompt: boolean,
+    isPrompt: boolean
   ) => void;
   onUpdateFieldType?: (fieldId: string, newType: string) => void;
   onDeleteField: (fieldId: string, isPrompt: boolean) => void;
   onUpdateFieldDescription: (
     fieldId: string,
     description: string,
-    isPrompt: boolean,
+    isPrompt: boolean
   ) => void;
   onUpdateFieldRequired: (
     fieldId: string,
     isRequired: boolean,
-    isPrompt: boolean,
+    isPrompt: boolean
   ) => void;
   onUpdateFieldValidation: (
     fieldId: string,
     minChars: number | null,
     maxChars: number | null,
-    isPrompt: boolean,
+    isPrompt: boolean
   ) => void;
   onUpdatePromptText?: (fieldId: string, text: string) => void;
   onUpdateAiResponseInstructions?: (
     fieldId: string,
-    instructions: ElementInstruction[],
+    instructions: ElementInstruction[]
   ) => void;
   onUpdateScoringSettings?: (
     fieldId: string,
-    updates: { rubric?: string; minScore?: number },
+    updates: { rubric?: string; minScore?: number }
   ) => void;
   onUpdateFieldDefaultValue: (
     fieldId: string,
-    defaultValue: string | string[] | number | boolean,
+    defaultValue: string | string[] | number | boolean
   ) => void;
   onUpdateFieldPlaceholder: (fieldId: string, placeholder: string) => void;
   onUpdateFieldChoices: (fieldId: string, choices: Choice[]) => void;
@@ -206,11 +210,11 @@ interface FieldProps {
   onUpdateFieldSliderValue: (fieldId: string, value: number) => void;
   onUpdateFieldSliderProps: (
     fieldId: string,
-    updates: { minValue?: number; maxValue?: number; step?: number },
+    updates: { minValue?: number; maxValue?: number; step?: number }
   ) => void;
   onUpdateConditionalLogic?: (
     fieldId: string,
-    logic: ConditionalLogic | null,
+    logic: ConditionalLogic | null
   ) => void;
   onUpdateRichText?: (fieldId: string, html: string) => void;
   onUpdateImageUploadSettings?: (
@@ -220,16 +224,16 @@ interface FieldProps {
       maxFiles?: number;
       maxFileSize?: number;
       allowedFileTypes?: string[];
-    },
+    }
   ) => void;
   onUpdateFieldMaxMessages?: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage?: (
     fieldId: string,
-    initialMessage: string,
+    initialMessage: string
   ) => void;
   onUpdateChatbotInstructions?: (
     fieldId: string,
-    chatbotInstructions: string,
+    chatbotInstructions: string
   ) => void;
   onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
@@ -287,7 +291,7 @@ export default function Field({
     setConditionalSidebarContext,
   } = useSurveyStore();
   const [isValidationExpanded, setValidationExpanded] = useState(
-    !!field.minChars || !!field.maxChars,
+    !!field.minChars || !!field.maxChars
   );
   const [choices, setChoices] = useState<Choice[]>(field.choices || []);
   const [selectedCheckboxes, setSelectedCheckboxes] = useState<string[]>([]);
@@ -308,10 +312,10 @@ export default function Field({
   const isSpecialType = isPromptType || field.type === "richText";
   const shouldDefaultLabel =
     !isSpecialType && field.type !== "title" && field.type !== "scoring";
-  const defaultTextPlaceholder = "Your user can enter a short response here... ";
+  const defaultTextPlaceholder =
+    "Your user can enter a short response here... ";
   const defaultTextareaPlaceholder =
     "Your user can enter a longer response here... ";
- 
 
   // Handle click outside to exit edit mode
   useEffect(() => {
@@ -319,7 +323,7 @@ export default function Field({
       // Ignore clicks inside Radix Select content and any open Radix poppers,
       // because their click events are bubbled to the document.
       const poppers = document.querySelectorAll(
-        "[data-radix-popper-content-wrapper]",
+        "[data-radix-popper-content-wrapper]"
       );
       if (poppers.length > 0) {
         return;
@@ -327,7 +331,7 @@ export default function Field({
 
       // Ignore clicks inside conditional logic sidebar
       const conditionalLogicSidebar = document.getElementById(
-        "conditional-logic-sidebar",
+        "conditional-logic-sidebar"
       );
       if (
         conditionalLogicSidebar &&
@@ -360,7 +364,11 @@ export default function Field({
     if (previousActiveRef.current && !isActive) {
       const trimmedLabel = field.label?.trim() || "";
       if (shouldDefaultLabel && trimmedLabel.length === 0) {
-        onUpdateFieldLabel(field.id, field.type === "chat" ? "Label" : "Question", isPromptType);
+        onUpdateFieldLabel(
+          field.id,
+          field.type === "chat" ? "Label" : "Question",
+          isPromptType
+        );
       }
     }
     previousActiveRef.current = isActive;
@@ -389,7 +397,7 @@ export default function Field({
       }
 
       const fallbackFocusable = container.querySelector<HTMLElement>(
-        'button:not([disabled])'
+        "button:not([disabled])"
       );
       if (fallbackFocusable) {
         fallbackFocusable.focus({ preventScroll: true });
@@ -407,8 +415,8 @@ export default function Field({
   useEffect(() => {
     setChoices(
       (field.choices || []).filter(
-        (choice) => choice.value && choice.value !== "",
-      ),
+        (choice) => choice.value && choice.value !== ""
+      )
     );
   }, [field.choices]);
 
@@ -484,7 +492,7 @@ export default function Field({
 
   const handleUpdateOption = (index: number, newText: string) => {
     const newChoices = choices.map((choice, i) =>
-      i === index ? { ...choice, text: newText } : choice,
+      i === index ? { ...choice, text: newText } : choice
     );
     setChoices(newChoices);
     onUpdateFieldChoices(field.id, newChoices);
@@ -494,7 +502,7 @@ export default function Field({
     setSelectedCheckboxes((prev) =>
       prev.includes(optionId)
         ? prev.filter((id) => id !== optionId)
-        : [...prev, optionId],
+        : [...prev, optionId]
     );
   };
 
@@ -512,11 +520,10 @@ export default function Field({
     }
   };
 
-
   const handlePreviewInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-    >,
+    >
   ) => {
     const { name, value } = e.target;
     setPreviewAnswers((prev) => ({
@@ -528,7 +535,7 @@ export default function Field({
   const handlePreviewSetInputValue = (
     name: string,
     value: string | string[] | undefined,
-    otherValue: string,
+    otherValue: string
   ) => {
     setPreviewAnswers((prev) => ({
       ...prev,
@@ -610,12 +617,7 @@ export default function Field({
         return (
           <>
             <Input
-              className={`text-md bg-gray-100 border border-gray-200 focus:border-gray-600 px-2 py-1 transition-colors focus:outline-none focus:ring-0 w-full ${
-                isDefaultPlaceholder ? "cursor-default" : "cursor-text"
-              }`}
-              placeholder={
-                field.placeholder || defaultTextPlaceholder
-              }
+              placeholder={field.placeholder || defaultTextPlaceholder}
               readOnly={isDefaultPlaceholder}
               onFocus={(event) => {
                 if (isDefaultPlaceholder) {
@@ -641,11 +643,8 @@ export default function Field({
         const isDefaultPlaceholder = !field.placeholder;
         return (
           <Textarea
-            placeholder={
-              field.placeholder || defaultTextareaPlaceholder
-            }
+            placeholder={field.placeholder || defaultTextareaPlaceholder}
             readOnly={isDefaultPlaceholder}
-            className={isDefaultPlaceholder ? "cursor-default" : "cursor-text"}
             onFocus={(event) => {
               if (isDefaultPlaceholder) {
                 event.preventDefault();
@@ -679,16 +678,15 @@ export default function Field({
                         e.preventDefault();
                         onUpdateFieldDefaultValue(
                           field.id,
-                          undefined as unknown as string,
+                          undefined as unknown as string
                         );
                       }
                     }}
                   />
-                  <input
+                  <Input
                     type="text"
                     value={choice.text}
                     onChange={(e) => handleUpdateOption(index, e.target.value)}
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
                   />
                   <Button
                     variant="ghost"
@@ -729,7 +727,7 @@ export default function Field({
         );
       case "checkbox":
         return (
-          <div>
+          <div className="space-y-2">
             {choices.map((choice, index) => (
               <div key={index} className="flex items-center space-x-2">
                 <Checkbox
@@ -750,17 +748,16 @@ export default function Field({
                     onUpdateFieldDefaultValue(field.id, newDefaults);
                   }}
                 />
-                <input
+                <Input
                   type="text"
                   value={choice.text}
                   onChange={(e) => handleUpdateOption(index, e.target.value)}
-                  className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
                 />
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => handleDeleteOption(index)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-gray-400 hover:text-red-500"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -775,19 +772,18 @@ export default function Field({
                 />
                 <Label htmlFor="other-checkbox">Other</Label>
                 {selectedCheckboxes.includes("other") && (
-                  <input
+                  <Input
                     type="text"
                     value={otherCheckboxValue}
                     onChange={(e) => setOtherCheckboxValue(e.target.value)}
                     placeholder="Enter your option"
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
                   />
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onUpdateFieldShowOther(field.id, false)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-gray-400 hover:text-red-500"
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
@@ -839,11 +835,10 @@ export default function Field({
             <div className="mt-4 space-y-2">
               {choices.map((choice, index) => (
                 <div key={index} className="flex items-center space-x-2">
-                  <input
+                  <Input
                     type="text"
                     value={choice.text}
                     onChange={(e) => handleUpdateOption(index, e.target.value)}
-                    className="text-sm bg-transparent border border-gray-200 rounded px-2 py-1"
                   />
                   <Button
                     variant="ghost"
@@ -971,7 +966,7 @@ export default function Field({
                     const maxVal = field.maxValue || sliderMax;
                     const boundedValue = Math.min(
                       Math.max(value, minVal),
-                      maxVal,
+                      maxVal
                     );
 
                     setSliderDefault(boundedValue);
@@ -996,7 +991,6 @@ export default function Field({
                     onUpdateFieldSliderProps(field.id, { step: value });
                   }}
                   min={1}
-                  className="text-sm bg-transparent border border-gray-200"
                 />
               </div>
             </div>
@@ -1158,16 +1152,13 @@ export default function Field({
                 <label className="text-sm font-medium">
                   Chatbot Instructions
                 </label>
-                <textarea
+                <Textarea
                   value={field.chatbotInstructions || ""}
                   onChange={(e) => {
                     if (onUpdateChatbotInstructions) {
                       onUpdateChatbotInstructions(field.id, e.target.value);
                     }
                   }}
-                  className="w-full min-h-[100px] rounded-md border border-gray-300 
-                    px-3 py-2 text-gray-900 focus:border-primary 
-                    focus:ring-primary resize-y"
                   placeholder="Enter instructions for how the chatbot should behave..."
                 />
               </div>
@@ -1175,12 +1166,11 @@ export default function Field({
 
             <div className="space-y-2">
               <label className="text-sm font-medium">Initial Message</label>
-              <textarea
+              <Textarea
                 value={field.initialMessage || ""}
                 onChange={(e) =>
                   onUpdateFieldInitialMessage?.(field.id, e.target.value)
                 }
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
                 placeholder="Enter initial message..."
               />
             </div>
@@ -1190,7 +1180,6 @@ export default function Field({
                 type="number"
                 min="1"
                 value={field.maxMessages || 10}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-gray-900 focus:border-primary focus:ring-primary"
                 onChange={(e) => {
                   const value = parseInt(e.target.value, 10);
                   if (onUpdateFieldMaxMessages && !isNaN(value)) {
@@ -1305,7 +1294,7 @@ export default function Field({
                           if (hasCachedSample && !isGeneratingSample) {
                             // Play cached sample
                             const audio = new Audio(
-                              cachedVoiceSamples[currentCacheKey],
+                              cachedVoiceSamples[currentCacheKey]
                             );
                             audio.play();
                           } else {
@@ -1319,7 +1308,7 @@ export default function Field({
                               "openai",
                               field.selectedVoiceId || "ash",
                               field.voiceInstructions,
-                              user?.id || null,
+                              user?.id || null
                             );
 
                             // Cache the sample
@@ -1350,8 +1339,8 @@ export default function Field({
                         {isGeneratingSample
                           ? "Generating..."
                           : hasCachedSample
-                            ? "Play Sample"
-                            : "Generate Sample"}
+                          ? "Play Sample"
+                          : "Generate Sample"}
                       </span>
                     </Button>
                   </div>
@@ -1473,8 +1462,7 @@ export default function Field({
                     <label className="block text-sm font-medium mb-1">
                       Min characters
                     </label>
-                    <input
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
+                    <Input
                       type="number"
                       value={field.minChars || ""}
                       onChange={(e) =>
@@ -1482,7 +1470,7 @@ export default function Field({
                           field.id,
                           e.target.value ? parseInt(e.target.value, 10) : null,
                           field.maxChars ?? null,
-                          false,
+                          false
                         )
                       }
                       placeholder="Enter the number"
@@ -1492,7 +1480,7 @@ export default function Field({
                     <label className="block text-sm font-medium mb-1">
                       Max characters
                     </label>
-                    <input
+                    <Input
                       type="number"
                       value={field.maxChars || ""}
                       onChange={(e) =>
@@ -1500,10 +1488,9 @@ export default function Field({
                           field.id,
                           field.minChars ?? null,
                           e.target.value ? parseInt(e.target.value, 10) : null,
-                          false,
+                          false
                         )
                       }
-                      className="text-md bg-transparent border border-gray-200 focus:border-gray-600 px-2 py-1 w-full transition-colors "
                       placeholder="Enter the number"
                     />
                   </div>
@@ -1523,9 +1510,13 @@ export default function Field({
         case "title":
           return (
             <div>
-              <h2 className="text-base font-semibold">{field.text || field.label}</h2>
+              <h2 className="text-base font-semibold">
+                {field.text || field.label}
+              </h2>
               {field.description && (
-                <p className="mt-1 text-sm text-gray-600">{field.description}</p>
+                <p className="mt-1 text-sm text-gray-600">
+                  {field.description}
+                </p>
               )}
             </div>
           );
@@ -1547,7 +1538,7 @@ export default function Field({
         default:
           //TODO: Display restrictions labels
           return (
-              <RenderQuestion
+            <RenderQuestion
               element={field}
               answers={previewAnswers}
               errors={[]}
@@ -1658,7 +1649,12 @@ export default function Field({
               if (field.type === "title") {
                 return [...baseHidden, "rename", "required"];
               }
-              if (field.type === "fixedResponse" || field.type === "aiResponse" || field.type === "chat" || field.type === "richText") {
+              if (
+                field.type === "fixedResponse" ||
+                field.type === "aiResponse" ||
+                field.type === "chat" ||
+                field.type === "richText"
+              ) {
                 return [...baseHidden, "required"];
               }
               return baseHidden;
@@ -1690,7 +1686,11 @@ export default function Field({
                         transition={{ delay: 0.15, duration: 0.3 }}
                       >
                         <Label className="text-sm font-medium mb-1 block">
-                          {field.type === "title" ? "Title" : field.type === "chat" ? "Label" : "Question"}
+                          {field.type === "title"
+                            ? "Title"
+                            : field.type === "chat"
+                            ? "Label"
+                            : "Question"}
                         </Label>
                         <Input
                           value={field.text || field.label || ""}
@@ -1703,14 +1703,9 @@ export default function Field({
                             onUpdateFieldLabel(
                               field.id,
                               e.target.value,
-                              isPromptType,
+                              isPromptType
                             );
                           }}
-                          className={`bg-transparent border border-gray-200 px-4 py-2 transition-colors focus:outline-none focus:ring-0 w-full cursor-text ${
-                            field.type === "title"
-                              ? "font-semibold text-xl focus:border-gray-200"
-                              : "text-md focus:border-gray-600"
-                          }`}
                           placeholder={
                             field.type === "title"
                               ? "Enter title..."
@@ -1747,7 +1742,7 @@ export default function Field({
                                 onUpdateFieldDescription(
                                   field.id,
                                   e.target.value,
-                                  isPromptType,
+                                  isPromptType
                                 )
                               }
                               className={`bg-transparent w-full border border-gray-200 px-4 py-2 transition-colors focus:outline-none focus:ring-0 min-h-[40px] resize-y cursor-text ${
