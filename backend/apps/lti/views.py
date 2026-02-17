@@ -23,6 +23,10 @@ from pylti1p3.tool_config import ToolConfDict
 from pathlib import Path
 from django.http import HttpResponseRedirect
 from urllib.parse import urlencode
+from django.contrib.auth import get_user_model
+from apps.microapps.models import Microapp, MicroAppUserJoin
+
+User = get_user_model()
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -154,18 +158,33 @@ def launch(request):
     try:
       ld = message_launch.get_launch_data()
       pprint.pprint(ld)
+      lid = message_launch.get_launch_id()
+
+      # Deep Link launch: redirect instructor to content picker
+      if message_launch.is_deep_link_launch():
+          request.session['deep_link_launch_id'] = lid
+          return redirect(reverse('app-deep-link-picker'))
+
+      # Regular resource launch
       iss = message_launch.get_iss()
       client_id = ld.get("aud")
+
+      # First, check for microapp_hash_id in custom parameters (set during deep linking)
+      custom = ld.get('https://purl.imsglobal.org/spec/lti/claim/custom', {})
+      microapp_hash_id = custom.get('microapp_hash_id')
+
+      if microapp_hash_id:
+          redirect_url = f"{frontend_url}app/embed/{microapp_hash_id}/?lid={lid}"
+          return redirect(redirect_url)
+
+      # Fall back to the LTIConfig.microapp association
       cfg = LTIConfig.objects.get(issuer=iss, client_id=client_id)
-      lid = message_launch.get_launch_id()
-      
-      # Generate redirect URL based on the app ID
       if not cfg.microapp:
          raise Exception(f"No microapp associated with LTI config for issuer {iss} and client_id {client_id}")
-      
+
       redirect_url = f"{frontend_url}app/embed/{cfg.microapp.hash_id}/?lid={lid}"
       return redirect(redirect_url)
-    
+
     except Exception as e:
       import traceback
       print("LTI Launch Error:")
@@ -179,16 +198,108 @@ def get_jwks(request):
     return JsonResponse(tool_conf.get_jwks(), safe=False)
 
 
-def configure(request, launch_id, difficulty):
+def deep_link_picker(request):
+    """
+    Content picker page for LTI Deep Linking.
+    Shows the instructor's microapps so they can select one to link in the LMS.
+    """
+    launch_id = request.session.get('deep_link_launch_id')
+    if not launch_id:
+        return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
+
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
-    message_launch = ExtendedDjangoMessageLaunch.from_cache(launch_id, request, tool_conf, launch_data_storage=launch_data_storage)
+
+    try:
+        message_launch = ExtendedDjangoMessageLaunch.from_cache(
+            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
+        )
+    except Exception:
+        return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
+
     if not message_launch.is_deep_link_launch():
-        return HttpResponseForbidden('Must be a deep link!')
+        return HttpResponseForbidden('Must be a deep link launch.')
+
+    # Extract instructor email from LTI launch data
+    ld = message_launch.get_launch_data()
+    email = ld.get('email', '')
+
+    microapps = []
+    error_message = ''
+
+    if email:
+        try:
+            user = User.objects.get(email__iexact=email)
+            app_ids = MicroAppUserJoin.objects.filter(
+                user_id=user, is_archived=False
+            ).values_list('ma_id', flat=True)
+            microapps = list(
+                Microapp.objects.filter(id__in=app_ids, is_archived=False)
+                .order_by('title')
+                .values('hash_id', 'title', 'explanation')
+            )
+        except User.DoesNotExist:
+            error_message = (
+                f'No MicroAI account found for {email}. '
+                'Please make sure you have an account with the same email as your LMS.'
+            )
+    else:
+        error_message = 'Your LMS did not provide an email address. Cannot match to a MicroAI account.'
+
+    if not microapps and not error_message:
+        error_message = 'You don\'t have any microapps yet. Create one first, then return here to link it.'
+
+    return render(request, 'lti/deep_link_picker.html', {
+        'microapps': microapps,
+        'error_message': error_message,
+        'launch_id': launch_id,
+    })
+
+
+@csrf_exempt
+@require_POST
+def deep_link_select(request):
+    """
+    Handles the instructor's microapp selection and sends the Deep Link response back to the LMS.
+    """
+    launch_id = request.session.get('deep_link_launch_id')
+    microapp_hash_id = request.POST.get('microapp_hash_id')
+
+    if not launch_id or not microapp_hash_id:
+        return HttpResponse('Invalid request. Please try again from your LMS.', status=400)
+
+    tool_conf = get_tool_conf(request)
+    launch_data_storage = get_launch_data_storage()
+
+    try:
+        message_launch = ExtendedDjangoMessageLaunch.from_cache(
+            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
+        )
+    except Exception:
+        return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
+
+    if not message_launch.is_deep_link_launch():
+        return HttpResponseForbidden('Must be a deep link launch.')
+
+    # Look up the selected microapp for its title
+    try:
+        microapp = Microapp.objects.get(hash_id=microapp_hash_id)
+    except Microapp.DoesNotExist:
+        return HttpResponse('Selected microapp not found.', status=404)
+
+    # Build the Deep Link resource
     launch_url = request.build_absolute_uri(reverse('app-launch'))
     resource = DeepLinkResource()
     resource.set_url(launch_url)
+    resource.set_title(microapp.title)
+    resource.set_custom_params({'microapp_hash_id': microapp.hash_id})
+
+    # Generate the auto-submitting form that posts back to the LMS
     html = message_launch.get_deep_link().output_response_form([resource])
+
+    # Clean up the session
+    del request.session['deep_link_launch_id']
+
     return HttpResponse(html)
 
 @csrf_exempt

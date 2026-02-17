@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Select a MicroApp</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #f8f9fb;
+      color: #1a1a2e;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container { max-width: 640px; margin: 0 auto; }
+
+    h1 {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      color: #64748b;
+      font-size: 0.875rem;
+      margin-bottom: 20px;
+    }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      border-radius: 8px;
+      padding: 16px;
+      color: #991b1b;
+      font-size: 0.875rem;
+    }
+
+    .app-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .app-card {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 14px 16px;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .app-card:hover {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+    }
+
+    .app-info { flex: 1; min-width: 0; }
+
+    .app-title {
+      font-size: 0.9375rem;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .app-desc {
+      font-size: 0.8125rem;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 2px;
+    }
+
+    .select-btn {
+      flex-shrink: 0;
+      margin-left: 12px;
+      padding: 6px 16px;
+      font-size: 0.8125rem;
+      font-weight: 500;
+      color: #fff;
+      background: #6366f1;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .select-btn:hover { background: #4f46e5; }
+
+    .empty-state {
+      text-align: center;
+      padding: 48px 16px;
+      color: #64748b;
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Select a MicroApp</h1>
+    <p class="subtitle">Choose which app to link into your course.</p>
+
+    {% if error_message %}
+      <div class="error-box">{{ error_message }}</div>
+    {% elif microapps %}
+      <div class="app-list">
+        {% for app in microapps %}
+          <div class="app-card">
+            <div class="app-info">
+              <div class="app-title">{{ app.title }}</div>
+              {% if app.explanation %}
+                <div class="app-desc">{{ app.explanation }}</div>
+              {% endif %}
+            </div>
+            <form method="post" action="{% url 'app-deep-link-select' %}">
+              {% csrf_token %}
+              <input type="hidden" name="microapp_hash_id" value="{{ app.hash_id }}">
+              <button type="submit" class="select-btn">Select</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="empty-state">
+        No microapps available to link.
+      </div>
+    {% endif %}
+  </div>
+</body>
+</html>
