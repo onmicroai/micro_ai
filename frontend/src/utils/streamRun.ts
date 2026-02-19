@@ -25,6 +25,8 @@ export interface ScoreData {
   scored_run: boolean;
   score_explanation?: boolean;
   score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+  score_feedback_enabled?: boolean;
+  score_feedback_instructions?: string;
   run_uuid?: string;
   credits?: number;
   cost?: number;

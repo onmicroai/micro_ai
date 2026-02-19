@@ -550,10 +550,19 @@ class UnifiedLLMInterface:
             Updated list of messages with explanation instruction appended
         """
         try:
+            custom_feedback_instruction = str(
+                data.get("score_feedback_instructions", "") or ""
+            ).strip()
+            feedback_instruction = (
+                custom_feedback_instruction
+                if custom_feedback_instruction
+                else "Call out what I did well and what can be improved, and why the score is what it is."
+            )
             instruction = (
                 "Explain the score in plain, user-friendly language. "
                 "Use the rubric below and the score JSON to justify the result, but do not output JSON. "
-                "Call out what I did well and what can be improved, and why the score is what it is. "
+                + feedback_instruction
+                + " "
                 f"Rubric: {str(data.get('rubric'))}. "
                 f"Score JSON: {score_json}."
             )

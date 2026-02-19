@@ -167,7 +167,7 @@ const RadioQuestion = ({
                   checked={isRadioChecked(answers, choice.value)}
                   disabled={disabled || element.readOnly}
                   className={`
-                              relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-gray-400 forced-colors:appearance-auto forced-colors:before:hidden [&:not(:checked)]:before:hidden
+                              relative size-4 appearance-none rounded-full border border-gray-300 bg-white before:absolute before:inset-1 before:rounded-full before:bg-white checked:border-primary checked:bg-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:border-gray-300 disabled:bg-gray-100 disabled:before:bg-white disabled:checked:border-primary-900 disabled:checked:bg-primary-900 disabled:checked:before:bg-white forced-colors:appearance-auto forced-colors:before:hidden [&:not(:checked)]:before:hidden
                               ${
                                 hasError
                                   ? "border-red-300 text-red-600 focus:ring-red-500"
@@ -175,7 +175,7 @@ const RadioQuestion = ({
                               }
                               ${
                                 disabled || element.readOnly
-                                  ? "opacity-50 cursor-not-allowed"
+                                  ? "cursor-default"
                                   : "cursor-pointer"
                               }
                               transition duration-150 ease-in-out
@@ -189,12 +189,10 @@ const RadioQuestion = ({
                 className={`
                            font-medium
                            ${
-                             disabled || element.readOnly
-                               ? "text-gray-500"
-                               : "text-gray-900"
+                             "text-gray-900"
                            }
                            ${hasError ? "text-red-900" : "text-gray-900"}
-                           cursor-pointer
+                           ${disabled || element.readOnly ? "cursor-default" : "cursor-pointer"}
                         `}
               >
                 {choice.label}

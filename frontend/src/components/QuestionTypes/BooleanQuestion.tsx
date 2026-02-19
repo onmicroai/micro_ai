@@ -98,21 +98,28 @@ const BooleanQuestion = ({
       <div
         className={`
             flex mt-2 items-center space-x-3
-            ${disabled || element.readOnly ? "opacity-60" : ""}
+            ${disabled || element.readOnly ? "" : ""}
          `}
       >
         <button
           type="button"
           role="switch"
           aria-checked={isBooleanChecked()}
+          aria-disabled={disabled || element.readOnly}
+          tabIndex={disabled || element.readOnly ? -1 : 0}
           onClick={() =>
             !disabled &&
             !element.readOnly &&
             handleSwitchChange(!isBooleanChecked())
           }
           className={`
-                  relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent
+                  relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent
                   transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-offset-2
+                  ${
+                    disabled || element.readOnly
+                      ? "cursor-default pointer-events-none focus:ring-0"
+                      : "cursor-pointer"
+                  }
                   ${
                     hasError
                       ? "focus:ring-red-500 bg-red-100"
@@ -122,10 +129,13 @@ const BooleanQuestion = ({
                     isBooleanChecked()
                       ? hasError
                         ? "bg-red-600"
-                        : "bg-primary"
-                      : "bg-gray-200"
+                        : disabled || element.readOnly
+                          ? "bg-primary-900"
+                          : "bg-primary"
+                      : disabled || element.readOnly
+                        ? "bg-gray-100"
+                        : "bg-gray-200"
                   }
-                  ${disabled || element.readOnly ? "cursor-not-allowed" : ""}
                `}
         >
           <span

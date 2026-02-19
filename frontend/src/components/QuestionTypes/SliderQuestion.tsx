@@ -91,7 +91,7 @@ const SliderQuestion = ({
                      }
                      ${
                        disabled || element.readOnly
-                         ? "cursor-not-allowed opacity-70"
+                         ? "cursor-default"
                          : ""
                      }
                      accent-primary
