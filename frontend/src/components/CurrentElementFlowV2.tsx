@@ -407,6 +407,72 @@ export default function CurrentElementFlowV2({
     [appElements],
   );
 
+  const runAiStop = useCallback(
+    async (
+      stop: Element & { type: "aiResponse" },
+      stopOriginalIndex: number,
+      stopVisibleIndex: number,
+    ) => {
+      // Centralized AI-stop runner used by both:
+      // 1) normal form submit when the active stop is aiResponse, and
+      // 2) fixedResponse "Continue" auto-handoff when the next stop is aiResponse.
+      //
+      // Keeping this in one helper guarantees identical behavior for run creation,
+      // stop-state persistence, and cursor advancement in both entry paths.
+      if (!surveyJson || !activeTry) return;
+      setSurveyImages(() => structuredClone(images));
+      const prompts: Prompt[] = getVisibleInstructions(stop.instructions).map((inst, idx) => ({
+        id: `${stop.id}-p-${idx}`,
+        name: `${stop.name}-p-${idx}`,
+        type: "prompt",
+        text: inst.text || "",
+      }));
+      const res = await sendPrompts(
+        prompts,
+        answers,
+        appId,
+        surveyJson,
+        stopOriginalIndex,
+        userId,
+        false,
+        false,
+        undefined,
+        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+      );
+      // Required scoring gates can return run_passed=false; in that case we keep cursor
+      // on the current stop and do not reveal/advance this aiResponse card.
+      if (res.run_passed === false) return;
+      const nextCursor = stopVisibleIndex + 1;
+      applyDraftCursor(nextCursor);
+      applyDraftStopState((prev) => ({
+        ...prev,
+        [stop.id]: {
+          runId: res.run_uuid,
+          resultVisible: true,
+          requiredScoreFailed: false,
+        },
+      }));
+      commitDraftToTry({ cursor: nextCursor, hasPostEditInteraction: true });
+      advance(nextCursor);
+    },
+    [
+      surveyJson,
+      activeTry,
+      images,
+      getVisibleInstructions,
+      sendPrompts,
+      answers,
+      appId,
+      userId,
+      activeTryId,
+      applyDraftCursor,
+      applyDraftStopState,
+      commitDraftToTry,
+      advance,
+      setSurveyImages,
+    ],
+  );
+
   const handleRun = async (event: FormEvent) => {
     event.preventDefault();
     if (!surveyJson || !activeTry || !draftState || !stopElement || stopIndex === null) return;
@@ -423,6 +489,9 @@ export default function CurrentElementFlowV2({
 
     const stop = stopElement.element;
     if (stop.type === "fixedResponse") {
+      // Fixed response stops are local/runtime-rendered (no API request here).
+      // We persist their rendered state in the try snapshot so switching tries
+      // or editing earlier fields keeps the revealed card behavior consistent.
       const text = injectValuesIntoPrompt(stop.text || "", answers);
       const existing = fixedResponseStateById[stop.id];
       applyDraftFixedResponseState((prev) => ({
@@ -448,42 +517,12 @@ export default function CurrentElementFlowV2({
       return;
     }
 
-    setSurveyImages(() => structuredClone(images));
-
     if (stop.type === "aiResponse") {
-      const prompts: Prompt[] = getVisibleInstructions(stop.instructions).map((inst, idx) => ({
-        id: `${stop.id}-p-${idx}`,
-        name: `${stop.name}-p-${idx}`,
-        type: "prompt",
-        text: inst.text || "",
-      }));
-      const res = await sendPrompts(
-        prompts,
-        answers,
-        appId,
-        surveyJson,
-        stopElement.originalIndex,
-        userId,
-        false,
-        false,
-        undefined,
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
-      );
-      if (res.run_passed === false) return;
-      const nextCursor = stopIndex + 1;
-      applyDraftCursor(nextCursor);
-      applyDraftStopState((prev) => ({
-        ...prev,
-        [stop.id]: {
-          runId: res.run_uuid,
-          resultVisible: true,
-          requiredScoreFailed: false,
-        },
-      }));
-      commitDraftToTry({ cursor: nextCursor, hasPostEditInteraction: true });
-      advance(nextCursor);
+      await runAiStop(stop, stopElement.originalIndex, stopIndex);
       return;
     }
+
+    setSurveyImages(() => structuredClone(images));
 
     if (stop.type === "scoring") {
       const res = await sendPrompts(
@@ -783,6 +822,11 @@ export default function CurrentElementFlowV2({
             )?.content || ""
           : "";
 
+        const isAwaitingResponseOrScore =
+          promptLoading ||
+          (isScoredRun && !scoreReady) ||
+          (element.type === "fixedResponse" && fixedState?.isAnimating === true);
+
         return (
           <div key={element.id} className="mt-6">
             {element.type === "fixedResponse" && hasRevealedFixed && (
@@ -831,7 +875,7 @@ export default function CurrentElementFlowV2({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex <= 1}
+                        disabled={activeTryIndex <= 1 || isAwaitingResponseOrScore}
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) => triesById[tryId]?.index === activeTryIndex - 1,
@@ -845,7 +889,7 @@ export default function CurrentElementFlowV2({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex >= tryOrder.length}
+                        disabled={activeTryIndex >= tryOrder.length || isAwaitingResponseOrScore}
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) => triesById[tryId]?.index === activeTryIndex + 1,
@@ -866,26 +910,64 @@ export default function CurrentElementFlowV2({
                   <div className="mt-4 flex justify-end">
                     {!(element.type === "scoring" && scoringIsRequired && scoringFailed) && (
                       <button
-                        type="submit"
+                        type={element.type === "fixedResponse" ? "button" : "submit"}
                         className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                        onClick={(e) => {
+                        onClick={async (e) => {
                           if (element.type !== "fixedResponse") return;
-                          const full = fixedState?.fullText || "";
+                          // Initialize fixed-response state on first click without relying on form submit timing.
+                          if (fixedState === undefined) {
+                            const text = injectValuesIntoPrompt(element.text || "", answers);
+                            applyDraftFixedResponseState((prev) => ({
+                              ...prev,
+                              [element.id]: {
+                                fullText: text,
+                                displayedText: "",
+                                isAnimating: false,
+                              },
+                            }));
+                            startFixedResponseTypewriter(element.id, text);
+                            applyDraftStopState((prev) => ({
+                              ...prev,
+                              [element.id]: {
+                                runId: undefined,
+                                resultVisible: true,
+                                requiredScoreFailed: false,
+                              },
+                            }));
+                            commitDraftToTry({ hasPostEditInteraction: true });
+                            return;
+                          }
+                          const full = fixedState?.fullText ?? "";
                           const displayed = fixedState?.displayedText || "";
                           const anim = fixedState?.isAnimating === true;
-                          // For empty fixed responses, there is nothing to reveal;
-                          // treat Continue as simply advancing to the next element.
+                          // Empty fixed response: nothing to reveal; advance
                           if (!full) {
                             e.preventDefault();
                             advance(idx + 1);
                             return;
                           }
-                          if (anim || displayed !== full) {
+                          // Reveal only while text is still incomplete.
+                          // If full text is already visible, advance immediately even if anim flag lags.
+                          if (anim && displayed !== full) {
                             e.preventDefault();
+                            // While the typewriter is still mid-stream, Continue acts as
+                            // "skip animation" by revealing the full text in place.
                             revealFullFixedResponse(element.id, full);
                             return;
                           }
                           e.preventDefault();
+                          const nextEntry = visibleElements[idx + 1];
+                          if (nextEntry?.element.type === "aiResponse") {
+                            // UX handoff: after fixedResponse is done, a single Continue
+                            // can immediately execute the following aiResponse stop.
+                            // This avoids the perceived "dead click" between stops.
+                            await runAiStop(
+                              nextEntry.element as Element & { type: "aiResponse" },
+                              nextEntry.originalIndex,
+                              idx + 1,
+                            );
+                            return;
+                          }
                           advance(idx + 1);
                         }}
                       >

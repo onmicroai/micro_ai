@@ -916,6 +916,11 @@ export default function CurrentElementFlow({
             )?.content || ""
           : "";
 
+        const isAwaitingResponseOrScore =
+          promptLoading ||
+          isEvaluatingScore ||
+          (element.type === "fixedResponse" && fixedAnimating);
+
         return (
           <div
             key={element.id}
@@ -975,7 +980,7 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) <= 1}
+                        disabled={(activeTry?.index || 1) <= 1 || isAwaitingResponseOrScore}
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) - 1;
                           const target = tries.find((t) => t.index === targetIndex);
@@ -990,7 +995,7 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) >= tries.length}
+                        disabled={(activeTry?.index || 1) >= tries.length || isAwaitingResponseOrScore}
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) + 1;
                           const target = tries.find((t) => t.index === targetIndex);
@@ -1010,35 +1015,65 @@ export default function CurrentElementFlow({
                   <div className="mt-4 flex justify-end">
                     {!(element.type === "scoring" && scoringIsRequired && scoringFailed) && (
                       <button
-                        type="submit"
+                        type={element.type === "fixedResponse" ? "button" : "submit"}
                         className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                         onClick={(e) => {
                           if (element.type !== "fixedResponse") return;
-                          const hasFull = hasRevealedFixed;
+                          // Initialize fixed-response state on first click without relying on form submit timing.
+                          if (!hasRevealedFixed) {
+                            const text = injectValuesIntoPrompt(element.text || "", answers);
+                            setFixedResponsesById((prev) => ({ ...prev, [element.id]: text }));
+                            const alreadyDisplayed = fixedResponseDisplayedById[element.id];
+                            const isAnimating = fixedResponseAnimatingById[element.id];
+                            if (alreadyDisplayed === undefined && !isAnimating) {
+                              startFixedResponseTypewriter(element.id, text);
+                            }
+                            commitActiveTry({
+                              answersSnapshot: structuredClone((answers as Answers) || {}),
+                              imagesSnapshot: structuredClone(images || {}),
+                              cursor,
+                              fixedResponsesById: { ...fixedResponsesById, [element.id]: text },
+                              fixedResponseDisplayedById:
+                                alreadyDisplayed === undefined && !isAnimating
+                                  ? fixedResponseDisplayedById
+                                  : { ...fixedResponseDisplayedById, [element.id]: text },
+                              stopStateByElementId: {
+                                ...(activeTry?.stopStateByElementId || {}),
+                                [element.id]: {
+                                  runId: undefined,
+                                  resultVisible: true,
+                                  requiredScoreFailed: false,
+                                },
+                              },
+                              hasPostEditInteraction: true,
+                              isDraft: false,
+                            });
+                            return;
+                          }
                           const full = revealedFixed ?? "";
                           const displayed = fixedDisplayed ?? "";
                           const anim = fixedAnimating;
 
-                          if (!hasFull) {
-                            // Empty fixed response – nothing to reveal, so just advance.
+                          // Empty fixed response: nothing to reveal; advance
+                          if (!full) {
                             e.preventDefault();
                             e.currentTarget.blur();
                             advance(idx + 1);
                             return;
                           }
 
-                          if (anim || displayed !== full) {
+                          // Reveal only while text is still incomplete.
+                          // If full text is already visible, advance immediately even if anim flag lags.
+                          if (anim && displayed !== full) {
                             e.preventDefault();
                             e.currentTarget.blur();
                             revealFullFixedResponse(element.id, full);
                             return;
                           }
 
-                          if (displayed === full) {
-                            e.preventDefault();
-                            e.currentTarget.blur();
-                            advance(idx + 1);
-                          }
+                          e.preventDefault();
+                          e.currentTarget.blur();
+                          advance(idx + 1);
                         }}
                       >
                         {element.type === "aiResponse"
@@ -1067,7 +1102,7 @@ export default function CurrentElementFlow({
                 <button
                   type="button"
                   className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                  disabled={(activeTry?.index || 1) <= 1}
+                  disabled={(activeTry?.index || 1) <= 1 || promptLoading}
                   onClick={() => {
                     const targetIndex = (activeTry?.index || 1) - 1;
                     const target = tries.find((t) => t.index === targetIndex);
@@ -1082,7 +1117,7 @@ export default function CurrentElementFlow({
                 <button
                   type="button"
                   className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                  disabled={(activeTry?.index || 1) >= tries.length}
+                  disabled={(activeTry?.index || 1) >= tries.length || promptLoading}
                   onClick={() => {
                     const targetIndex = (activeTry?.index || 1) + 1;
                     const target = tries.find((t) => t.index === targetIndex);
