@@ -10,6 +10,7 @@ import {
 } from "../ui/tooltip";
 import RubricAIModal from "../ui/RubricAIModal";
 import ScoringLineRow, { ScoringLine } from "../ui/ScoringLineRow";
+import { Switch } from "../ui/switch";
 import axiosInstance from "@/utils/axiosInstance";
 
 interface ScoringCategory {
@@ -73,6 +74,10 @@ async function generateRubricWithAI({
     throw new Error(res.data.error || "Failed to generate rubric");
   return res.data.rubric;
 }
+
+const DEFAULT_FEEDBACK_PLACEHOLDER =
+  "Call out what I did well and what can be improved, and why the score is what it is.";
+
 export default function ScoringField({
   field,
   onChange,
@@ -312,23 +317,13 @@ export default function ScoringField({
               {feedbackEnabled ? "Enabled" : "Disabled"}
             </span>
           ) : (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={feedbackEnabled}
-              onClick={() =>
-                onChange?.(field.id, { scoreFeedbackEnabled: !feedbackEnabled })
+            <Switch
+              checked={feedbackEnabled}
+              onCheckedChange={(checked) =>
+                onChange?.(field.id, { scoreFeedbackEnabled: checked })
               }
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                feedbackEnabled ? "bg-primary" : "bg-gray-300"
-              }`}
-            >
-              <span
-                className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform ${
-                  feedbackEnabled ? "translate-x-5" : "translate-x-1"
-                }`}
-              />
-            </button>
+              className="data-[state=unchecked]:bg-gray-400"
+            />
           )}
         </div>
 
@@ -341,7 +336,7 @@ export default function ScoringField({
               <div className="w-full border border-gray-100 rounded-md px-3 py-2 text-sm text-gray-500 bg-gray-50 whitespace-pre-wrap">
                 {field.scoreFeedbackInstructions?.trim() || (
                   <span className="italic text-gray-400">
-                    Default instructions
+                    {DEFAULT_FEEDBACK_PLACEHOLDER}
                   </span>
                 )}
               </div>
@@ -355,7 +350,7 @@ export default function ScoringField({
                 }
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 rows={3}
-                placeholder="Optional: override the default feedback instruction."
+                placeholder={DEFAULT_FEEDBACK_PLACEHOLDER}
               />
             )}
           </div>
