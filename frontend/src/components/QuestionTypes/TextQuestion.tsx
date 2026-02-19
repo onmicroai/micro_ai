@@ -90,7 +90,7 @@ const TextQuestion = ({
                   }
                   ${
                     disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-500"
+                      ? "bg-gray-50 text-gray-900"
                       : "bg-white"
                   }
                   transition duration-150 ease-in-out

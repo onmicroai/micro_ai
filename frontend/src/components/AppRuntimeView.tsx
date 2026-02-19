@@ -6,7 +6,7 @@ import { toast } from "react-toastify";
 import { MessageCircle, RotateCcw } from "lucide-react";
 
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
-import CurrentElementFlow from "@/components/CurrentElementFlow";
+import CurrentElementFlow from "@/components/CurrentElementFlowV2";
 import ContinuationInterface from "@/components/ContinuationInterface";
 import RemixBanner from "@/components/RemixBanner";
 import EditAppLink from "@/components/EditAppLink";
@@ -301,7 +301,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
                 className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
               >
                 <RotateCcw className="w-4 h-4" />
-                Restart
+                Restart the app
               </button>
 
               {showThankYouMessage && !isContinuationExpanded && (

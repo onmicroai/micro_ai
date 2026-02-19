@@ -191,7 +191,7 @@ const CheckboxQuestion = ({
                     onChange={handleCheckboxChange}
                     disabled={disabled || element.readOnly}
                     className={`
-                              col-start-1 row-start-1 appearance-none rounded border bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:bg-gray-100 forced-colors:appearance-auto
+                              col-start-1 row-start-1 appearance-none rounded border bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 forced-colors:appearance-auto
                               ${
                                 hasError
                                   ? "border-red-300 text-red-600 focus:ring-red-500"
@@ -199,7 +199,7 @@ const CheckboxQuestion = ({
                               }
                               ${
                                 disabled || element.readOnly
-                                  ? "opacity-50 cursor-not-allowed"
+                                  ? "cursor-default"
                                   : "cursor-pointer"
                               }
                               transition duration-150 ease-in-out
@@ -208,7 +208,7 @@ const CheckboxQuestion = ({
                   <svg
                     fill="none"
                     viewBox="0 0 14 14"
-                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white group-has-[:disabled]:stroke-gray-950/25"
+                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white"
                   >
                     <path
                       d="M3 8L6 11L11 3.5"
@@ -233,12 +233,10 @@ const CheckboxQuestion = ({
                   className={`
                            font-medium
                            ${
-                             disabled || element.readOnly
-                               ? "text-gray-500"
-                               : "text-gray-900"
+                             "text-gray-900"
                            }
                            ${hasError ? "text-red-900" : "text-gray-900"}
-                           cursor-pointer
+                           ${disabled || element.readOnly ? "cursor-default" : "cursor-pointer"}
                         `}
                 >
                   {choice.label}
@@ -261,7 +259,7 @@ const CheckboxQuestion = ({
                   }
                   ${
                     disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-500"
+                      ? "bg-gray-50 text-gray-900"
                       : "bg-white"
                   }
                   transition duration-150 ease-in-out

@@ -99,7 +99,7 @@ const BooleanQuestion = ({
       <div
         className={`
             flex mt-2 items-center space-x-3
-            ${disabled || element.readOnly ? "opacity-60" : ""}
+            ${disabled || element.readOnly ? "" : ""}
          `}
       >
         <button
@@ -126,7 +126,7 @@ const BooleanQuestion = ({
                         : "bg-primary"
                       : "bg-gray-200"
                   }
-                  ${disabled || element.readOnly ? "cursor-not-allowed" : ""}
+                  ${disabled || element.readOnly ? "cursor-default" : ""}
                `}
         >
           <span

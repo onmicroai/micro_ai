@@ -410,7 +410,11 @@ export const useSurveyStore = create<SurveyStore>()(
          userId: number | null, 
          requestSkip: boolean = false,
          noSubmit: boolean  = false,
-         pageConfigOverride?: PageConfigOverride
+         pageConfigOverride?: PageConfigOverride,
+         runtimeMeta?: {
+            tryId?: string;
+            tryIndex?: number;
+         }
       ): Promise<SendPromptResponse> => {
          set({ promptLoading: true, sendPromptError: null, promptResponse: null });
          const images = get().images; // Get images from store
@@ -425,7 +429,8 @@ export const useSurveyStore = create<SurveyStore>()(
             requestSkip,
             set,
             noSubmit,
-            pageConfigOverride
+            pageConfigOverride,
+            runtimeMeta
          });
       },
 

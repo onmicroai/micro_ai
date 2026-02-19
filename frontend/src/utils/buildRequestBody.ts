@@ -56,16 +56,17 @@ export const buildRequestBody = async (
    transcriptionCost?: number,
    run_uuid?: string,
    scoreExplanation?: boolean,
-   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never"
+   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never",
+   activeTryId?: string
 ) => {
    const store = useConversationStore.getState();
-   const currentConversation = store.currentConversation;
+   const scopedRuns = store.getRunsForTry(activeTryId);
 
-   let conversationHistory = currentConversation?.runs.flatMap(run => 
+   let conversationHistory = scopedRuns.flatMap(run => 
       run.messages.filter(msg => 
          msg.role === 'assistant' || msg.role === 'user'
       )
-   ) || [];
+   );
 
    if (finalPrompt) {
       const lastUserIndex = [...conversationHistory].reverse().findIndex(msg => msg.role === 'user');

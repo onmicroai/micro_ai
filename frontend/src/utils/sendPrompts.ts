@@ -13,6 +13,7 @@ const handleAIResponse = async (
    requestBody: any,
    userId: number | null,
    setState: (state: any) => void,
+   runId?: string,
 ): Promise<SendPromptResponse> => {
    const store = useConversationStore.getState();
 
@@ -20,7 +21,6 @@ const handleAIResponse = async (
    try {
       let accumulated = "";
       // mark current run as running (was pending)
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, { status: "running" });
       }
@@ -164,7 +164,7 @@ const handleAIResponse = async (
 
             // Add the response message
             if (promptResponse?.trim()) {
-               store.addMessage('assistant', promptResponse);
+               store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
             }
             
             await delay(1000);
@@ -240,7 +240,6 @@ const handleAIResponse = async (
       const promptResponse = responseData.response;
 
       // Update the current run with all response data
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, {
             status: 'completed',
@@ -255,7 +254,7 @@ const handleAIResponse = async (
 
       // Add the response message
       if (promptResponse?.trim()) {
-         store.addMessage('assistant', promptResponse);
+         store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
       }
       
       await delay(1000);
@@ -306,7 +305,6 @@ const handleAIResponse = async (
       }));
 
       // Update run status to failed on error
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, { 
             status: 'failed',
@@ -412,6 +410,10 @@ export const sendPromptsUtil = async (options: {
   transcriptionCost?: number;
   scoreExplanation?: boolean;
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
+  runtimeMeta?: {
+    tryId?: string;
+    tryIndex?: number;
+  };
 }): Promise<SendPromptResponse> => {
 const {
     prompts = null,
@@ -428,7 +430,8 @@ const {
     pageConfigOverride,
     transcriptionCost,
     scoreExplanation,
-    scoreExplanationMode
+    scoreExplanationMode,
+    runtimeMeta
   } = options;
 
   let {
@@ -479,6 +482,8 @@ const {
       updatedAt: Date.now(),
       messages: [],
       phaseIndex: pageIndex,  // Add the phase index to track which phase this run belongs to
+      tryId: runtimeMeta?.tryId,
+      tryIndex: runtimeMeta?.tryIndex,
       session_id: ''  // Add default empty session_id
    };
    store.addRun(run);
@@ -492,7 +497,7 @@ const {
 
    // Add AI instructions as a message to the run
    if (combinedAiInstructions) {
-      store.addMessage('instruction', combinedAiInstructions);
+      store.addMessage('instruction', combinedAiInstructions, run.id, runtimeMeta?.tryId);
    }
 
    const combinedPrompt = finalPrompts.finalPrompt
@@ -502,7 +507,7 @@ const {
 
    // Add user prompt as a message to the run
    if (combinedPrompt) {
-      store.addMessage('user', combinedPrompt);
+      store.addMessage('user', combinedPrompt, run.id, runtimeMeta?.tryId);
    }
 
    //If there are fixed responses, return the fixed response and exit.
@@ -511,7 +516,7 @@ const {
         .map(p => p.text)
         .filter(Boolean)
         .join('\n');
-      store.addMessage('fixed_response', combinedText);
+      store.addMessage('fixed_response', combinedText, run.id, runtimeMeta?.tryId);
       hasFixedResponse = true;
       fixedResponseText = combinedText;
    }
@@ -534,8 +539,10 @@ const {
       transcriptionCost,
       run.id,
       scoreExplanation,
-      scoreExplanationMode
+      scoreExplanationMode,
+      runtimeMeta?.tryId
    );
+   requestBody.run_try_id = runtimeMeta?.tryId;
    if (run?.id) {
       const isScoredRun = Boolean(requestBody?.scored_run);
       store.updateRun(run.id, {
@@ -546,6 +553,6 @@ const {
          score_feedback_instructions: requestBody?.score_feedback_instructions ?? undefined,
       });
    }
-   const result = await handleAIResponse(requestBody, userId, set);
+   const result = await handleAIResponse(requestBody, userId, set, run.id);
    return { ...result, run_uuid: run.id };
 };

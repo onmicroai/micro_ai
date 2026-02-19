@@ -56,7 +56,11 @@ export type sendPrompts = (
   userId: number | null,
   requestSkip: boolean,
   noSubmit?: boolean,
-  pageConfigOverride?: PageConfigOverride
+  pageConfigOverride?: PageConfigOverride,
+  runtimeMeta?: {
+    tryId?: string;
+    tryIndex?: number;
+  }
 ) => Promise<SendPromptResponse>;
 
 export interface SurveyStore {

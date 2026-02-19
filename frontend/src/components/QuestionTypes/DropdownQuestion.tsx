@@ -201,7 +201,7 @@ const DropdownQuestion = ({
                   }
                   ${
                     disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-500"
+                      ? "bg-gray-50 text-gray-900"
                       : "bg-white"
                   }
                   shadow-sm

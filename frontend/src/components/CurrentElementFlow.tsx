@@ -1,6 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState, FormEvent, useEffect, useCallback } from "react";
+import {
+  useMemo,
+  useRef,
+  useState,
+  FormEvent,
+  useEffect,
+  useCallback,
+} from "react";
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { validateForm } from "@/utils/validateForms";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
@@ -21,6 +28,7 @@ import {
   passedTheRubricMinScore,
 } from "@/utils/phaseResultDisplay";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
+import { Check, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 
 const STOP_TYPES = new Set<Element["type"]>([
   "aiResponse",
@@ -31,6 +39,28 @@ const STOP_TYPES = new Set<Element["type"]>([
 function isStopElement(el: Element): boolean {
   return STOP_TYPES.has(el.type);
 }
+
+type VisibleEntry = { element: Element; originalIndex: number };
+
+type TryState = {
+  id: string;
+  index: number;
+  parentTryId: string | null;
+  createdAt: number;
+  answersSnapshot: Answers;
+  cursor: number;
+  imagesSnapshot: Record<string, Record<string, string>>;
+  fixedResponsesById: Record<string, string>;
+  fixedResponseDisplayedById: Record<string, string>;
+  stopStateByElementId: Record<
+    string,
+    { runId?: string; resultVisible: boolean; requiredScoreFailed: boolean }
+  >;
+  editedFieldIds: string[];
+  isDraft: boolean;
+  hasPostEditInteraction: boolean;
+  firstEditedOriginalIndex: number | null;
+};
 
 type Props = {
   appId: number;
@@ -50,41 +80,41 @@ export default function CurrentElementFlow({
   const {
     surveyJson,
     answers,
+    images,
     errors,
     promptLoading,
     setErrors,
     setElements,
+    setAnswers,
     setImages,
     setInputValue,
     handleInputChange,
     sendPrompts,
   } = useSurveyStore();
 
-  const { currentConversation, removeRunsFromPhaseIndex } = useConversationStore();
-  /**
-   * cursor: start index of the active segment (everything before is completed/locked).
-   */
+  const { getRunsForTry, getLatestRunForStop } = useConversationStore();
+
   const [cursor, setCursor] = useState(0);
-  /**
-   * Fixed responses are "revealed" without an API call; once revealed, keep them visible
-   * when the UI accumulates.
-   */
-  const [fixedResponsesById, setFixedResponsesById] = useState<
-    Record<string, string>
-  >({});
-  /**
-   * Fixed response "stream-like" typewriter display state (frontend only).
-   */
+  const [fixedResponsesById, setFixedResponsesById] = useState<Record<string, string>>(
+    {},
+  );
   const [fixedResponseDisplayedById, setFixedResponseDisplayedById] = useState<
     Record<string, string>
   >({});
   const [fixedResponseAnimatingById, setFixedResponseAnimatingById] = useState<
     Record<string, boolean>
   >({});
-  const [retryDirtyStopIds, setRetryDirtyStopIds] = useState<Record<string, boolean>>(
-    {},
-  );
+  const [tries, setTries] = useState<TryState[]>([]);
+  const [activeTryId, setActiveTryId] = useState<string | null>(null);
+  const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
+  const [editBaseAnswers, setEditBaseAnswers] = useState<Answers | null>(null);
+  const [editBaseImages, setEditBaseImages] = useState<
+    Record<string, Record<string, string>> | null
+  >(null);
+  const hydratingTryRef = useRef(false);
+  const lastHydratedTryIdRef = useRef<string | null>(null);
   const fixedResponseRunTokenRef = useRef<Record<string, number>>({});
+  const previousActiveOriginalIndexRef = useRef<number | null>(null);
 
   const appElements = useMemo(() => {
     const els = surveyJson?.elements;
@@ -95,19 +125,56 @@ export default function CurrentElementFlow({
     setElements(appElements);
   }, [appElements, setElements]);
 
-  const visibleElements = useMemo(() => {
-    return appElements
+  const buildVisibleElements = useCallback(
+    (sourceAnswers: Answers): VisibleEntry[] => {
+      return appElements
       .map((element, originalIndex) => {
         const isVisible = evaluateVisibility(
           (element.conditionalLogic || {}) as ConditionalLogic,
-          answers as Answers
+            sourceAnswers as Answers,
         );
         return isVisible ? { element, originalIndex } : null;
       })
-      .filter((entry): entry is { element: Element; originalIndex: number } =>
-        Boolean(entry)
-      );
-  }, [appElements, answers]);
+        .filter((entry): entry is VisibleEntry => Boolean(entry));
+    },
+    [appElements],
+  );
+
+  const visibleElements = useMemo(
+    () => buildVisibleElements(answers as Answers),
+    [answers, buildVisibleElements],
+  );
+
+  const activeTry = useMemo(
+    () => tries.find((t) => t.id === activeTryId) ?? null,
+    [tries, activeTryId],
+  );
+
+  useEffect(() => {
+    if (!surveyJson || tries.length > 0) return;
+    const initialTry: TryState = {
+      id: crypto.randomUUID(),
+      index: 1,
+      parentTryId: null,
+      createdAt: Date.now(),
+      answersSnapshot: structuredClone((answers as Answers) || {}),
+      cursor: 0,
+      imagesSnapshot: structuredClone(images || {}),
+      fixedResponsesById: {},
+      fixedResponseDisplayedById: {},
+      stopStateByElementId: {},
+      editedFieldIds: [],
+      isDraft: false,
+      hasPostEditInteraction: false,
+      firstEditedOriginalIndex: null,
+    };
+    setTries([initialTry]);
+    setActiveTryId(initialTry.id);
+    setCursor(0);
+    setFixedResponsesById({});
+    setFixedResponseDisplayedById({});
+    setFixedResponseAnimatingById({});
+  }, [surveyJson, tries.length, answers, images]);
 
   const advance = useCallback(
     (nextIndex: number) => {
@@ -123,7 +190,55 @@ export default function CurrentElementFlow({
     [cursor, onComplete, setErrors, visibleElements]
   );
 
-  const previousActiveOriginalIndexRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (!activeTry || !activeTryId) return;
+    if (lastHydratedTryIdRef.current === activeTryId) return;
+    hydratingTryRef.current = true;
+    setAnswers(() => structuredClone(activeTry.answersSnapshot || {}));
+    setImages(() => structuredClone(activeTry.imagesSnapshot || {}));
+    setCursor(activeTry.cursor);
+    setFixedResponsesById(structuredClone(activeTry.fixedResponsesById || {}));
+    setFixedResponseDisplayedById(
+      structuredClone(
+        activeTry.fixedResponseDisplayedById || activeTry.fixedResponsesById || {},
+      ),
+    );
+    setFixedResponseAnimatingById({});
+    setEditingFieldName(null);
+    setEditBaseAnswers(null);
+    setEditBaseImages(null);
+    lastHydratedTryIdRef.current = activeTryId;
+    queueMicrotask(() => {
+      hydratingTryRef.current = false;
+    });
+  }, [activeTry, activeTryId, setAnswers, setImages]);
+
+  const commitActiveTry = useCallback(
+    (updates: Partial<TryState>) => {
+      if (!activeTryId) return;
+      setTries((prev) =>
+        prev.map((t) => (t.id === activeTryId ? { ...t, ...updates } : t)),
+      );
+    },
+    [activeTryId],
+  );
+
+  const trimStopStateFromOriginalIndex = useCallback(
+    (
+      source: TryState["stopStateByElementId"],
+      restartOriginalIndex: number,
+    ): TryState["stopStateByElementId"] => {
+      const removableIds = new Set(
+        appElements
+          .filter((_, originalIndex) => originalIndex >= restartOriginalIndex)
+          .map((el) => el.id),
+      );
+      return Object.fromEntries(
+        Object.entries(source || {}).filter(([id]) => !removableIds.has(id)),
+      );
+    },
+    [appElements],
+  );
 
   useEffect(() => {
     if (visibleElements.length === 0) {
@@ -182,7 +297,18 @@ export default function CurrentElementFlow({
     return { stopIndex: stopIdx, stopElement: stopEl, visibleUntil: until };
   }, [cursor, visibleElements]);
 
-  const startFixedResponseTypewriter = (id: string, fullText: string) => {
+  const getVisibleInstructions = (
+    instructions: Element["instructions"] | undefined
+  ) => {
+    return (instructions || []).filter((inst) =>
+      evaluateVisibility(
+        (inst?.conditionalLogic || {}) as ConditionalLogic,
+        answers as Answers
+      )
+    );
+  };
+
+  const startFixedResponseTypewriter = useCallback((id: string, fullText: string) => {
     const nextToken = (fixedResponseRunTokenRef.current[id] || 0) + 1;
     fixedResponseRunTokenRef.current[id] = nextToken;
 
@@ -216,25 +342,14 @@ export default function CurrentElementFlow({
       setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
       setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
     })();
-  };
+  }, []);
 
-  const revealFullFixedResponse = (id: string, fullText: string) => {
+  const revealFullFixedResponse = useCallback((id: string, fullText: string) => {
     fixedResponseRunTokenRef.current[id] =
       (fixedResponseRunTokenRef.current[id] || 0) + 1;
     setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
     setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
-  };
-
-  const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined
-  ) => {
-    return (instructions || []).filter((inst) =>
-      evaluateVisibility(
-        (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers
-      )
-    );
-  };
+  }, []);
 
   const handleRun = async (event: FormEvent) => {
     event.preventDefault();
@@ -262,6 +377,26 @@ export default function CurrentElementFlow({
       if (alreadyDisplayed === undefined && !isAnimating) {
         startFixedResponseTypewriter(stop.id, text);
       }
+      commitActiveTry({
+        answersSnapshot: structuredClone((answers as Answers) || {}),
+        imagesSnapshot: structuredClone(images || {}),
+        cursor,
+        fixedResponsesById: { ...fixedResponsesById, [stop.id]: text },
+        fixedResponseDisplayedById:
+          alreadyDisplayed === undefined && !isAnimating
+            ? fixedResponseDisplayedById
+            : { ...fixedResponseDisplayedById, [stop.id]: text },
+        stopStateByElementId: {
+          ...(activeTry?.stopStateByElementId || {}),
+          [stop.id]: {
+            runId: undefined,
+            resultVisible: true,
+            requiredScoreFailed: false,
+          },
+        },
+        hasPostEditInteraction: true,
+        isDraft: false,
+      });
       return;
     }
 
@@ -281,10 +416,34 @@ export default function CurrentElementFlow({
         surveyJson,
         stopElement.originalIndex,
         userId,
-        false
+        false,
+        false,
+        undefined,
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry?.index,
+        },
       );
       if (res.run_passed === false) return;
-      advance(stopIndex + 1);
+      const nextCursor = stopIndex + 1;
+      advance(nextCursor);
+      commitActiveTry({
+        answersSnapshot: structuredClone((answers as Answers) || {}),
+        imagesSnapshot: structuredClone(images || {}),
+        cursor: nextCursor,
+        fixedResponsesById: structuredClone(fixedResponsesById),
+        fixedResponseDisplayedById: structuredClone(fixedResponseDisplayedById),
+        stopStateByElementId: {
+          ...(activeTry?.stopStateByElementId || {}),
+          [stop.id]: {
+            runId: res.run_uuid,
+            resultVisible: true,
+            requiredScoreFailed: false,
+          },
+        },
+        hasPostEditInteraction: true,
+        isDraft: false,
+      });
       return;
     }
 
@@ -314,101 +473,63 @@ export default function CurrentElementFlow({
             typeof stop.minScore === "number" ? stop.minScore : 0,
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
-        }
+        },
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry?.index,
+        },
       );
-      setRetryDirtyStopIds((prev) => {
-        if (!prev[stop.id]) return prev;
-        const next = { ...prev };
-        delete next[stop.id];
-        return next;
-      });
-
       const scoringIsRequired = stop.isRequired !== false;
-      if (res.run_passed === false && scoringIsRequired) return;
-      advance(stopIndex + 1);
+      const failedRequired = res.run_passed === false && scoringIsRequired;
+      const nextCursor = failedRequired ? cursor : stopIndex + 1;
+      if (!failedRequired) {
+        advance(nextCursor);
+      }
+      commitActiveTry({
+        answersSnapshot: structuredClone((answers as Answers) || {}),
+        imagesSnapshot: structuredClone(images || {}),
+        cursor: nextCursor,
+        fixedResponsesById: structuredClone(fixedResponsesById),
+        fixedResponseDisplayedById: structuredClone(fixedResponseDisplayedById),
+        stopStateByElementId: {
+          ...(activeTry?.stopStateByElementId || {}),
+          [stop.id]: {
+            runId: res.run_uuid,
+            resultVisible: true,
+            requiredScoreFailed: failedRequired,
+          },
+        },
+        hasPostEditInteraction: true,
+        isDraft: false,
+      });
+      if (failedRequired) return;
       return;
     }
   };
 
-  if (!surveyJson) return null;
-
   const isComplete = cursor >= visibleElements.length;
-  const activeStopOriginalIndex = stopElement?.originalIndex ?? null;
-  const activeStopRun =
-    activeStopOriginalIndex === null
-      ? null
-      : currentConversation?.runs
-          ?.filter((run) => run.phaseIndex === activeStopOriginalIndex)
-          .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
-  const activeStopIsRequiredScoringFailed =
-    stopElement?.element.type === "scoring" &&
-    stopElement.element.isRequired !== false &&
-    !!activeStopRun &&
-    !passedTheRubricMinScore(activeStopRun);
-  const rewindFlowFromEditedField = useCallback(
-    (fieldName: string): boolean => {
-      if (!activeStopIsRequiredScoringFailed) return false;
-
-      const editedFieldOriginalIndex = visibleElements.find(
-        (entry) => !isStopElement(entry.element) && entry.element.name === fieldName,
-      )?.originalIndex;
-      if (editedFieldOriginalIndex === undefined) return false;
-
-      const restartStopIndex = visibleElements.findIndex(
-        (entry) =>
-          entry.originalIndex >= editedFieldOriginalIndex &&
-          isStopElement(entry.element),
-      );
-      if (restartStopIndex === -1) return false;
-
-      const restartOriginalIndex = visibleElements[restartStopIndex].originalIndex;
-      removeRunsFromPhaseIndex(restartOriginalIndex);
-
-      const clearByElementIndex = <T extends Record<string, any>>(source: T): T => {
-        const removableIds = new Set(
-          appElements
-            .filter(
-              (el, originalIndex) =>
-                originalIndex >= restartOriginalIndex &&
-                (el.type === "fixedResponse" || el.type === "scoring"),
-            )
-            .map((el) => el.id),
-        );
-        return Object.fromEntries(
-          Object.entries(source).filter(([id]) => !removableIds.has(id)),
-        ) as T;
-      };
-      setFixedResponsesById((prev) => clearByElementIndex(prev));
-      setFixedResponseDisplayedById((prev) => clearByElementIndex(prev));
-      setFixedResponseAnimatingById((prev) => clearByElementIndex(prev));
-      setRetryDirtyStopIds((prev) => clearByElementIndex(prev));
-      setErrors([]);
-      previousActiveOriginalIndexRef.current = restartOriginalIndex;
-      setCursor(restartStopIndex);
-      return true;
-    },
-    [
-      activeStopIsRequiredScoringFailed,
-      appElements,
-      removeRunsFromPhaseIndex,
-      setErrors,
-      visibleElements,
-    ],
-  );
-  const markActiveScoringRetryDirty = useCallback(() => {
-    if (!activeStopIsRequiredScoringFailed) return;
-    const activeScoringStopId =
-      stopElement?.element.type === "scoring" ? stopElement.element.id : null;
-    if (!activeScoringStopId) return;
-    setRetryDirtyStopIds((prev) =>
-      prev[activeScoringStopId] ? prev : { ...prev, [activeScoringStopId]: true },
+  const lastRequiredScoringPassOriginalIndex = useMemo(() => {
+    const runs = getRunsForTry(activeTryId ?? undefined).filter(
+      (run) => run.run_passed !== false,
     );
-  }, [activeStopIsRequiredScoringFailed, stopElement]);
-  const handleInputChangeWithRetryMark: typeof handleInputChange = (e) => {
-    const wasRewound = rewindFlowFromEditedField(e.target.name);
-    if (!wasRewound) {
-      markActiveScoringRetryDirty();
+    let maxPass = -1;
+    for (const run of runs) {
+      const el = appElements[run.phaseIndex];
+      if (el?.type === "scoring" && el.isRequired !== false) {
+        maxPass = Math.max(maxPass, run.phaseIndex);
+      }
     }
+    return maxPass;
+  }, [getRunsForTry, activeTryId, appElements]);
+
+  const canEditFieldByOriginalIndex = useCallback(
+    (originalIndex: number) => {
+      return originalIndex > lastRequiredScoringPassOriginalIndex;
+    },
+    [lastRequiredScoringPassOriginalIndex],
+  );
+
+  const handleInputChangeWithRetryMark: typeof handleInputChange = (e) => {
     handleInputChange(e);
   };
   const setInputValueWithRetryMark: typeof setInputValue = (
@@ -417,11 +538,170 @@ export default function CurrentElementFlow({
     otherValue,
     type,
   ) => {
-    const wasRewound = rewindFlowFromEditedField(name);
-    if (!wasRewound) {
-      markActiveScoringRetryDirty();
-    }
     setInputValue(name, value, otherValue, type);
+  };
+
+  const getOriginalIndexByFieldName = useCallback(
+    (fieldName: string): number | null => {
+      const match = appElements.findIndex(
+        (el) => !isStopElement(el) && el.name === fieldName,
+      );
+      return match >= 0 ? match : null;
+    },
+    [appElements],
+  );
+
+  const trimFixedResponsesFromOriginalIndex = useCallback(
+    (
+      source: Record<string, string>,
+      restartOriginalIndex: number,
+    ): Record<string, string> => {
+      const removableIds = new Set(
+        appElements
+          .filter(
+            (el, originalIndex) =>
+              originalIndex >= restartOriginalIndex && el.type === "fixedResponse",
+          )
+          .map((el) => el.id),
+      );
+      return Object.fromEntries(
+        Object.entries(source).filter(([id]) => !removableIds.has(id)),
+      );
+    },
+    [appElements],
+  );
+
+  const startEditingField = (fieldName: string) => {
+    if (!activeTry) return;
+    setEditBaseAnswers(structuredClone(activeTry.answersSnapshot || {}));
+    setEditBaseImages(structuredClone(activeTry.imagesSnapshot || {}));
+    setEditingFieldName(fieldName);
+  };
+
+  const cancelEditingField = () => {
+    if (editBaseAnswers) {
+      setAnswers(() => structuredClone(editBaseAnswers));
+    }
+    if (editBaseImages) {
+      setImages(() => structuredClone(editBaseImages));
+    }
+    setEditingFieldName(null);
+    setEditBaseAnswers(null);
+    setEditBaseImages(null);
+  };
+
+  const saveEditingField = () => {
+    if (!activeTry) return;
+    const currentAnswers = structuredClone((answers as Answers) || {});
+    const changedFieldNames = Object.keys(currentAnswers).filter(
+      (name) =>
+        JSON.stringify(currentAnswers[name]) !==
+        JSON.stringify(activeTry.answersSnapshot[name]),
+    );
+    if (changedFieldNames.length === 0 && editingFieldName) {
+      changedFieldNames.push(editingFieldName);
+    }
+    if (changedFieldNames.length === 0) {
+      setEditingFieldName(null);
+      setEditBaseAnswers(null);
+      setEditBaseImages(null);
+      return;
+    }
+
+    const changedOriginalIndexes = changedFieldNames
+      .map((name) => getOriginalIndexByFieldName(name))
+      .filter((idx): idx is number => idx !== null);
+    const topEditedOriginalIndex =
+      changedOriginalIndexes.length > 0 ? Math.min(...changedOriginalIndexes) : 0;
+    const visibleAfterEdit = buildVisibleElements(currentAnswers);
+    const restartVisibleStopIndex = visibleAfterEdit.findIndex(
+      (entry) =>
+        entry.originalIndex >= topEditedOriginalIndex && isStopElement(entry.element),
+    );
+    const restartCursor =
+      restartVisibleStopIndex >= 0 ? restartVisibleStopIndex : visibleAfterEdit.length;
+    const restartOriginalIndex =
+      restartVisibleStopIndex >= 0
+        ? visibleAfterEdit[restartVisibleStopIndex].originalIndex
+        : Number.MAX_SAFE_INTEGER;
+    const trimmedFixedResponses = trimFixedResponsesFromOriginalIndex(
+      fixedResponsesById,
+      restartOriginalIndex,
+    );
+    const trimmedDisplayedResponses = trimFixedResponsesFromOriginalIndex(
+      fixedResponseDisplayedById,
+      restartOriginalIndex,
+    );
+    const trimmedStopState = trimStopStateFromOriginalIndex(
+      activeTry.stopStateByElementId || {},
+      restartOriginalIndex,
+    );
+
+    const shouldUpdateCurrentDraft =
+      activeTry.isDraft === true && activeTry.hasPostEditInteraction === false;
+
+    if (shouldUpdateCurrentDraft) {
+      setTries((prev) =>
+        prev.map((t) =>
+          t.id !== activeTry.id
+            ? t
+            : {
+                ...t,
+                answersSnapshot: currentAnswers,
+                imagesSnapshot: structuredClone(images || {}),
+                cursor: restartCursor,
+                fixedResponsesById: trimmedFixedResponses,
+                fixedResponseDisplayedById: trimmedDisplayedResponses,
+                stopStateByElementId: trimmedStopState,
+                editedFieldIds: Array.from(
+                  new Set([...(t.editedFieldIds || []), ...changedFieldNames]),
+                ),
+                firstEditedOriginalIndex:
+                  t.firstEditedOriginalIndex === null
+                    ? topEditedOriginalIndex
+                    : Math.min(t.firstEditedOriginalIndex, topEditedOriginalIndex),
+              },
+        ),
+      );
+      previousActiveOriginalIndexRef.current = restartOriginalIndex;
+      setCursor(restartCursor);
+      setFixedResponsesById(trimmedFixedResponses);
+      setFixedResponseDisplayedById(trimmedDisplayedResponses);
+    } else {
+      const newTryId = crypto.randomUUID();
+      const newTry: TryState = {
+        id: newTryId,
+        index: tries.length + 1,
+        parentTryId: activeTry.id,
+        createdAt: Date.now(),
+        answersSnapshot: currentAnswers,
+        imagesSnapshot: structuredClone(images || {}),
+        cursor: restartCursor,
+        fixedResponsesById: trimmedFixedResponses,
+        fixedResponseDisplayedById: trimmedDisplayedResponses,
+        stopStateByElementId: trimmedStopState,
+        editedFieldIds: Array.from(
+          new Set([...(activeTry.editedFieldIds || []), ...changedFieldNames]),
+        ),
+        isDraft: true,
+        hasPostEditInteraction: false,
+        firstEditedOriginalIndex:
+          activeTry.firstEditedOriginalIndex === null
+            ? topEditedOriginalIndex
+            : Math.min(activeTry.firstEditedOriginalIndex, topEditedOriginalIndex),
+      };
+      setTries((prev) => [...prev, newTry]);
+      setActiveTryId(newTry.id);
+      previousActiveOriginalIndexRef.current = restartOriginalIndex;
+      setCursor(restartCursor);
+      setFixedResponsesById(trimmedFixedResponses);
+      setFixedResponseDisplayedById(trimmedDisplayedResponses);
+    }
+
+    setEditingFieldName(null);
+    setEditBaseAnswers(null);
+    setEditBaseImages(null);
+    setErrors([]);
   };
 
   const visibleElementsForRender = isComplete
@@ -431,10 +711,12 @@ export default function CurrentElementFlow({
         Math.min(visibleUntil + 1, visibleElements.length)
       );
 
+  if (!surveyJson) return null;
+
   return (
     <form onSubmit={handleRun} className="space-y-6">
       {visibleElementsForRender.map(({ element, originalIndex }, idx) => {
-        const isLocked = activeStopIsRequiredScoringFailed ? false : idx < cursor;
+        const isLocked = idx < cursor;
         const isActiveStop = stopIndex !== null && idx === stopIndex;
         const isStop = isStopElement(element);
 
@@ -462,8 +744,33 @@ export default function CurrentElementFlow({
         }
 
         if (!isStop) {
+          const canEditLockedField =
+            isLocked && canEditFieldByOriginalIndex(originalIndex);
+          const isEditingThisField = editingFieldName === element.name;
+          const showEditedChip = activeTry?.editedFieldIds?.includes(element.name);
           return (
-            <div className="mb-6" key={element.id}>
+            <div
+              className={`mb-6 relative group rounded-md ${
+                isEditingThisField ? "ring-2 ring-primary/25 bg-primary/5 p-3" : ""
+              }`}
+              key={element.id}
+            >
+              {showEditedChip && (
+                <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100/70 px-2 py-0.5 text-[11px] text-gray-700 mb-2">
+                  [Edited]
+                </span>
+              )}
+              {canEditLockedField && !isEditingThisField && (
+                <button
+                  type="button"
+                  className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity inline-flex items-center gap-1 rounded-md border border-gray-200 bg-white px-2 py-1 text-xs text-gray-700 hover:bg-gray-50"
+                  onClick={() => startEditingField(element.name)}
+                >
+                  <Pencil className="h-3 w-3" />
+                  Edit
+                </button>
+              )}
+
               <RenderQuestion
                 key={element.name}
                 errors={errors}
@@ -474,7 +781,7 @@ export default function CurrentElementFlow({
                   type: element.type,
                 }}
                 answers={answers as any}
-                disabled={isLocked}
+                disabled={isEditingThisField ? false : isLocked}
                 handleInputChange={handleInputChangeWithRetryMark}
                 setInputValue={setInputValueWithRetryMark}
                 setImages={setImages}
@@ -486,26 +793,45 @@ export default function CurrentElementFlow({
                 isOwner={isOwner}
                 isAdmin={isAdmin}
               />
+
+              {isEditingThisField && (
+                <div className="mt-3 flex justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={cancelEditingField}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  >
+                    <X className="h-4 w-4" />
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    onClick={saveEditingField}
+                    className="inline-flex items-center gap-1 px-3 py-1.5 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                  >
+                    <Check className="h-4 w-4" />
+                    Save changes
+                  </button>
+                </div>
+              )}
             </div>
           );
         }
 
-        // Stop card rendering (aiResponse/fixedResponse/scoring)
-        const latestRunForThisStop =
-          currentConversation?.runs
-            ?.filter((run) => run.phaseIndex === originalIndex)
-            .sort((a, b) => b.createdAt - a.createdAt)[0] || null;
-        const hideRunForDirtyRetry =
-          element.type === "scoring" &&
-          isActiveStop &&
-          retryDirtyStopIds[element.id] === true;
-        const runForThisStop = hideRunForDirtyRetry ? null : latestRunForThisStop;
+        const latestRunForThisStop = getLatestRunForStop(
+          originalIndex,
+          activeTryId ?? undefined,
+        );
+        const stopState = activeTry?.stopStateByElementId?.[element.id];
+        const runForThisStop =
+          stopState?.resultVisible === false ? null : latestRunForThisStop;
         const scoringIsRequired =
           element.type === "scoring" ? element.isRequired !== false : false;
-        const scoringFailed =
-          element.type === "scoring" && latestRunForThisStop
-            ? !passedTheRubricMinScore(latestRunForThisStop)
-            : false;
+        const scoringFailed = Boolean(
+          element.type === "scoring" &&
+            (stopState?.requiredScoreFailed ||
+              (latestRunForThisStop && !passedTheRubricMinScore(latestRunForThisStop))),
+        );
 
         const revealedFixed =
           element.type === "fixedResponse"
@@ -587,7 +913,7 @@ export default function CurrentElementFlow({
 
             {element.type === "fixedResponse" && hasRevealedFixed && (
               <MarkdownResponseDisplay
-                content={fixedDisplayed ?? ""}
+                content={fixedDisplayed ?? revealedFixed ?? ""}
                 className=""
               />
             )}
@@ -627,57 +953,84 @@ export default function CurrentElementFlow({
 
             {isActiveStop && (
               <>
+                {tries.length > 1 && (
+                  <div className="mt-2 mb-3 flex justify-end">
+                    <div className="inline-flex items-center gap-2 text-xs text-gray-600">
+                      <button
+                        type="button"
+                        className="p-1 rounded border border-gray-200 disabled:opacity-50"
+                        disabled={(activeTry?.index || 1) <= 1}
+                        onClick={() => {
+                          const targetIndex = (activeTry?.index || 1) - 1;
+                          const target = tries.find((t) => t.index === targetIndex);
+                          if (target) setActiveTryId(target.id);
+                        }}
+                      >
+                        <ChevronLeft className="h-3.5 w-3.5" />
+                      </button>
+                      <span>
+                        {activeTry?.index || 1}/{tries.length}
+                      </span>
+                      <button
+                        type="button"
+                        className="p-1 rounded border border-gray-200 disabled:opacity-50"
+                        disabled={(activeTry?.index || 1) >= tries.length}
+                        onClick={() => {
+                          const targetIndex = (activeTry?.index || 1) + 1;
+                          const target = tries.find((t) => t.index === targetIndex);
+                          if (target) setActiveTryId(target.id);
+                        }}
+                      >
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {promptLoading ? (
                   <div className="mt-4">
                     <SkeletonLoader />
                   </div>
                 ) : (
                   <div className="mt-4 flex justify-end">
-                    <button
-                      type="submit"
-                      className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-                      onClick={(e) => {
-                        if (element.type !== "fixedResponse") return;
-                        const hasFull = hasRevealedFixed;
-                        const full = revealedFixed ?? "";
-                        const displayed = fixedDisplayed ?? "";
-                        const anim = fixedAnimating;
+                    {!(element.type === "scoring" && scoringIsRequired && scoringFailed) && (
+                      <button
+                        type="submit"
+                        className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                        onClick={(e) => {
+                          if (element.type !== "fixedResponse") return;
+                          const hasFull = hasRevealedFixed;
+                          const full = revealedFixed ?? "";
+                          const displayed = fixedDisplayed ?? "";
+                          const anim = fixedAnimating;
 
-                        // If not revealed yet: allow submit → handleRun starts reveal animation.
-                        if (!hasFull) {
-                          e.currentTarget.blur();
-                          return;
-                        }
+                          if (!hasFull) {
+                            e.currentTarget.blur();
+                            return;
+                          }
 
-                        // If animating or partially shown: click skips to full reveal (no submit)
-                        if (anim || displayed !== full) {
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                          revealFullFixedResponse(element.id, full);
-                          return;
-                        }
+                          if (anim || displayed !== full) {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                            revealFullFixedResponse(element.id, full);
+                            return;
+                          }
 
-                        // If fully shown: click advances (no submit)
-                        if (displayed === full) {
-                          e.preventDefault();
-                          e.currentTarget.blur();
-                          advance(idx + 1);
-                          return;
-                        }
-
-                        // Otherwise: allow submit.
-                      }}
-                    >
-                      {element.type === "aiResponse"
-                        ? "Continue"
-                        : element.type === "scoring"
-                        ? scoringIsRequired && scoringFailed
-                          ? "Submit again"
-                          : "Continue"
-                        : revealedFixed
-                        ? "Continue"
-                        : "Continue"}
-                    </button>
+                          if (displayed === full) {
+                            e.preventDefault();
+                            e.currentTarget.blur();
+                            advance(idx + 1);
+                          }
+                        }}
+                      >
+                        {element.type === "aiResponse"
+                          ? "Continue"
+                          : element.type === "scoring"
+                          ? scoringIsRequired
+                            ? "Evaluate"
+                            : "Continue"
+                          : "Continue"}
+                      </button>
+                    )}
                   </div>
                 )}
               </>
@@ -688,14 +1041,49 @@ export default function CurrentElementFlow({
 
       {/* No stop element left → end */}
       {!isComplete && !stopElement && stopIndex === null && (
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
-            onClick={() => advance(visibleElements.length)}
-          >
-            Finish
-          </button>
+        <div className="mt-6 space-y-3">
+          {tries.length > 1 && (
+            <div className="flex justify-end">
+              <div className="inline-flex items-center gap-2 text-xs text-gray-600">
+                <button
+                  type="button"
+                  className="p-1 rounded border border-gray-200 disabled:opacity-50"
+                  disabled={(activeTry?.index || 1) <= 1}
+                  onClick={() => {
+                    const targetIndex = (activeTry?.index || 1) - 1;
+                    const target = tries.find((t) => t.index === targetIndex);
+                    if (target) setActiveTryId(target.id);
+                  }}
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </button>
+                <span>
+                  {activeTry?.index || 1}/{tries.length}
+                </span>
+                <button
+                  type="button"
+                  className="p-1 rounded border border-gray-200 disabled:opacity-50"
+                  disabled={(activeTry?.index || 1) >= tries.length}
+                  onClick={() => {
+                    const targetIndex = (activeTry?.index || 1) + 1;
+                    const target = tries.find((t) => t.index === targetIndex);
+                    if (target) setActiveTryId(target.id);
+                  }}
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+              onClick={() => advance(visibleElements.length)}
+            >
+              Finish
+            </button>
+          </div>
         </div>
       )}
     </form>
