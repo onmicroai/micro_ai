@@ -25,6 +25,7 @@ import ReactMarkdown from "react-markdown";
 import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
 import TableWrapper from "@/components/MessageTableWrapper";
+import { Textarea } from "../basic/textarea";
 
 interface ChatQuestionProps {
   element: Element;
@@ -122,7 +123,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
   // Count only user messages
   const userMessageCount = messages.filter(
-    (msg) => msg.sender === "user",
+    (msg) => msg.sender === "user"
   ).length;
 
   /**
@@ -250,7 +251,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const handleSend = async (
     message: string,
     wasAudioInput: boolean = false,
-    transcriptionCost?: number,
+    transcriptionCost?: number
   ) => {
     if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
       return;
@@ -323,7 +324,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               element.ttsProvider || "openai",
               element.selectedVoiceId || "alloy",
               element.voiceInstructions,
-              userId,
+              userId
             );
           } catch (error) {
             console.error("Error synthesizing speech:", error);
@@ -379,7 +380,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
       const run = store.currentConversation?.runs.find(
-        (r) => r.id === msg.run_id,
+        (r) => r.id === msg.run_id
       );
       return sum + (run?.credits || 0);
     }
@@ -389,7 +390,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     skipVisibilityCheck ||
     evaluateVisibility(
       element.conditionalLogic || ({} as ConditionalLogic),
-      answers,
+      answers
     );
   const questionText = element.text || element.label || element.name;
 
@@ -546,7 +547,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   </div>
                 ) : (
                   <div className="flex-1 relative">
-                    <textarea
+                    <Textarea
                       value={inputMessage}
                       onChange={(e) => setInputMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
@@ -556,9 +557,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                           : `Type message here (${remainingMessages} messages remaining)`
                       }
                       disabled={disabled || userMessageCount >= MESSAGE_LIMIT}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#5C5EF1] focus:border-transparent resize-none"
-                      rows={1}
-                      style={{ minHeight: "40px", maxHeight: "120px" }}
+                      style={{ minHeight: "45px", maxHeight: "120px" }}
                     />
                   </div>
                 )}

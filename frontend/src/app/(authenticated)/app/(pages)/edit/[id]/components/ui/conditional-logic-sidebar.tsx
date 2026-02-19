@@ -21,7 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Input } from "../ui/input";
+import { Input } from "../../../../../../../../components/basic/input";
 import { Label } from "../ui/label";
 import { Element, ConditionalLogic } from "@/app/(authenticated)/app/types";
 import { motion, AnimatePresence } from "framer-motion";
@@ -75,10 +75,10 @@ export default function ConditionalLogicSidebar({
   instructionIndex,
 }: ConditionalLogicSidebarProps) {
   const [selectedSourceField, setSelectedSourceField] = useState<string>(
-    currentLogic?.sourceFieldId || "",
+    currentLogic?.sourceFieldId || ""
   );
   const [selectedOperator, setSelectedOperator] = useState<string>(
-    currentLogic?.operator || "",
+    currentLogic?.operator || ""
   );
   const [conditionValue, setConditionValue] = useState<
     string | number | boolean
@@ -108,7 +108,7 @@ export default function ConditionalLogicSidebar({
       case "slider":
         operators.push(
           { value: "equals", label: "Equals" },
-          { value: "not_equals", label: "Does not equal" },
+          { value: "not_equals", label: "Does not equal" }
         );
         break;
     }
@@ -123,7 +123,7 @@ export default function ConditionalLogicSidebar({
           { value: "contains", label: "Contains" },
           { value: "not_contains", label: "Does not contain" },
           { value: "is_empty", label: "Is empty" },
-          { value: "is_not_empty", label: "Is not empty" },
+          { value: "is_not_empty", label: "Is not empty" }
         );
         break;
 
@@ -132,7 +132,7 @@ export default function ConditionalLogicSidebar({
           { value: "greater_than", label: "Greater than" },
           { value: "less_than", label: "Less than" },
           { value: "greater_than_or_equal", label: "Greater than or equal to" },
-          { value: "less_than_or_equal", label: "Less than or equal to" },
+          { value: "less_than_or_equal", label: "Less than or equal to" }
         );
         break;
     }
@@ -141,7 +141,7 @@ export default function ConditionalLogicSidebar({
   };
 
   const currentFieldIndex = availableFields.findIndex(
-    (f) => f.name === targetFieldName,
+    (f) => f.name === targetFieldName
   );
 
   const operatorNeedsValue = (operator: string) => {
@@ -149,7 +149,7 @@ export default function ConditionalLogicSidebar({
   };
 
   const selectedField = availableFields.find(
-    (f) => f.id === selectedSourceField,
+    (f) => f.id === selectedSourceField
   );
   const operators = selectedField
     ? getOperatorsForField(selectedField.type)
@@ -239,7 +239,7 @@ export default function ConditionalLogicSidebar({
                   {availableFields.map((field, idx) => {
                     const isSelf = field.name === targetFieldName;
                     const isTypeDisabled = DISABLED_FIELD_TYPES.includes(
-                      field.type,
+                      field.type
                     );
                     const isPositionDisabled =
                       currentFieldIndex !== -1 && idx > currentFieldIndex;
@@ -349,7 +349,7 @@ export default function ConditionalLogicSidebar({
 
                   {(() => {
                     const sourceField = availableFields.find(
-                      (f) => f.id === selectedSourceField,
+                      (f) => f.id === selectedSourceField
                     );
                     if (!sourceField) return null;
 
@@ -360,13 +360,13 @@ export default function ConditionalLogicSidebar({
                           <Select
                             value={
                               sourceField.choices?.find(
-                                (choice) => choice.text === conditionValue,
+                                (choice) => choice.text === conditionValue
                               )?.value ||
                               (conditionValue === "Other" ? "other" : "")
                             }
                             onValueChange={(value) => {
                               const selectedChoice = sourceField.choices?.find(
-                                (choice) => choice.value === value,
+                                (choice) => choice.value === value
                               );
                               setConditionValue(selectedChoice?.text || value);
                             }}
@@ -394,13 +394,13 @@ export default function ConditionalLogicSidebar({
                           <Select
                             value={
                               sourceField.choices?.find(
-                                (choice) => choice.text === conditionValue,
+                                (choice) => choice.text === conditionValue
                               )?.value ||
                               (conditionValue === "Other" ? "other" : "")
                             }
                             onValueChange={(value) => {
                               const selectedChoice = sourceField.choices?.find(
-                                (choice) => choice.value === value,
+                                (choice) => choice.value === value
                               );
                               setConditionValue(selectedChoice?.text || value);
                             }}

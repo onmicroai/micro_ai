@@ -19,7 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Input } from "../ui/input";
+import { Input } from "../../../../../../../../components/basic/input";
 import {
   Prompt,
   Element,
@@ -50,11 +50,11 @@ interface AIResponseFieldProps {
   onChange?: (
     fieldId: string,
     content: string,
-    instructions?: AIResponseInstruction[],
+    instructions?: AIResponseInstruction[]
   ) => void;
   onInstructionConditionalLogicChange?: (
     instructionIndex: number,
-    logic: ConditionalLogic | null,
+    logic: ConditionalLogic | null
   ) => void;
 }
 
@@ -83,7 +83,7 @@ export default function AIResponseField({
   const [selectedOperator, setSelectedOperator] = useState<string>("");
   const [conditionValue, setConditionValue] = useState<string>("");
   const [focusedInstruction, setFocusedInstruction] = useState<string | null>(
-    null,
+    null
   );
   const {
     conditionalSidebarContext,
@@ -142,7 +142,7 @@ export default function AIResponseField({
           id: String(idx),
           content: inst.text,
           conditionalLogic: inst.conditionalLogic,
-        })),
+        }))
       );
     } else {
       setInstructions([{ id: "0", content: field.text || "" }]);
@@ -169,7 +169,7 @@ export default function AIResponseField({
 
   const handleOpenConditionDialog = (instructionId: string) => {
     const instructionIdx = instructions.findIndex(
-      (inst) => inst.id === instructionId,
+      (inst) => inst.id === instructionId
     );
     const instruction = instructions[instructionIdx];
     const openSidebar = () => {
@@ -200,7 +200,7 @@ export default function AIResponseField({
     };
 
     const updatedInstructions = instructions.map((inst) =>
-      inst.id === openDialog ? { ...inst, conditionalLogic: logic } : inst,
+      inst.id === openDialog ? { ...inst, conditionalLogic: logic } : inst
     );
 
     setInstructions(updatedInstructions);
@@ -212,14 +212,16 @@ export default function AIResponseField({
 
   const handleRemoveInstructionCondition = (instructionId: string) => {
     const instructionIndex = instructions.findIndex(
-      (inst) => inst.id === instructionId,
+      (inst) => inst.id === instructionId
     );
     const targetInstruction = instructions.find(
-      (inst) => inst.id === instructionId,
+      (inst) => inst.id === instructionId
     );
     const previousLogic = targetInstruction?.conditionalLogic;
     const updatedInstructions = instructions.map((inst) =>
-      inst.id === instructionId ? { ...inst, conditionalLogic: undefined } : inst,
+      inst.id === instructionId
+        ? { ...inst, conditionalLogic: undefined }
+        : inst
     );
     setInstructions(updatedInstructions);
     updateFieldText(updatedInstructions);
@@ -238,7 +240,7 @@ export default function AIResponseField({
           const restoredInstructions = instructions.map((inst) =>
             inst.id === instructionId
               ? { ...inst, conditionalLogic: previousLogic }
-              : inst,
+              : inst
           );
           setInstructions(restoredInstructions);
           updateFieldText(restoredInstructions);
@@ -260,7 +262,7 @@ export default function AIResponseField({
 
       onChange?.(field.id, combinedText, instructions);
     },
-    [onChange, field.id],
+    [onChange, field.id]
   );
 
   useEffect(() => {
@@ -271,7 +273,7 @@ export default function AIResponseField({
     if (instructions.length <= 1) return;
 
     const nonEmptyInstructions = instructions.filter(
-      (instruction) => !isInstructionEmpty(instruction),
+      (instruction) => !isInstructionEmpty(instruction)
     );
 
     // if all instructions are non-empty, do nothing
@@ -297,23 +299,22 @@ export default function AIResponseField({
         /\{([^}]+)\}/g,
         (match, tagName) => {
           const field = fields.find(
-            (f) => f.name === tagName || f.id === tagName,
+            (f) => f.name === tagName || f.id === tagName
           );
           if (!field) return match;
 
           return `<span contenteditable="false" draggable="true" data-tag-id="${
             field.id
-          }" data-tag-label="${
-            field.name || field.id
-          }" class="${!isPreviewMode ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
-            : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary"}" style="margin: 0 0.25em;">${
-            field.name || field.id
-          }</span>`;
-        },
+          }" data-tag-label="${field.name || field.id}" class="${
+            !isPreviewMode
+              ? "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600"
+              : "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary"
+          }" style="margin: 0 0.25em;">${field.name || field.id}</span>`;
+        }
       );
       return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields, isPreviewMode],
+    [fields, isPreviewMode]
   );
 
   const convertTagsToPlaceholders = useCallback(
@@ -321,12 +322,12 @@ export default function AIResponseField({
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = html;
       const tagElements = tempDiv.querySelectorAll(
-        'span[contenteditable="false"]',
+        'span[contenteditable="false"]'
       );
       tagElements.forEach((element) => {
         const tagName = element.textContent?.trim() || "";
         const field = fields.find(
-          (f) => f.name === tagName || f.id === tagName,
+          (f) => f.name === tagName || f.id === tagName
         );
         if (field) {
           element.replaceWith(`{${field.name || field.id}}`);
@@ -334,7 +335,7 @@ export default function AIResponseField({
       });
       return tempDiv.innerHTML;
     },
-    [fields],
+    [fields]
   );
 
   const saveSelection = (instructionId: string) => {
@@ -359,7 +360,7 @@ export default function AIResponseField({
 
   const handleInstructionInput = (
     instructionId: string,
-    event: React.FormEvent<HTMLDivElement>,
+    event: React.FormEvent<HTMLDivElement>
   ) => {
     const target = event.target as HTMLDivElement;
     const newContent = target.innerHTML;
@@ -371,7 +372,7 @@ export default function AIResponseField({
     const newInstructions = instructions.map((inst) =>
       inst.id === instructionId
         ? { ...inst, content: placeholderContent }
-        : inst,
+        : inst
     );
     setInstructions(newInstructions);
     updateFieldText(newInstructions);
@@ -385,7 +386,8 @@ export default function AIResponseField({
     tagElement.draggable = true;
     tagElement.setAttribute("data-tag-id", field?.id || label);
     tagElement.setAttribute("data-tag-label", label);
-    tagElement.className = "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className =
+      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;
@@ -437,7 +439,7 @@ export default function AIResponseField({
     const newInstructions = instructions.map((inst) =>
       inst.id === instructionId
         ? { ...inst, content: placeholderContent }
-        : inst,
+        : inst
     );
     setInstructions(newInstructions);
     updateFieldText(newInstructions);
@@ -458,12 +460,12 @@ export default function AIResponseField({
       const newInstructions = instructions.map((inst) =>
         inst.id === instructionId
           ? { ...inst, content: placeholderContent }
-          : inst,
+          : inst
       );
       setInstructions(newInstructions);
       updateFieldText(newInstructions);
     },
-    [convertTagsToPlaceholders, instructions, updateFieldText],
+    [convertTagsToPlaceholders, instructions, updateFieldText]
   );
 
   const updateEditorHTML = useCallback(
@@ -495,7 +497,7 @@ export default function AIResponseField({
           if (tagId && tagLabel && dragEvent.dataTransfer) {
             dragEvent.dataTransfer.setData(
               "tag",
-              JSON.stringify({ id: tagId, label: tagLabel }),
+              JSON.stringify({ id: tagId, label: tagLabel })
             );
 
             saveSelection(instructionId);
@@ -540,7 +542,7 @@ export default function AIResponseField({
         }, 0);
       }
     },
-    [convertPlaceholdersToTags, updateEditorContent],
+    [convertPlaceholdersToTags, updateEditorContent]
   );
 
   useEffect(() => {
@@ -615,7 +617,7 @@ export default function AIResponseField({
 
   const adjustDropPosition = (
     dropPosition: Range,
-    instructionId: string,
+    instructionId: string
   ): Range => {
     const editorElement = editorRefs.current.get(instructionId);
     let currentNode = dropPosition.startContainer;
@@ -636,7 +638,7 @@ export default function AIResponseField({
 
   const updatePreviewPosition = (
     event: React.DragEvent,
-    instructionId: string,
+    instructionId: string
   ) => {
     const editor = editorRefs.current.get(instructionId);
     if (!editor) return;
@@ -667,7 +669,7 @@ export default function AIResponseField({
 
     const adjustedPosition = adjustDropPosition(
       dropPosition.cloneRange(),
-      instructionId,
+      instructionId
     );
     adjustedPosition.insertNode(preview);
 
@@ -714,7 +716,7 @@ export default function AIResponseField({
       const editorElement = editorRefs.current.get(instructionId);
       if (editorElement) {
         const draggingTags = editorElement.querySelectorAll(
-          "[data-dragging='true']",
+          "[data-dragging='true']"
         );
         draggingTags.forEach((dragTag) => dragTag.remove());
 
@@ -780,7 +782,7 @@ export default function AIResponseField({
       case "slider":
         operators.push(
           { value: "equals", label: "Equals" },
-          { value: "not_equals", label: "Does not equal" },
+          { value: "not_equals", label: "Does not equal" }
         );
         break;
     }
@@ -795,7 +797,7 @@ export default function AIResponseField({
           { value: "contains", label: "Contains" },
           { value: "not_contains", label: "Does not contain" },
           { value: "is_empty", label: "Is empty" },
-          { value: "is_not_empty", label: "Is not empty" },
+          { value: "is_not_empty", label: "Is not empty" }
         );
         break;
 
@@ -804,7 +806,7 @@ export default function AIResponseField({
           { value: "greater_than", label: "Greater than" },
           { value: "less_than", label: "Less than" },
           { value: "greater_than_or_equal", label: "Greater than or equal to" },
-          { value: "less_than_or_equal", label: "Less than or equal to" },
+          { value: "less_than_or_equal", label: "Less than or equal to" }
         );
         break;
     }
@@ -855,7 +857,7 @@ export default function AIResponseField({
                           fields.find(
                             (f) =>
                               f.id ===
-                              instruction.conditionalLogic?.sourceFieldId,
+                              instruction.conditionalLogic?.sourceFieldId
                           )?.name || instruction.conditionalLogic.sourceFieldId
                         }
                         operator={instruction.conditionalLogic.operator}
@@ -864,8 +866,8 @@ export default function AIResponseField({
                             ? String(instruction.conditionalLogic.value)
                             : undefined
                         }
-                        onOpenCondition={
-                          () => handleOpenConditionDialog(instruction.id)
+                        onOpenCondition={() =>
+                          handleOpenConditionDialog(instruction.id)
                         }
                         onRemove={
                           isPreviewMode
@@ -878,7 +880,9 @@ export default function AIResponseField({
                     <div
                       className="w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 text-sm leading-relaxed break-words whitespace-pre-line resize-none cursor-pointer !mb-4 mt-2"
                       dangerouslySetInnerHTML={{
-                        __html: instruction.content ? convertPlaceholdersToTags(instruction.content) : "&nbsp;"
+                        __html: instruction.content
+                          ? convertPlaceholdersToTags(instruction.content)
+                          : "&nbsp;",
                       }}
                     />
                   </motion.div>
@@ -913,7 +917,7 @@ export default function AIResponseField({
                               fields.find(
                                 (f) =>
                                   f.id ===
-                                  instruction.conditionalLogic?.sourceFieldId,
+                                  instruction.conditionalLogic?.sourceFieldId
                               )?.name ||
                               instruction.conditionalLogic.sourceFieldId
                             }
@@ -931,7 +935,7 @@ export default function AIResponseField({
                                 ? undefined
                                 : () =>
                                     handleRemoveInstructionCondition(
-                                      instruction.id,
+                                      instruction.id
                                     )
                             }
                           />
@@ -939,7 +943,7 @@ export default function AIResponseField({
                       )}
 
                       <div
-                        className="relative w-full box-border bg-white rounded-lg border focus-within:border-blue-500 focus-within:ring-1 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
+                        className="relative w-full box-border bg-white rounded-lg border focus-within:border-primary-600 focus-within:ring-blue-500 focus-within:ring-inset transition-all duration-200"
                         style={{
                           minHeight: isFocused ? "150px" : "40px",
                         }}
@@ -1039,7 +1043,7 @@ export default function AIResponseField({
                         if (focusedInstruction) {
                           event.dataTransfer.setData(
                             "focusedInstruction",
-                            focusedInstruction,
+                            focusedInstruction
                           );
                         }
                       }}
