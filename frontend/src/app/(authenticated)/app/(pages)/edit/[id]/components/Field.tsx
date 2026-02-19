@@ -376,6 +376,7 @@ export default function Field({
     isActive,
     field.id,
     field.label,
+    field.type,
     isPromptType,
     onUpdateFieldLabel,
     shouldDefaultLabel,
