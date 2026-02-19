@@ -40,6 +40,16 @@ function isStopElement(el: Element): boolean {
   return STOP_TYPES.has(el.type);
 }
 
+/** Element types that do not show the hover Edit button in retry flow (display-only or special UX). */
+function isEditSupportedElementType(type: Element["type"]): boolean {
+  return type !== "chat" && type !== "title" && type !== "richText";
+}
+
+/** Types where the hover Edit button is positioned above the control to avoid overlapping. */
+function isEditButtonAboveType(type: Element["type"]): boolean {
+  return type === "textarea" || type === "dropdown" || type === "text" || type === "slider";
+}
+
 type VisibleEntry = { element: Element; originalIndex: number };
 
 type TryState = {
@@ -745,13 +755,19 @@ export default function CurrentElementFlow({
 
         if (!isStop) {
           const canEditLockedField =
-            isLocked && canEditFieldByOriginalIndex(originalIndex);
+            isLocked &&
+            canEditFieldByOriginalIndex(originalIndex) &&
+            isEditSupportedElementType(element.type);
           const isEditingThisField = editingFieldName === element.name;
           const showEditedChip = activeTry?.editedFieldIds?.includes(element.name);
           return (
             <div
               className={`mb-6 relative group rounded-md ${
-                isEditingThisField ? "ring-2 ring-primary/25 bg-primary/5 p-3" : ""
+                isEditButtonAboveType(element.type) ? "pt-8" : ""
+              } ${
+                isEditingThisField
+                  ? "ring-2 ring-primary/25 border border-gray-300 bg-gray-50 p-3"
+                  : ""
               }`}
               key={element.id}
             >
@@ -795,7 +811,7 @@ export default function CurrentElementFlow({
               />
 
               {isEditingThisField && (
-                <div className="mt-3 flex justify-end gap-2">
+                <div className="mt-3 pt-3 border-t border-gray-200 flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={cancelEditingField}
@@ -847,8 +863,8 @@ export default function CurrentElementFlow({
           element.type === "fixedResponse"
             ? fixedResponseAnimatingById[element.id] === true
             : false;
-        const isBareFixedReveal =
-          element.type === "fixedResponse" && isActiveStop && !hasRevealedFixed;
+                          const isBareFixedReveal =
+                          element.type === "fixedResponse" && isActiveStop && !hasRevealedFixed;
         const isFixedResponseCard =
           element.type === "fixedResponse" && hasRevealedFixed;
 
@@ -1004,7 +1020,10 @@ export default function CurrentElementFlow({
                           const anim = fixedAnimating;
 
                           if (!hasFull) {
+                            // Empty fixed response – nothing to reveal, so just advance.
+                            e.preventDefault();
                             e.currentTarget.blur();
+                            advance(idx + 1);
                             return;
                           }
 

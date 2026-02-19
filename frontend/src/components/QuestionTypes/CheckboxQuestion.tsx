@@ -181,7 +181,7 @@ const CheckboxQuestion = ({
           {checkboxOptions.map((choice, index) => (
             <div key={`${element.name}-${index}`} className="flex gap-3">
               <div className="flex h-6 shrink-0 items-center">
-                <div key={index} className="group grid w-6 h-6 grid-cols-1">
+                <div key={index} className="relative grid w-6 h-6 grid-cols-1">
                   <input
                     type="checkbox"
                     id={`${element.name}-${index}`}
@@ -191,7 +191,7 @@ const CheckboxQuestion = ({
                     onChange={handleCheckboxChange}
                     disabled={disabled || element.readOnly}
                     className={`
-                              col-start-1 row-start-1 appearance-none rounded border bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 forced-colors:appearance-auto
+                              col-start-1 row-start-1 appearance-none rounded border bg-white checked:border-indigo-600 checked:bg-indigo-600 indeterminate:border-indigo-600 indeterminate:bg-indigo-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 disabled:border-gray-300 disabled:bg-gray-100 disabled:checked:border-indigo-400 disabled:checked:bg-indigo-400 forced-colors:appearance-auto
                               ${
                                 hasError
                                   ? "border-red-300 text-red-600 focus:ring-red-500"
@@ -208,26 +208,44 @@ const CheckboxQuestion = ({
                   <svg
                     fill="none"
                     viewBox="0 0 14 14"
-                    className="pointer-events-none col-start-1 row-start-1 size-3.5 self-center justify-self-center stroke-white"
+                    className="pointer-events-none col-start-1 row-start-1 z-10 size-3 self-center justify-self-center stroke-white"
+                    aria-hidden
                   >
-                    <path
-                      d="M3 8L6 11L11 3.5"
-                      strokeWidth={2}
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      className="opacity-0 group-has-[:checked]:opacity-100"
-                    />
+                    {isCheckboxChecked(choice.value) ? (
+                      <path
+                        d="M3 8L6 11L11 3.5"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-100"
+                      />
+                    ) : (
+                      <path
+                        d="M3 8L6 11L11 3.5"
+                        strokeWidth={2.5}
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        className="opacity-0"
+                      />
+                    )}
                     <path
                       d="M3 7H11"
                       strokeWidth={2}
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      className="opacity-0 group-has-[:indeterminate]:opacity-100"
+                      className="opacity-0"
+                      aria-hidden
                     />
                   </svg>
                 </div>
               </div>
-              <div className="text-sm/6">
+              <div
+                className={`text-sm/6 ${
+                  (disabled || element.readOnly) && isCheckboxChecked(choice.value)
+                    ? "text-gray-800"
+                    : ""
+                }`}
+              >
                 <label
                   htmlFor={`${element.name}-${index}`}
                   className={`

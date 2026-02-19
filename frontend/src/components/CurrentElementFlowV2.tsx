@@ -37,6 +37,16 @@ function isStopElement(el: Element): boolean {
   return STOP_TYPES.has(el.type);
 }
 
+/** Element types that do not show the hover Edit button in retry flow (display-only or special UX). */
+function isEditSupportedElementType(type: Element["type"]): boolean {
+  return type !== "chat" && type !== "title" && type !== "richText";
+}
+
+/** Types where the hover Edit button is positioned above the control to avoid overlapping. */
+function isEditButtonAboveType(type: Element["type"]): boolean {
+  return type === "textarea" || type === "dropdown" || type === "text" || type === "slider";
+}
+
 type VisibleEntry = { element: Element; originalIndex: number };
 
 type Props = {
@@ -634,13 +644,22 @@ export default function CurrentElementFlowV2({
         }
 
         if (!isStop) {
-          const canEditLockedField = isLocked && originalIndex > lastRequiredScoringPassOriginalIndex;
+          const canEditLockedField =
+            isLocked &&
+            originalIndex > lastRequiredScoringPassOriginalIndex &&
+            isEditSupportedElementType(element.type);
           const isEditingThisField = editingFieldName === element.name;
           const showEditedChip = activeTry.editedFieldIds.includes(element.name);
           return (
             <div
               key={element.id}
-              className={`mb-6 relative group rounded-md ${isEditingThisField ? "ring-2 ring-primary/25 bg-primary/5 p-3" : ""}`}
+              className={`mb-6 relative group rounded-md ${
+                isEditButtonAboveType(element.type) ? "pt-8" : ""
+              } ${
+                isEditingThisField
+                  ? "ring-2 ring-primary/25 border border-gray-300 bg-gray-50 p-3"
+                  : ""
+              }`}
             >
               {showEditedChip && (
                 <span className="inline-flex items-center rounded-full border border-gray-200 bg-gray-100/70 px-2 py-0.5 text-[11px] text-gray-700 mb-2">
@@ -675,7 +694,7 @@ export default function CurrentElementFlowV2({
                 isAdmin={isAdmin}
               />
               {isEditingThisField && (
-                <div className="mt-3 flex justify-end gap-2">
+                <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">
                   <button
                     type="button"
                     onClick={cancelDraftEdits}
@@ -854,7 +873,13 @@ export default function CurrentElementFlowV2({
                           const full = fixedState?.fullText || "";
                           const displayed = fixedState?.displayedText || "";
                           const anim = fixedState?.isAnimating === true;
-                          if (!full) return;
+                          // For empty fixed responses, there is nothing to reveal;
+                          // treat Continue as simply advancing to the next element.
+                          if (!full) {
+                            e.preventDefault();
+                            advance(idx + 1);
+                            return;
+                          }
                           if (anim || displayed !== full) {
                             e.preventDefault();
                             revealFullFixedResponse(element.id, full);
