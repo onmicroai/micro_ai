@@ -916,6 +916,11 @@ export default function CurrentElementFlow({
             )?.content || ""
           : "";
 
+        const isAwaitingResponseOrScore =
+          promptLoading ||
+          isEvaluatingScore ||
+          (element.type === "fixedResponse" && fixedAnimating);
+
         return (
           <div
             key={element.id}
@@ -975,7 +980,7 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) <= 1}
+                        disabled={(activeTry?.index || 1) <= 1 || isAwaitingResponseOrScore}
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) - 1;
                           const target = tries.find((t) => t.index === targetIndex);
@@ -990,7 +995,7 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) >= tries.length}
+                        disabled={(activeTry?.index || 1) >= tries.length || isAwaitingResponseOrScore}
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) + 1;
                           const target = tries.find((t) => t.index === targetIndex);
@@ -1067,7 +1072,7 @@ export default function CurrentElementFlow({
                 <button
                   type="button"
                   className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                  disabled={(activeTry?.index || 1) <= 1}
+                  disabled={(activeTry?.index || 1) <= 1 || promptLoading}
                   onClick={() => {
                     const targetIndex = (activeTry?.index || 1) - 1;
                     const target = tries.find((t) => t.index === targetIndex);
@@ -1082,7 +1087,7 @@ export default function CurrentElementFlow({
                 <button
                   type="button"
                   className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                  disabled={(activeTry?.index || 1) >= tries.length}
+                  disabled={(activeTry?.index || 1) >= tries.length || promptLoading}
                   onClick={() => {
                     const targetIndex = (activeTry?.index || 1) + 1;
                     const target = tries.find((t) => t.index === targetIndex);

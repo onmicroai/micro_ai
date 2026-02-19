@@ -783,6 +783,11 @@ export default function CurrentElementFlowV2({
             )?.content || ""
           : "";
 
+        const isAwaitingResponseOrScore =
+          promptLoading ||
+          (isScoredRun && !scoreReady) ||
+          (element.type === "fixedResponse" && fixedState?.isAnimating === true);
+
         return (
           <div key={element.id} className="mt-6">
             {element.type === "fixedResponse" && hasRevealedFixed && (
@@ -831,7 +836,7 @@ export default function CurrentElementFlowV2({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex <= 1}
+                        disabled={activeTryIndex <= 1 || isAwaitingResponseOrScore}
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) => triesById[tryId]?.index === activeTryIndex - 1,
@@ -845,7 +850,7 @@ export default function CurrentElementFlowV2({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex >= tryOrder.length}
+                        disabled={activeTryIndex >= tryOrder.length || isAwaitingResponseOrScore}
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) => triesById[tryId]?.index === activeTryIndex + 1,
