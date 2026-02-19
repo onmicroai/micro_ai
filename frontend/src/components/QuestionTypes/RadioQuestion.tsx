@@ -9,6 +9,7 @@ import {
   ConditionalLogic,
 } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
+import { Input } from "../basic/input";
 
 interface RadioQuestionProps {
   element: Element;
@@ -16,6 +17,7 @@ interface RadioQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const RadioQuestion = ({
@@ -24,6 +26,7 @@ const RadioQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: RadioQuestionProps) => {
   const [isOtherSelected, setIsOtherSelected] = useState(
     answers[element.name]?.value === "other"
@@ -50,6 +53,7 @@ const RadioQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Handles the change event for the "Other" input.
@@ -119,24 +123,20 @@ const RadioQuestion = ({
     const radioOptionsList = getRadioOptions(element, noneLabel, otherLabel);
     setRadioOptions(radioOptionsList);
   }, [element, noneLabel, otherLabel]);
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
@@ -203,24 +203,9 @@ const RadioQuestion = ({
       </div>
 
       {isOtherSelected && (
-        <input
+        <Input
           type="text"
-          className={`
-                  mt-2 w-full px-3 py-2 rounded-md border
-                  ${
-                    hasError
-                      ? "border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "border-gray-300 focus:ring-blue-500 focus:border-blue-500"
-                  }
-                  ${
-                    disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-900"
-                      : "bg-white"
-                  }
-                  shadow-sm
-                  focus:outline-none focus:ring-2
-                  transition duration-150 ease-in-out
-               `}
+          className={`mt-2`}
           value={otherValue}
           onChange={handleOtherInputChange}
           placeholder={otherPlaceholder}

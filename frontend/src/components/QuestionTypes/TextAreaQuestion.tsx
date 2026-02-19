@@ -13,6 +13,7 @@ import { parseFile } from "@/utils/parseFile";
 import { Upload } from "lucide-react";
 import { toast } from "react-toastify";
 import { ParseFileError } from "@/utils/parseFile";
+import { Textarea } from "../basic/textarea";
 
 interface TextAreaQuestionProps {
   element: Element;
@@ -20,6 +21,7 @@ interface TextAreaQuestionProps {
   handleInputChange: (e: ChangeEvent<HTMLTextAreaElement>) => void;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const TextAreaQuestion = ({
@@ -28,6 +30,7 @@ const TextAreaQuestion = ({
   handleInputChange,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: TextAreaQuestionProps) => {
   /**
    * Extracts the error message for a given question.
@@ -41,6 +44,7 @@ const TextAreaQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Automatically adjusts the textarea height based on content
@@ -138,24 +142,20 @@ const TextAreaQuestion = ({
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={` ${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={` ${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
@@ -169,30 +169,14 @@ const TextAreaQuestion = ({
       )}
 
       <div className="relative">
-        <textarea
+        <Textarea
           id={element.name}
           name={element.name}
-          className={`
-               block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6
-               ${
-                 hasError
-                   ? "border-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                   : "outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
-               }
-               ${
-                 disabled || element.readOnly
-                   ? "bg-gray-50 text-gray-900"
-                   : "bg-white"
-               }
-               transition duration-150 ease-in-out
-               min-h-[100px] max-h-[500px] overflow-y-auto resize-none
-            `}
           value={answers[element.name]?.value || ""}
           onChange={handleAutoHeight}
           onDoubleClick={onDoubleClick}
           placeholder={element.placeholder}
           disabled={disabled || element.readOnly}
-          rows={1}
           ref={textareaRef}
         />
 

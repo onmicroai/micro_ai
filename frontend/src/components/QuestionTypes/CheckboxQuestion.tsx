@@ -9,6 +9,7 @@ import {
   ConditionalLogic,
 } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
+import { Input } from "../basic/input";
 
 interface CheckboxQuestionProps {
   element: Element;
@@ -16,6 +17,7 @@ interface CheckboxQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const CheckboxQuestion = ({
@@ -24,19 +26,21 @@ const CheckboxQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: CheckboxQuestionProps) => {
   const [isOtherSelected, setIsOtherSelected] = useState(
-    answers[element.name]?.value?.includes("other") || false,
+    answers[element.name]?.value?.includes("other") || false
   );
   const [otherValue, setOtherValue] = useState(
-    answers[element.name]?.otherValue || "",
+    answers[element.name]?.otherValue || ""
   );
   const [isNoneSelected, setIsNoneSelected] = useState(
-    answers[element.name]?.value?.includes("none") || false,
+    answers[element.name]?.value?.includes("none") || false
   );
   const selectedAnswers = answers[element.name]?.value || [];
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
   const otherPlaceholder = element.otherPlaceholder || "Other (describe)";
   const otherLabel = element.otherText || "Other";
   const noneText = element.noneText || "None";
@@ -54,7 +58,7 @@ const CheckboxQuestion = ({
       const error = errors.find((error) => error.element === elementName);
       return error ? error.error : null;
     },
-    [errors],
+    [errors]
   );
 
   /**
@@ -93,7 +97,7 @@ const CheckboxQuestion = ({
 
       return baseOptions;
     },
-    [noneText, otherLabel],
+    [noneText, otherLabel]
   );
 
   /**
@@ -142,24 +146,20 @@ const CheckboxQuestion = ({
   useEffect(() => {
     setErrorMessage(getErrorMessage(element.name));
   }, [errors, element.name, getErrorMessage]);
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers,
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
@@ -248,22 +248,9 @@ const CheckboxQuestion = ({
       </div>
 
       {isOtherSelected && !isNoneSelected && (
-        <input
+        <Input
           type="text"
-          className={`
-                  block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6
-                  ${
-                    hasError
-                      ? "outline-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
-                  }
-                  ${
-                    disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-900"
-                      : "bg-white"
-                  }
-                  transition duration-150 ease-in-out
-               `}
+          className={`mt-2`}
           value={otherValue}
           onChange={handleOtherInputChange}
           placeholder={otherPlaceholder}

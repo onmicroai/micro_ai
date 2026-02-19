@@ -9,13 +9,16 @@ import {
 } from "@/app/(authenticated)/app/types";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import { handleInputDoubleClick } from "@/utils/inputHandlers";
+import { Input } from "../basic/input";
 
+//ppp
 interface TextQuestionProps {
   element: Element;
   answers: Answers;
   handleInputChange: (e: ChangeEvent<HTMLInputElement>) => void;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const TextQuestion = ({
@@ -24,6 +27,7 @@ const TextQuestion = ({
   handleInputChange,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: TextQuestionProps) => {
   /**
    * Extracts the error message for a given question.
@@ -37,6 +41,7 @@ const TextQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   const onDoubleClick = (e: React.MouseEvent<HTMLInputElement>) => {
     handleInputDoubleClick({
@@ -48,24 +53,20 @@ const TextQuestion = ({
       handleInputChange,
     });
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
@@ -78,23 +79,9 @@ const TextQuestion = ({
         <p className="mt-1 text-sm/6 text-gray-600">{element.description}</p>
       )}
 
-      <input
+      <Input
         id={element.id}
         name={element.name}
-        className={`
-                  block w-full mt-2 items-center rounded-md px-3 py-1.5 outline-1 -outline-offset-1 outline outline-gray-300 sm:text-sm/6
-                  ${
-                    hasError
-                      ? "outline-red-300 text-red-900 placeholder-red-300 focus:ring-red-500 focus:border-red-500"
-                      : "outline-gray-300 placeholder:text-gray-500 focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600"
-                  }
-                  ${
-                    disabled || element.readOnly
-                      ? "bg-gray-50 text-gray-900"
-                      : "bg-white"
-                  }
-                  transition duration-150 ease-in-out
-               `}
         value={answers[element.name]?.value || ""}
         onChange={handleInputChange}
         onDoubleClick={onDoubleClick}

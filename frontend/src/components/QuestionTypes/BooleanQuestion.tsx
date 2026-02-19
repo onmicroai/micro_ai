@@ -16,6 +16,7 @@ interface BooleanQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const BooleanQuestion = ({
@@ -24,6 +25,7 @@ const BooleanQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: BooleanQuestionProps) => {
   /**
    * Extracts the error message for a given question.
@@ -37,6 +39,7 @@ const BooleanQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   /**
    * Determines if a boolean question should be checked.
@@ -66,24 +69,20 @@ const BooleanQuestion = ({
 
     setInputValue(element.name, value, "", "boolean");
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}

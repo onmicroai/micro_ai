@@ -165,7 +165,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
         const roleResult = await checkRole(hashId, userId, signal);
         if (!roleResult.error) {
           const lowerRoles = roleResult.roles.map((r: string) =>
-            r.toLowerCase(),
+            r.toLowerCase()
           );
           setRoles({
             isOwner: lowerRoles.includes("owner"),
@@ -174,7 +174,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
           setRolesLoaded(true);
         } else {
           console.warn(
-            "Role check returned error; banner suppressed until retry",
+            "Role check returned error; banner suppressed until retry"
           );
         }
       } catch (error) {
@@ -236,13 +236,11 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
               {surveyJson.description}
             </p>
           )}
-
           {loading && (
             <div className="flex justify-center py-8">
               <SkeletonLoader />
             </div>
           )}
-
           {!loading && (surveyJson?.elements?.length || 0) === 0 && (
             <p className="text-gray-600 text-center py-8">
               This application doesn&apos;t contain any questions.
@@ -261,7 +259,6 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
               />
             </div>
           )}
-
           <div>
             {showThankYouMessage && (
               <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
@@ -315,7 +312,6 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
               )}
             </div>
           </div>
-
           {(roles.isOwner || roles.isAdmin) && (
             <DebugInformation
               surveyJson={surveyJson}

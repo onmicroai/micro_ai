@@ -16,6 +16,7 @@ interface SliderQuestionProps {
   setInputValue: setInputValue;
   errors: ErrorObject[];
   disabled: boolean;
+  skipVisibilityCheck?: boolean;
 }
 
 const SliderQuestion = ({
@@ -24,6 +25,7 @@ const SliderQuestion = ({
   setInputValue,
   errors = [],
   disabled,
+  skipVisibilityCheck = false,
 }: SliderQuestionProps) => {
   const getErrorMessage = (elementName: string): string | null => {
     const error = errors.find((error) => error.element === elementName);
@@ -32,29 +34,26 @@ const SliderQuestion = ({
 
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
+  const questionText = element.text || element.label || element.name;
 
   const handleSliderChange = (event: ChangeEvent<HTMLInputElement>) => {
     const value = event.target.value;
     setInputValue(element.name, value, "", "slider");
   };
+  const isVisible =
+    skipVisibilityCheck ||
+    evaluateVisibility(
+      element.conditionalLogic || ({} as ConditionalLogic),
+      answers
+    );
 
   return (
-    <div
-      key={element.name}
-      className={`${
-        evaluateVisibility(
-          element.conditionalLogic || ({} as ConditionalLogic),
-          answers
-        )
-          ? ""
-          : "hidden"
-      }`}
-    >
+    <div key={element.name} className={`${isVisible ? "" : "hidden"}`}>
       <label
         htmlFor={element.name}
         className="block text-sm/6 font-medium text-gray-900"
       >
-        {element.label || element.name}
+        {questionText}
         {element.isRequired === true && (
           <span className="text-red-500 ml-1">*</span>
         )}
