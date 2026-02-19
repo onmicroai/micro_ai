@@ -409,7 +409,7 @@ export default function CurrentElementFlowV2({
 
   const runAiStop = useCallback(
     async (
-      stop: Element & { type: "aiResponse" },
+      stop: Element,
       stopOriginalIndex: number,
       stopVisibleIndex: number,
     ) => {
@@ -420,6 +420,7 @@ export default function CurrentElementFlowV2({
       // Keeping this in one helper guarantees identical behavior for run creation,
       // stop-state persistence, and cursor advancement in both entry paths.
       if (!surveyJson || !activeTry) return;
+      if (stop.type !== "aiResponse") return;
       setSurveyImages(() => structuredClone(images));
       const prompts: Prompt[] = getVisibleInstructions(stop.instructions).map((inst, idx) => ({
         id: `${stop.id}-p-${idx}`,
@@ -962,7 +963,7 @@ export default function CurrentElementFlowV2({
                             // can immediately execute the following aiResponse stop.
                             // This avoids the perceived "dead click" between stops.
                             await runAiStop(
-                              nextEntry.element as Element & { type: "aiResponse" },
+                              nextEntry.element,
                               nextEntry.originalIndex,
                               idx + 1,
                             );
