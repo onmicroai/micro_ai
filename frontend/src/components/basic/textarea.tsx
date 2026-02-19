@@ -4,7 +4,7 @@ import { getBaseInputStyles } from "./input";
 const Textarea = React.forwardRef<
   HTMLTextAreaElement,
   React.InputHTMLAttributes<HTMLTextAreaElement>
->(({ className, type, ...props }, ref) => {
+>(({ className, type: _type, ...props }, ref) => {
   return (
     <textarea
       className={getBaseInputStyles(`${className} min-h-[100px]`)}
