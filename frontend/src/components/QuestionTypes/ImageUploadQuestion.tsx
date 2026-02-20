@@ -11,6 +11,7 @@ import {
 import { useDropzone } from "react-dropzone";
 import { Upload, X } from "lucide-react";
 import Image from "next/image";
+import { TEST_IDS } from "@/constants/testIds";
 import { Input } from "../basic/input";
 
 interface ImageUploadQuestionProps {
@@ -332,7 +333,7 @@ const ImageUploadQuestion = ({
 
       {previews.length > 0 && (
         <div
-          data-testid="image-preview-container"
+          data-testid={TEST_IDS.IMAGE_PREVIEW_CONTAINER}
           className="grid grid-cols-2 gap-4 mt-4 sm:grid-cols-3 lg:grid-cols-4"
         >
           {previews.map((preview, index) => (

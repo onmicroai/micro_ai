@@ -18,6 +18,7 @@ import {
   useAudioRecorder,
 } from "react-audio-voice-recorder";
 import { Send } from "lucide-react";
+import { TEST_IDS } from "@/constants/testIds";
 import { transcribeAudio } from "@/utils/audioTranscriptionService";
 import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
 import { useConversationStore } from "@/store/conversationStore";
@@ -582,7 +583,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                       type="file"
                       accept="audio/*"
                       className="hidden"
-                      data-testid="chat-audio-upload-input"
+                      data-testid={TEST_IDS.CHAT_AUDIO_UPLOAD_INPUT}
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
