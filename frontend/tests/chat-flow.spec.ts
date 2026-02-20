@@ -8,6 +8,7 @@
  */
 import { test, expect } from "@playwright/test";
 import path from "path";
+import { TEST_IDS } from "@/constants/testIds";
 import {
   collectRunUuids,
   verifyRunsPersistedAndCharged,
@@ -72,7 +73,7 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
 
     await page.goto(process.env.TEST_APP_URL || "");
 
-    const chatInput = page.getByTestId("chat-audio-upload-input");
+    const chatInput = page.getByTestId(TEST_IDS.CHAT_AUDIO_UPLOAD_INPUT);
     await expect(chatInput).toBeAttached({ timeout: 15000 });
 
     // Simulate user sending a voice message: use fixture audio (content doesn't matter; we mock transcribe response)

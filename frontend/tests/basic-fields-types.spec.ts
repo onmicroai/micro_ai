@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { TEST_IDS } from "@/constants/testIds";
 import path from "path";
 import {
   collectRunUuids,
@@ -84,7 +85,7 @@ test("Basic fields types app test", async ({ page, request }) => {
   await expect(input).toHaveCount(1); // sanity
   await input.setInputFiles(filePath);
 
-  const preview = page.getByTestId("image-preview-container");
+  const preview = page.getByTestId(TEST_IDS.IMAGE_PREVIEW_CONTAINER);
   await expect(preview).toBeVisible({ timeout: 15000 });
 
   // Next/Image renders a real <img> eventually
