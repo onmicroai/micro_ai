@@ -141,9 +141,6 @@ test("Basic fields types app test", async ({ page, request }) => {
 
   await expect(imageAnalysisContainer.first()).toBeVisible();
 
-  // Click Continue after image analysis
-  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
-
   // Wait for the score/end screen to load - scoring can take time, so use longer timeout
   await page.waitForFunction(
     () => {
