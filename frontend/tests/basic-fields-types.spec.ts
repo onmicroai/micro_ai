@@ -108,7 +108,7 @@ test("Basic fields types app test", async ({ page, request }) => {
 
   //=======================================================================
 
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
 
   // Expect the fixed response container to show interpolated name and siblings count
   const fixedResponseContainer = page
@@ -117,8 +117,8 @@ test("Basic fields types app test", async ({ page, request }) => {
   await expect(fixedResponseContainer.first()).toContainText(name);
   await expect(fixedResponseContainer.first()).toContainText(siblingsCount);
 
-  await page.getByRole("button", { name: "Continue" }).click();
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
+  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
 
   // After Continue, expect a container with the AI summary to show all filled data
   const detailsContainer = page.locator("div").filter({
@@ -132,7 +132,7 @@ test("Basic fields types app test", async ({ page, request }) => {
   await expect(detailsContainer.first()).toContainText(siblingsCount);
   await expect(detailsContainer.first()).toContainText(likeSpicyFood);
 
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
 
   // Expect a container with the image analysis response (generic: mentions image and cat)
   const imageAnalysisContainer = page.locator("div").filter({
@@ -142,7 +142,7 @@ test("Basic fields types app test", async ({ page, request }) => {
   await expect(imageAnalysisContainer.first()).toBeVisible();
 
   // Click Continue after image analysis
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByTestId(TEST_IDS.FLOW_CONTINUE_BUTTON).click();
 
   // Wait for the score/end screen to load - scoring can take time, so use longer timeout
   await page.waitForFunction(

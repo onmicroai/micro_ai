@@ -30,8 +30,13 @@ import {
 } from "@/utils/phaseResultDisplay";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { Check, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
+import { TEST_IDS } from "@/constants/testIds";
 
-const STOP_TYPES = new Set<Element["type"]>(["aiResponse", "fixedResponse", "scoring"]);
+const STOP_TYPES = new Set<Element["type"]>([
+  "aiResponse",
+  "fixedResponse",
+  "scoring",
+]);
 
 function isStopElement(el: Element): boolean {
   return STOP_TYPES.has(el.type);
@@ -44,7 +49,12 @@ function isEditSupportedElementType(type: Element["type"]): boolean {
 
 /** Types where the hover Edit button is positioned above the control to avoid overlapping. */
 function isEditButtonAboveType(type: Element["type"]): boolean {
-  return type === "textarea" || type === "dropdown" || type === "text" || type === "slider";
+  return (
+    type === "textarea" ||
+    type === "dropdown" ||
+    type === "text" ||
+    type === "slider"
+  );
 }
 
 type VisibleEntry = { element: Element; originalIndex: number };
@@ -62,7 +72,7 @@ function serializeAnswer(
   name: string,
   value: string | string[] | undefined,
   otherValue: string,
-  type: string,
+  type: string
 ): Answers {
   const updatedValue: any = {};
   switch (type) {
@@ -138,11 +148,11 @@ export default function CurrentElementFlowV2({
   const activeTry = activeTryId ? triesById[activeTryId] || null : null;
   const answers = useMemo(
     () => draftState?.answers || ({} as Answers),
-    [draftState?.answers],
+    [draftState?.answers]
   );
   const images = useMemo(
     () => draftState?.images || ({} as Base64Images),
-    [draftState?.images],
+    [draftState?.images]
   );
   const cursor = draftState?.cursor || 0;
   const editingFieldName = draftState?.editingFieldName || null;
@@ -163,7 +173,7 @@ export default function CurrentElementFlowV2({
     if (!surveyJson) return;
     initRuntimeTry(
       structuredClone((surveyAnswers as Answers) || {}),
-      structuredClone((surveyImages as Base64Images) || {}),
+      structuredClone((surveyImages as Base64Images) || {})
     );
   }, [surveyJson, initRuntimeTry, surveyAnswers, surveyImages]);
 
@@ -173,18 +183,18 @@ export default function CurrentElementFlowV2({
         .map((element, originalIndex) => {
           const isVisible = evaluateVisibility(
             (element.conditionalLogic || {}) as ConditionalLogic,
-            sourceAnswers as Answers,
+            sourceAnswers as Answers
           );
           return isVisible ? { element, originalIndex } : null;
         })
         .filter((entry): entry is VisibleEntry => Boolean(entry));
     },
-    [appElements],
+    [appElements]
   );
 
   const visibleElements = useMemo(
     () => buildVisibleElements(answers as Answers),
-    [answers, buildVisibleElements],
+    [answers, buildVisibleElements]
   );
 
   useEffect(() => {
@@ -207,7 +217,7 @@ export default function CurrentElementFlowV2({
         onComplete?.();
       }
     },
-    [cursor, onComplete, setErrors, visibleElements, applyDraftCursor],
+    [cursor, onComplete, setErrors, visibleElements, applyDraftCursor]
   );
 
   useEffect(() => {
@@ -222,11 +232,11 @@ export default function CurrentElementFlowV2({
     const previousOriginalIndex = previousActiveOriginalIndexRef.current;
     if (previousOriginalIndex !== null) {
       const newIndex = visibleElements.findIndex(
-        (entry) => entry.originalIndex === previousOriginalIndex,
+        (entry) => entry.originalIndex === previousOriginalIndex
       );
       if (newIndex === -1) {
         const nextIndex = visibleElements.findIndex(
-          (entry) => entry.originalIndex > previousOriginalIndex,
+          (entry) => entry.originalIndex > previousOriginalIndex
         );
         const targetIndex = nextIndex >= 0 ? nextIndex : visibleElements.length;
         if (targetIndex !== cursor) {
@@ -254,7 +264,10 @@ export default function CurrentElementFlowV2({
 
   const { stopIndex, stopElement, visibleUntil } = useMemo(() => {
     let i = cursor;
-    while (i < visibleElements.length && !isStopElement(visibleElements[i].element)) {
+    while (
+      i < visibleElements.length &&
+      !isStopElement(visibleElements[i].element)
+    ) {
       i += 1;
     }
     const hasStop =
@@ -266,23 +279,23 @@ export default function CurrentElementFlowV2({
   }, [cursor, visibleElements]);
 
   const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined,
+    instructions: Element["instructions"] | undefined
   ) => {
     return (instructions || []).filter((inst) =>
       evaluateVisibility(
         (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers,
-      ),
+        answers as Answers
+      )
     );
   };
 
   const setInputValueWithDraft: setInputValue = useCallback(
     (name, value, otherValue, type) => {
       applyDraftAnswers((prev) =>
-        serializeAnswer(prev, name, value, otherValue, type),
+        serializeAnswer(prev, name, value, otherValue, type)
       );
     },
-    [applyDraftAnswers],
+    [applyDraftAnswers]
   );
 
   const handleInputChangeWithDraft: handleInputChange = useCallback(
@@ -292,48 +305,52 @@ export default function CurrentElementFlowV2({
         e.target instanceof HTMLTextAreaElement ? "textarea" : e.target.type;
       setInputValueWithDraft(name, value, "", inputType);
     },
-    [setInputValueWithDraft],
+    [setInputValueWithDraft]
   );
 
   const setImagesWithDraft = useCallback(
     (updater: (prev: Base64Images) => Base64Images) => {
       applyDraftImages(updater);
     },
-    [applyDraftImages],
+    [applyDraftImages]
   );
 
   const trimFixedStateFromOriginalIndex = useCallback(
     (
       source: Record<string, FixedResponseRuntimeState>,
-      restartOriginalIndex: number,
+      restartOriginalIndex: number
     ) => {
       const removableIds = new Set(
         appElements
           .filter(
             (el, originalIndex) =>
-              originalIndex >= restartOriginalIndex && el.type === "fixedResponse",
+              originalIndex >= restartOriginalIndex &&
+              el.type === "fixedResponse"
           )
-          .map((el) => el.id),
+          .map((el) => el.id)
       );
       return Object.fromEntries(
-        Object.entries(source || {}).filter(([id]) => !removableIds.has(id)),
+        Object.entries(source || {}).filter(([id]) => !removableIds.has(id))
       ) as Record<string, FixedResponseRuntimeState>;
     },
-    [appElements],
+    [appElements]
   );
 
   const trimStopStateFromOriginalIndex = useCallback(
-    (source: Record<string, StopRuntimeState>, restartOriginalIndex: number) => {
+    (
+      source: Record<string, StopRuntimeState>,
+      restartOriginalIndex: number
+    ) => {
       const removableIds = new Set(
         appElements
           .filter((_, originalIndex) => originalIndex >= restartOriginalIndex)
-          .map((el) => el.id),
+          .map((el) => el.id)
       );
       return Object.fromEntries(
-        Object.entries(source || {}).filter(([id]) => !removableIds.has(id)),
+        Object.entries(source || {}).filter(([id]) => !removableIds.has(id))
       ) as Record<string, StopRuntimeState>;
     },
-    [appElements],
+    [appElements]
   );
 
   const startFixedResponseTypewriter = useCallback(
@@ -351,7 +368,10 @@ export default function CurrentElementFlowV2({
 
       (async () => {
         let i = 0;
-        while (i < fullText.length && fixedResponseRunTokenRef.current[id] === nextToken) {
+        while (
+          i < fullText.length &&
+          fixedResponseRunTokenRef.current[id] === nextToken
+        ) {
           const remaining = fullText.length - i;
           const chunkSize =
             remaining <= 2 ? remaining : Math.random() < 0.85 ? 1 : 2;
@@ -378,7 +398,7 @@ export default function CurrentElementFlowV2({
         }));
       })();
     },
-    [applyDraftFixedResponseState],
+    [applyDraftFixedResponseState]
   );
 
   const revealFullFixedResponse = useCallback(
@@ -394,24 +414,24 @@ export default function CurrentElementFlowV2({
         },
       }));
     },
-    [applyDraftFixedResponseState],
+    [applyDraftFixedResponseState]
   );
 
   const getOriginalIndexByFieldName = useCallback(
     (fieldName: string): number | null => {
       const match = appElements.findIndex(
-        (el) => !isStopElement(el) && el.name === fieldName,
+        (el) => !isStopElement(el) && el.name === fieldName
       );
       return match >= 0 ? match : null;
     },
-    [appElements],
+    [appElements]
   );
 
   const runAiStop = useCallback(
     async (
       stop: Element,
       stopOriginalIndex: number,
-      stopVisibleIndex: number,
+      stopVisibleIndex: number
     ) => {
       // Centralized AI-stop runner used by both:
       // 1) normal form submit when the active stop is aiResponse, and
@@ -422,12 +442,14 @@ export default function CurrentElementFlowV2({
       if (!surveyJson || !activeTry) return;
       if (stop.type !== "aiResponse") return;
       setSurveyImages(() => structuredClone(images));
-      const prompts: Prompt[] = getVisibleInstructions(stop.instructions).map((inst, idx) => ({
-        id: `${stop.id}-p-${idx}`,
-        name: `${stop.name}-p-${idx}`,
-        type: "prompt",
-        text: inst.text || "",
-      }));
+      const prompts: Prompt[] = getVisibleInstructions(stop.instructions).map(
+        (inst, idx) => ({
+          id: `${stop.id}-p-${idx}`,
+          name: `${stop.name}-p-${idx}`,
+          type: "prompt",
+          text: inst.text || "",
+        })
+      );
       const res = await sendPrompts(
         prompts,
         answers,
@@ -438,7 +460,7 @@ export default function CurrentElementFlowV2({
         false,
         false,
         undefined,
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        { tryId: activeTryId || undefined, tryIndex: activeTry.index }
       );
       // Required scoring gates can return run_passed=false; in that case we keep cursor
       // on the current stop and do not reveal/advance this aiResponse card.
@@ -471,12 +493,19 @@ export default function CurrentElementFlowV2({
       commitDraftToTry,
       advance,
       setSurveyImages,
-    ],
+    ]
   );
 
   const handleRun = async (event: FormEvent) => {
     event.preventDefault();
-    if (!surveyJson || !activeTry || !draftState || !stopElement || stopIndex === null) return;
+    if (
+      !surveyJson ||
+      !activeTry ||
+      !draftState ||
+      !stopElement ||
+      stopIndex === null
+    )
+      return;
 
     const segmentInputs = visibleElements
       .slice(cursor, stopIndex)
@@ -549,7 +578,7 @@ export default function CurrentElementFlowV2({
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         },
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        { tryId: activeTryId || undefined, tryIndex: activeTry.index }
       );
       const scoringIsRequired = stop.isRequired !== false;
       const failedRequired = res.run_passed === false && scoringIsRequired;
@@ -574,7 +603,8 @@ export default function CurrentElementFlowV2({
     if (!activeTry || !draftState) return;
     const changedFieldNames = Object.keys(answers).filter(
       (name) =>
-        JSON.stringify(answers[name]) !== JSON.stringify(activeTry.answers[name]),
+        JSON.stringify(answers[name]) !==
+        JSON.stringify(activeTry.answers[name])
     );
     if (changedFieldNames.length === 0 && editingFieldName) {
       changedFieldNames.push(editingFieldName);
@@ -588,14 +618,19 @@ export default function CurrentElementFlowV2({
       .map((name) => getOriginalIndexByFieldName(name))
       .filter((idx): idx is number => idx !== null);
     const topEditedOriginalIndex =
-      changedOriginalIndexes.length > 0 ? Math.min(...changedOriginalIndexes) : 0;
+      changedOriginalIndexes.length > 0
+        ? Math.min(...changedOriginalIndexes)
+        : 0;
     const visibleAfterEdit = buildVisibleElements(answers);
     const restartVisibleStopIndex = visibleAfterEdit.findIndex(
       (entry) =>
-        entry.originalIndex >= topEditedOriginalIndex && isStopElement(entry.element),
+        entry.originalIndex >= topEditedOriginalIndex &&
+        isStopElement(entry.element)
     );
     const restartCursor =
-      restartVisibleStopIndex >= 0 ? restartVisibleStopIndex : visibleAfterEdit.length;
+      restartVisibleStopIndex >= 0
+        ? restartVisibleStopIndex
+        : visibleAfterEdit.length;
     const restartOriginalIndex =
       restartVisibleStopIndex >= 0
         ? visibleAfterEdit[restartVisibleStopIndex].originalIndex
@@ -603,11 +638,11 @@ export default function CurrentElementFlowV2({
 
     const trimmedFixedState = trimFixedStateFromOriginalIndex(
       fixedResponseStateById,
-      restartOriginalIndex,
+      restartOriginalIndex
     );
     const trimmedStopState = trimStopStateFromOriginalIndex(
       stopStateByElementId,
-      restartOriginalIndex,
+      restartOriginalIndex
     );
     applyDraftCursor(restartCursor);
     applyDraftFixedResponseState(() => structuredClone(trimmedFixedState));
@@ -616,12 +651,15 @@ export default function CurrentElementFlowV2({
     const overrides = {
       cursor: restartCursor,
       editedFieldIds: Array.from(
-        new Set([...(activeTry.editedFieldIds || []), ...changedFieldNames]),
+        new Set([...(activeTry.editedFieldIds || []), ...changedFieldNames])
       ),
       firstEditedOriginalIndex:
         activeTry.firstEditedOriginalIndex === null
           ? topEditedOriginalIndex
-          : Math.min(activeTry.firstEditedOriginalIndex, topEditedOriginalIndex),
+          : Math.min(
+              activeTry.firstEditedOriginalIndex,
+              topEditedOriginalIndex
+            ),
     };
 
     if (activeTry.hasPostEditInteraction === false) {
@@ -642,12 +680,12 @@ export default function CurrentElementFlowV2({
   // Keeping everything up to cursor avoids "disappearing" AI/scoring cards when navigating tries.
   const visibleElementsForRender = visibleElements.slice(
     0,
-    Math.min(renderUntil, visibleElements.length),
+    Math.min(renderUntil, visibleElements.length)
   );
 
   const lastRequiredScoringPassOriginalIndex = useMemo(() => {
     const runs = getRunsForTry(activeTryId ?? undefined).filter(
-      (run) => run.run_passed !== false,
+      (run) => run.run_passed !== false
     );
     let maxPass = -1;
     for (const run of runs) {
@@ -671,11 +709,19 @@ export default function CurrentElementFlowV2({
         if (element.type === "title") {
           return (
             <div key={element.id} className="pt-2">
-              <h2 className={`text-base/7 font-semibold ${isLocked ? "text-gray-500" : "text-gray-900"}`}>
+              <h2
+                className={`text-base/7 font-semibold ${
+                  isLocked ? "text-gray-500" : "text-gray-900"
+                }`}
+              >
                 {element.text || element.label}
               </h2>
               {element.description && (
-                <p className={`mt-1 text-sm/6 ${isLocked ? "text-gray-500" : "text-gray-600"}`}>
+                <p
+                  className={`mt-1 text-sm/6 ${
+                    isLocked ? "text-gray-500" : "text-gray-600"
+                  }`}
+                >
                   {element.description}
                 </p>
               )}
@@ -689,7 +735,9 @@ export default function CurrentElementFlowV2({
             originalIndex > lastRequiredScoringPassOriginalIndex &&
             isEditSupportedElementType(element.type);
           const isEditingThisField = editingFieldName === element.name;
-          const showEditedChip = activeTry.editedFieldIds.includes(element.name);
+          const showEditedChip = activeTry.editedFieldIds.includes(
+            element.name
+          );
           return (
             <div
               key={element.id}
@@ -719,7 +767,12 @@ export default function CurrentElementFlowV2({
               <RenderQuestion
                 key={element.name}
                 errors={errors}
-                element={{ ...element, isRequired: element.isRequired, conditionalLogic: element.conditionalLogic, type: element.type }}
+                element={{
+                  ...element,
+                  isRequired: element.isRequired,
+                  conditionalLogic: element.conditionalLogic,
+                  type: element.type,
+                }}
                 answers={answers as any}
                 disabled={isEditingThisField ? false : isLocked}
                 handleInputChange={handleInputChangeWithDraft}
@@ -764,7 +817,7 @@ export default function CurrentElementFlowV2({
           : null;
         const latestRunForStop = getLatestRunForStop(
           originalIndex,
-          activeTryId ?? undefined,
+          activeTryId ?? undefined
         );
         // Why: a newly forked try can intentionally inherit already-visible stop cards
         // above the edited field. Those cards may reference a run created in the parent try,
@@ -772,11 +825,12 @@ export default function CurrentElementFlowV2({
         // Fallback then stays scoped to active try for newly produced runs in this branch.
         const run = runByStoredId || latestRunForStop;
         const runForThisStop = stopState?.resultVisible === false ? null : run;
-        const scoringIsRequired = element.type === "scoring" ? element.isRequired !== false : false;
+        const scoringIsRequired =
+          element.type === "scoring" ? element.isRequired !== false : false;
         const scoringFailed = Boolean(
           element.type === "scoring" &&
             (stopState?.requiredScoreFailed ||
-              (runForThisStop && !passedTheRubricMinScore(runForThisStop))),
+              (runForThisStop && !passedTheRubricMinScore(runForThisStop)))
         );
 
         const fixedState = fixedResponseStateById[element.id];
@@ -786,25 +840,27 @@ export default function CurrentElementFlowV2({
 
         const aiPromptPreviewPrompts: Prompt[] =
           element.type === "aiResponse"
-            ? getVisibleInstructions(element.instructions).map((inst, pIdx) => ({
-                id: `${element.id}-preview-${pIdx}`,
-                name: `${element.name}-preview-${pIdx}`,
-                type: "prompt",
-                text: inst?.text || "",
-              }))
+            ? getVisibleInstructions(element.instructions).map(
+                (inst, pIdx) => ({
+                  id: `${element.id}-preview-${pIdx}`,
+                  name: `${element.name}-preview-${pIdx}`,
+                  type: "prompt",
+                  text: inst?.text || "",
+                })
+              )
             : [];
 
         const isScoredRun = Boolean(
           runForThisStop?.score_expected ||
             runForThisStop?.scoreData?.scored_run ||
-            runForThisStop?.run_score,
+            runForThisStop?.run_score
         );
         const scoreReady = Boolean(
-          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score,
+          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score
         );
         const explanationRequested = Boolean(
           runForThisStop?.score_explanation ??
-            runForThisStop?.scoreData?.score_explanation,
+            runForThisStop?.scoreData?.score_explanation
         );
         const explanationMode =
           runForThisStop?.score_explanation_mode ||
@@ -815,40 +871,51 @@ export default function CurrentElementFlowV2({
           scoreReady &&
           explanationRequested &&
           (explanationMode === "always" ||
-            (explanationMode === "failed_only" && runForThisStop?.run_passed === false) ||
-            (explanationMode === "passed_only" && runForThisStop?.run_passed === true));
+            (explanationMode === "failed_only" &&
+              runForThisStop?.run_passed === false) ||
+            (explanationMode === "passed_only" &&
+              runForThisStop?.run_passed === true));
         const explanationContent = shouldOfferExplanation
           ? runForThisStop?.messages.findLast(
-              (m) => m.role === "assistant" || m.role === "fixed_response",
+              (m) => m.role === "assistant" || m.role === "fixed_response"
             )?.content || ""
           : "";
 
         const isAwaitingResponseOrScore =
           promptLoading ||
           (isScoredRun && !scoreReady) ||
-          (element.type === "fixedResponse" && fixedState?.isAnimating === true);
+          (element.type === "fixedResponse" &&
+            fixedState?.isAnimating === true);
 
         return (
           <div key={element.id} className="mt-6">
             {element.type === "fixedResponse" && hasRevealedFixed && (
-              <MarkdownResponseDisplay content={fixedDisplayed || fixedState?.fullText || ""} className="" />
+              <MarkdownResponseDisplay
+                content={fixedDisplayed || fixedState?.fullText || ""}
+                className=""
+              />
             )}
             {runForThisStop && (
               <>
                 {!isScoredRun && (
                   <>
-                    <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
-                    {element.type === "aiResponse" && aiPromptPreviewPrompts.length > 0 && (
-                      <div className="mt-3">
-                        <RenderPrompt
-                          prompts={aiPromptPreviewPrompts}
-                          answers={answers as any}
-                          disabled={false}
-                          isOwner={isOwner}
-                          isAdmin={isAdmin}
-                        />
-                      </div>
-                    )}
+                    <AIResponseDisplay
+                      run={runForThisStop}
+                      isOwner={isOwner}
+                      isAdmin={isAdmin}
+                    />
+                    {element.type === "aiResponse" &&
+                      aiPromptPreviewPrompts.length > 0 && (
+                        <div className="mt-3">
+                          <RenderPrompt
+                            prompts={aiPromptPreviewPrompts}
+                            answers={answers as any}
+                            disabled={false}
+                            isOwner={isOwner}
+                            isAdmin={isAdmin}
+                          />
+                        </div>
+                      )}
                   </>
                 )}
                 <RunScoreDisplay
@@ -876,24 +943,33 @@ export default function CurrentElementFlowV2({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex <= 1 || isAwaitingResponseOrScore}
+                        disabled={
+                          activeTryIndex <= 1 || isAwaitingResponseOrScore
+                        }
                         onClick={() => {
                           const target = tryOrder.find(
-                            (tryId) => triesById[tryId]?.index === activeTryIndex - 1,
+                            (tryId) =>
+                              triesById[tryId]?.index === activeTryIndex - 1
                           );
                           if (target) switchTry(target);
                         }}
                       >
                         <ChevronLeft className="h-3.5 w-3.5" />
                       </button>
-                      <span>{activeTryIndex}/{tryOrder.length}</span>
+                      <span>
+                        {activeTryIndex}/{tryOrder.length}
+                      </span>
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={activeTryIndex >= tryOrder.length || isAwaitingResponseOrScore}
+                        disabled={
+                          activeTryIndex >= tryOrder.length ||
+                          isAwaitingResponseOrScore
+                        }
                         onClick={() => {
                           const target = tryOrder.find(
-                            (tryId) => triesById[tryId]?.index === activeTryIndex + 1,
+                            (tryId) =>
+                              triesById[tryId]?.index === activeTryIndex + 1
                           );
                           if (target) switchTry(target);
                         }}
@@ -909,15 +985,25 @@ export default function CurrentElementFlowV2({
                   </div>
                 ) : (
                   <div className="mt-4 flex justify-end">
-                    {!(element.type === "scoring" && scoringIsRequired && scoringFailed) && (
+                    {!(
+                      element.type === "scoring" &&
+                      scoringIsRequired &&
+                      scoringFailed
+                    ) && (
                       <button
-                        type={element.type === "fixedResponse" ? "button" : "submit"}
+                        data-testid={TEST_IDS.FLOW_CONTINUE_BUTTON}
+                        type={
+                          element.type === "fixedResponse" ? "button" : "submit"
+                        }
                         className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                         onClick={async (e) => {
                           if (element.type !== "fixedResponse") return;
                           // Initialize fixed-response state on first click without relying on form submit timing.
                           if (fixedState === undefined) {
-                            const text = injectValuesIntoPrompt(element.text || "", answers);
+                            const text = injectValuesIntoPrompt(
+                              element.text || "",
+                              answers
+                            );
                             applyDraftFixedResponseState((prev) => ({
                               ...prev,
                               [element.id]: {
@@ -965,7 +1051,7 @@ export default function CurrentElementFlowV2({
                             await runAiStop(
                               nextEntry.element,
                               nextEntry.originalIndex,
-                              idx + 1,
+                              idx + 1
                             );
                             return;
                           }
@@ -989,4 +1075,3 @@ export default function CurrentElementFlowV2({
     </form>
   );
 }
-

@@ -5,6 +5,7 @@
 export const TEST_IDS = {
   CHAT_AUDIO_UPLOAD_INPUT: "chat-audio-upload-input",
   IMAGE_PREVIEW_CONTAINER: "image-preview-container",
+  FLOW_CONTINUE_BUTTON: "flow-continue-button",
 } as const;
 
 export type TestId = (typeof TEST_IDS)[keyof typeof TEST_IDS];
