@@ -1,3 +1,6 @@
+# Run Playwright E2E after PRODUCTION deployment succeeds only.
+# CI/CD Development (Dev Server) will NOT trigger this workflow.
+
 name: Playwright E2E After PROD Deploy
 
 on:
@@ -10,6 +13,7 @@ on:
 jobs:
   playwright:
     name: E2E vs deployed PROD env
+    # Only run when the PROD deployment workflow succeeded
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -35,6 +39,20 @@ jobs:
         working-directory: ./frontend
         run: npx playwright install --with-deps
 
+      # Download .env file from prod server (same as deployment workflow uses)
+      - name: Download .env file from prod server
+        if: github.event.workflow_run.name == 'CI/CD Staging (Prod Server)'
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.SERVER_IP }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+          # Download .env file from server (same location as deployment workflow)
+          ssh ubuntu@${{ secrets.SERVER_IP }} 'if [ -f "/opt/secrets/staging.env" ]; then cat /opt/secrets/staging.env; elif [ -f "/docker/volumes/micro_ai_staging/.env" ]; then cat /docker/volumes/micro_ai_staging/.env; else echo "# .env file not found on server"; fi' > ./frontend/.env
+
+          echo "✅ Downloaded .env file from prod server"
+
       # Production deploy succeeded → run E2E against prod
       - name: Run Playwright (prod)
         if: github.event.workflow_run.name == 'CI/CD Staging (Prod Server)'
@@ -43,10 +61,6 @@ jobs:
         env:
           CI: true
           TARGET_ENV: prod
-          PLAYWRIGHT_BASE_URL: ${{ secrets.E2E_PROD_BASE_URL || 'https://onmicro.ai' }}
-          PLAYWRIGHT_API_BASE_URL: ${{ secrets.E2E_PROD_API_URL || 'https://onmicro.ai' }}
-          E2E_TEST_USER_EMAIL: ${{ secrets.E2E_PROD_TEST_USER_EMAIL || secrets.E2E_TEST_USER_EMAIL }}
-          E2E_TEST_PASSWORD: ${{ secrets.E2E_PROD_TEST_PASSWORD || secrets.E2E_TEST_PASSWORD }}
 
       - name: Generate test summary
         if: always()
