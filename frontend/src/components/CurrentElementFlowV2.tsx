@@ -696,6 +696,8 @@ export default function CurrentElementFlowV2({
     }
     return maxPass;
   }, [getRunsForTry, activeTryId, appElements]);
+  const showGlobalTryNavigator =
+    tryOrder.length > 1 && (isComplete || stopIndex === null);
 
   if (!surveyJson || !activeTry || !draftState) return null;
 
@@ -1072,6 +1074,41 @@ export default function CurrentElementFlowV2({
           </div>
         );
       })}
+      {showGlobalTryNavigator && (
+        <div className="mt-2 mb-3 flex justify-end">
+          <div className="inline-flex items-center gap-2 text-xs text-gray-600">
+            <button
+              type="button"
+              className="p-1 rounded border border-gray-200 disabled:opacity-50"
+              disabled={activeTryIndex <= 1 || promptLoading}
+              onClick={() => {
+                const target = tryOrder.find(
+                  (tryId) => triesById[tryId]?.index === activeTryIndex - 1
+                );
+                if (target) switchTry(target);
+              }}
+            >
+              <ChevronLeft className="h-3.5 w-3.5" />
+            </button>
+            <span>
+              {activeTryIndex}/{tryOrder.length}
+            </span>
+            <button
+              type="button"
+              className="p-1 rounded border border-gray-200 disabled:opacity-50"
+              disabled={activeTryIndex >= tryOrder.length || promptLoading}
+              onClick={() => {
+                const target = tryOrder.find(
+                  (tryId) => triesById[tryId]?.index === activeTryIndex + 1
+                );
+                if (target) switchTry(target);
+              }}
+            >
+              <ChevronRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
     </form>
   );
 }
