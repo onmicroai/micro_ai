@@ -519,18 +519,35 @@ export default function CurrentElementFlow({
 
   const isComplete = cursor >= visibleElements.length;
   const lastRequiredScoringPassOriginalIndex = useMemo(() => {
-    const runs = getRunsForTry(activeTryId ?? undefined).filter(
+    const runsForActiveTry = getRunsForTry(activeTryId ?? undefined).filter(
       (run) => run.run_passed !== false,
     );
+    const runsById = new Map(
+      getRunsForTry(undefined).map((run) => [run.id, run] as const),
+    );
     let maxPass = -1;
-    for (const run of runs) {
+
+    for (const run of runsForActiveTry) {
       const el = appElements[run.phaseIndex];
       if (el?.type === "scoring" && el.isRequired !== false) {
         maxPass = Math.max(maxPass, run.phaseIndex);
       }
     }
+
+    // Inherited stop cards can reference parent-try runs via stored runId.
+    for (const stopState of Object.values(activeTry?.stopStateByElementId || {})) {
+      const runId = stopState?.runId;
+      if (!runId) continue;
+      const run = runsById.get(runId);
+      if (!run || run.run_passed === false) continue;
+      const el = appElements[run.phaseIndex];
+      if (el?.type === "scoring" && el.isRequired !== false) {
+        maxPass = Math.max(maxPass, run.phaseIndex);
+      }
+    }
+
     return maxPass;
-  }, [getRunsForTry, activeTryId, appElements]);
+  }, [getRunsForTry, activeTryId, appElements, activeTry?.stopStateByElementId]);
 
   const canEditFieldByOriginalIndex = useCallback(
     (originalIndex: number) => {

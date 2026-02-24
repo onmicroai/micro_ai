@@ -2233,7 +2233,7 @@ export default function FormBuilder() {
                   <MonitorPreview
                     previewUrl={`${window.location.origin}/app/${hashId}`}
                   >
-                    <AppRuntimeView hashId={hashId} />
+                    <AppRuntimeView hashId={hashId} showEditLink={false} />
                   </MonitorPreview>
                 )}
               </div>

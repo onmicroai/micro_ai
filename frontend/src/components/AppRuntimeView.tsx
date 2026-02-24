@@ -23,9 +23,10 @@ import axiosInstance from "@/utils/axiosInstance";
 
 type AppRuntimeViewProps = {
   hashId: string;
+  showEditLink?: boolean;
 };
 
-export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
+export default function AppRuntimeView({ hashId, showEditLink = true }: AppRuntimeViewProps) {
   const searchParams = useSearchParams();
   const launchId = searchParams.get("lid");
 
@@ -225,7 +226,7 @@ export default function AppRuntimeView({ hashId }: AppRuntimeViewProps) {
     <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
       <div className="max-w-7xl mx-auto px-4 py-6 bg-gray-50 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
-          {(roles.isOwner || roles.isAdmin) && <EditAppLink hashId={hashId} />}
+          {((roles.isOwner || roles.isAdmin) && showEditLink) && <EditAppLink hashId={hashId} />}
           {surveyJson?.title && (
             <h1 className="text-xl/loose font-semibold text-gray-900">
               {surveyJson.title}

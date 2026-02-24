@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { toast } from 'react-toastify';
-import CurrentElementFlow from '@/components/CurrentElementFlow';
+import CurrentElementFlow from "@/components/CurrentElementFlowV2";
 import { useSurveyStore } from '@/store/runtimeSurveyStore';
 import { useConversationStore } from '@/store/conversationStore';
 import { useUserStore } from "@/store/userStore";
