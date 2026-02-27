@@ -178,7 +178,7 @@ const AppTable: React.FC<AppTableProps> = ({
               {/* App Title */}
               <div className="min-w-0">
                 <Link 
-                  href={`/app/${app.hashId}`}
+                  href={`/app/edit/${app.hashId}`}
                   className="text-sm sm:text-base font-semibold text-gray-900 hover:text-primary transition-colors truncate block dark:text-white dark:hover:text-primary-350"
                 >
                   {app.title}

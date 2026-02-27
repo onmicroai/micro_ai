@@ -1166,11 +1166,10 @@ export default function FormBuilder() {
         <label className="text-sm font-medium text-left">
           Completion Message
         </label>
-        <textarea
+        <Textarea
           value={completedHtml}
           onChange={(e) => setCompletedHtml(e.target.value)}
-          className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
-            text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y mb-4"
+          className="mb-4"
           placeholder="Enter your message here"
         />
       </div>
@@ -1261,7 +1260,7 @@ export default function FormBuilder() {
                   </button>
                 </div>
                 <div className="relative">
-                  <input
+                  <Input
                     type="text"
                     value={file.description || ""}
                     onChange={(e) =>
@@ -1269,9 +1268,7 @@ export default function FormBuilder() {
                     }
                     placeholder="Add a description so the AI understands the content of this file better (optional)"
                     maxLength={MAX_DESCRIPTION_LENGTH}
-                    className="w-full px-3 py-1 text-sm border border-gray-200 rounded-md 
-                      focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                      placeholder:text-gray-400"
+                    className="text-sm pr-12"
                   />
                   <div className="absolute right-2 bottom-1 text-xs text-gray-400">
                     {file.description?.length || 0}/{MAX_DESCRIPTION_LENGTH}
@@ -1292,13 +1289,11 @@ export default function FormBuilder() {
             <label className="text-sm font-medium text-left">
               System Prompt
             </label>
-            <textarea
+            <Textarea
               value={aiConfig.systemPrompt}
               onChange={(e) =>
                 setAIConfig({ ...aiConfig, systemPrompt: e.target.value })
               }
-              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm
-                text-gray-900 focus:border-primary focus:ring-primary min-h-[80px] resize-y"
               placeholder="Enter your prompt here"
             />
           </div>
