@@ -1477,10 +1477,10 @@ export default function FormBuilder() {
               {activeTab === "build" && sidebarOpen && (
                 <motion.div
                   initial={{ width: 0, opacity: 0, x: -12 }}
-                  animate={{ width: 320, opacity: 1, x: 0 }}
+                  animate={{ width: 360, opacity: 1, x: 0 }}
                   exit={{ width: 0, opacity: 0, x: -12 }}
                   transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                  className="w-80 bg-white sticky top-16 self-start h-screen flex flex-col z-30 overflow-hidden"
+                  className="w-[360px] bg-white sticky top-16 self-start h-screen flex flex-col z-30 overflow-hidden"
                   style={{ minWidth: 0 }}
                 >
                   <div className="flex items-center justify-between px-4 py-3 bg-white">
