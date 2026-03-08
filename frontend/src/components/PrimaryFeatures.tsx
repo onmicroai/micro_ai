@@ -87,7 +87,7 @@ export function PrimaryFeatures() {
       <Container className="relative">
         <div className="max-w-2xl md:mx-auto md:text-center xl:max-w-none">
           <h2 className="mt-2 text-5xl tracking-tight font-semibold text-white sm:text-6xl">
-          Go Where LLMs Can't
+          Go Where LLMs Can&apos;t
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-center text-lg font-medium tracking-tight text-blue-100 sm:text-xl/8">
           Generic Chatbots and custom GPTs can make it hard to create repeatable experiences, and impossible to track usage and outcomes.
