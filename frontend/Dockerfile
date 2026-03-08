@@ -12,9 +12,9 @@ RUN addgroup -S microai && adduser -S -G microai microai && \
 # Switch to non-root user
 USER microai
 
-# Copy package files and install dependencies
-COPY --chown=microai:microai package.json ./
-RUN yarn install
+# Copy package files and install dependencies (use lockfile to reduce disk use during install)
+COPY --chown=microai:microai package.json yarn.lock* ./
+RUN yarn install --frozen-lockfile
 
 # Copy the rest of the app
 COPY --chown=microai:microai . .
