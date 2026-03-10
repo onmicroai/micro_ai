@@ -120,7 +120,6 @@ def revoke_api_key(request):
     )
     return HttpResponseRedirect(reverse("users:user_profile"))
 
-@login_required
 def get_resized_avatar(request, image_name):
     try:
         original_image_path = os.path.join(settings.MEDIA_ROOT, 'profile-pictures', image_name)
