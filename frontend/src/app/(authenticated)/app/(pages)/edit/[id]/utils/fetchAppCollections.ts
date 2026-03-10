@@ -36,8 +36,8 @@ export function fetchAppCollectionsSingleton(appId: number): () => Promise<Forma
       }
 
       return new Promise<FormattedCollectionItem[] | null>((resolve) => {
+         pendingRequests.push(resolve);
          if (isFetching) {
-            pendingRequests.push(resolve);
             return;
          }
 

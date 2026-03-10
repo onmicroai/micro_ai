@@ -5,6 +5,17 @@ from .llm_interface import UnifiedLLMInterface
 import logging as log
 from asgiref.sync import sync_to_async
 
+# Sentinel for end of sync stream
+_STREAM_END = object()
+
+
+def _get_next_chunk(gen, sentinel):
+    """Get next chunk from sync generator. Runs in thread pool to avoid blocking event loop."""
+    try:
+        return next(gen)
+    except StopIteration:
+        return sentinel
+
 async def litellm_sse_generator(
     iface: UnifiedLLMInterface,
     params: dict,
@@ -50,8 +61,14 @@ async def litellm_sse_generator(
     params["stream"] = True
 
     try:
-        for chunk in iface.stream_response(params):
-            # SSE requires \n\n after each event block.
+        gen = iface.stream_response(params)
+        loop = asyncio.get_event_loop()
+
+        while True:
+            # Run blocking next(gen) in thread pool so event loop stays free
+            chunk = await loop.run_in_executor(None, _get_next_chunk, gen, _STREAM_END)
+            if chunk is _STREAM_END:
+                break
             yield f"data:{json.dumps(chunk)}\n\n"
             await asyncio.sleep(0)
 
