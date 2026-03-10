@@ -1212,6 +1212,7 @@ class LiteLLMModelConfigurations(APIView):
                         "model": model.get('model_name'),
                         "friendly_name": model_info.get('litellm_provider', '') + '/' + model.get('model_name'),
                         "temperature_range": temperature_range,
+                        "tags": list(tags),
                         "supports_image": model_info.get('supports_vision', False),
                         "supports_function_calling": model_info.get('supports_function_calling', False),
                         "supports_tool_choice": model_info.get('supports_tool_choice', False),

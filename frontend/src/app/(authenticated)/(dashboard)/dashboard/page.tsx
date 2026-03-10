@@ -7,7 +7,6 @@ import AppTable from './[tab]/components/AppTable';
 
 const DashboardPage = () => {
    const {
-      pageLoading,
       appCounts,
       activeCollectionId,
       createCollection,
@@ -15,26 +14,37 @@ const DashboardPage = () => {
       collections,
       fetchCollections,
       fetchAllApps,
+      fetchDefaultModel,
       handleCreateApp,
    } = useDashboardStore();
 
+   const [isInitializing, setIsInitializing] = useState(true);
    const [isCreatingApp, setIsCreatingApp] = useState(false);
    const [isCreatingCollection, setIsCreatingCollection] = useState(false);
 
-   // Initialize dashboard: fetch collections and all apps
+   // Initialize dashboard: fetch collections, default model, and all apps.
+   // isInitializing gates the UI so createApp never runs before defaultAiModel is set.
    useEffect(() => {
       const controller = new AbortController();
       
       const initializeData = async () => {
          const state = useDashboardStore.getState();
          
-         // Fetch collections if not already loaded
+         // Fetch collections and default model in parallel
+         const promises: Promise<void>[] = [];
+
          if (state.collections.length === 0) {
-            await fetchCollections(controller.signal);
+            promises.push(fetchCollections(controller.signal));
          }
+
+         promises.push(fetchDefaultModel(controller.signal));
+
+         await Promise.all(promises);
          
          // Fetch all apps
          await fetchAllApps(controller.signal);
+
+         setIsInitializing(false);
       };
       
       initializeData();
@@ -42,7 +52,7 @@ const DashboardPage = () => {
       return () => {
          controller.abort();
       };
-   }, [fetchCollections, fetchAllApps]);
+   }, [fetchCollections, fetchAllApps, fetchDefaultModel]);
 
    const onCreateApp = async () => {
       // When creating an app from /dashboard, use the first collection or active collection
@@ -69,7 +79,7 @@ const DashboardPage = () => {
       }
    };
 
-   if (pageLoading) {
+   if (isInitializing) {
       return (
          <div className="flex justify-center items-center min-h-screen">
             <div className="text-gray-500">Loading...</div>

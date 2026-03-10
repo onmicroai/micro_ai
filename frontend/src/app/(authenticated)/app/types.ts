@@ -85,6 +85,7 @@ export interface SurveyStore {
   };
   elements: Element[] | null;
   processedPrompts: ProcessedPrompts;
+  defaultAiModel: string;
   fetchApp: (
     hashId: string,
     privatePage: boolean,
@@ -433,6 +434,7 @@ export interface SurveyState {
   setIsInitialLoad: (isInitialLoad: boolean) => void;
   collections: { value: number; text: string }[];
   availableModels: ModelTemperatureRanges;
+  defaultAiModel: string;
   isLoadingCollections: boolean;
   isLoadingModels: boolean;
   fetchCollections: () => Promise<void>;

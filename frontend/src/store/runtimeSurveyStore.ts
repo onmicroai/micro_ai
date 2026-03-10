@@ -168,6 +168,7 @@ export const useSurveyStore = create<SurveyStore>()(
          aiInstructions: [],
          fixedResponses: [],
       } as ProcessedPrompts,
+      defaultAiModel: "",
       userRole: null,
       userRoleLoading: false,
       userRoleError: null,
@@ -203,13 +204,25 @@ export const useSurveyStore = create<SurveyStore>()(
        */
       fetchApp: async (hashId: string, privatePage: boolean, signal: AbortSignal) => {
          try {
-            let response;
-            if (privatePage === true) {
-               const api = axiosInstance();
-               response = await api.get(`/api/microapps/hash/${hashId}`, { signal });
-            } else {
-               response = await axios.get(`/api/microapps/public/hash/${hashId}`, { signal });
-            }
+            const api = axiosInstance();
+
+            const appFetch = privatePage
+               ? api.get(`/api/microapps/hash/${hashId}`, { signal })
+               : axios.get(`/api/microapps/public/hash/${hashId}`, { signal });
+
+            const modelFetch = api
+               .get('/api/microapps/models/litellm-configuration/', { signal })
+               .then((res: any) => {
+                  const models: any[] = res?.data?.data?.models ?? [];
+                  const defaultEntry = models.find(
+                     (m: any) => Array.isArray(m.tags) && m.tags.includes('default')
+                  );
+                  return defaultEntry?.model ?? "";
+               })
+               .catch(() => "");
+
+            const [response, defaultAiModel] = await Promise.all([appFetch, modelFetch]);
+
             const parsedData = serializeAppData(response?.data?.data);
             
             const currentAppId = get().surveyJson?.id;
@@ -223,6 +236,7 @@ export const useSurveyStore = create<SurveyStore>()(
             
             set({
                surveyJson: parsedData,
+               defaultAiModel,
                loading: false,            
             });
             
@@ -430,6 +444,7 @@ export const useSurveyStore = create<SurveyStore>()(
             set,
             noSubmit,
             pageConfigOverride,
+            defaultAiModel: get().defaultAiModel,
             runtimeMeta
          });
       },

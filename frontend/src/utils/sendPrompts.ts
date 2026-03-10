@@ -410,6 +410,7 @@ export const sendPromptsUtil = async (options: {
   transcriptionCost?: number;
   scoreExplanation?: boolean;
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
+  defaultAiModel?: string;
   runtimeMeta?: {
     tryId?: string;
     tryIndex?: number;
@@ -460,7 +461,7 @@ const {
     };
     
     const aiConfig = {
-      aiModel: appConfig?.aiConfig.aiModel || "gpt-4o-mini",
+      aiModel: appConfig?.aiConfig.aiModel || options.defaultAiModel || "",
       temperature: appConfig?.aiConfig.temperature || 0.9,
       maxResponseTokens: appConfig?.aiConfig.maxResponseTokens || null,
       systemPrompt: appConfig?.aiConfig.systemPrompt || ""

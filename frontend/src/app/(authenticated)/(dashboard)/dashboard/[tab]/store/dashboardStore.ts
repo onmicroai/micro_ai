@@ -12,8 +12,10 @@ interface DashboardStore {
    appsCount: number;
    appLoading: boolean;
    activeCollectionId: number | null;
+   defaultAiModel: string;
    // Actions
    fetchCollections: (signal?: AbortSignal) => Promise<void>;
+   fetchDefaultModel: (signal?: AbortSignal) => Promise<void>;
    createCollection: () => Promise<void>;
    updateCollectionName: (collectionId: number, newName: string) => Promise<void>;
    countAppPrivacyTypes: (apps: AppSerialized[]) => void;
@@ -32,6 +34,8 @@ const sortCollectionsById = (collections: Collection[]): Collection[] => {
    return [...collections].sort((a, b) => a.id - b.id);
 };
 
+const FALLBACK_AI_MODEL = 'gpt-5-mini';
+
 export const useDashboardStore = create<DashboardStore>((set, get) => ({
    // Initial state
    collections: [],
@@ -47,6 +51,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    appsCount: 0,
    appLoading: false,
    activeCollectionId: null,
+   defaultAiModel: FALLBACK_AI_MODEL,
 
    /**
     * Fetches the collections for the current user.
@@ -76,6 +81,24 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
          }
       } finally {
          set({ pageLoading: false });
+      }
+   },
+
+   /**
+    * Fetches the LiteLLM model list and sets defaultAiModel to the first model
+    * tagged 'default' for the user's tier. Falls back to FALLBACK_AI_MODEL.
+    */
+   fetchDefaultModel: async (signal?: AbortSignal) => {
+      const api = axiosInstance();
+      try {
+         const response = await api.get('/api/microapps/models/litellm-configuration/', { signal });
+         const models: Array<{ model: string; tags?: string[] }> = response?.data?.data?.models ?? [];
+         const defaultModel = models.find((m) => Array.isArray(m.tags) && m.tags.includes('default'));
+         set({ defaultAiModel: defaultModel?.model ?? FALLBACK_AI_MODEL });
+      } catch (error: any) {
+         if (error.name !== 'CanceledError' && error.name !== 'AbortError') {
+            console.error('Failed to fetch default model:', error);
+         }
       }
    },
 
@@ -291,7 +314,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
                clonable: true,
                attachedFiles: [],
                aiConfig: {
-                  aiModel: "gpt-4o-mini",
+                  aiModel: get().defaultAiModel,
                   temperature: 0.7,
                   maxResponseTokens: null,
                   systemPrompt: ""
@@ -409,7 +432,8 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
          apps: [],
          appsCount: 0,
          appLoading: false,
-         activeCollectionId: null
+         activeCollectionId: null,
+         defaultAiModel: FALLBACK_AI_MODEL,
       });
    }
 }));

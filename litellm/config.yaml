@@ -42,8 +42,7 @@ model_list:
       api_key: os.environ/ANTHROPIC_API_KEY
     model_info:
       access_groups: ["pro", "enterprise"]
-      tags: ["default"]
-
+      
 
   - model_name: claude-haiku-4-5-20251001
     litellm_params:

@@ -259,6 +259,7 @@ export default function FormBuilder() {
     title,
     collections,
     availableModels,
+    defaultAiModel,
     isLoadingCollections,
     aiConfig,
     attachedFiles,
@@ -493,10 +494,10 @@ export default function FormBuilder() {
 
   useEffect(() => {
     // Set default AI config values if not present
-    if (!aiConfig.aiModel) {
+    if (!aiConfig.aiModel && defaultAiModel) {
       setAIConfig({
         ...aiConfig,
-        aiModel: "gpt-4o-mini",
+        aiModel: defaultAiModel,
       });
     }
     if (!aiConfig.temperature) {
@@ -1324,8 +1325,8 @@ export default function FormBuilder() {
             <Input
               type="number"
               step="0.01"
-              min={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.min ?? 0}
-              max={availableModels[aiConfig.aiModel || "gpt-4o-mini"]?.max ?? 2}
+              min={availableModels[aiConfig.aiModel || defaultAiModel]?.min ?? 0}
+              max={availableModels[aiConfig.aiModel || defaultAiModel]?.max ?? 2}
               value={aiConfig.temperature}
               onChange={(e) => {
                 const value = parseFloat(e.target.value);

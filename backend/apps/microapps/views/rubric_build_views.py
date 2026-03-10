@@ -94,7 +94,7 @@ Generate a comprehensive rubric based on this information."""
                 {"role": "user", "content": user_message}
             ]
 
-            model_name = 'gpt-4o-mini'
+            model_name = env("DEFAULT_AI_MODEL")
 
             model_config = DynamicModelService.get_model_config(model_name)
             llm = UnifiedLLMInterface(model_config)

@@ -34,10 +34,11 @@ const initialState = {
   isInitialLoad: true,
   collections: [] as { value: number; text: string }[],
   availableModels: {} as ModelTemperatureRanges,
+  defaultAiModel: "",
   isLoadingCollections: false,
   isLoadingModels: false,
   aiConfig: {
-    aiModel: "gpt-4o-mini",
+    aiModel: "",
     temperature: 0.7,
     maxResponseTokens: null,
     systemPrompt: "",
@@ -474,11 +475,12 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     fetchLiteLLMModels: async () => {
       set({ isLoadingModels: true });
       try {
-        let models = await fetchLiteLLMModelsInitial();
-        if (models === null) {
-          models = {} as ModelTemperatureRanges;
-        }
-        set({ availableModels: models, isLoadingModels: false });
+        const result = await fetchLiteLLMModelsInitial();
+        set({
+          availableModels: result?.models ?? ({} as ModelTemperatureRanges),
+          defaultAiModel: result?.defaultModel ?? "",
+          isLoadingModels: false,
+        });
       } catch (error) {
         console.error("Failed to fetch LiteLLM models:", error);
         set({ isLoadingModels: false });

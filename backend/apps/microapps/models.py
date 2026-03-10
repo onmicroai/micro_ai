@@ -61,7 +61,7 @@ class Microapp(models.Model):
     
     # The app-wide default AI model used by the microapp (e.g. gpt-4o-mini, claude-3-opus, etc.)
     # This can be overridden by the paramater on each prompt field. 
-    ai_model = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_AI_MODEL)
+    ai_model = models.CharField(max_length = 50, default = env("DEFAULT_AI_MODEL"))
     
     
     
