@@ -1171,6 +1171,8 @@ class LiteLLMModelConfigurations(APIView):
             response = requests.get(litellm_url, headers=headers, timeout=10)
             response.raise_for_status()
             log.info(f"Successfully connected to LiteLLM, received {len(response.json().get('data', []))} models")
+
+            print(response.json())
             
             litellm_data = response.json()
             available_models = litellm_data.get('data', [])
@@ -1179,7 +1181,15 @@ class LiteLLMModelConfigurations(APIView):
             filtered_models = []
             for model in available_models:
                 model_info = model.get('model_info', {})
+                litellm_params = model.get('litellm_params', {})
                 access_groups = model_info.get('access_groups', [])
+
+                # Skip models tagged with 'no-display' or 'do-not-display'
+                # Tags can appear in either litellm_params (DB models) or model_info (config-based models)
+                NO_DISPLAY_TAGS = {'no-display', 'do-not-display'}
+                tags = set((litellm_params.get('tags') or []) + (model_info.get('tags') or []))
+                if tags & NO_DISPLAY_TAGS:
+                    continue
                 
                 if access_group in access_groups:
                     # Extract temperature range from model info

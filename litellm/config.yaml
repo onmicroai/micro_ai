@@ -5,22 +5,6 @@ general_settings:
   
 model_list:
 
-  - model_name: gpt-4o-mini
-    litellm_params:
-      model: openai/gpt-4o-mini
-      api_key: os.environ/OPENAI_API_KEY
-    model_info:
-      access_groups: ["free", "pro", "enterprise"]
-
-
-  - model_name: gpt-5.1
-    litellm_params:
-      model: openai/gpt-5.1
-      api_key: os.environ/OPENAI_API_KEY
-    model_info:
-      access_groups: ["pro", "enterprise"]
-
-
   - model_name: gpt-5-mini
     litellm_params:
       model: openai/gpt-5-mini
@@ -28,12 +12,21 @@ model_list:
     model_info:
       access_groups: ["free", "pro", "enterprise"]
 
+
+  - model_name: gpt-5.4
+    litellm_params:
+      model: openai/gpt-5.4
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["pro", "enterprise"]
+
   - model_name: whisper-1
     litellm_params:
       model: openai/whisper-1
       api_key: os.environ/OPENAI_API_KEY
     model_info:
       access_groups: ["free", "pro", "enterprise"]
+      tags: ["do-not-display"]
 
   - model_name: gpt-4o-mini-tts
     litellm_params:
@@ -41,13 +34,15 @@ model_list:
       api_key: os.environ/OPENAI_API_KEY
     model_info:
       access_groups: ["free", "pro", "enterprise"]
+      tags: ["do-not-display"]
 
-  - model_name: claude-sonnet-4-5-20250929
+  - model_name: claude-sonnet-4-6
     litellm_params:
-      model: anthropic/claude-sonnet-4-5-20250929
+      model: anthropic/claude-sonnet-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
     model_info:
       access_groups: ["pro", "enterprise"]
+      tags: ["default"]
 
 
   - model_name: claude-haiku-4-5-20251001
@@ -58,25 +53,25 @@ model_list:
       access_groups: ["free", "pro", "enterprise"]
 
 
-  - model_name: claude-opus-4-1-20250805
+  - model_name: claude-opus-4-6
     litellm_params:
-      model: anthropic/claude-opus-4-1-20250805
+      model: anthropic/claude-opus-4-6
       api_key: os.environ/ANTHROPIC_API_KEY
     model_info:
       access_groups: ["pro", "enterprise"]
 
 
-  - model_name: gemini-2.5-pro
+  - model_name: gemini-3.1-pro-preview
     litellm_params:
-      model: gemini/gemini-2.5-pro
+      model: gemini/gemini-3.1-pro-preview
       api_key: os.environ/GOOGLE_API_KEY
     model_info:
       access_groups: ["pro", "enterprise"]
 
 
-  - model_name: gemini-2.5-flash
+  - model_name: gemini-3-flash-preview
     litellm_params:
-      model: gemini/gemini-2.5-flash
+      model: gemini/gemini-3-flash-preview
       api_key: os.environ/GOOGLE_API_KEY
     model_info:
       access_groups: ["free", "pro", "enterprise"]
@@ -86,6 +81,49 @@ model_list:
 # The legacy apps can use these models, but they cannot be used by new apps. 
 # If the legacy API ever leaves support, then it will fall back to the fallback model if it is in the router_settings.
 # Make sure all legacy models have fallbacks.
+
+  - model_name: gemini-2.5-pro
+    litellm_params:
+      model: gemini/gemini-2.5-pro
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+
+  - model_name: gemini-2.5-flash
+    litellm_params:
+      model: gemini/gemini-2.5-flash
+      api_key: os.environ/GOOGLE_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: claude-sonnet-4-5-20250929
+    litellm_params:
+      model: anthropic/claude-sonnet-4-5-20250929
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: claude-opus-4-1-20250805
+    litellm_params:
+      model: anthropic/claude-opus-4-1-20250805
+      api_key: os.environ/ANTHROPIC_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: gpt-4o-mini
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["legacy"]
+
+  - model_name: gpt-5.1
+    litellm_params:
+      model: openai/gpt-5.1
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["legacy"]
 
   - model_name: gpt-4o
     litellm_params:
