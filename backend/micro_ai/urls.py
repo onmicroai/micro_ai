@@ -18,7 +18,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.contrib.sitemaps.views import sitemap
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.views.generic import RedirectView
 from apps.subscriptions.webhooks import stripe_webhook
 from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, SpectacularRedocView
@@ -26,6 +26,7 @@ from apps.web.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
 from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
+from apps.users.views import get_resized_avatar
 
 
 sitemaps = {
@@ -59,5 +60,7 @@ urlpatterns = [
     path("api/schema/redoc/", SpectacularRedocView.as_view(url_name="schema"), name="redoc"),
     # url - for stripe webhook
     path("stripe/webhook/", stripe_webhook, name="stripe-webhook"),
-    path("lti/",  include('apps.lti.urls'))
+    path("lti/",  include('apps.lti.urls')),
+    # Profile pictures at /media/profile-pictures/<name> (used by avatar_url; production has no static() media serving)
+    re_path(r"^media/profile-pictures/(?P<image_name>[^/]+)/?$", get_resized_avatar, name="get_avatar_media"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
