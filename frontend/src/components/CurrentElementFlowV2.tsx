@@ -804,6 +804,8 @@ export default function CurrentElementFlowV2({
                 currentPhaseIndex={originalIndex}
                 isOwner={isOwner}
                 isAdmin={isAdmin}
+                activeTryId={activeTryId || undefined}
+                activeTryIndex={activeTry.index}
               />
               {isEditingThisField && (
                 <div className="mt-3 pt-3 border-t border-gray-100 flex justify-end gap-2">

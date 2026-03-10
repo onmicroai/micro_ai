@@ -40,6 +40,8 @@ interface RenderElementProps {
   currentPhaseIndex: number;
   isOwner?: boolean;
   isAdmin?: boolean;
+  activeTryId?: string;
+  activeTryIndex?: number;
 }
 
 const RenderQuestion = ({
@@ -58,6 +60,8 @@ const RenderQuestion = ({
   currentPhaseIndex,
   isOwner = false,
   isAdmin = false,
+  activeTryId,
+  activeTryIndex,
 }: RenderElementProps) => {
   if (!visible || !element) {
     return null;
@@ -187,6 +191,8 @@ const RenderQuestion = ({
           isOwner={isOwner}
           isAdmin={isAdmin}
           skipVisibilityCheck={skipVisibilityCheck}
+          activeTryId={activeTryId}
+          activeTryIndex={activeTryIndex}
         />
       );
 

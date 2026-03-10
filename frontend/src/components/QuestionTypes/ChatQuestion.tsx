@@ -41,6 +41,8 @@ interface ChatQuestionProps {
   currentPhaseIndex: number;
   isOwner?: boolean;
   isAdmin?: boolean;
+  activeTryId?: string;
+  activeTryIndex?: number;
 }
 
 interface ChatMessage {
@@ -64,6 +66,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   currentPhaseIndex,
   isOwner = false,
   isAdmin = false,
+  activeTryId,
+  activeTryIndex,
 }) => {
   const MESSAGE_LIMIT = element.maxMessages || 10;
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -104,8 +108,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         };
       });
       setMessages(formattedMessages);
+    } else {
+      // When answers are cleared (e.g. app restart), reset to the initial greeting
+      setMessages([{
+        message: element.initialMessage || "Hello! How can I help you today?",
+        sender: "ai",
+        direction: "incoming",
+      }]);
     }
-  }, [answers, element.name]);
+  }, [answers, element.name, element.initialMessage]);
 
   // Add timeout to stop recording after 30 seconds
   useEffect(() => {
@@ -310,6 +321,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
             setStreamingMessage(state.promptResponse);
           }
         },
+        runtimeMeta: activeTryId
+          ? { tryId: activeTryId, tryIndex: activeTryIndex }
+          : undefined,
       });
 
       if (response.success && response.response) {

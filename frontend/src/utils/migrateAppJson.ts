@@ -87,13 +87,11 @@ export function migratePhasesToElements(appJson: any): AppJsonV2 {
       });
     }
 
-    // fixedResponse prompts → one fixedResponse element (no API)
-    const fixedText = fixedPieces
-      .map((p: any) => getPromptText(p))
-      .filter(isNonEmptyString)
-      .join('\n');
-
-    if (isNonEmptyString(fixedText)) {
+    // fixedResponse prompts → one fixedResponse element per prompt (no API),
+    // preserving each prompt's conditionalLogic at the element level.
+    fixedPieces.forEach((p: any) => {
+      const text = getPromptText(p);
+      if (!isNonEmptyString(text)) return;
       fixedResponseCount += 1;
       elements.push({
         id: `fixedResponse-${phaseId}-${fixedResponseCount}`,
@@ -101,9 +99,10 @@ export function migratePhasesToElements(appJson: any): AppJsonV2 {
         name: `fixedResponse${fixedResponseCount}`,
         label: '',
         isRequired: false,
-        text: fixedText,
+        text,
+        ...(p?.conditionalLogic ? { conditionalLogic: p.conditionalLogic } : {}),
       });
-    }
+    });
 
     // scoredPhase → scoring card
     if (phase?.scoredPhase) {
