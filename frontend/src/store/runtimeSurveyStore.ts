@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
-import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, SurveyStore, Answers, Prompt, Base64Images } from '@/app/(authenticated)/app/types';
+import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, SurveyStore, Answers, Prompt, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import axios from "axios";
 import { sendPromptsUtil } from '@/utils//sendPrompts';
+import { normalizeAppJsonToV2 } from '@/utils/migrateAppJson';
 
 /**
  * Serializes the raw app data into a SurveyJson format.
@@ -13,8 +14,9 @@ import { sendPromptsUtil } from '@/utils//sendPrompts';
  */
 const serializeAppData = (data: any): SurveyJson => {
    let parsedJSON = data || {};
-   let appJson = {
+   let appJson: any = {
       phases: [],
+      elements: undefined,
    };
 
    if (typeof data === "string") {
@@ -41,6 +43,11 @@ const serializeAppData = (data: any): SurveyJson => {
       appJson.phases = [];
    }
 
+   // Normalize legacy/v2 app_json into a canonical v2 elements[] array.
+   // We keep phases for backward compatibility until runtime is fully element-driven.
+   const v2 = normalizeAppJsonToV2(appJson);
+   appJson.elements = v2.elements;
+
    return {
       title: parsedJSON?.title || "",
       description: parsedJSON?.app_json?.description || "",
@@ -52,6 +59,7 @@ const serializeAppData = (data: any): SurveyJson => {
       aiConfig: parsedJSON?.app_json?.aiConfig || [],
       attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
       phases: appJson.phases,
+      elements: appJson.elements,
       completedHtml: parsedJSON?.app_json?.completedHtml || "You've reached the end",
    };
 };
@@ -160,6 +168,7 @@ export const useSurveyStore = create<SurveyStore>()(
          aiInstructions: [],
          fixedResponses: [],
       } as ProcessedPrompts,
+      defaultAiModel: "",
       userRole: null,
       userRoleLoading: false,
       userRoleError: null,
@@ -195,13 +204,25 @@ export const useSurveyStore = create<SurveyStore>()(
        */
       fetchApp: async (hashId: string, privatePage: boolean, signal: AbortSignal) => {
          try {
-            let response;
-            if (privatePage === true) {
-               const api = axiosInstance();
-               response = await api.get(`/api/microapps/hash/${hashId}`, { signal });
-            } else {
-               response = await axios.get(`/api/microapps/public/hash/${hashId}`, { signal });
-            }
+            const api = axiosInstance();
+
+            const appFetch = privatePage
+               ? api.get(`/api/microapps/hash/${hashId}`, { signal })
+               : axios.get(`/api/microapps/public/hash/${hashId}`, { signal });
+
+            const modelFetch = api
+               .get('/api/microapps/models/litellm-configuration/', { signal })
+               .then((res: any) => {
+                  const models: any[] = res?.data?.data?.models ?? [];
+                  const defaultEntry = models.find(
+                     (m: any) => Array.isArray(m.tags) && m.tags.includes('default')
+                  );
+                  return defaultEntry?.model ?? "";
+               })
+               .catch(() => "");
+
+            const [response, defaultAiModel] = await Promise.all([appFetch, modelFetch]);
+
             const parsedData = serializeAppData(response?.data?.data);
             
             const currentAppId = get().surveyJson?.id;
@@ -215,6 +236,7 @@ export const useSurveyStore = create<SurveyStore>()(
             
             set({
                surveyJson: parsedData,
+               defaultAiModel,
                loading: false,            
             });
             
@@ -401,7 +423,12 @@ export const useSurveyStore = create<SurveyStore>()(
          pageIndex: number, 
          userId: number | null, 
          requestSkip: boolean = false,
-         noSubmit: boolean  = false
+         noSubmit: boolean  = false,
+         pageConfigOverride?: PageConfigOverride,
+         runtimeMeta?: {
+            tryId?: string;
+            tryIndex?: number;
+         }
       ): Promise<SendPromptResponse> => {
          set({ promptLoading: true, sendPromptError: null, promptResponse: null });
          const images = get().images; // Get images from store
@@ -415,7 +442,10 @@ export const useSurveyStore = create<SurveyStore>()(
             userId,
             requestSkip,
             set,
-            noSubmit
+            noSubmit,
+            pageConfigOverride,
+            defaultAiModel: get().defaultAiModel,
+            runtimeMeta
          });
       },
 

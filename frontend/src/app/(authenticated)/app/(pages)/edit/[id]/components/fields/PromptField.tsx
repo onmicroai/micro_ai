@@ -1,7 +1,9 @@
 import React, { useRef, useEffect, useCallback, useState } from "react";
+import { HelpCircle } from "lucide-react";
 import { Badge } from "../ui/badge";
-import { Prompt, Element } from "@/app/(authenticated)/app/types";
+import { Element } from "@/app/(authenticated)/app/types";
 import "./styles.scss";
+import { AnimatePresence, motion } from "framer-motion";
 
 interface Tag {
   id: string;
@@ -9,29 +11,48 @@ interface Tag {
 }
 
 interface TagEditorProps {
-  field: Prompt;
+  field: {
+    id: string;
+    name: string;
+    type?: string;
+    text?: string;
+  };
   fields: Element[];
   initialContent?: string;
   onChange?: (fieldId: string, content: string) => void;
+  placeholder?: string;
+  isPreviewMode?: boolean;
 }
 
 export default function PromptField({
   field,
   fields,
   onChange,
+  placeholder,
+  isPreviewMode = true,
 }: TagEditorProps) {
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState(field.text || "");
+  const isFixedResponse = field.type === "fixedResponse";
   const lastRangeRef = useRef<Range | null>(null);
   const [isEmpty, setIsEmpty] = useState(true);
-  const [previewElement, setPreviewElement] = useState<HTMLElement | null>(null);
+  const [previewElement, setPreviewElement] = useState<HTMLElement | null>(
+    null
+  );
+  const activeTagClasses =
+    "iinline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+  const inactiveTagClasses =
+    "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-xs border-gray-300 border bg-white text-primary hover:text-red";
+  const inlineTagClasses = isPreviewMode
+    ? inactiveTagClasses
+    : activeTagClasses;
 
   /**
    * Converts text with {tag_name} placeholders to rich text with interactive tag elements.
-   * 
+   *
    * @param text - The text containing placeholders to convert
    * @returns The HTML string with placeholders converted to styled tag elements
-   * 
+   *
    * This method is essential for the visual representation of field references within
    * prompts and instructions. It transforms simple text placeholders into interactive,
    * visually distinct elements that clearly indicate dynamic content insertion points.
@@ -40,25 +61,29 @@ export default function PromptField({
    */
   const convertPlaceholdersToTags = useCallback(
     (text: string): string => {
+      if (isFixedResponse) return text;
       // First, preserve any existing non-breaking spaces
-      const preservedText = text.replace(/\u00A0/g, '___NBSP___');
-      
-      // Then do the tag conversion
-      const convertedText = preservedText.replace(/\{([^}]+)\}/g, (match, tagName) => {
-        const field = fields.find(
-          (f) => f.name === tagName || f.id === tagName
-        );
-        if (!field) return match;
+      const preservedText = text.replace(/\u00A0/g, "___NBSP___");
 
-        return `<span contenteditable="false" draggable="true" class="inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600" style="margin: 0 0.25em;">${
-          field.name || field.id
-        }</span>`;
-      });
-      
+      // Then do the tag conversion
+      const convertedText = preservedText.replace(
+        /\{([^}]+)\}/g,
+        (match, tagName) => {
+          const field = fields.find(
+            (f) => f.name === tagName || f.id === tagName
+          );
+          if (!field) return match;
+
+          return `<span contenteditable="false" draggable="true" class="${inlineTagClasses}" style="margin: 0 0.25em;">${
+            field.name || field.id
+          }</span>`;
+        }
+      );
+
       // Finally, restore the non-breaking spaces
-      return convertedText.replace(/___NBSP___/g, ' ');
+      return convertedText.replace(/___NBSP___/g, " ");
     },
-    [fields]
+    [fields, inlineTagClasses, isFixedResponse]
   );
 
   useEffect(() => {
@@ -67,58 +92,60 @@ export default function PromptField({
     }
   }, [field.text, content]);
 
-    /**
+  /**
    * Determines if the editor content is empty and updates state accordingly.
-   * 
+   *
    * @param element - The editor DOM element to check
-   * 
+   *
    * Empty state detection is important for displaying appropriate placeholder text
    * and preventing submission of empty content. This method helps provide visual
    * feedback to users about the content status, improving the overall usability
    * of the editor by clearly indicating when input is required.
    */
-    const checkIfEmpty = useCallback((element: HTMLDivElement) => {
-      const contentText = element.textContent?.trim() || "";
-      setIsEmpty(contentText === "");
-    }, []);
+  const checkIfEmpty = useCallback((element: HTMLDivElement) => {
+    const contentText = element.textContent?.trim() || "";
+    setIsEmpty(contentText === "");
+  }, []);
 
   useEffect(() => {
     if (editorRef.current) {
       // Save current selection before updating content
       saveSelection();
-      
+
       // Get current cursor position
       const selection = window.getSelection();
       const hadFocus = document.activeElement === editorRef.current;
-      const cursorPosition = selection?.rangeCount ? selection.getRangeAt(0).cloneRange() : null;
-      
+      const cursorPosition = selection?.rangeCount
+        ? selection.getRangeAt(0).cloneRange()
+        : null;
+
       // Convert text with placeholders to rich text when component mounts or content changes
       const richText = convertPlaceholdersToTags(content);
-      
+
       // Preserve the exact HTML content to maintain spaces
       // Only update innerHTML if content has actually changed to avoid cursor jumps
       if (editorRef.current.innerHTML !== richText) {
         // Store the current HTML before updating to preserve exact spacing
         const prevHTML = editorRef.current.innerHTML;
-        
+
         // Update the content
         editorRef.current.innerHTML = richText;
         checkIfEmpty(editorRef.current);
-        
+
         // Restore cursor position if editor had focus
         if (hadFocus && cursorPosition) {
           try {
             // Check if we're just adding spaces by comparing non-space characters
-            const prevTextNoSpaces = prevHTML.replace(/<[^>]*>|\s+/g, '');
-            const newTextNoSpaces = richText.replace(/<[^>]*>|\s+/g, '');
-            
+            const prevTextNoSpaces = prevHTML.replace(/<[^>]*>|\s+/g, "");
+            const newTextNoSpaces = richText.replace(/<[^>]*>|\s+/g, "");
+
             const isOnlySpaceChange = prevTextNoSpaces === newTextNoSpaces;
-            
+
             if (isOnlySpaceChange) {
               // Create a new range at the appropriate position
               const range = document.createRange();
               const textNode = editorRef.current.lastChild;
-              
+
               if (textNode && textNode.nodeType === Node.TEXT_NODE) {
                 // If we have a text node, place cursor in it
                 const textLength = textNode.textContent?.length || 0;
@@ -129,7 +156,7 @@ export default function PromptField({
                 range.selectNodeContents(editorRef.current);
                 range.collapse(false);
               }
-              
+
               selection?.removeAllRanges();
               selection?.addRange(range);
             } else {
@@ -151,40 +178,46 @@ export default function PromptField({
 
   /**
    * Converts rich text with tag elements back to text with {tag_name} placeholders.
-   * 
+   *
    * @param html - The HTML string containing tag elements
    * @returns The text with tag elements converted back to placeholders
-   * 
+   *
    * This method is the counterpart to convertPlaceholdersToTags, ensuring that the
    * visual representation in the editor can be converted back to a format suitable
    * for storage and processing. It maintains the integrity of field references when
    * saving content, allowing the system to correctly process and replace these
    * placeholders with actual field values during form execution.
    */
-  const convertTagsToPlaceholders = useCallback((html: string): string => {
-    // Create a temporary div to work with the HTML
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = html;
+  const convertTagsToPlaceholders = useCallback(
+    (html: string): string => {
+      if (isFixedResponse) return html;
+      // Create a temporary div to work with the HTML
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = html;
 
-    // Process tag elements
-    const tagElements = tempDiv.querySelectorAll(
-      'span[contenteditable="false"]'
-    );
-    tagElements.forEach((element) => {
-      const tagName = element.textContent?.trim() || "";
-      const field = fields.find((f) => f.name === tagName || f.id === tagName);
-      if (field) {
-        element.replaceWith(`{${field.name || field.id}}`);
-      }
-    });
+      // Process tag elements
+      const tagElements = tempDiv.querySelectorAll(
+        'span[contenteditable="false"]'
+      );
+      tagElements.forEach((element) => {
+        const tagName = element.textContent?.trim() || "";
+        const field = fields.find(
+          (f) => f.name === tagName || f.id === tagName
+        );
+        if (field) {
+          element.replaceWith(`{${field.name || field.id}}`);
+        }
+      });
 
-    // Get the result, preserving non-breaking spaces
-    return tempDiv.innerHTML;
-  }, [fields]);
+      // Get the result, preserving non-breaking spaces
+      return tempDiv.innerHTML;
+    },
+    [fields, isFixedResponse]
+  );
 
   /**
    * Saves the current text selection/cursor position in the editor.
-   * 
+   *
    * This method is crucial for maintaining a smooth editing experience by preserving
    * the user's cursor position during content updates. Without this functionality,
    * the cursor would reset to the beginning of the editor after each content change,
@@ -203,7 +236,7 @@ export default function PromptField({
 
   /**
    * Restores the previously saved text selection/cursor position.
-   * 
+   *
    * Working in tandem with saveSelection, this method ensures that users can
    * continue editing exactly where they left off after content updates. This
    * seamless cursor position management is essential for creating a professional
@@ -220,9 +253,9 @@ export default function PromptField({
 
   /**
    * Handles input events from the rich text editor.
-   * 
+   *
    * @param event - The input event from the contentEditable div
-   * 
+   *
    * This method is the core event handler for all user edits in the prompt editor.
    * It manages the complex process of capturing user input, preserving cursor position,
    * checking content state, and converting visual tags to storage format. This seamless
@@ -231,15 +264,17 @@ export default function PromptField({
    */
   const handleInput = (event: React.FormEvent<HTMLDivElement>) => {
     const target = event.target as HTMLDivElement;
-    
+
     // No need to replace spaces with &nbsp; as we're using CSS to preserve spaces
     const newContent = target.innerHTML;
-    
+
     saveSelection();
     checkIfEmpty(target);
-    
-    const placeholderContent = convertTagsToPlaceholders(newContent);
-    
+
+    const placeholderContent = isFixedResponse
+      ? newContent
+      : convertTagsToPlaceholders(newContent);
+
     if (placeholderContent !== content) {
       setContent(placeholderContent);
       onChange?.(field.id, placeholderContent);
@@ -248,10 +283,10 @@ export default function PromptField({
 
   /**
    * Creates a styled tag element with the specified label.
-   * 
+   *
    * @param label - The text to display inside the tag
    * @returns A DOM element representing the styled tag
-   * 
+   *
    * Consistent visual representation of field references is crucial for usability.
    * This method creates standardized, visually distinct elements that clearly indicate
    * dynamic content insertion points. The styling and behavior of these elements help
@@ -262,8 +297,7 @@ export default function PromptField({
     const tagElement = document.createElement("span");
     tagElement.contentEditable = "false";
     tagElement.draggable = true;
-    tagElement.className =
-      "inline-flex items-center align-baseline px-2 py-0.5 rounded-full text-sm text-white cursor-move bg-primary-600";
+    tagElement.className = inlineTagClasses;
     tagElement.style.margin = "0 0.25em";
     tagElement.textContent = label;
     return tagElement;
@@ -271,10 +305,10 @@ export default function PromptField({
 
   /**
    * Inserts a DOM node at the specified range and updates the selection.
-   * 
+   *
    * @param node - The DOM node to insert
    * @param range - The range where the node should be inserted
-   * 
+   *
    * This method handles the precise DOM manipulation required for inserting content
    * at the current cursor position. It's essential for maintaining a natural editing
    * flow when adding field references, ensuring that tags appear exactly where the
@@ -282,21 +316,22 @@ export default function PromptField({
    */
   const insertNodeAndUpdateSelection = (node: Node, range: Range) => {
     // Add a space before the tag if there isn't one already
-    const beforeText = range.startContainer.textContent?.substring(0, range.startOffset) || '';
-    if (beforeText.length > 0 && !beforeText.endsWith(' ')) {
-      const spaceBeforeNode = document.createTextNode(' ');
+    const beforeText =
+      range.startContainer.textContent?.substring(0, range.startOffset) || "";
+    if (beforeText.length > 0 && !beforeText.endsWith(" ")) {
+      const spaceBeforeNode = document.createTextNode(" ");
       range.insertNode(spaceBeforeNode);
       range.setStartAfter(spaceBeforeNode);
     }
-    
+
     // Insert the tag
     range.insertNode(node);
-    
+
     // Add a space after the tag
-    const spaceAfterNode = document.createTextNode(' ');
+    const spaceAfterNode = document.createTextNode(" ");
     range.setStartAfter(node);
     range.insertNode(spaceAfterNode);
-    
+
     // Set the cursor after the space
     range.setStartAfter(spaceAfterNode);
     range.collapse(true);
@@ -308,9 +343,9 @@ export default function PromptField({
 
   /**
    * Retrieves the current selection range or restores the last saved range.
-   * 
+   *
    * @returns The current selection range or null if no selection exists
-   * 
+   *
    * Accurate cursor position management is critical for a professional editing experience.
    * This method ensures that operations like tag insertion have access to the correct
    * cursor position, even if the editor has temporarily lost focus. This reliability
@@ -325,10 +360,10 @@ export default function PromptField({
 
   /**
    * Inserts a field reference tag at the current cursor position or specified range.
-   * 
+   *
    * @param tag - The tag object containing id and label
    * @param range - Optional range where the tag should be inserted
-   * 
+   *
    * This method provides the core functionality for adding field references to prompts.
    * It handles all the complex DOM operations needed to insert a tag at the cursor
    * position while maintaining editor state. This capability is fundamental to the
@@ -344,7 +379,7 @@ export default function PromptField({
 
     // Create and insert the tag
     const tagElement = createTagElement(tag.label);
-    
+
     insertNodeAndUpdateSelection(tagElement, insertionRange);
     saveSelection();
     updateEditorContent();
@@ -354,10 +389,10 @@ export default function PromptField({
 
   /**
    * Handles the start of a drag operation for tags in the tag palette.
-   * 
+   *
    * @param event - The drag start event
    * @param tag - The tag object being dragged
-   * 
+   *
    * This method initiates the drag-and-drop workflow for adding field references
    * from the palette to the editor. It stores the necessary tag data in the drag
    * event, enabling a seamless drag-and-drop experience that feels natural and
@@ -365,15 +400,35 @@ export default function PromptField({
    * allowing users to quickly incorporate field references without disrupting their
    * writing flow.
    */
+  const setTagDragImage = (event: React.DragEvent, label: string) => {
+    if (!event.dataTransfer) return;
+    const dragImage = document.createElement("div");
+    dragImage.className =
+      "inline-flex items-center rounded-full border border-transparent px-2.5 py-0.5 text-xs font-semibold bg-primary-600 text-white";
+    dragImage.style.position = "absolute";
+    dragImage.style.top = "-1000px";
+    dragImage.style.left = "-1000px";
+    dragImage.style.pointerEvents = "none";
+    dragImage.style.whiteSpace = "nowrap";
+    dragImage.textContent = label;
+    document.body.appendChild(dragImage);
+    const rect = dragImage.getBoundingClientRect();
+    event.dataTransfer.setDragImage(dragImage, rect.width / 2, rect.height / 2);
+    setTimeout(() => {
+      dragImage.remove();
+    }, 0);
+  };
+
   const handleDragStart = (event: React.DragEvent, tag: Tag) => {
+    setTagDragImage(event, tag.label);
     event.dataTransfer.setData("tag", JSON.stringify(tag));
   };
 
   /**
    * Handles the start of a drag operation for tags already in the editor.
-   * 
+   *
    * @param event - The drag start event
-   * 
+   *
    * This method enables repositioning of existing field references within the editor.
    * It identifies draggable tag elements, stores their data, and applies visual feedback
    * during the drag operation. This capability is crucial for refining prompts without
@@ -390,43 +445,46 @@ export default function PromptField({
 
   /**
    * Handles the end of a drag operation for tags in the editor.
-   * 
+   *
    * @param event - The drag end event
-   * 
+   *
    * This method ensures proper cleanup after a drag operation, removing any visual
    * indicators that were applied during dragging. This attention to detail in the
    * interaction design helps maintain a clean, professional interface and prevents
    * visual artifacts that could confuse users about the current state of the editor.
    */
-  const handleEditorTagDragEnd = useCallback((event: DragEvent) => {
-    const target = event.target as HTMLElement;
-    if (target.getAttribute("contenteditable") === "false") {
-      // Remove opacity class
-      target.classList.remove("opacity-50");
-      
-      // Check if the drag ended outside the editor
-      if (event.dataTransfer?.dropEffect === "none") {
-        // The tag was dropped outside a valid drop target
-        target.remove();
-        // Update editor content after removing the tag
-        if (editorRef.current) {
-          const newContent = editorRef.current.innerHTML;
-          const placeholderContent = convertTagsToPlaceholders(newContent);
-          if (placeholderContent !== content) {
-            setContent(placeholderContent);
-            onChange?.(field.id, placeholderContent);
+  const handleEditorTagDragEnd = useCallback(
+    (event: DragEvent) => {
+      const target = event.target as HTMLElement;
+      if (target.getAttribute("contenteditable") === "false") {
+        // Remove opacity class
+        target.classList.remove("opacity-50");
+
+        // Check if the drag ended outside the editor
+        if (event.dataTransfer?.dropEffect === "none") {
+          // The tag was dropped outside a valid drop target
+          target.remove();
+          // Update editor content after removing the tag
+          if (editorRef.current) {
+            const newContent = editorRef.current.innerHTML;
+            const placeholderContent = convertTagsToPlaceholders(newContent);
+            if (placeholderContent !== content) {
+              setContent(placeholderContent);
+              onChange?.(field.id, placeholderContent);
+            }
           }
         }
       }
-    }
-  }, [content, onChange, field.id, convertTagsToPlaceholders]);
+    },
+    [content, onChange, field.id, convertTagsToPlaceholders]
+  );
 
   /**
    * Processes the dropping of a new tag from the tag palette.
-   * 
+   *
    * @param tagData - The serialized tag data
    * @param dropPosition - The position where the tag should be inserted
-   * 
+   *
    * This method completes the drag-and-drop workflow for adding new field references,
    * deserializing the tag data and inserting it at the precise drop location. This
    * precision in placement is essential for creating well-structured prompts where
@@ -441,7 +499,7 @@ export default function PromptField({
 
   /**
    * Removes elements that were being dragged but not successfully dropped.
-   * 
+   *
    * This cleanup method is crucial for maintaining the integrity of the editor content
    * during drag operations. It ensures that any visual indicators or temporary states
    * are properly removed, preventing orphaned or duplicate elements that could corrupt
@@ -449,33 +507,33 @@ export default function PromptField({
    */
   const removeDraggedElements = () => {
     if (!editorRef.current) return;
-    const draggedElements = editorRef.current.querySelectorAll('.opacity-50');
-    draggedElements.forEach(el => el.remove());
+    const draggedElements = editorRef.current.querySelectorAll(".opacity-50");
+    draggedElements.forEach((el) => el.remove());
   };
 
   /**
    * Creates a tag element from an HTML string.
-   * 
+   *
    * @param tagHTML - The HTML representation of the tag
    * @returns The created DOM element
-   * 
+   *
    * This utility method supports the drag-and-drop functionality by reconstructing
    * tag elements from their serialized HTML representation. It ensures that tags
    * maintain their structure and styling when moved within the editor, providing
    * a consistent visual experience regardless of how tags are added or repositioned.
    */
   const createTagFromHTML = (tagHTML: string): HTMLElement => {
-    const tempDiv = document.createElement('div');
+    const tempDiv = document.createElement("div");
     tempDiv.innerHTML = tagHTML;
     return tempDiv.firstChild as HTMLElement;
   };
 
   /**
    * Adjusts the drop position to prevent dropping inside another tag.
-   * 
+   *
    * @param dropPosition - The initial drop position
    * @returns The adjusted drop position
-   * 
+   *
    * This method prevents invalid nesting of field references by ensuring tags are
    * always inserted at valid positions in the document. This structural integrity
    * check is essential for maintaining a clean, parseable document structure that
@@ -487,7 +545,7 @@ export default function PromptField({
     while (currentNode && currentNode !== editorRef.current) {
       if (currentNode.nodeType === Node.ELEMENT_NODE) {
         const element = currentNode as HTMLElement;
-        if (element.getAttribute('contenteditable') === 'false') {
+        if (element.getAttribute("contenteditable") === "false") {
           dropPosition.setStartAfter(element);
           dropPosition.setEndAfter(element);
           break;
@@ -501,10 +559,10 @@ export default function PromptField({
 
   /**
    * Updates the selection after inserting a tag element.
-   * 
+   *
    * @param dropPosition - The position where the tag was inserted
    * @param tagElement - The tag element that was inserted
-   * 
+   *
    * Maintaining proper cursor position after content changes is essential for a
    * professional editing experience. This method ensures that after a tag is inserted,
    * the cursor is positioned correctly after the tag, allowing users to continue
@@ -512,23 +570,30 @@ export default function PromptField({
    * attention to selection management creates a seamless editing flow that feels
    * natural and responsive.
    */
-  const updateSelectionAfterDrop = (dropPosition: Range, tagElement: HTMLElement) => {
+  const updateSelectionAfterDrop = (
+    dropPosition: Range,
+    tagElement: HTMLElement
+  ) => {
     // Add a space before the tag if there isn't one already
-    const beforeText = dropPosition.startContainer.textContent?.substring(0, dropPosition.startOffset) || '';
-    if (beforeText.length > 0 && !beforeText.endsWith(' ')) {
-      const spaceBeforeNode = document.createTextNode(' ');
+    const beforeText =
+      dropPosition.startContainer.textContent?.substring(
+        0,
+        dropPosition.startOffset
+      ) || "";
+    if (beforeText.length > 0 && !beforeText.endsWith(" ")) {
+      const spaceBeforeNode = document.createTextNode(" ");
       dropPosition.insertNode(spaceBeforeNode);
       dropPosition.setStartAfter(spaceBeforeNode);
     }
-    
+
     // Insert the tag
     dropPosition.insertNode(tagElement);
-    
+
     // Add a space after the tag
-    const spaceAfterNode = document.createTextNode(' ');
+    const spaceAfterNode = document.createTextNode(" ");
     dropPosition.setStartAfter(tagElement);
     dropPosition.insertNode(spaceAfterNode);
-    
+
     // Set the cursor after the space
     dropPosition.setStartAfter(spaceAfterNode);
     dropPosition.collapse(true);
@@ -542,10 +607,10 @@ export default function PromptField({
 
   /**
    * Handles dropping a tag that was dragged from within the editor.
-   * 
+   *
    * @param tagHTML - The HTML of the tag being moved
    * @param dropPosition - The position where the tag should be placed
-   * 
+   *
    * This method completes the workflow for repositioning existing tags within the editor.
    * It removes the original tag, creates a new instance at the drop location, and updates
    * the selection appropriately. This capability for precise positioning of field references
@@ -564,7 +629,7 @@ export default function PromptField({
 
   /**
    * Updates the editor content and notifies parent components of changes.
-   * 
+   *
    * This method synchronizes the visual state of the editor with the underlying
    * data model, ensuring that all changes are properly captured and propagated.
    * It's essential for maintaining data integrity between the rich visual editing
@@ -574,14 +639,16 @@ export default function PromptField({
    */
   const updateEditorContent = () => {
     if (!editorRef.current) return;
-    
+
     saveSelection();
-    
+
     const newContent = editorRef.current.innerHTML;
-    const placeholderContent = convertTagsToPlaceholders(newContent);
-    
+    const placeholderContent = isFixedResponse
+      ? newContent
+      : convertTagsToPlaceholders(newContent);
+
     checkIfEmpty(editorRef.current);
-    
+
     if (placeholderContent !== content) {
       setContent(placeholderContent);
       onChange?.(field.id, placeholderContent);
@@ -590,10 +657,10 @@ export default function PromptField({
 
   /**
    * Determines the precise drop position from a drag event.
-   * 
+   *
    * @param event - The drag event containing position information
    * @returns A range object representing the drop position or null if position cannot be determined
-   * 
+   *
    * Accurate positioning is critical for drag-and-drop operations to feel natural and
    * predictable. This method uses browser APIs to convert screen coordinates to a precise
    * document position, with fallbacks for different browser implementations. This precision
@@ -624,9 +691,9 @@ export default function PromptField({
 
   /**
    * Creates a visual preview element for drag operations.
-   * 
+   *
    * @returns A DOM element representing the drag preview
-   * 
+   *
    * Visual feedback during drag operations is essential for a polished user experience.
    * This method creates a lightweight placeholder element that shows users where their
    * dragged content will be inserted, providing immediate visual feedback that helps
@@ -634,19 +701,19 @@ export default function PromptField({
    * improves the usability and predictability of the drag-and-drop interaction.
    */
   const createPreviewElement = (): HTMLElement => {
-    const preview = document.createElement('span');
-    preview.className = 'tag-preview inline-flex items-center align-baseline rounded-full bg-gray-200 opacity-50 pointer-events-none text-sm';
-    preview.style.width = '80px'; 
-    preview.style.margin = '0 0.25em';
-    preview.style.padding = '0.125rem 0.5rem'; 
-    preview.style.height = '1.25rem'; 
-    preview.innerHTML = '  ';
+    const preview = document.createElement("span");
+    preview.className =
+      "tag-preview inline-flex items-center align-baseline rounded-full bg-gray-200 opacity-50 pointer-events-none text-sm";
+    preview.style.width = "80px";
+    preview.style.margin = "0 0.25em";
+    preview.style.padding = "0.125rem 0.5rem";
+    preview.innerHTML = "\u00A0";
     return preview;
   };
 
   /**
    * Removes all preview elements from the editor.
-   * 
+   *
    * This cleanup method ensures that temporary visual elements don't persist
    * after they're no longer needed. It's crucial for maintaining a clean editor
    * state and preventing visual clutter that could confuse users or interfere
@@ -655,15 +722,15 @@ export default function PromptField({
    */
   const removeAllPreviews = () => {
     if (!editorRef.current) return;
-    const previews = editorRef.current.querySelectorAll('.tag-preview');
-    previews.forEach(preview => preview.remove());
+    const previews = editorRef.current.querySelectorAll(".tag-preview");
+    previews.forEach((preview) => preview.remove());
   };
 
   /**
    * Updates the position of the preview element during drag operations.
-   * 
+   *
    * @param event - The drag event containing position information
-   * 
+   *
    * Real-time visual feedback is essential for precise positioning during drag operations.
    * This method continuously updates the preview element's position as users move their
    * cursor, with performance optimizations to prevent excessive updates. This dynamic
@@ -679,7 +746,7 @@ export default function PromptField({
     // Only update if position has changed significantly
     const { clientX, clientY } = event;
     if (
-      previewElement.dataset.lastX && 
+      previewElement.dataset.lastX &&
       previewElement.dataset.lastY &&
       Math.abs(Number(previewElement.dataset.lastX) - clientX) < 5 &&
       Math.abs(Number(previewElement.dataset.lastY) - clientY) < 5
@@ -701,9 +768,9 @@ export default function PromptField({
 
   /**
    * Handles the dragover event during drag operations.
-   * 
+   *
    * @param event - The drag over event
-   * 
+   *
    * This method provides essential real-time visual feedback during drag operations
    * by creating and positioning preview elements. It prevents the default browser
    * behavior to enable custom drop handling and implements performance optimizations
@@ -713,7 +780,7 @@ export default function PromptField({
    */
   const handleDragOver = (event: React.DragEvent) => {
     event.preventDefault();
-    
+
     // Create preview element if it doesn't exist
     if (!previewElement) {
       const preview = createPreviewElement();
@@ -730,9 +797,9 @@ export default function PromptField({
 
   /**
    * Handles the dragleave event during drag operations.
-   * 
+   *
    * @param event - The drag leave event
-   * 
+   *
    * This method ensures proper cleanup of visual feedback elements when a drag
    * operation moves outside the editor area. By removing preview elements when
    * they're no longer relevant, it maintains a clean interface and prevents
@@ -749,9 +816,9 @@ export default function PromptField({
 
   /**
    * Handles the drop event that completes a drag-and-drop operation.
-   * 
+   *
    * @param event - The drop event
-   * 
+   *
    * This method is the culmination of the drag-and-drop workflow, processing
    * the dropped content based on its source and type. It handles both new tags
    * from the palette and repositioned tags from within the editor, ensuring
@@ -785,7 +852,7 @@ export default function PromptField({
 
   /**
    * Handles focus events when the editor receives focus.
-   * 
+   *
    * This method ensures proper cursor positioning when the editor gains focus,
    * either restoring the previous selection or placing the cursor at the end
    * of the content. This attention to focus management creates a predictable
@@ -796,7 +863,7 @@ export default function PromptField({
   const handleFocus = () => {
     // Clear any existing selections in other editors
     const allEditors = document.querySelectorAll('[id^="prompt-editor"]');
-    allEditors.forEach(editor => {
+    allEditors.forEach((editor) => {
       if (editor !== editorRef.current) {
         const selection = window.getSelection();
         if (selection && selection.containsNode(editor, true)) {
@@ -806,7 +873,10 @@ export default function PromptField({
     });
 
     // If there's a saved selection for this editor, restore it
-    if (lastRangeRef.current && editorRef.current?.contains(lastRangeRef.current.commonAncestorContainer)) {
+    if (
+      lastRangeRef.current &&
+      editorRef.current?.contains(lastRangeRef.current.commonAncestorContainer)
+    ) {
       try {
         restoreSelection();
       } catch {
@@ -821,7 +891,7 @@ export default function PromptField({
           saveSelection();
         }
       }
-    } 
+    }
     // If no saved selection, place cursor at the end
     else if (editorRef.current) {
       const range = document.createRange();
@@ -836,9 +906,9 @@ export default function PromptField({
 
   /**
    * Determines the appropriate placeholder text based on field type.
-   * 
+   *
    * @returns The placeholder text to display when the editor is empty
-   * 
+   *
    * Clear guidance through placeholder text is essential for helping users
    * understand the purpose of each editor type. This method provides contextual
    * hints that vary based on the specific field type, helping form creators
@@ -847,6 +917,7 @@ export default function PromptField({
    * creation for each editor variant.
    */
   const getPlaceholderText = () => {
+    if (placeholder) return placeholder;
     switch (field.type) {
       case "aiInstructions":
         return "Enter instructions for the AI...";
@@ -864,11 +935,12 @@ export default function PromptField({
   }, [checkIfEmpty]);
 
   useEffect(() => {
+    if (isFixedResponse) return;
     const editorElement = editorRef.current;
     if (editorElement) {
       editorElement.addEventListener("dragstart", handleEditorTagDragStart);
       editorElement.addEventListener("dragend", handleEditorTagDragEnd);
-  
+
       // Add document-level handlers for drag operations that end outside the editor
       const handleDocumentDragEnd = () => {
         removeAllPreviews();
@@ -877,7 +949,10 @@ export default function PromptField({
 
       const handleDocumentDrop = (e: DragEvent) => {
         // Only handle drops outside the editor
-        if (e.target !== editorElement && !editorElement.contains(e.target as Node)) {
+        if (
+          e.target !== editorElement &&
+          !editorElement.contains(e.target as Node)
+        ) {
           removeAllPreviews();
           setPreviewElement(null);
         }
@@ -885,19 +960,22 @@ export default function PromptField({
 
       document.addEventListener("dragend", handleDocumentDragEnd);
       document.addEventListener("drop", handleDocumentDrop);
-  
+
       return () => {
-        editorElement.removeEventListener("dragstart", handleEditorTagDragStart);
+        editorElement.removeEventListener(
+          "dragstart",
+          handleEditorTagDragStart
+        );
         editorElement.removeEventListener("dragend", handleEditorTagDragEnd);
         document.removeEventListener("dragend", handleDocumentDragEnd);
         document.removeEventListener("drop", handleDocumentDrop);
       };
     }
-  }, [handleEditorTagDragStart, handleEditorTagDragEnd]);
+  }, [handleEditorTagDragStart, handleEditorTagDragEnd, isFixedResponse]);
 
   /**
    * Handles click events inside the editor.
-   * 
+   *
    * This method captures and saves the selection whenever users click within
    * the editor, ensuring that subsequent operations have access to the correct
    * cursor position. This continuous tracking of selection state is essential
@@ -912,7 +990,7 @@ export default function PromptField({
 
   /**
    * Handles keyboard events inside the editor.
-   * 
+   *
    * This method ensures that selection state is properly tracked during keyboard
    * navigation and editing. By using requestAnimationFrame, it captures the selection
    * after the browser has processed the key event, ensuring accurate cursor position
@@ -928,49 +1006,93 @@ export default function PromptField({
     });
   };
 
-  return (
-    <div className="space-y-4">
-      <div
-        id="prompt-editor"
-        data-placeholder={getPlaceholderText()}
-        ref={editorRef}
-        contentEditable
-        className={`min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-          ${
-            isEmpty ? "empty-editor" : ""
-          } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`}
-        onInput={handleInput}
-        onClick={handleClick}
-        onKeyDown={handleKeyDown}
-        onFocus={handleFocus}
-        onBlur={saveSelection}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        suppressContentEditableWarning
-      />
+  const fixedResponseContainerClass = isPreviewMode
+    ? ""
+    : "relative w-full box-border bg-white rounded-lg border border-gray-300 focus-within:border-primary-600 focus-within:ring-inset transition-all duration-200";
 
-      <div className="flex flex-wrap gap-2">
-        {fields.map((sourceField) => {
-          const fieldIdentifier = sourceField.name || sourceField.id;
-          const tagData = {
-            id: sourceField.id,
-            label: sourceField.name || "",
-          };
-          return (
-            <Badge
-              key={sourceField.id}
-              draggable="true"
-              onDragStart={(event) => handleDragStart(event, tagData)}
-              onClick={() => insertTag(tagData)}
-              variant="default"
-              className={`cursor-move bg-primary-600 align-baseline`}
-              style={{ margin: "0 0.25em" }}
+  const defaultEditorClass = `min-h-[200px] p-4 bg-white rounded-lg shadow-sm border border-gray-200 focus:outline-none focus:ring-primary-600 focus:border-transparent ${
+    isEmpty ? "empty-editor" : ""
+  } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
+  const fixedResponseEditorClass = isPreviewMode
+    ? `w-full bg-gray-50 border border-gray-200 rounded px-3 py-2 text-gray-700 leading-relaxed break-words whitespace-pre-line cursor-pointer ${
+        isEmpty ? "empty-editor" : ""
+      } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`
+    : `w-full h-full outline-none bg-transparent px-3 py-2 ${
+        isEmpty ? "empty-editor" : ""
+      } before:content-[attr(data-placeholder)] before:text-gray-400 before:pointer-events-none`;
+
+  return (
+    <div className="relative bg-white rounded-lg">
+      <div className="space-y-4">
+        <div className={isFixedResponse ? fixedResponseContainerClass : ""}>
+          <div
+            id="prompt-editor"
+            data-placeholder={getPlaceholderText()}
+            ref={editorRef}
+            contentEditable={isPreviewMode ? false : true}
+            className={
+              isFixedResponse ? fixedResponseEditorClass : defaultEditorClass
+            }
+            onInput={handleInput}
+            onClick={handleClick}
+            onKeyDown={handleKeyDown}
+            onFocus={handleFocus}
+            onBlur={saveSelection}
+            onDrop={isFixedResponse ? undefined : handleDrop}
+            onDragOver={isFixedResponse ? undefined : handleDragOver}
+            onDragLeave={isFixedResponse ? undefined : handleDragLeave}
+            suppressContentEditableWarning
+            style={{
+              cursor: isPreviewMode ? "pointer" : "text",
+              pointerEvents: isPreviewMode ? "none" : "auto",
+              minHeight: isFixedResponse ? "40px" : undefined,
+              wordWrap: isFixedResponse ? "break-word" : undefined,
+              overflowWrap: isFixedResponse ? "break-word" : undefined,
+            }}
+          />
+        </div>
+        <AnimatePresence>
+          {!isPreviewMode && !isFixedResponse && (
+            <motion.div
+              className="space-y-4"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              transition={{ duration: 0.25 }}
+              key="chips"
             >
-              {fieldIdentifier}
-            </Badge>
-          );
-        })}
+              <div className="flex flex-wrap gap-2">
+                {fields.map((sourceField) => {
+                  const fieldIdentifier = sourceField.name || sourceField.id;
+                  const tagData = {
+                    id: sourceField.id,
+                    label: sourceField.name || "",
+                  };
+                  return (
+                    <Badge
+                      key={sourceField.id}
+                      draggable="true"
+                      onDragStart={(event) => handleDragStart(event, tagData)}
+                      onClick={() => insertTag(tagData)}
+                      variant="default"
+                      className={`cursor-move bg-primary-600 text-white align-baseline`}
+                      style={{ margin: "0 0.25em" }}
+                    >
+                      {fieldIdentifier}
+                    </Badge>
+                  );
+                })}
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-400">
+                <HelpCircle className="mt-[1px] h-3.5 w-3.5" />
+                <span>
+                  You can drag the tag and drop it into the desired position in
+                  the instructions.
+                </span>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

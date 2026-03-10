@@ -61,7 +61,7 @@ class Microapp(models.Model):
     
     # The app-wide default AI model used by the microapp (e.g. gpt-4o-mini, claude-3-opus, etc.)
     # This can be overridden by the paramater on each prompt field. 
-    ai_model = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_AI_MODEL)
+    ai_model = models.CharField(max_length = 50, default = env("DEFAULT_AI_MODEL"))
     
     
     
@@ -269,3 +269,22 @@ class Run(models.Model):
 
     def __str__(self):
         return self.ai_model
+    
+
+class RubricBuild(models.Model):
+    """
+    Log for rubric generation via AI.
+    """
+    microapp = models.ForeignKey(Microapp, on_delete=models.CASCADE, blank=True, null=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    rubric_prompt = models.TextField(blank=True, default="") # The prompt used to generate the rubric
+    files = models.JSONField(default=list)  # List of file names
+    rubric = models.TextField()  # AI-generated rubric as a JSON string
+    credits_spent = models.IntegerField()  
+    model_used = models.CharField(max_length=50)
+    app_hash_id = models.CharField(max_length=50, blank=True)  
+    user_ip = models.CharField(max_length=20, blank=True) 
+
+    def __str__(self):
+        return f"RubricBuild {self.id} ({self.model_used})"

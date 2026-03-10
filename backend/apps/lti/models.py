@@ -5,8 +5,10 @@ from apps.microapps.models import Microapp  # You'll need to adjust this import 
 class LTIConfig(models.Model):
    microapp = models.ForeignKey(
        Microapp,
-       on_delete=models.CASCADE,
-       related_name='lti_configs'
+       on_delete=models.SET_NULL,
+       related_name='lti_configs',
+       null=True,
+       blank=True
    )
    issuer = models.CharField(max_length=255)
    client_id = models.CharField(max_length=100)

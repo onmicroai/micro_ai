@@ -19,6 +19,8 @@ from .views import (
     
     # Run views
     RunList,
+    RunDetailByUuid,
+    ScoreRunList,
     AnonymousRunList,
     LiteLLMModelConfigurations,
     
@@ -36,8 +38,9 @@ from .views import (
     AudioTranscription,
     AnonymousAudioTranscription,
     TextToSpeech,
-    AnonymousTextToSpeech
+    AnonymousTextToSpeech,
 )
+from .views.rubric_build_views import RubricBuildView
 
 urlpatterns = [
     # Microapp management
@@ -61,6 +64,8 @@ urlpatterns = [
     
     # AI Model execution
     path('run', RunList.as_view(), name="run_model"),
+    path('run/<str:run_uuid>/', RunDetailByUuid.as_view(), name="run_detail_by_uuid"),
+    path('score', ScoreRunList.as_view(), name="score_model"),
     path('run/anonymous', AnonymousRunList.as_view(), name="anonymous_run_model"),
     path('models/litellm-configuration/', LiteLLMModelConfigurations.as_view(), name="litellm_models_configuration"),
     
@@ -79,4 +84,5 @@ urlpatterns = [
     path('transcribe/anonymous/', AnonymousAudioTranscription.as_view(), name='anonymous-audio-transcription'),
     path('tts/', TextToSpeech.as_view(), name='text-to-speech'),
     path('tts/anonymous/', AnonymousTextToSpeech.as_view(), name='anonymous-text-to-speech'),
+    path('rubric-build/', RubricBuildView.as_view(), name='rubric-build'),
 ]

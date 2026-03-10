@@ -1,37 +1,31 @@
-import { create } from 'zustand';
-import { SurveyState, SaveState, ModelTemperatureRanges, AttachedFile } from '@/app/(authenticated)/app/types';
+import { create } from "zustand";
+import {
+  SurveyState,
+  SaveState,
+  ModelTemperatureRanges,
+  AttachedFile,
+} from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
-import { toast } from 'react-toastify';
-import debounce from 'lodash/debounce';
-import { fetchUserCollectionsSingleton } from '../utils/fetchCollectionsList';
-import { fetchAvailableModelsSingleton } from '../utils/fetchAvailableModels';
-import { fetchLiteLLMModelsSingleton } from '../utils/fetchLiteLLMModels';
-import { updateMicroappCollection } from '../utils/updateMicroappCollection';
+import { toast } from "react-toastify";
+import debounce from "lodash/debounce";
+import { fetchUserCollectionsSingleton } from "../utils/fetchCollectionsList";
+import { fetchAvailableModelsSingleton } from "../utils/fetchAvailableModels";
+import { fetchLiteLLMModelsSingleton } from "../utils/fetchLiteLLMModels";
+import { updateMicroappCollection } from "../utils/updateMicroappCollection";
 
 const initialState = {
-  phases: [
-    { 
-      id: '1', 
-      name: 'phase1',
-      title: 'Phase 1',
-      description: '', 
-      elements: [], 
-      prompts: [],
-      skipPhase: false,
-      scoredPhase: false,
-      rubric: '',
-    }
-  ],
-  title: '',
-  description: '',
+  elements: [],
+  title: "",
+  description: "",
   collectionId: null,
-  privacy: 'private',
+  privacy: "private",
   clonable: true,
-  completedHtml: '',
+  completedHtml: "",
   attachedFiles: [] as AttachedFile[],
   //debounce state
   saveState: {
     isSaving: false,
+    isDebouncing: false,
     lastSaved: null,
     error: null,
   } as SaveState,
@@ -40,14 +34,17 @@ const initialState = {
   isInitialLoad: true,
   collections: [] as { value: number; text: string }[],
   availableModels: {} as ModelTemperatureRanges,
+  defaultAiModel: "",
   isLoadingCollections: false,
   isLoadingModels: false,
   aiConfig: {
-    aiModel: 'gpt-4o-mini',
+    aiModel: "",
     temperature: 0.7,
     maxResponseTokens: null,
-    systemPrompt: ""
+    systemPrompt: "",
   },
+  conditionalSidebarOpen: false,
+  conditionalSidebarContext: null as SurveyState["conditionalSidebarContext"],
 };
 
 export const useSurveyStore = create<SurveyState>((set, get) => {
@@ -55,26 +52,50 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
    * Debounced function to save the survey to the server, prevents multiple saves in a short period of time
    * @param signal - The AbortSignal to cancel the request
    */
-   const debouncedSaveToServer = debounce(async (signal?: AbortSignal) => {
+  const debouncedSaveToServer = debounce(async (signal?: AbortSignal) => {
     const state = get();
     const { appId, saveState, isInitialLoad } = state;
 
     if (!appId || saveState.isSaving) {
+      if (saveState.isDebouncing) {
+        set((state) => ({
+          saveState: { ...state.saveState, isDebouncing: false },
+        }));
+      }
       return;
     }
 
     // If it's the initial load, set the flag to false and return
     if (isInitialLoad === true) {
-      set({ isInitialLoad: false });
+      set((state) => ({
+        isInitialLoad: false,
+        saveState: { ...state.saveState, isDebouncing: false },
+      }));
       return;
     }
 
     try {
-      set((state) => ({ 
-        saveState: { ...state.saveState, isSaving: true, error: null } 
+      set((state) => ({
+        saveState: {
+          ...state.saveState,
+          isSaving: true,
+          isDebouncing: false,
+          error: null,
+        },
       }));
 
       const api = axiosInstance();
+      const appJsonData: any = {
+        title: state.title,
+        description: state.description,
+        privacySettings: state.privacy,
+        clonable: state.clonable,
+        completedHtml: state.completedHtml,
+        aiConfig: state.aiConfig,
+        attachedFiles: state.attachedFiles,
+        elements: state.elements,
+      };
+
       const data = {
         title: state.title || "Untitled App",
         privacy: state.privacy,
@@ -82,42 +103,34 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         ai_model: state.aiConfig.aiModel,
         temperature: state.aiConfig.temperature,
         explanation: state.description,
-        app_json: {
-          phases: state.phases,
-          title: state.title,
-          description: state.description,
-          privacySettings: state.privacy,
-          clonable: state.clonable,
-          completedHtml: state.completedHtml,
-          aiConfig: state.aiConfig,
-          attachedFiles: state.attachedFiles
-        },
+        app_json: appJsonData,
       };
 
       await api.put(`/api/microapps/${appId}`, data, {
-        signal: signal
+        signal: signal,
       });
 
-      set((state) => ({ 
-        saveState: { 
-          ...state.saveState, 
-          isSaving: false, 
-          lastSaved: new Date(),
-          error: null 
-        } 
-      }));
-      
-      toast.success('Changes saved successfully');
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Failed to save';
-      set((state) => ({ 
-        saveState: { 
-          ...state.saveState, 
+      set((state) => ({
+        saveState: {
+          ...state.saveState,
           isSaving: false,
-          error: errorMessage
-        } 
+          isDebouncing: false,
+          lastSaved: new Date(),
+          error: null,
+        },
       }));
-      
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Failed to save";
+      set((state) => ({
+        saveState: {
+          ...state.saveState,
+          isSaving: false,
+          isDebouncing: false,
+          error: errorMessage,
+        },
+      }));
+
       toast.error(`Failed to save: ${errorMessage}`);
     }
   }, 1000);
@@ -134,9 +147,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * Sets the save state of the survey
      * @param saveState - The save state of the survey
      */
-    setSaveState: (saveState: Partial<SaveState>) => 
-      set((state) => ({ 
-        saveState: { ...state.saveState, ...saveState } 
+    setSaveState: (saveState: Partial<SaveState>) =>
+      set((state) => ({
+        saveState: { ...state.saveState, ...saveState },
       })),
 
     /**
@@ -146,15 +159,16 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     setAppId: (id: number | null) => set({ appId: id }),
 
     /**
-     * Sets the phases of the survey
-     * @param phases - The phases of the survey
-     * @param skipServerUpdate - Whether to skip saving to server
-     * @param signal - The AbortSignal to cancel the request
+     * Sets the elements of the builder (V2 schema).
      */
-    setPhases: async (phases, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setElements: async (
+      elements,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
-      if (JSON.stringify(state.phases) !== JSON.stringify(phases)) {
-        set({ phases });
+      if (JSON.stringify(state.elements) !== JSON.stringify(elements)) {
+        set({ elements });
         if (!skipServerUpdate) {
           await get().saveToServer(signal);
         }
@@ -167,7 +181,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setTitle: async (title, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setTitle: async (
+      title,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (state.title !== title) {
         set({ title });
@@ -183,7 +201,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setDescription: async (description, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setDescription: async (
+      description,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (state.description !== description) {
         set({ description });
@@ -198,9 +220,13 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param id - The new collection ID
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
-     * @returns 
+     * @returns
      */
-    setCollectionId: async (id: number | null, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setCollectionId: async (
+      id: number | null,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       const oldCollectionId = state.collectionId;
       const appId = state.appId;
@@ -212,7 +238,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
       }
 
       if (!appId) {
-        toast.error('Cannot update collection: App ID is missing');
+        toast.error("Cannot update collection: App ID is missing");
         return;
       }
 
@@ -223,15 +249,18 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
 
       try {
         // Only pass oldCollectionId if it's a number
-        if (typeof oldCollectionId === 'number') {
+        if (typeof oldCollectionId === "number") {
           await updateMicroappCollection(appId, id, oldCollectionId, signal);
         } else {
           await updateMicroappCollection(appId, id, undefined, signal);
         }
         set({ collectionId: id });
-        toast.success('Collection updated successfully');
+        toast.success("Collection updated successfully");
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Failed to update collection';
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to update collection";
         toast.error(`Failed to update collection: ${errorMessage}`);
         // Revert the UI state on error
         set({ collectionId: oldCollectionId });
@@ -244,7 +273,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setPrivacy: async (privacy, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setPrivacy: async (
+      privacy,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (state.privacy !== privacy) {
         set({ privacy });
@@ -260,7 +293,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setClonable: async (clonable, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setClonable: async (
+      clonable,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (state.clonable !== clonable) {
         set({ clonable });
@@ -276,7 +313,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setCompletedHtml: async (completedHtml, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setCompletedHtml: async (
+      completedHtml,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (state.completedHtml !== completedHtml) {
         set({ completedHtml });
@@ -292,7 +333,11 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    setAIConfig: async (aiConfig, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setAIConfig: async (
+      aiConfig,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
       if (JSON.stringify(state.aiConfig) !== JSON.stringify(aiConfig)) {
         set({ aiConfig });
@@ -303,27 +348,40 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
 
     /**
-    * Sets the attached files of the survey
+     * Sets the attached files of the survey
      * @param attachedFiles - The attached files of the survey
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-      setAttachedFiles: async (attachedFiles: AttachedFile[], skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    setAttachedFiles: async (
+      attachedFiles: AttachedFile[],
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       const state = get();
-      if (JSON.stringify(state.attachedFiles) !== JSON.stringify(attachedFiles)) {
-         set({ attachedFiles });
-         if (!skipServerUpdate) {
-            await get().saveToServer(signal);
-         }
+      if (
+        JSON.stringify(state.attachedFiles) !== JSON.stringify(attachedFiles)
+      ) {
+        set({ attachedFiles });
+        if (!skipServerUpdate) {
+          await get().saveToServer(signal);
+        }
       }
-      },
+    },
 
     /**
      * Saves the survey to the server
      * @param signal - The AbortSignal to cancel the request
-     * @returns 
+     * @returns
      */
     saveToServer: (signal?: AbortSignal) => {
+      set((state) => ({
+        saveState: {
+          ...state.saveState,
+          isDebouncing: true,
+          error: null,
+        },
+      }));
       return Promise.resolve(debouncedSaveToServer(signal));
     },
 
@@ -350,7 +408,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         const collections = await fetchCollectionsInitial();
         set({ collections: collections || [], isLoadingCollections: false });
       } catch (error) {
-        console.error('Failed to fetch collections:', error);
+        console.error("Failed to fetch collections:", error);
         set({ isLoadingCollections: false });
       }
     },
@@ -360,9 +418,13 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    addAttachedFile: async (file: AttachedFile, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    addAttachedFile: async (
+      file: AttachedFile,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       set((state) => ({
-        attachedFiles: [...state.attachedFiles, file]
+        attachedFiles: [...state.attachedFiles, file],
       }));
       if (!skipServerUpdate) {
         await get().saveToServer(signal);
@@ -375,9 +437,15 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
      * @param skipServerUpdate - Whether to skip saving to server
      * @param signal - The AbortSignal to cancel the request
      */
-    removeAttachedFile: async (original_filename: string, skipServerUpdate?: boolean, signal?: AbortSignal) => {
+    removeAttachedFile: async (
+      original_filename: string,
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
       set((state) => ({
-        attachedFiles: state.attachedFiles.filter(f => f.original_filename !== original_filename)
+        attachedFiles: state.attachedFiles.filter(
+          (f) => f.original_filename !== original_filename
+        ),
       }));
       if (!skipServerUpdate) {
         await get().saveToServer(signal);
@@ -396,7 +464,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         }
         set({ availableModels: models, isLoadingModels: false });
       } catch (error) {
-        console.error('Failed to fetch models:', error);
+        console.error("Failed to fetch models:", error);
         set({ isLoadingModels: false });
       }
     },
@@ -407,17 +475,24 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     fetchLiteLLMModels: async () => {
       set({ isLoadingModels: true });
       try {
-        let models = await fetchLiteLLMModelsInitial();
-        if (models === null) {
-          models = {} as ModelTemperatureRanges;
-        }
-        set({ availableModels: models, isLoadingModels: false });
+        const result = await fetchLiteLLMModelsInitial();
+        set({
+          availableModels: result?.models ?? ({} as ModelTemperatureRanges),
+          defaultAiModel: result?.defaultModel ?? "",
+          isLoadingModels: false,
+        });
       } catch (error) {
-        console.error('Failed to fetch LiteLLM models:', error);
+        console.error("Failed to fetch LiteLLM models:", error);
         set({ isLoadingModels: false });
       }
     },
 
-
+    conditionalSidebarOpen: false,
+    setConditionalSidebarOpen: (open) => {
+      set({ conditionalSidebarOpen: open });
+    },
+    setConditionalSidebarContext: (context) => {
+      set({ conditionalSidebarContext: context });
+    },
   };
 });

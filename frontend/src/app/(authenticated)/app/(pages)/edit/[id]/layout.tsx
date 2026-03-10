@@ -1,6 +1,5 @@
 "use client";
-import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
-import { ToastContainer } from 'react-toastify';
+import { ToastContainer } from "react-toastify";
 
 export default function EditLayout({
   children,
@@ -10,12 +9,7 @@ export default function EditLayout({
 }) {
   return (
     <>
-      <ToastContainer 
-        stacked
-        position="bottom-left"
-        hideProgressBar={true}
-      />
-      <NavBarClientSwitch />
+      <ToastContainer stacked position="bottom-left" hideProgressBar={true} />
       {children}
     </>
   );

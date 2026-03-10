@@ -1,0 +1,55 @@
+{
+  "cookies": [
+    {
+      "name": "sessionid",
+      "value": "kgxz30pnlzf489lghim2no91lh7fyida",
+      "domain": "dev.onmicro.ai",
+      "path": "/admin/",
+      "expires": 1771595414.005604,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "refresh_token",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc3MDk5MDYxMywiaWF0IjoxNzcwMzg1ODEzLCJqdGkiOiJiYTBkZjhiOTVlMDg0ZTQ4OTVhODc5YzBlNzc2MGNkZCIsInVzZXJfaWQiOiI4NSJ9.UpYF381CuMJ1M3_Rcib16j1TlzkoOgjhtt_4IjaxLTbCkrAbkvt7ANfuz_1c0OSB_myRCZROZR28NtX5r85g-Q",
+      "domain": "dev.onmicro.ai",
+      "path": "/",
+      "expires": 1770990614.005247,
+      "httpOnly": true,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "csrftoken",
+      "value": "vRpTfT9wXuRhMCMiqT6WhUwqKh2UXAKz",
+      "domain": "dev.onmicro.ai",
+      "path": "/",
+      "expires": 1801835414.005525,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "access_token",
+      "value": "eyJhbGciOiJIUzUxMiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzcwMzg5NDEzLCJpYXQiOjE3NzAzODU4MTMsImp0aSI6IjYzNzkxMTU4MzlhMDQyYjViYWI0YzE0ZmNlODY1OTBmIiwidXNlcl9pZCI6Ijg1In0.hOTB19DM0fIDwKlCJQ_rqWjyYXk7Ljq6-sIRFmtaBlIg3TY5T23li5iKX9fm-y8fEVCnptbVpdpU1uFxJ9C2xQ",
+      "domain": "dev.onmicro.ai",
+      "path": "/",
+      "expires": 1770389413,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    },
+    {
+      "name": "access_token_expiration",
+      "value": "2026-02-06T14:50:13.965697Z",
+      "domain": "dev.onmicro.ai",
+      "path": "/",
+      "expires": 1770389413,
+      "httpOnly": false,
+      "secure": true,
+      "sameSite": "None"
+    }
+  ],
+  "origins": []
+}

@@ -9,7 +9,7 @@ class MicroappVariables:
     APP_OWNER = "owner"
     DEFAULT_MICROAPP_NAME = "Untitled App"
     DEFAULT_MICROAPP_PRIVACY = "private"
-    DEFAULT_MICROAPP_AI_MODEL = "gpt-4o-mini"
+    DEFAULT_MICROAPP_AI_MODEL = env("DEFAULT_AI_MODEL", default="claude-haiku-4-5-20251001")
     DEFAULT_RESPONSE_TYPE = "AI"
     FIXED_RESPONSE_TYPE = "Fixed_Response"
 

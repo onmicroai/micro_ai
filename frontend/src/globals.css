@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 @import url("https://fonts.googleapis.com/css2?family=Cousine:ital,wght@0,400;0,700;1,400;1,700&display=swap");
-@import 'react-toastify/dist/ReactToastify.css';
+@import "react-toastify/dist/ReactToastify.css";
 
 @layer base {
   :root {
@@ -10,7 +10,7 @@
     --foreground: 222.2 84% 4.9%;
     --popover: 0 0% 100%;
     --popover-foreground: 222.2 84% 4.9%;
-    --primary: 239, 84%, 65%; 
+    --primary: 239, 84%, 65%;
     --primary-900: 239, 84%, 90%;
     --primary-600: 239, 84%, 60%;
     --primary-550: 239, 84%, 55%;
@@ -30,9 +30,50 @@
     --black-dark: 0, 0%, 9%;
     --black-md: 0, 0%, 12%;
     --black-lt: 0, 0%, 16%;
+    --black-600: 127, 114%, 108%;
+    --form-builder-bg-white: 0 0% 100%;
+    --form-builder-bg-gray: 210 40% 98%;
   }
   html {
-    font-family: 'Cousine', system-ui, sans-serif;
+    font-family: "Inter", system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .builder-gradient-pulse {
+    background-size: 200% 200%;
+    animation: builderGradientPulse 0.68s ease-in-out infinite;
+  }
+
+  .builder-success-pulse {
+    animation: builderWeightPulse 0.85s ease-in-out infinite;
+  }
+}
+
+@keyframes builderGradientPulse {
+  0% {
+    background-position: 0% 50%;
+    opacity: 0.65;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+  100% {
+    background-position: 0% 50%;
+    opacity: 0.65;
+  }
+}
+
+@keyframes builderWeightPulse {
+  0% {
+    font-weight: 500;
+  }
+  50% {
+    font-weight: 600;
+  }
+  100% {
+    font-weight: 500;
   }
 }
 

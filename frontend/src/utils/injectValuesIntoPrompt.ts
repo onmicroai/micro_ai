@@ -6,10 +6,19 @@ import { Answers, Prompt } from "@/app/(authenticated)/app/types";
  * @param answers - The answers state.
  * @returns The AI prompt property with the values injected.
  */
-const injectValuesIntoPrompt = (
+function injectValuesIntoPrompt(
+  aiPromptProperty: string,
+  answers: Answers
+): string;
+
+function injectValuesIntoPrompt(
+  aiPromptProperty: Prompt[],
+  answers: Answers
+): Prompt[];
+function injectValuesIntoPrompt(
    aiPromptProperty: string | Prompt[],
    answers: Answers,
-): string | Prompt[] => {
+): string | Prompt[] {
    const placeholderRegex = /\{(\w+)\}/g;
    
    // Handle array input

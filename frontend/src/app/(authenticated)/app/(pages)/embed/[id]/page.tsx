@@ -3,8 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { toast } from 'react-toastify';
-import CompletedPhase from '@/components/CompletedPhases';
-import CurrentPhase from '@/components/CurrentPhase';
+import CurrentElementFlow from "@/components/CurrentElementFlowV2";
 import { useSurveyStore } from '@/store/runtimeSurveyStore';
 import { useConversationStore } from '@/store/conversationStore';
 import { useUserStore } from "@/store/userStore";
@@ -26,15 +25,13 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
    const searchParams = useSearchParams();
    const launchId = searchParams.get('lid');
    const [showThankYouMessage, setShowThankYouMessage] = useState(false);
+   const [flowKey, setFlowKey] = useState(0);
    const { user } = useUserStore();
    const userId = Number(user?.id);
    const hashId = params.id?.toString() || "";
    const [appId, setAppId] = useState<number | null>(null);
    const {
       surveyJson,
-      currentPhase,
-      currentPhaseIndex,
-      completedPhases,
       loading,
       promptLoading,
       sendPromptError,
@@ -42,8 +39,6 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       answers,
       images,
       fetchApp,
-      setCurrentPhase,
-      setElements,
       softReset: softResetSurveyStore,
    } = useSurveyStore();
    
@@ -108,25 +103,11 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
    useEffect(() => {
       if (!surveyJson) return;
-      
-      const newCurrentPhase = surveyJson.phases?.[currentPhaseIndex] || null;
       const appId = Number(surveyJson.id) || null;
-      const newElements = newCurrentPhase?.elements || [];
-      
-      if ((newCurrentPhase && completedPhases.includes(currentPhaseIndex)) ||
-          (completedPhases.length === surveyJson.phases.length)) {
-         return;
-      }
-      
       if (appId !== undefined) {
          setAppId(appId);
       }
-      
-      if (newCurrentPhase !== null) {
-         setCurrentPhase(newCurrentPhase);
-         setElements(newElements);
-      }
-   }, [surveyJson, currentPhaseIndex, setCurrentPhase, setElements, completedPhases]);
+   }, [surveyJson]);
 
    const submitLTIScore = useCallback(async () => {
       if (!launchId) return;
@@ -140,26 +121,10 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
    }, [launchId]);
 
    useEffect(() => {
-      const phasesLength = surveyJson?.phases?.length;
-      const completedPhasesLength = completedPhases.length;
-      const isLastPhaseCompleted = phasesLength !== undefined && phasesLength > 0 && completedPhasesLength === phasesLength;
-
-      const shouldShowThankYouMessage = isLastPhaseCompleted && !promptLoading;
-
-      let timeoutId: NodeJS.Timeout;
-      if (shouldShowThankYouMessage === true) {
-         submitLTIScore();
-         timeoutId = setTimeout(() => {
-            setShowThankYouMessage(true);
-         }, 1000);
-      }
-
-      return () => {
-         if (timeoutId) {
-            clearTimeout(timeoutId);
-         }
-      };
-   }, [completedPhases, surveyJson, promptLoading, setShowThankYouMessage, launchId, submitLTIScore]);
+      if (!showThankYouMessage) return;
+      if (promptLoading) return;
+      submitLTIScore();
+   }, [showThankYouMessage, promptLoading, submitLTIScore]);
 
    useEffect(() => {
       const abortController = new AbortController();
@@ -197,31 +162,21 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                </div>
             )}
 
-            {!loading && surveyJson?.phases?.length === 0 && (
+            {!loading && (surveyJson?.elements?.length || 0) === 0 && (
                <p className="text-gray-600 text-center py-8">
                   This application doesn&apos;t contain any questions.
                </p>
             )}
 
-            <div className="space-y-6">
-               {completedPhases.map((pageIndex: number) => {
-                  const page = surveyJson!.phases[pageIndex];
-                  return (
-                     <CompletedPhase
-                        key={page.id}
-                        pageIndex={pageIndex}
-                        page={page}
-                     />
-                  );
-               })}
-            </div>
-
-            {currentPhase !== null && appId !== null && (
+            {appId !== null && (
                <div className="mt-6">
-                  <CurrentPhase
+                  <CurrentElementFlow
+                     key={flowKey}
                      appId={appId}
                      userId={userId}
-                     answers={answers}
+                     onComplete={() => setShowThankYouMessage(true)}
+                     isOwner={isOwner}
+                     isAdmin={isAdmin}
                   />
                </div>
             )}
@@ -254,6 +209,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
                            softResetSurveyStore();
                            setShowThankYouMessage(false);
                            setIsContinuationExpanded(false);
+                           setFlowKey((k) => k + 1);
                            toast.success("App restarted successfully");
                         }}
                         className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"

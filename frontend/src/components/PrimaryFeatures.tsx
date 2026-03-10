@@ -4,34 +4,51 @@ import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import { Tab, TabGroup, TabList, TabPanel, TabPanels } from '@headlessui/react'
 import clsx from 'clsx'
+import {
+  CubeTransparentIcon,
+  ShareIcon,
+  AcademicCapIcon,
+  ChartBarIcon,
+  CpuChipIcon,
+} from '@heroicons/react/20/solid'
 
 import { Container } from '@/components/Container'
-import home_bg from '@/img/home_background.png'
 
 const features = [
   {
-    title: 'Build',
+    title: 'Build precision apps, not generic chats.',
     description:
-      "Build apps using the drag and drop editor without touching any code. Create apps that leverage AI to accelerate course development processes, scale your feedback, or automate assessment. All while protecting instructor voice and pedagogy.",
-    image: '/img/homepage/build.gif',
+      "Design focused workflows and structured interactions instead of open-ended chat. Control inputs, outputs, and pedagogy so every app does exactly what you need.",
+    image: '/img/homepage/case_study.png',
+    icon: CubeTransparentIcon,
   },
   {
-    title: 'Share',
+    title: 'Share with anyone.',
     description:
-      "Share apps instantly with colleagues, students, or the public. Start collecting data immediately.",
-    image: '/img/homepage/share.gif',
+      "Publish apps to colleagues, students, or the public with a single link. No login or licenses required from your users.",
+    image: '/img/homepage/donnas/3.png',
+    icon: ShareIcon,
   },
   {
-    title: 'Analyze',
+    title: 'Integrate with your LMS.',
     description:
-      "Collect data about usage, cost, satisfaction, accuracy and more so you can understand where and how AI is most effective",
+      "Embed apps in Canvas, Moodle, Blackboard, or any LTI-compatible platform. Keep everything in one place and sync grades and access automatically.",
+    image: '/img/homepage/case_study_lms_sm.png',
+    icon: AcademicCapIcon,
+  },
+  {
+    title: 'Observe usage for continuous improvement.',
+    description:
+      'Track usage, cost, satisfaction, and accuracy so you can see where AI helps most and refine prompts and flows over time.',
     image: '/img/homepage/app_stats.png',
+    icon: ChartBarIcon,
   },
   {
-    title: 'Start for Free',
+    title: 'Use any model.',
     description:
-      'A generous free tier offers 10,000 AI credits each month. No credit card required.',
+      'Use your favorite models from Claude, Gemini, OpenAI and others. New models are added regularly as they are released.',
     image: '/img/homepage/registration-bg.png',
+    icon: CpuChipIcon,
   },
 ]
 
@@ -59,26 +76,21 @@ export function PrimaryFeatures() {
     <section
       id="features"
       aria-label="Features for running your books"
-      className="relative overflow-hidden bg-white pb-28 sm:py-32"
+      className="relative overflow-hidden pb-28 sm:py-32"
     >
-      <div className="absolute inset-0">
-        <Image
-          className="h-full w-full object-cover"
-          src={home_bg}
-          alt=""
-          fill
-          priority
-          quality={90}
-        />
-      </div>
+      {/* Solid dark continuation of Hero — no second gradient, smooth transition */}
+      <div
+        className="absolute inset-0 bg-gradient-to-b from-slate-900 via-slate-900 to-blue-950"
+        aria-hidden="true"
+      />
 
       <Container className="relative">
         <div className="max-w-2xl md:mx-auto md:text-center xl:max-w-none">
           <h2 className="mt-2 text-5xl tracking-tight font-semibold text-white sm:text-6xl">
-            Everything you need to gain agency over your AI.
+          Go Where LLMs Can&apos;t
           </h2>
           <p className="mx-auto mt-6 max-w-2xl text-pretty text-center text-lg font-medium tracking-tight text-blue-100 sm:text-xl/8">
-            Build and deploy your first app today, start making smarter AI decisions tomorrow.
+          Generic Chatbots and custom GPTs can make it hard to create repeatable experiences, and impossible to track usage and outcomes.
           </p>
         </div>
         <TabGroup
@@ -89,7 +101,9 @@ export function PrimaryFeatures() {
             <>
               <div className="-mx-4 flex overflow-x-auto pb-4 sm:mx-0 sm:overflow-visible sm:pb-0 lg:col-span-5">
                 <TabList className="relative z-10 flex gap-x-4 whitespace-nowrap px-4 sm:mx-auto sm:px-0 lg:mx-0 lg:block lg:gap-x-0 lg:gap-y-1 lg:whitespace-normal">
-                  {features.map((feature, featureIndex) => (
+                  {features.map((feature, featureIndex) => {
+                    const Icon = feature.icon
+                    return (
                     <div
                       key={feature.title}
                       className={clsx(
@@ -102,13 +116,16 @@ export function PrimaryFeatures() {
                       <h3>
                         <Tab
                           className={clsx(
-                            'font-display text-lg ui-not-focus-visible:outline-none',
+                            'font-display text-lg ui-not-focus-visible:outline-none flex items-center gap-2',
                             selectedIndex === featureIndex
                               ? 'text-blue-600 lg:text-white'
                               : 'text-blue-100 hover:text-white lg:text-white',
                           )}
                         >
                           <span className="absolute inset-0 rounded-full lg:rounded-l-xl lg:rounded-r-none" />
+                          <span className="flex h-5 w-5 shrink-0 items-center justify-center" aria-hidden="true">
+                            <Icon className="size-5" />
+                          </span>
                           {feature.title}
                         </Tab>
                       </h3>
@@ -123,7 +140,8 @@ export function PrimaryFeatures() {
                         {feature.description}
                       </p>
                     </div>
-                  ))}
+                    )
+                  })}
                 </TabList>
               </div>
               <TabPanels className="lg:col-span-7">
@@ -138,7 +156,7 @@ export function PrimaryFeatures() {
                     <div className="mt-10 w-[45rem] overflow-hidden rounded-xl bg-slate-50 shadow-xl shadow-blue-900/20 sm:w-auto lg:mt-0 lg:w-[67.8125rem]">
                       <div className="relative aspect-[16/9]">
                         <Image
-                          className="object-cover"
+                          className="object-cover object-top"
                           src={feature.image}
                           alt=""
                           priority

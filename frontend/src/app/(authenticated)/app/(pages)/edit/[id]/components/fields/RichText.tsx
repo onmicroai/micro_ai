@@ -1,9 +1,9 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import Image from '@tiptap/extension-image';
 import Link from '@tiptap/extension-link';
 import TextStyle from '@tiptap/extension-text-style';
 import Color from '@tiptap/extension-color';
+import ImageResize from 'tiptap-extension-resize-image'
 import { useState, useCallback, useEffect } from 'react';
 import { HexColorPicker } from 'react-colorful';
 import { 
@@ -351,7 +351,7 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
   const editor = useEditor({
     extensions: [
       StarterKit,
-      Image,
+      ImageResize,
       Link,
       TextStyle,
       Color,
@@ -530,6 +530,7 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         
         if (imagePos !== -1) {
           const tr = state.tr.setNodeMarkup(imagePos, null, {
+            ...selectedImageNode.attrs,
             src: imageUrl,
             alt: altText || 'Image'
           });
@@ -537,7 +538,7 @@ export const RichText = ({ value, onChange, microappId }: EditorProps) => {
         }
       } else {
         // Insert new image
-        editor?.chain().focus().setImage({ 
+        (editor as any)?.chain().focus().setImage({ 
           src: imageUrl,
           alt: altText || 'Image'
         }).run();

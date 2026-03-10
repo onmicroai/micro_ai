@@ -22,13 +22,24 @@ export interface Run {
     no_submission?: boolean;
     satisfaction?: 1 | -1 | null;
     phaseIndex: number;
+    tryId?: string;
+    tryIndex?: number;
     session_id: string;
+    score_expected?: boolean;
+    score_explanation?: boolean;
+    score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+    score_feedback_enabled?: boolean;
+    score_feedback_instructions?: string;
     scoreData?: {
         run_score: string;
         run_passed: boolean;
         minimum_score: number;
         rubric: string;
         scored_run: boolean;
+        score_explanation?: boolean;
+        score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+        score_feedback_enabled?: boolean;
+        score_feedback_instructions?: string;
     };
 }
 
@@ -55,7 +66,15 @@ interface ConversationStore {
   getConversation: (conversationId: string) => Conversation | null;
   addRun: (run: Run) => string;
   updateRun: (runId: string, updates: Partial<Run>) => void;
-  addMessage: (role: Message['role'], content: string) => void;
+  removeRunsFromPhaseIndex: (startPhaseIndex: number) => void;
+  getRunsForTry: (tryId?: string) => Run[];
+  getLatestRunForStop: (phaseIndex: number, tryId?: string) => Run | null;
+  addMessage: (
+    role: Message['role'],
+    content: string,
+    runId?: string,
+    tryId?: string
+  ) => void;
   setCurrentConversation: (conversationId: string) => void;
   updateConversationTitle: (title: string) => void;
   deleteConversation: (conversationId: string) => void;
@@ -112,6 +131,8 @@ export const useConversationStore = create<ConversationStore>()(
           no_submission: run.no_submission ?? false,
           satisfaction: run.satisfaction ?? null,
           phaseIndex: run.phaseIndex ?? 0,
+          tryId: run.tryId ?? undefined,
+          tryIndex: run.tryIndex ?? undefined,
           session_id: run.session_id ?? ''
         };
 
@@ -168,12 +189,65 @@ export const useConversationStore = create<ConversationStore>()(
         });
       },
 
-      addMessage: (role, content) => {
+      removeRunsFromPhaseIndex: (startPhaseIndex: number) => {
+        set((state) => {
+          if (!state.currentConversation) return state;
+
+          const filteredRuns = state.currentConversation.runs.filter(
+            (run) => run.phaseIndex < startPhaseIndex
+          );
+
+          const updatedConversation: Conversation = {
+            ...state.currentConversation,
+            runs: filteredRuns,
+            metadata: {
+              ...state.currentConversation.metadata!,
+              updatedAt: Date.now(),
+            },
+          };
+
+          return {
+            ...state,
+            currentConversation: updatedConversation,
+            conversations: state.conversations.map((conv) =>
+              conv.id === updatedConversation.id ? updatedConversation : conv
+            ),
+          };
+        });
+      },
+
+      getRunsForTry: (tryId?: string) => {
+        const conversation = get().currentConversation;
+        if (!conversation) return [];
+        if (!tryId) return conversation.runs;
+        return conversation.runs.filter((run) => run.tryId === tryId);
+      },
+
+      getLatestRunForStop: (phaseIndex: number, tryId?: string) => {
+        const conversation = get().currentConversation;
+        if (!conversation) return null;
+        const scoped = conversation.runs
+          .filter(
+            (run) =>
+              run.phaseIndex === phaseIndex && (tryId ? run.tryId === tryId : true),
+          )
+          .sort((a, b) => b.createdAt - a.createdAt);
+        return scoped[0] || null;
+      },
+
+      addMessage: (role, content, runId, tryId) => {
         
         set((state) => {
           if (!state.currentConversation) return state;
-          
-          const currentRun = state.currentConversation.runs[state.currentConversation.runs.length - 1];
+
+          const currentRun =
+            runId || tryId
+              ? state.currentConversation.runs.find(
+                  (run) =>
+                    (runId ? run.id === runId : true) &&
+                    (tryId ? run.tryId === tryId : true),
+                ) || null
+              : state.currentConversation.runs[state.currentConversation.runs.length - 1];
           if (!currentRun) return state;
 
           const newMessage: Message = {

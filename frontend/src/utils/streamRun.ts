@@ -23,6 +23,10 @@ export interface ScoreData {
   minimum_score: number;
   rubric: string;
   scored_run: boolean;
+  score_explanation?: boolean;
+  score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+  score_feedback_enabled?: boolean;
+  score_feedback_instructions?: string;
   run_uuid?: string;
   credits?: number;
   cost?: number;
@@ -36,10 +40,11 @@ function getEndpoint(userId: number | null) {
 export async function streamRun(
   payload: Record<string, unknown>,
   userId: number | null,
-  { onChunk, onDone, onError, onScore }: StreamCallbacks
+  { onChunk, onDone, onError, onScore }: StreamCallbacks,
+  options?: { endpoint?: string }
 ): Promise<Response | null> {
   try {
-    const endpoint = getEndpoint(userId);
+    const endpoint = options?.endpoint ?? getEndpoint(userId);
 
     const response = await fetch(endpoint, {
       method: "POST",
@@ -119,7 +124,15 @@ function handleEvent(
   const data = dataLines.join("\n");
 
   if (eventType === "done") {
-    onDone?.(data);
+    if (data !== "") {
+      try {
+        onDone?.(JSON.parse(data));
+      } catch {
+        onDone?.(data);
+      }
+    } else {
+      onDone?.();
+    }
   } else if (eventType === "score") {
     if (data !== "") {
       try {

@@ -1,4 +1,4 @@
-import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images } from '@/app/(authenticated)/app/types';
+import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
 import axiosInstance from "@/utils//axiosInstance";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import { ConditionalLogic } from "@/app/(authenticated)/app/types";
@@ -13,6 +13,7 @@ const handleAIResponse = async (
    requestBody: any,
    userId: number | null,
    setState: (state: any) => void,
+   runId?: string,
 ): Promise<SendPromptResponse> => {
    const store = useConversationStore.getState();
 
@@ -20,10 +21,19 @@ const handleAIResponse = async (
    try {
       let accumulated = "";
       // mark current run as running (was pending)
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, { status: "running" });
       }
+
+      // In streaming mode, streamRun may return before the stream finishes.
+      // We must only resolve this function when onDone/onError fires.
+      let streamCompleted = false;
+      let streamResult: SendPromptResponse | null = null;
+      let streamError: string | null = null;
+      let resolveDone: (() => void) | null = null;
+      const donePromise = new Promise<void>((resolve) => {
+         resolveDone = resolve;
+      });
 
       const response = await streamRun(
             requestBody,
@@ -66,23 +76,52 @@ const handleAIResponse = async (
                         run_passed: scoreData.run_passed,
                         run_score: scoreData.run_score
                      };
+                     if (typeof scoreData.score_explanation === 'boolean') updates.score_explanation = scoreData.score_explanation;
+                     if (typeof scoreData.score_explanation_mode === 'string') updates.score_explanation_mode = scoreData.score_explanation_mode;
+                     if (typeof scoreData.score_feedback_enabled === 'boolean') updates.score_feedback_enabled = scoreData.score_feedback_enabled;
+                     if (typeof scoreData.score_feedback_instructions === 'string') updates.score_feedback_instructions = scoreData.score_feedback_instructions;
                      if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
                      if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
                      store.updateRun(runId, updates);
                   }
                },
-               onDone: () => {
+               onDone: (meta?: unknown) => {
+                  if (streamCompleted) return;
                   // Finalize run
                   if (runId) {
                      store.updateRun(runId, { status: "completed" });
-                     // Add final assistant message
-                     store.addMessage("assistant", accumulated);
+                  }
+                  if (runId && meta && typeof meta === "object") {
+                     const updates: any = {};
+                     const metaObj = meta as Record<string, unknown>;
+                     if (typeof metaObj.cost === "number") updates.cost = metaObj.cost;
+                     if (typeof metaObj.credits === "number") updates.credits = metaObj.credits;
+                     if (typeof metaObj.run_passed === "boolean") updates.run_passed = metaObj.run_passed;
+                     if (typeof metaObj.run_score === "string") updates.run_score = metaObj.run_score;
+                     if (typeof metaObj.score_explanation === "boolean") updates.score_explanation = metaObj.score_explanation;
+                     if (typeof metaObj.score_explanation_mode === "string") updates.score_explanation_mode = metaObj.score_explanation_mode;
+                     if (typeof metaObj.score_feedback_enabled === "boolean") updates.score_feedback_enabled = metaObj.score_feedback_enabled;
+                     if (typeof metaObj.score_feedback_instructions === "string") updates.score_feedback_instructions = metaObj.score_feedback_instructions;
+                     if (Object.keys(updates).length > 0) {
+                        store.updateRun(runId, updates);
+                     }
                   }
                   setState((state: any) => ({
                      ...state,
                      promptResponse: accumulated,
                      promptLoading: false,
                   }));
+                  streamCompleted = true;
+                  const latestRun = runId
+                     ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId)
+                     : undefined;
+                  streamResult = {
+                     success: true,
+                     response: accumulated,
+                     run_passed: latestRun?.run_passed,
+                     run_uuid: runId
+                  };
+                  resolveDone?.();
                },
                onError: (err) => {
                   console.error(err);
@@ -94,8 +133,14 @@ const handleAIResponse = async (
                      sendPromptError: String(err),
                      promptLoading: false,
                   }));
+                  streamCompleted = true;
+                  streamError = String(err);
+                  resolveDone?.();
                },
             },
+            {
+               endpoint: requestBody?.scored_run ? "/api/microapps/score" : undefined
+            }
          );
 
          // If response is not null, it means backend returned JSON (non-streaming)
@@ -118,7 +163,9 @@ const handleAIResponse = async (
             }
 
             // Add the response message
-            store.addMessage('assistant', promptResponse);
+            if (promptResponse?.trim()) {
+               store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
+            }
             
             await delay(1000);
             
@@ -137,15 +184,23 @@ const handleAIResponse = async (
             };
          }
 
-      const latestRun = runId ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId) : undefined;
-      return { success: true, response: accumulated, run_passed: latestRun?.run_passed } as SendPromptResponse;
+      // Streaming path (response is undefined): wait for onDone/onError.
+      if (!streamCompleted) {
+         await donePromise;
+      }
+      if (streamError) {
+         return { success: false, error: streamError, run_passed: false, run_uuid: runId };
+      }
+      return (streamResult || { success: true, response: accumulated, run_passed: true, run_uuid: runId }) as SendPromptResponse;
    } catch (streamError: any) {
       console.log("Streaming attempt failed, falling back to standard request:", streamError);
    }
 
    // Fallback to non-streaming request (for anonymous users or if streaming failed)
    try {
-      const endpoint = !userId ? '/api/microapps/run/anonymous' : '/api/microapps/run';
+      const endpoint = requestBody?.scored_run
+         ? '/api/microapps/score'
+         : (!userId ? '/api/microapps/run/anonymous' : '/api/microapps/run');
       
       let responseData;
       
@@ -185,7 +240,6 @@ const handleAIResponse = async (
       const promptResponse = responseData.response;
 
       // Update the current run with all response data
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, {
             status: 'completed',
@@ -199,7 +253,9 @@ const handleAIResponse = async (
       }
 
       // Add the response message
-      store.addMessage('assistant', promptResponse);
+      if (promptResponse?.trim()) {
+         store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
+      }
       
       await delay(1000);
       
@@ -249,7 +305,6 @@ const handleAIResponse = async (
       }));
 
       // Update run status to failed on error
-      const runId = store.currentConversation?.runs[store.currentConversation?.runs.length - 1].id;
       if (runId) {
          store.updateRun(runId, { 
             status: 'failed',
@@ -351,7 +406,15 @@ export const sendPromptsUtil = async (options: {
   hasFixedResponse?: boolean;
   fixedResponseText?: string;
   noSubmit?: boolean;
+  pageConfigOverride?: PageConfigOverride;
   transcriptionCost?: number;
+  scoreExplanation?: boolean;
+  scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
+  defaultAiModel?: string;
+  runtimeMeta?: {
+    tryId?: string;
+    tryIndex?: number;
+  };
 }): Promise<SendPromptResponse> => {
 const {
     prompts = null,
@@ -365,7 +428,11 @@ const {
     requestSkip = false,
     set = (s: any) => s,
     noSubmit = false,
-    transcriptionCost
+    pageConfigOverride,
+    transcriptionCost,
+    scoreExplanation,
+    scoreExplanationMode,
+    runtimeMeta
   } = options;
 
   let {
@@ -394,7 +461,7 @@ const {
     };
     
     const aiConfig = {
-      aiModel: appConfig?.aiConfig.aiModel || "gpt-4o-mini",
+      aiModel: appConfig?.aiConfig.aiModel || options.defaultAiModel || "",
       temperature: appConfig?.aiConfig.temperature || 0.9,
       maxResponseTokens: appConfig?.aiConfig.maxResponseTokens || null,
       systemPrompt: appConfig?.aiConfig.systemPrompt || ""
@@ -402,7 +469,7 @@ const {
 
     const attachedFiles = appConfig?.attachedFiles || [];
    const page = appConfig?.phases?.[pageIndex] || null;
-   const pageConfig = getPageConfig(page);
+   const pageConfig = pageConfigOverride ?? getPageConfig(page);
 
    //Create a run with current settings and 'pending' status
    //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
@@ -416,6 +483,8 @@ const {
       updatedAt: Date.now(),
       messages: [],
       phaseIndex: pageIndex,  // Add the phase index to track which phase this run belongs to
+      tryId: runtimeMeta?.tryId,
+      tryIndex: runtimeMeta?.tryIndex,
       session_id: ''  // Add default empty session_id
    };
    store.addRun(run);
@@ -429,7 +498,7 @@ const {
 
    // Add AI instructions as a message to the run
    if (combinedAiInstructions) {
-      store.addMessage('instruction', combinedAiInstructions);
+      store.addMessage('instruction', combinedAiInstructions, run.id, runtimeMeta?.tryId);
    }
 
    const combinedPrompt = finalPrompts.finalPrompt
@@ -439,7 +508,7 @@ const {
 
    // Add user prompt as a message to the run
    if (combinedPrompt) {
-      store.addMessage('user', combinedPrompt);
+      store.addMessage('user', combinedPrompt, run.id, runtimeMeta?.tryId);
    }
 
    //If there are fixed responses, return the fixed response and exit.
@@ -448,7 +517,7 @@ const {
         .map(p => p.text)
         .filter(Boolean)
         .join('\n');
-      store.addMessage('fixed_response', combinedText);
+      store.addMessage('fixed_response', combinedText, run.id, runtimeMeta?.tryId);
       hasFixedResponse = true;
       fixedResponseText = combinedText;
    }
@@ -469,8 +538,22 @@ const {
       fixedResponseText,
       noSubmit,
       transcriptionCost,
-      run.id
+      run.id,
+      scoreExplanation,
+      scoreExplanationMode,
+      runtimeMeta?.tryId
    );
-   const result = await handleAIResponse(requestBody, userId, set);
+   requestBody.run_try_id = runtimeMeta?.tryId;
+   if (run?.id) {
+      const isScoredRun = Boolean(requestBody?.scored_run);
+      store.updateRun(run.id, {
+         score_expected: isScoredRun,
+         score_explanation: requestBody?.score_explanation ?? undefined,
+         score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
+         score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,
+         score_feedback_instructions: requestBody?.score_feedback_instructions ?? undefined,
+      });
+   }
+   const result = await handleAIResponse(requestBody, userId, set, run.id);
    return { ...result, run_uuid: run.id };
 };

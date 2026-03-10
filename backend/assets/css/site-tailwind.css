@@ -1,7 +1,7 @@
 /* css */
 /* Root Variable */
 :root {
-  --primary-font: "Cousine", monospace;
+  --primary-font: "Inter", Arial, sans-serif;
   --primary-color: #000;
   --secondary-color: #fff;
 }
@@ -2503,7 +2503,7 @@ ul.menu.bg-base-100 {
 }
 
 .dashboard-main-container .top-bar ul li {
-  font-family: Cousine;
+  font-family: Inter;
   font-size: 0.9375vw;
   font-weight: 400;
   line-height: 1.61vw;
@@ -2516,7 +2516,7 @@ ul.menu.bg-base-100 {
 }
 
 .dashboard-main-container .top-bar .logo {
-  font-family: Cousine;
+  font-family: Inter;
   font-size: 1.042vw;
   font-weight: 400;
   line-height: 1.18vw;
@@ -2553,7 +2553,7 @@ ul.menu.bg-base-100 {
 
 .dashboard-container .left-pan ul li {
   padding: 1.042vw 2vw;
-  font-family: Cousine;
+  font-family: Inter;
   font-size: 0.9375vw;
   font-weight: 400;
   line-height: 1.61vw;
@@ -2625,7 +2625,7 @@ ul.menu.bg-base-100 {
 }
 
 .dashboard-main-container .dashboard-container .single-fav .fav-content p {
-  font-family: Cousine;
+  font-family: Inter;
   font-size: 0.8675vw;
   font-weight: 400;
   line-height: 1.34vw;

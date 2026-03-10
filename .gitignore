@@ -1,2 +1,5 @@
 .env
 load-tests/
+node_modules/
+db_data/
+.cursor/

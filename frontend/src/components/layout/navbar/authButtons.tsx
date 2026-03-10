@@ -4,8 +4,33 @@ import Button from "@/components/modules/button/button";
 import { buttonTypes } from "@/constants";
 import { useRouter } from "next/navigation";
 
-export default function AuthButtons() {
+interface AuthButtonsProps {
+  variant?: "light";
+}
+
+export default function AuthButtons({ variant }: AuthButtonsProps) {
   const router = useRouter();
+
+  if (variant === "light") {
+    return (
+      <>
+        <button
+          type="button"
+          onClick={() => router.push("/accounts/login")}
+          className="px-4 py-2 rounded-lg font-medium text-base border border-white/80 text-white hover:bg-white/10 transition-colors"
+        >
+          Sign In
+        </button>
+        <button
+          type="button"
+          onClick={() => router.push("/accounts/registration")}
+          className="px-4 py-2 rounded-lg font-medium text-base bg-white text-slate-900 hover:bg-white/90 transition-colors"
+        >
+          Sign Up
+        </button>
+      </>
+    );
+  }
 
   return (
     <>
@@ -14,7 +39,7 @@ export default function AuthButtons() {
         text="Sign In"
         onClick={() => router.push("/accounts/login")}
       />
-        <Button
+      <Button
         type={buttonTypes.primary}
         text="Sign Up"
         onClick={() => router.push("/accounts/registration")}

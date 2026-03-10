@@ -1,0 +1,166 @@
+import type { AppJsonV2, Element, ElementInstruction, Prompt } from '@/app/(authenticated)/app/types';
+
+const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.trim().length > 0;
+
+const asArray = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+
+const getPromptText = (p: any): string => {
+  // runtime Prompt shape: { text }
+  if (isNonEmptyString(p?.text)) return p.text;
+  // builder Element prompt shape: { text }
+  if (isNonEmptyString(p?.aiPromptProperty)) return p.aiPromptProperty;
+  return '';
+};
+
+const isLegacyPromptType = (t: any): t is 'prompt' | 'aiInstructions' | 'fixedResponse' =>
+  t === 'prompt' || t === 'aiInstructions' || t === 'fixedResponse';
+
+/**
+ * Migrates legacy phase-based app_json to V2 elements[] app_json.
+ * - Preserves order: phase title/description → fields → response cards.
+ * - Combines prompt + aiInstructions into one aiResponse card (instructions[]).
+ * - Combines fixedResponse prompts into one fixedResponse card (text).
+ * - Converts scoredPhase → scoring card.
+ */
+export function migratePhasesToElements(appJson: any): AppJsonV2 {
+  const phases = asArray<any>(appJson?.phases);
+  const elements: Element[] = [];
+
+  let titleCount = 0;
+  let aiResponseCount = 0;
+  let fixedResponseCount = 0;
+  let scoringCount = 0;
+
+  phases.forEach((phase: any, phaseIdx: number) => {
+    const phaseId = phase?.id ?? String(phaseIdx + 1);
+
+    const phaseTitle = isNonEmptyString(phase?.title) ? phase.title : '';
+    const phaseDescription = isNonEmptyString(phase?.description) ? phase.description : '';
+
+    // Migrate legacy phase header into a single title element:
+    // phase.title -> title text, phase.description -> title description.
+    if (phaseTitle || phaseDescription) {
+      const migratedTitle = phaseTitle || phaseDescription;
+      titleCount += 1;
+      elements.push({
+        id: `title-${phaseId}`,
+        type: 'title',
+        name: `title${titleCount}`,
+        label: migratedTitle,
+        isRequired: false,
+        text: migratedTitle,
+        ...(phaseTitle && phaseDescription ? { description: phaseDescription } : {}),
+      });
+    }
+
+    // Fields can be stored as phase.elements (builder) or phase.fields (debugger / older)
+    const phaseFields = asArray<Element>(phase?.elements).length
+      ? asArray<Element>(phase?.elements)
+      : asArray<Element>(phase?.fields);
+
+    phaseFields.forEach((f: any) => {
+      // pass through as-is; runtime/editor will validate types
+      elements.push(f as Element);
+    });
+
+    const phasePrompts = asArray<any>(phase?.prompts);
+    const promptPieces = phasePrompts.filter((p: any) => isLegacyPromptType(p?.type) && p.type !== 'fixedResponse');
+    const fixedPieces = phasePrompts.filter((p: any) => p?.type === 'fixedResponse');
+
+    // prompt + aiInstructions → aiResponse.instructions[]
+    const instructions: ElementInstruction[] = promptPieces
+      .map((p: Prompt | any) => ({
+        text: getPromptText(p),
+        conditionalLogic: p?.conditionalLogic,
+      }))
+      .filter(i => isNonEmptyString(i.text));
+
+    if (instructions.length > 0) {
+      aiResponseCount += 1;
+      elements.push({
+        id: `aiResponse-${phaseId}-${aiResponseCount}`,
+        type: 'aiResponse',
+        name: `aiResponse${aiResponseCount}`,
+        label: '',
+        isRequired: false,
+        instructions,
+      });
+    }
+
+    // fixedResponse prompts → one fixedResponse element per prompt (no API),
+    // preserving each prompt's conditionalLogic at the element level.
+    fixedPieces.forEach((p: any) => {
+      const text = getPromptText(p);
+      if (!isNonEmptyString(text)) return;
+      fixedResponseCount += 1;
+      elements.push({
+        id: `fixedResponse-${phaseId}-${fixedResponseCount}`,
+        type: 'fixedResponse',
+        name: `fixedResponse${fixedResponseCount}`,
+        label: '',
+        isRequired: false,
+        text,
+        ...(p?.conditionalLogic ? { conditionalLogic: p.conditionalLogic } : {}),
+      });
+    });
+
+    // scoredPhase → scoring card
+    if (phase?.scoredPhase) {
+      scoringCount += 1;
+      elements.push({
+        id: `scoring-${phaseId}-${scoringCount}`,
+        type: 'scoring',
+        name: `scoring${scoringCount}`,
+        label: '',
+        isRequired: phase?.skipPhase ? false : true,
+        rubric: isNonEmptyString(phase?.rubric) ? phase.rubric : '',
+        minScore: typeof phase?.minScore === 'number' ? phase.minScore : 0,
+      });
+    }
+  });
+
+  return {
+    title: appJson?.title,
+    description: appJson?.description,
+    privacySettings: appJson?.privacySettings,
+    clonable: appJson?.clonable,
+    completedHtml: appJson?.completedHtml,
+    attachedFiles: asArray(appJson?.attachedFiles),
+    aiConfig: appJson?.aiConfig,
+    elements,
+  };
+}
+
+/**
+ * Normalizes any app_json (legacy or v2) into a v2 shape with elements[].
+ */
+export function normalizeAppJsonToV2(appJson: any): AppJsonV2 {
+  if (Array.isArray(appJson?.elements)) {
+    return {
+      title: appJson?.title,
+      description: appJson?.description,
+      privacySettings: appJson?.privacySettings,
+      clonable: appJson?.clonable,
+      completedHtml: appJson?.completedHtml,
+      attachedFiles: asArray(appJson?.attachedFiles),
+      aiConfig: appJson?.aiConfig,
+      elements: appJson.elements as Element[],
+    };
+  }
+
+  if (Array.isArray(appJson?.phases)) {
+    return migratePhasesToElements(appJson);
+  }
+
+  return {
+    title: appJson?.title,
+    description: appJson?.description,
+    privacySettings: appJson?.privacySettings,
+    clonable: appJson?.clonable,
+    completedHtml: appJson?.completedHtml,
+    attachedFiles: asArray(appJson?.attachedFiles),
+    aiConfig: appJson?.aiConfig,
+    elements: [],
+  };
+}
+
