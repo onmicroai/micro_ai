@@ -21,12 +21,11 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    const [modalInfo, setModalInfo] = useState({ isOpen: false, message: "" });
    const [loading, setLoading] = useState(true);
    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-   const collectionId = useRef<number | null>(null);
    const {
       setElements,
       setTitle,
       setDescription,
-      setCollectionId,
+      setCollectionIds,
       setPrivacy,
       setClonable,
       resetStore,
@@ -112,14 +111,10 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
             if (Array.isArray(appCollectionsData)) {
                const appCollections = structuredClone(appCollectionsData);
-               if (appCollections.length > 0) {
-                  const defaultCollection = appCollections[0]?.id;
-                  if (typeof defaultCollection === 'number') {
-                     appData.collection = defaultCollection;
-                     collectionId.current = defaultCollection;
-                     setCollectionId(defaultCollection, true, signal);
-                  }
-               }
+               const ids = appCollections
+                 .map((c: { id?: number }) => c?.id)
+                 .filter((id): id is number => typeof id === "number");
+               setCollectionIds(ids, true, signal);
             }
 
             setIsAuthorized(true); 
@@ -148,7 +143,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setCompletedHtml, 
       setAIConfig, 
       setAttachedFiles,
-      setCollectionId,
+      setCollectionIds,
       setIsInitialLoad,
       setLoading,
       setIsAuthorized,

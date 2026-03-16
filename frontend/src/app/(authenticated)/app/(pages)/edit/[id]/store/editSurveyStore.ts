@@ -11,13 +11,16 @@ import debounce from "lodash/debounce";
 import { fetchUserCollectionsSingleton } from "../utils/fetchCollectionsList";
 import { fetchAvailableModelsSingleton } from "../utils/fetchAvailableModels";
 import { fetchLiteLLMModelsSingleton } from "../utils/fetchLiteLLMModels";
-import { updateMicroappCollection } from "../utils/updateMicroappCollection";
+import {
+  addMicroappToCollection,
+  removeMicroappFromCollection,
+} from "../utils/updateMicroappCollection";
 
 const initialState = {
   elements: [],
   title: "",
   description: "",
-  collectionId: null,
+  collectionIds: [] as number[],
   privacy: "private",
   clonable: true,
   completedHtml: "",
@@ -216,54 +219,69 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
 
     /**
-     * Updates the collection ID of the app
-     * @param id - The new collection ID
-     * @param skipServerUpdate - Whether to skip saving to server
-     * @param signal - The AbortSignal to cancel the request
-     * @returns
+     * Sets the collection IDs for the app (initial load only; no API calls).
      */
-    setCollectionId: async (
-      id: number | null,
-      skipServerUpdate?: boolean,
-      signal?: AbortSignal
+    setCollectionIds: (
+      ids: number[],
+      _skipServerUpdate?: boolean,
+      _signal?: AbortSignal
     ) => {
+      set({ collectionIds: ids ?? [] });
+    },
+
+    /**
+     * Adds the app to a collection (many-to-many).
+     */
+    addCollection: async (id: number, signal?: AbortSignal) => {
       const state = get();
-      const oldCollectionId = state.collectionId;
       const appId = state.appId;
-
-      // If id is null, we're just updating the state
-      if (id === null) {
-        set({ collectionId: null });
-        return;
-      }
-
       if (!appId) {
-        toast.error("Cannot update collection: App ID is missing");
+        toast.error("Cannot add to collection: App ID is missing");
         return;
       }
-
-      if (skipServerUpdate) {
-        set({ collectionId: id });
+      if (state.collectionIds.includes(id)) {
         return;
       }
-
       try {
-        // Only pass oldCollectionId if it's a number
-        if (typeof oldCollectionId === "number") {
-          await updateMicroappCollection(appId, id, oldCollectionId, signal);
-        } else {
-          await updateMicroappCollection(appId, id, undefined, signal);
-        }
-        set({ collectionId: id });
-        toast.success("Collection updated successfully");
+        await addMicroappToCollection(appId, id, signal);
+        set((s) => ({
+          collectionIds: [...s.collectionIds, id].sort((a, b) => a - b),
+        }));
+        toast.success("Added to collection");
       } catch (error) {
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "Failed to update collection";
-        toast.error(`Failed to update collection: ${errorMessage}`);
-        // Revert the UI state on error
-        set({ collectionId: oldCollectionId });
+            : "Failed to add to collection";
+        toast.error(errorMessage);
+      }
+    },
+
+    /**
+     * Removes the app from a collection (many-to-many).
+     */
+    removeCollection: async (id: number, signal?: AbortSignal) => {
+      const state = get();
+      const appId = state.appId;
+      if (!appId) {
+        toast.error("Cannot remove from collection: App ID is missing");
+        return;
+      }
+      if (!state.collectionIds.includes(id)) {
+        return;
+      }
+      try {
+        await removeMicroappFromCollection(appId, id, signal);
+        set((s) => ({
+          collectionIds: s.collectionIds.filter((c) => c !== id),
+        }));
+        toast.success("Removed from collection");
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to remove from collection";
+        toast.error(errorMessage);
       }
     },
 
