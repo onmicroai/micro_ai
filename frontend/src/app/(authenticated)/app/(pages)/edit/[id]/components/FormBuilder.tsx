@@ -254,7 +254,7 @@ export default function FormBuilder() {
     privacy,
     clonable,
     completedHtml,
-    collectionId,
+    collectionIds,
     description,
     title,
     collections,
@@ -266,7 +266,8 @@ export default function FormBuilder() {
     setElements,
     setTitle,
     setDescription,
-    setCollectionId,
+    addCollection,
+    removeCollection,
     setPrivacy,
     setClonable,
     setCompletedHtml,
@@ -1097,40 +1098,57 @@ export default function FormBuilder() {
   const renderAdditionalAppSettings = () => (
     <div className="space-y-4">
       <div className="space-y-2">
-        <label className="text-sm font-medium text-left">Collection</label>
-        <Select
-          value={collectionId?.toString() || ""}
-          onValueChange={(value) => setCollectionId(parseInt(value))}
-          disabled={isLoadingCollections}
-        >
-          <SelectTrigger className="w-full">
-            <SelectValue
-              placeholder={
-                isLoadingCollections
-                  ? "Loading collections..."
-                  : "Select a collection"
-              }
-            />
-          </SelectTrigger>
-          <SelectContent className="bg-white">
-            {collections?.length > 0 ? (
-              collections.map((collection) => (
-                <SelectItem
-                  key={collection.value}
-                  value={collection.value.toString()}
-                >
-                  {collection.text}
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-collections" disabled>
-                {isLoadingCollections
-                  ? "Loading collections..."
-                  : "No collections available"}
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+        <label className="text-sm font-medium text-left">Collections</label>
+        <Popover>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className="w-full justify-between font-normal"
+              disabled={isLoadingCollections}
+            >
+              {isLoadingCollections
+                ? "Loading collections..."
+                : collectionIds.length === 0
+                  ? "Select collections"
+                  : `${collectionIds.length} collection${collectionIds.length === 1 ? "" : "s"} selected`}
+              <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] bg-white p-0" align="start">
+            <div className="max-h-[280px] overflow-y-auto p-2">
+              {collections?.length > 0 ? (
+                collections.map((collection) => {
+                  const isChecked = collectionIds.includes(collection.value);
+                  return (
+                    <label
+                      key={collection.value}
+                      className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-2 hover:bg-muted/50"
+                    >
+                      <Checkbox
+                        checked={isChecked}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            addCollection(collection.value);
+                          } else {
+                            removeCollection(collection.value);
+                          }
+                        }}
+                      />
+                      <span className="text-sm">{collection.text}</span>
+                    </label>
+                  );
+                })
+              ) : (
+                <div className="py-4 text-center text-sm text-muted-foreground">
+                  {isLoadingCollections
+                    ? "Loading collections..."
+                    : "No collections available"}
+                </div>
+              )}
+            </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <div className="space-y-2">
@@ -2210,7 +2228,7 @@ export default function FormBuilder() {
                                     }
                                     title={title || ""}
                                     description={description || ""}
-                                    collection={collectionId || 0}
+                                    collections={collectionIds}
                                     privacySettings={privacy}
                                     clonable={clonable}
                                     completedHtml={completedHtml}

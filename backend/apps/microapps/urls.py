@@ -16,6 +16,7 @@ from .views import (
     UserMicroAppsDetails,
     UserApps,
     UserMicroAppsRoleByHash,
+    AppAdminsView,
     
     # Run views
     RunList,
@@ -61,6 +62,8 @@ urlpatterns = [
     path('<int:app_id>/user/<int:user_id>', UserMicroApps.as_view(), name="user-role"),
     path('hash/<str:hash_id>/user/<int:user_id>', UserMicroAppsRoleByHash.as_view(), name="user-role-by-hash"),
     path('apps', UserApps.as_view(), name="user_apps"),
+    path('<int:app_id>/admins/', AppAdminsView.as_view(), name='app-admins'),
+    path('<int:app_id>/admins/<int:user_id>/', AppAdminsView.as_view(), name='app-admin-detail'),
     
     # AI Model execution
     path('run', RunList.as_view(), name="run_model"),

@@ -7,7 +7,7 @@ interface JsonPreviewProps {
   elements: Element[];
   title: string;
   description: string;
-  collection: number;
+  collections: number[];
   privacySettings: string;
   clonable: boolean;
   completedHtml: string;
@@ -24,7 +24,7 @@ export default function JsonPreview({
   elements,
   title,
   description,
-  collection,
+  collections,
   privacySettings,
   clonable,
   completedHtml,
@@ -34,7 +34,7 @@ export default function JsonPreview({
   const formData = {
     title,
     description,
-    collection,
+    collections,
     privacySettings,
     clonable,
     completedHtml,

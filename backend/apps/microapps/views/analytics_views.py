@@ -7,12 +7,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField
+from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField, OuterRef, Subquery
 from django.db.models.functions import Round
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
-from apps.microapps.models import Run
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
@@ -55,38 +55,56 @@ class BillingDetails(APIView):
 
 
 @extend_schema_view(
-    get=extend_schema(responses={200: dict}, summary="Get user apps run statistics")
+    get=extend_schema(responses={200: dict}, summary="Get run statistics for a specific app")
 )
 class AppStatistics(APIView):
-    """Get statistics for user's microapps."""
+    """Get statistics for a specific microapp. Requires owner or admin role."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get run statistics for user's apps."""
+        """Get run statistics for a specific app."""
         try:
             user_id = request.user.id
             app_id = request.GET.get('app_id')
             hash_id = request.GET.get('hash_id')
 
-            # Base query for user's runs
-            query = Run.objects.filter(owner_id=user_id)
+            if not app_id and not hash_id:
+                return Response(
+                    {"error": "app_id or hash_id is required", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Filter by app_id or hash_id if provided
-            if app_id:
-                query = query.filter(ma_id=app_id)
-            elif hash_id:
-                query = query.filter(app_hash_id=hash_id)
+            # Resolve hash_id to the stable numeric app_id
+            if not app_id:
+                try:
+                    app_id = Microapp.objects.values_list('id', flat=True).get(hash_id=hash_id)
+                except Microapp.DoesNotExist:
+                    return Response(
+                        {"error": "App not found", "status": status.HTTP_404_NOT_FOUND},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
-            runs = query.values('ma_id').annotate(
-                response_count=Count(
+            # Verify the requesting user is an owner or admin of the app
+            if not MicroAppUserJoin.objects.filter(
+                user_id=user_id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
+            ).exists():
+                return Response(
+                    {"error": "You don't have permission to view stats for this app", "status": status.HTTP_403_FORBIDDEN},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            runs = Run.objects.filter(ma_id=app_id).values('ma_id').annotate(
+                total_responses=Count(
                     Case(
                         When(satisfaction__in=[1, -1], then=1)
                     )
                 ),
                 net_satisfaction_score=Case(
                     When(
-                        Q(response_count=0),
-                        then=Value(0, output_field=FloatField()) 
+                        Q(total_responses=0),
+                        then=Value(0, output_field=FloatField())
                     ),
                     default=Round(
                         Sum(
@@ -94,10 +112,10 @@ class AppStatistics(APIView):
                                 When(satisfaction__in=[1], then=F('satisfaction')),
                                 default=Value(0)
                             )
-                        ) * 1.0 / F('response_count'),
+                        ) * 1.0 / F('total_responses'),
                         4
                     ),
-                    output_field=FloatField()  
+                    output_field=FloatField()
                 ),
                 thumbs_up_count=Count(
                     Case(
@@ -109,11 +127,6 @@ class AppStatistics(APIView):
                         When(satisfaction=-1, then=1)
                     )
                 ),
-                total_responses=Count(
-                    Case(
-                        When(satisfaction__in=[1, -1], then=1)
-                    )
-                ),
                 total_cost=Sum('cost'),
                 total_credits=Sum('credits'),
                 unique_users=Count('user_ip', distinct=True),
@@ -121,78 +134,109 @@ class AppStatistics(APIView):
                 avg_cost_session=F('total_cost') / F('sessions'),
                 avg_credits_session=F('total_credits') / F('sessions'),
             ).values(
-                'ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count', 
+                'ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count',
                 'total_responses', 'total_cost', 'total_credits', 'unique_users', 'sessions',
                 'avg_cost_session', 'avg_credits_session'
             )
-       
-            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)  
-              
+
+            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+
         except Exception as e:
             return handle_exception(e)
 
 
 class AppConversations(APIView):
-    """Get conversation analytics for user's apps."""
+    """Get conversation analytics for a specific microapp. Requires owner or admin role."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get conversation data for user's apps."""
+        """Get conversation data for a specific app."""
         try:
             user_id = request.user.id
             app_id = request.GET.get('app_id')
             hash_id = request.GET.get('hash_id')
 
-            # Base query for user's runs
-            query = Run.objects.filter(owner_id=user_id)
+            if not app_id and not hash_id:
+                return Response(
+                    {"error": "app_id or hash_id is required", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
 
-            # Filter by app_id or hash_id if provided
-            if app_id:
-                query = query.filter(ma_id=app_id)
-            elif hash_id:
-                query = query.filter(app_hash_id=hash_id)
+            # Resolve hash_id to the stable numeric app_id
+            if not app_id:
+                try:
+                    app_id = Microapp.objects.values_list('id', flat=True).get(hash_id=hash_id)
+                except Microapp.DoesNotExist:
+                    return Response(
+                        {"error": "App not found", "status": status.HTTP_404_NOT_FOUND},
+                        status=status.HTTP_404_NOT_FOUND
+                    )
 
-            # Step 1: Add annotations for satisfaction and model mode
-            conversations = query.values('session_id').annotate(
+            # Verify the requesting user is an owner or admin of the app
+            if not MicroAppUserJoin.objects.filter(
+                user_id=user_id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
+            ).exists():
+                return Response(
+                    {"error": "You don't have permission to view stats for this app", "status": status.HTTP_403_FORBIDDEN},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Correlated subqueries compute satisfaction and model mode per session
+            # without N+1 queries — the DB resolves both in a single round trip.
+            satisfaction_subquery = Subquery(
+                Run.objects.filter(
+                    ma_id=app_id,
+                    session_id=OuterRef('session_id'),
+                    satisfaction__isnull=False,
+                    satisfaction__in=[1, -1]
+                ).values('satisfaction')
+                .annotate(count=Count('satisfaction'))
+                .order_by('-count', 'satisfaction')
+                .values('satisfaction')[:1]
+            )
+
+            model_subquery = Subquery(
+                Run.objects.filter(
+                    ma_id=app_id,
+                    session_id=OuterRef('session_id')
+                ).values('ai_model')
+                .annotate(count=Count('ai_model'))
+                .order_by('-count', 'ai_model')
+                .values('ai_model')[:1]
+            )
+
+            conversations = Run.objects.filter(ma_id=app_id).values('session_id').annotate(
                 start_time=Min('timestamp'),
                 total_cost=Sum('cost'),
                 messages_count=Count('id'),
-                total_credits=Sum('credits')
-            )
+                total_credits=Sum('credits'),
+                satisfaction=satisfaction_subquery,
+                model=model_subquery,
+            ).order_by('-start_time')
 
-            # Step 2: For satisfaction and ai_model, calculate mode separately
-            for conversation in conversations:
-                session_id = conversation['session_id']
-
-                # Calculate mode for 'satisfaction'
-                satisfaction_mode = (
-                    query.filter(
-                        session_id=session_id,
-                        satisfaction__isnull=False,  # Exclude NULL values
-                        satisfaction__in=[1, -1]     # Only consider valid satisfaction values
-                    )
-                    .values('satisfaction')
-                    .annotate(count=Count('satisfaction'))
-                    .order_by('-count', 'satisfaction')
-                    .first()
+            # Optional pagination via ?page=1&page_size=50
+            page_size = request.GET.get('page_size')
+            if page_size:
+                page_size = int(page_size)
+                page = int(request.GET.get('page', 1))
+                total_count = conversations.count()
+                offset = (page - 1) * page_size
+                conversations = conversations[offset:offset + page_size]
+                return Response(
+                    {
+                        "data": list(conversations),
+                        "total_count": total_count,
+                        "page": page,
+                        "page_size": page_size,
+                        "status": status.HTTP_200_OK,
+                    },
+                    status=status.HTTP_200_OK
                 )
-                conversation['satisfaction'] = satisfaction_mode['satisfaction'] if satisfaction_mode else None
-
-                # Calculate mode for 'ai_model'
-                model_mode = (
-                    query.filter(session_id=session_id)
-                    .values('ai_model')
-                    .annotate(count=Count('ai_model'))
-                    .order_by('-count', 'ai_model')  # Secondary order by 'ai_model' for consistency
-                    .first()
-                )
-                conversation['model'] = model_mode['ai_model'] if model_mode else None
-
-            # Step 3: Order by start_time
-            conversations = sorted(conversations, key=lambda x: x['start_time'], reverse=True)
 
             return Response(
-                {"data": conversations, "status": status.HTTP_200_OK},
+                {"data": list(conversations), "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK
             )
 
@@ -201,7 +245,7 @@ class AppConversations(APIView):
 
 
 class AppConversationDetails(APIView):
-    """Get detailed conversation information."""
+    """Get detailed conversation information. Requires owner or admin role on the app."""
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
@@ -214,10 +258,32 @@ class AppConversationDetails(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Get the conversation details, but only if user is the owner
+            # Resolve session_id to a stable numeric app_id
+            app_id = Run.objects.filter(
+                session_id=session_id
+            ).values_list('ma_id', flat=True).first()
+
+            if app_id is None:
+                return Response(
+                    {"error": "Conversation not found", "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            # Verify the requesting user is an owner or admin of the app
+            if not MicroAppUserJoin.objects.filter(
+                user_id=request.user.id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
+            ).exists():
+                return Response(
+                    {"error": "You don't have permission to view this conversation", "status": status.HTTP_403_FORBIDDEN},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+
+            # Include ma_id in the filter so the composite (ma_id, session_id) index is used
             conversation = Run.objects.filter(
-                session_id=session_id,
-                owner_id=request.user.id
+                ma_id=app_id,
+                session_id=session_id
             ).values(
                 'timestamp',
                 'system_prompt',
@@ -228,13 +294,6 @@ class AppConversationDetails(APIView):
                 'run_score',
                 'run_passed'
             ).order_by('timestamp')
-
-            if not conversation.exists():
-                return Response(
-                    {"error": "Conversation not found or you don't have permission to view it", 
-                     "status": status.HTTP_404_NOT_FOUND},
-                    status=status.HTTP_404_NOT_FOUND
-                )
 
             return Response(
                 {"data": list(conversation), "status": status.HTTP_200_OK},

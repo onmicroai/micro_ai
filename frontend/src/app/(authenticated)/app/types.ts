@@ -378,7 +378,7 @@ export interface SurveyState {
   elements: Element[];
   title: string | undefined;
   description: string | undefined;
-  collectionId: number | null;
+  collectionIds: number[];
   privacy: string;
   clonable: boolean;
   completedHtml: string;
@@ -404,11 +404,9 @@ export interface SurveyState {
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => void;
-  setCollectionId: (
-    id: number | null,
-    skipServerUpdate?: boolean,
-    signal?: AbortSignal
-  ) => void;
+  setCollectionIds: (ids: number[], skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+  addCollection: (id: number, signal?: AbortSignal) => Promise<void>;
+  removeCollection: (id: number, signal?: AbortSignal) => Promise<void>;
   setPrivacy: (
     privacy: string,
     skipServerUpdate?: boolean,

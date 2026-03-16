@@ -1,13 +1,30 @@
+'use client';
+
 import React, { useState, useEffect, useRef } from 'react';
-import { FaX as X, FaCopy as Copy, FaFloppyDisk, FaCheck } from 'react-icons/fa6';
+import {
+   FaX as X,
+   FaCopy as Copy,
+   FaFloppyDisk,
+   FaCheck,
+   FaTrashCan,
+   FaLink,
+   FaCode,
+   FaGlobe,
+   FaLock,
+} from 'react-icons/fa6';
 import { ShareModalProps } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
-/**
- * AppItem component renders an individual app with actions such as sharing and cloning.
- * 
- * @param {ShareModalProps} props - The properties for the AppItem component.
- * @returns {JSX.Element} The rendered AppItem component.
- */
+import { useDashboardStore } from '../../store/dashboardStore';
+import { cn } from '@/utils/cn';
+
+interface AdminUser {
+   id: number;
+   email: string;
+   first_name: string;
+   last_name: string;
+   role: 'owner' | 'admin';
+}
+
 interface LTIConfig {
    id?: number;
    microapp_id: number;
@@ -19,12 +36,44 @@ interface LTIConfig {
    deployment_ids: string[];
 }
 
-const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal }) => {
+type ActiveTab = 'share' | 'lti';
+
+function formatRetryAfter(seconds: number): string {
+   if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+   const minutes = Math.ceil(seconds / 60);
+   if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+   const hours = Math.floor(minutes / 60);
+   const remainingMinutes = minutes % 60;
+   if (remainingMinutes === 0) return `${hours} hour${hours === 1 ? '' : 's'}`;
+   return `${hours} hour${hours === 1 ? '' : 's'} ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}`;
+}
+
+const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, isOwner }) => {
    const hashId = app.hashId;
+   const { updateAppPrivacy } = useDashboardStore();
+
    const [showShareMenu, setShowShareMenu] = useState(false);
-   const [showShareUrl, setShowShareUrl] = useState(true);
-   const [showEmbedCode, setShowEmbedCode] = useState(false);
-   const [showLtiConfig, setShowLtiConfig] = useState(false);
+   const [activeTab, setActiveTab] = useState<ActiveTab>('share');
+
+   // Privacy
+   const [currentPrivacy, setCurrentPrivacy] = useState(app.privacy);
+   const [privacySaving, setPrivacySaving] = useState(false);
+   const [privacySaved, setPrivacySaved] = useState(false);
+   const privacySavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+   // Copy feedback
+   const [copiedLink, setCopiedLink] = useState(false);
+   const [copiedEmbed, setCopiedEmbed] = useState(false);
+
+   // Admins
+   const [admins, setAdmins] = useState<AdminUser[]>([]);
+   const [adminsLoading, setAdminsLoading] = useState(false);
+   const [emailInput, setEmailInput] = useState('');
+   const [addingAdmin, setAddingAdmin] = useState(false);
+   const [adminError, setAdminError] = useState<string | null>(null);
+   const [removingAdminId, setRemovingAdminId] = useState<number | null>(null);
+
+   // LTI
    const [hasExistingConfig, setHasExistingConfig] = useState(false);
    const [ltiConfig, setLtiConfig] = useState<LTIConfig>({
       microapp_id: app.id,
@@ -33,126 +82,122 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
       auth_login_url: '',
       auth_token_url: '',
       key_set_url: '',
-      deployment_ids: []
+      deployment_ids: [],
    });
-   const shareMenuRef = useRef<HTMLDivElement>(null);
    const [hasChanges, setHasChanges] = useState(false);
    const [isSaving, setIsSaving] = useState(false);
    const initialConfigRef = useRef<LTIConfig | null>(null);
-   /**
-      * Get the app URL based on the app's ID.
-      * 
-      * @returns {string} The app URL.
-      */
-   const getAppUrl = () => {
-      return `/app/${hashId}`;
-   };
 
-   /**
-   * Get the embed URL for the app.
-   * 
-   * @returns {string} The embed URL.
-   */
-   const getEmbedUrl = () => {
-      const baseUrl = window.location.origin;
-      return `${baseUrl}/app/embed/${hashId}`;
-   };
+   const shareMenuRef = useRef<HTMLDivElement>(null);
 
-   /**
-   * Get the share URL for the app.
-   * 
-   * @returns {string} The share URL.
-   */
-   const getShareUrl = () => {
-      const baseUrl = window.location.origin;
-      const appUrl = getAppUrl();
-      return `${baseUrl}${appUrl}`;
-   };
+   const getShareUrl = () => `${window.location.origin}/app/${hashId}`;
+   const getEmbedUrl = () => `${window.location.origin}/app/embed/${hashId}`;
 
-   /**
-       * Copy the share URL to the clipboard and hide the share menu.
-       */
+   // ── Copy handlers ──────────────────────────────────────────────────────────
    const handleCopyLink = () => {
       navigator.clipboard.writeText(getShareUrl());
-      setShowShareMenu(false);
-      setShowModal(false);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2000);
    };
 
-   /**
-    * Method allows users to get code of iframe for integrating into their web sites
-    */
-   const handleCopyIframe = () => {
-      const iframeCode = `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`;
-      navigator.clipboard.writeText(iframeCode);
-      setShowShareMenu(false);
-      setShowModal(false);
+   const handleCopyEmbed = () => {
+      const code = `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`;
+      navigator.clipboard.writeText(code);
+      setCopiedEmbed(true);
+      setTimeout(() => setCopiedEmbed(false), 2000);
    };
 
-   /**
-    * Method allows users to get direct URL of the app
-    * 
-    * @param {React.MouseEvent<HTMLButtonElement>} event - The event object.
-    */
-   const handleDirectUrlTab = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setShowShareUrl(true);
-      setShowEmbedCode(false);
-      setShowLtiConfig(false);
+   // ── Privacy ────────────────────────────────────────────────────────────────
+   const handlePrivacyChange = async (newPrivacy: string) => {
+      if (newPrivacy === currentPrivacy || privacySaving) return;
+      const previous = currentPrivacy;
+      setCurrentPrivacy(newPrivacy);
+      setPrivacySaving(true);
+      setPrivacySaved(false);
+      try {
+         const api = axiosInstance();
+         await api.patch(`/api/microapps/${app.id}`, { privacy: newPrivacy });
+         updateAppPrivacy(app.id, newPrivacy);
+         setPrivacySaved(true);
+         if (privacySavedTimerRef.current) clearTimeout(privacySavedTimerRef.current);
+         privacySavedTimerRef.current = setTimeout(() => setPrivacySaved(false), 2500);
+      } catch {
+         setCurrentPrivacy(previous);
+      } finally {
+         setPrivacySaving(false);
+      }
    };
 
-   /**
-    * Method allows users to get embed code of the app
-    * 
-    * @param {React.MouseEvent<HTMLButtonElement>} event - The event object.
-    */
-   const handleEmbedCodeTab = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setShowEmbedCode(true);
-      setShowShareUrl(false);
-      setShowLtiConfig(false);
+   // ── Admins ─────────────────────────────────────────────────────────────────
+   const fetchAdmins = async () => {
+      setAdminsLoading(true);
+      try {
+         const api = axiosInstance();
+         const response = await api.get(`/api/microapps/${app.id}/admins/`);
+         setAdmins(response.data?.data ?? []);
+      } catch {
+         setAdmins([]);
+      } finally {
+         setAdminsLoading(false);
+      }
    };
 
-   /**
-    * Method allows users to get LTI configuration of the app
-    * 
-    * @param {React.MouseEvent<HTMLButtonElement>} event - The event object.
-    */
-   const handleLtiConfigTab = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setShowLtiConfig(true);
-      setShowShareUrl(false);
-      setShowEmbedCode(false);
+   const handleAddAdmin = async (e: React.FormEvent) => {
+      e.preventDefault();
+      const email = emailInput.trim();
+      if (!email) return;
+      setAddingAdmin(true);
+      setAdminError(null);
+      try {
+         const api = axiosInstance();
+         const response = await api.post(`/api/microapps/${app.id}/admins/`, { email });
+         setAdmins((prev) => [...prev, response.data.data]);
+         setEmailInput('');
+      } catch (err: any) {
+         const status = err.response?.status;
+         if (status === 404) {
+            setAdminError('No account found with that email address.');
+         } else if (status === 429) {
+            const retryAfter = err.response?.headers?.['retry-after'];
+            const seconds = retryAfter ? parseInt(retryAfter, 10) : null;
+            const waitMsg = seconds ? formatRetryAfter(seconds) : 'a little while';
+            setAdminError(`Too many failed attempts. Try again in ${waitMsg}.`);
+         } else if (status === 400) {
+            setAdminError(err.response?.data?.error ?? 'Could not add this user.');
+         } else {
+            setAdminError(err.response?.data?.error ?? 'Something went wrong. Please try again.');
+         }
+      } finally {
+         setAddingAdmin(false);
+      }
    };
 
-   /**
-    * Method allows users to close the share menu and modal
-    * 
-    * @param {React.MouseEvent<HTMLButtonElement>} event - The event object.
-    */
-   const handleClose = (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.preventDefault();
-      setShowShareMenu(false);
-      setShowModal(false);
+   const handleRemoveAdmin = async (userId: number) => {
+      setRemovingAdminId(userId);
+      try {
+         const api = axiosInstance();
+         await api.delete(`/api/microapps/${app.id}/admins/${userId}/`);
+         setAdmins((prev) => prev.filter((a) => a.id !== userId));
+      } catch {
+         // list remains correct on next open
+      } finally {
+         setRemovingAdminId(null);
+      }
    };
 
-   // Add this function to check for changes
-   const checkForChanges = (currentConfig: LTIConfig) => {
+   // ── LTI ───────────────────────────────────────────────────────────────────
+   const checkForChanges = (cfg: LTIConfig) => {
       if (!initialConfigRef.current) return false;
-      return JSON.stringify(currentConfig) !== JSON.stringify(initialConfigRef.current);
+      return JSON.stringify(cfg) !== JSON.stringify(initialConfigRef.current);
    };
 
-   // Update the handleLtiConfigChange function
    const handleLtiConfigChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const { name, value } = e.target;
-      const newConfig = {
-         ...ltiConfig,
-         [name]: name === 'deployment_ids' ? [value] : value
-      };
+      const newConfig = { ...ltiConfig, [name]: name === 'deployment_ids' ? [value] : value };
       setLtiConfig(newConfig);
       setHasChanges(checkForChanges(newConfig));
    };
 
-   // Update the handleLtiConfigSubmit function
    const handleLtiConfigSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSaving(true);
@@ -163,21 +208,19 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
             microapp_id: app.id,
             id: hasExistingConfig ? ltiConfig.id : undefined,
             deployment_id: ltiConfig.deployment_ids?.[0] || '',
-            // Remove deployment_ids from the payload since API expects deployment_id
-            deployment_ids: undefined
+            deployment_ids: undefined,
          });
-         
          if (response.status === 200) {
-            // Normalize the response data to use deployment_ids array internally
-            const updatedConfig = {
+            const updated = {
                ...response.data,
-               deployment_ids: response.data.deployment_ids || 
-                             (response.data.deployment_id ? [response.data.deployment_id] : [])
+               deployment_ids:
+                  response.data.deployment_ids ||
+                  (response.data.deployment_id ? [response.data.deployment_id] : []),
             };
-            setLtiConfig(updatedConfig);
+            setLtiConfig(updated);
             setHasExistingConfig(true);
             setHasChanges(false);
-            initialConfigRef.current = updatedConfig;
+            initialConfigRef.current = updated;
          }
       } catch (error) {
          console.error('Error saving LTI config:', error);
@@ -186,351 +229,442 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal })
       }
    };
 
-   // Update the fetch effect to store initial config
+   // ── Close ──────────────────────────────────────────────────────────────────
+   const closeModal = () => {
+      setShowShareMenu(false);
+      setShowModal(false);
+   };
+
+   // ── Effects ───────────────────────────────────────────────────────────────
    useEffect(() => {
-      if (showLtiConfig) {
-         const fetchLtiConfig = async () => {
-            try {
-               const api = axiosInstance();
-               const response = await api.get(`/lti/api/config/${app.id}/`);
-               if (response.status === 200) {
-                  // Normalize the response to handle both deployment_id and deployment_ids
-                  const normalizedData = {
-                     ...response.data,
-                     deployment_ids: response.data.deployment_ids || 
-                                   (response.data.deployment_id ? [response.data.deployment_id] : [])
-                  };
-                  setLtiConfig(normalizedData);
-                  setHasExistingConfig(true);
-                  initialConfigRef.current = normalizedData;
-                  setHasChanges(false);
-               }
-            } catch (error: any) {
-               if (error.response?.status === 404) {
-                  // No configuration exists yet
-                  setHasExistingConfig(false);
-                  const emptyConfig = {
-                     microapp_id: app.id,
-                     issuer: '',
-                     client_id: '',
-                     auth_login_url: '',
-                     auth_token_url: '',
-                     key_set_url: '',
-                     deployment_ids: []
-                  };
-                  setLtiConfig(emptyConfig);
-                  initialConfigRef.current = emptyConfig;
-                  setHasChanges(false);
-               } else {
-                  console.error('Error fetching LTI config:', error);
-               }
+      if (activeTab === 'share') fetchAdmins();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, [activeTab]);
+
+   useEffect(() => {
+      if (activeTab !== 'lti') return;
+      (async () => {
+         try {
+            const api = axiosInstance();
+            const res = await api.get(`/lti/api/config/${app.id}/`);
+            if (res.status === 200) {
+               const normalized = {
+                  ...res.data,
+                  deployment_ids:
+                     res.data.deployment_ids ||
+                     (res.data.deployment_id ? [res.data.deployment_id] : []),
+               };
+               setLtiConfig(normalized);
+               setHasExistingConfig(true);
+               initialConfigRef.current = normalized;
+               setHasChanges(false);
             }
-         };
-         fetchLtiConfig();
-      }
-   }, [showLtiConfig, app.id]);
+         } catch (err: any) {
+            if (err.response?.status === 404) {
+               setHasExistingConfig(false);
+               const empty: LTIConfig = {
+                  microapp_id: app.id,
+                  issuer: '',
+                  client_id: '',
+                  auth_login_url: '',
+                  auth_token_url: '',
+                  key_set_url: '',
+                  deployment_ids: [],
+               };
+               setLtiConfig(empty);
+               initialConfigRef.current = empty;
+               setHasChanges(false);
+            }
+         }
+      })();
+   }, [activeTab, app.id]);
+
+   useEffect(() => { setShowShareMenu(showModal); }, [showModal]);
 
    useEffect(() => {
-      setShowShareMenu(showModal);
-   }, [showModal]);
-
-   // Effect to handle clicks outside the share menu and escape key
-   useEffect(() => {
-      /**
-       * Method allows users to close the share menu when clicking outside the share menu
-       * @param {MouseEvent} event - The event object.
-       */
-      const handleClickOutside = (event: MouseEvent) => {
-         if (shareMenuRef.current && !shareMenuRef.current.contains(event.target as Node)) {
-            setShowShareMenu(false);
-            setShowModal(false);
-         }
+      const onClickOutside = (e: MouseEvent) => {
+         if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) closeModal();
       };
-
-      /**
-       * Method allows users to close the share menu when pressing the escape key
-       * @param {KeyboardEvent} event - The event object.
-       */
-      const handleEscapeKey = (event: KeyboardEvent) => {
-         if (event.key === 'Escape') {
-            setShowShareMenu(false);
-            setShowModal(false);
-         }
-      };
-
-      document.addEventListener('mousedown', handleClickOutside);
-      document.addEventListener('keydown', handleEscapeKey);
-
+      const onEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') closeModal(); };
+      document.addEventListener('mousedown', onClickOutside);
+      document.addEventListener('keydown', onEsc);
       return () => {
-         document.removeEventListener('mousedown', handleClickOutside);
-         document.removeEventListener('keydown', handleEscapeKey);
+         document.removeEventListener('mousedown', onClickOutside);
+         document.removeEventListener('keydown', onEsc);
       };
-   }, [setShowModal]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+   }, []);
 
-   if (showShareMenu === false) {
-      return null;
-   }
+   useEffect(() => () => {
+      if (privacySavedTimerRef.current) clearTimeout(privacySavedTimerRef.current);
+   }, []);
+
+   if (!showShareMenu) return null;
+
+   // ── Helpers ───────────────────────────────────────────────────────────────
+   const tabBtn = (tab: ActiveTab, label: string) => (
+      <button
+         onClick={() => setActiveTab(tab)}
+         className={cn(
+            'pb-3 px-1 text-sm font-semibold border-b-2 transition-colors',
+            activeTab === tab
+               ? 'border-primary text-primary'
+               : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+         )}
+      >
+         {label}
+      </button>
+   );
+
+   const SectionLabel = ({ children }: { children: React.ReactNode }) => (
+      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 mb-3">
+         {children}
+      </p>
+   );
+
+   const Divider = () => (
+      <div className="border-t border-gray-100 dark:border-gray-800" />
+   );
 
    return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-         <div ref={shareMenuRef} className="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] flex flex-col relative">
-            {/* Header with close button */}
-            <div className="p-6 pb-0 flex justify-between items-center">
-               <div className="flex space-x-4 border-b w-full">
-               <button 
-                  onClick={handleDirectUrlTab} 
-                  disabled={showShareUrl}
-                  className={`pb-2 px-4 ${showShareUrl 
-                     ? 'text-blue-600 border-b-2 border-blue-600' 
-                     : 'text-gray-500 hover:text-gray-700'}`}
-               >
-                  Direct URL
-               </button>
-               <button 
-                  onClick={handleEmbedCodeTab} 
-                  disabled={showEmbedCode}
-                  className={`pb-2 px-4 ${showEmbedCode 
-                     ? 'text-blue-600 border-b-2 border-blue-600' 
-                     : 'text-gray-500 hover:text-gray-700'}`}
-               >
-                  Embed Code
-                  </button>
-                  <button 
-                     onClick={handleLtiConfigTab} 
-                     disabled={showLtiConfig}
-                     className={`pb-2 px-4 ${showLtiConfig 
-                        ? 'text-blue-600 border-b-2 border-blue-600' 
-                        : 'text-gray-500 hover:text-gray-700'}`}
-                  >
-                     LTI
-                  </button>
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+         <div
+            ref={shareMenuRef}
+            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
+         >
+            {/* ── Header ────────────────────────────────────────────────── */}
+            <div className="flex items-center gap-4 px-6 pt-5 border-b border-gray-100 dark:border-gray-800">
+               <div className="flex gap-5 flex-1">
+                  {tabBtn('share', 'Share')}
+                  {tabBtn('lti', 'LTI')}
                </div>
-               <button 
-                  onClick={handleClose}
-                  className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+               <button
+                  onClick={closeModal}
+                  className="mb-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
                >
-                  <X size={16} />
+                  <X size={13} />
                </button>
             </div>
 
-            {/* Scrollable content */}
-            <div className="p-6 overflow-y-auto">
-            {/* Direct URL input */}
-            {showShareUrl && (
-               <div className="flex items-center space-x-2 mb-4">
-                  <input
-                     type="text"
-                     value={getShareUrl()}
-                     readOnly
-                     className="flex-1 p-2 border rounded-lg bg-gray-50"
-                  />
-                  <button 
-                     onClick={handleCopyLink}
-                     className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                     <Copy size={16} />
-                  </button>
-               </div>
-            )}
+            {/* ── Scrollable body ────────────────────────────────────────── */}
+            <div className="overflow-y-auto flex-1">
 
-            {/* Embed code textarea */}
-            {showEmbedCode && (
-               <div className="space-y-2 mb-4">
-                  <div className="relative">
-                     <textarea
-                        readOnly
-                        value={`<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`}
-                        rows={3}
-                        className="w-full p-2 border rounded-lg bg-gray-50 font-mono text-sm"
-                     />
-                  </div>
-                  <button 
-                     onClick={handleCopyIframe}
-                     className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                  >
-                     <Copy size={16} />
-                  </button>
-               </div>
-            )}
+               {/* ══ SHARE TAB ══════════════════════════════════════════════ */}
+               {activeTab === 'share' && (
+                  <div className="divide-y divide-gray-100 dark:divide-gray-800">
 
-               {/* LTI Configuration section */}
-               {showLtiConfig && (
-                  <div className="space-y-4">
-                     <div className="bg-gray-50 p-4 rounded-lg">
-                        {/* Step 1: LTI Tool Configuration */}
-                        <div className="mb-6">
-                           <h4 className="font-semibold text-gray-900 mb-3">Step 1: Configure your LMS</h4>
-                           <p className="text-gray-600 mb-4">Add these values in your LMS to configure OnMicro.AI as an LTI provider. Your LMS should then generated credentials for you that you&apos;ll use in Step 2.</p>
-                           <div className="space-y-3">
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">LTI Version</label>
-                                 <input
-                                    type="text"
-                                    value="1.3"
-                                    readOnly
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Tool Launch URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/launch/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
+                     {/* Visibility — owner only */}
+                        <div className="px-6 py-5">
+                           <div className="flex items-center justify-between mb-3">
+                              <SectionLabel>Visibility</SectionLabel>
+                              <span className={cn(
+                                 'text-xs font-medium transition-opacity',
+                                 privacySaving ? 'text-gray-400 opacity-100' :
+                                 privacySaved  ? 'text-primary opacity-100' : 'opacity-0'
+                              )}>
+                                 {privacySaving ? 'Saving…' : 'Saved'}
+                              </span>
+                           </div>
+
+                           <div className="grid grid-cols-2 gap-2">
+                              {([
+                                 { value: 'private', label: 'Private', icon: FaLock, description: 'Only you and admins' },
+                                 { value: 'public',  label: 'Public',  icon: FaGlobe, description: 'Anyone with the link' },
+                              ] as const).map(({ value, label, icon: Icon, description }) => {
+                                 const active = currentPrivacy === value;
+                                 return (
                                     <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/launch/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
+                                       key={value}
+                                       onClick={() => handlePrivacyChange(value)}
+                                       disabled={privacySaving}
+                                       className={cn(
+                                          'flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all',
+                                          active
+                                             ? 'border-primary bg-primary/5 dark:bg-primary/10'
+                                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600',
+                                          privacySaving && 'cursor-not-allowed opacity-60',
+                                       )}
                                     >
-                                       <Copy size={16} />
+                                       <div className="flex items-center gap-2">
+                                          <Icon
+                                             size={13}
+                                             className={active ? 'text-primary' : 'text-gray-400'}
+                                          />
+                                          <span className={cn(
+                                             'text-sm font-semibold',
+                                             active ? 'text-primary' : 'text-gray-700 dark:text-gray-300',
+                                          )}>
+                                             {label}
+                                          </span>
+                                       </div>
+                                       <span className="text-xs text-gray-500 dark:text-gray-400">
+                                          {description}
+                                       </span>
                                     </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Tool Initiate URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/login/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
-                                    <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/login/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                                    >
-                                       <Copy size={16} />
-                                    </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">JWKs URL</label>
-                                 <div className="flex items-center space-x-2">
-                                    <input
-                                       type="text"
-                                       value={`${window.location.origin}/lti/jwks/`}
-                                       readOnly
-                                       className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    />
-                                    <button
-                                       onClick={() => navigator.clipboard.writeText(`${window.location.origin}/lti/jwks/`)}
-                                       className="p-2 text-gray-600 hover:text-blue-600 transition-colors"
-                                    >
-                                       <Copy size={16} />
-                                    </button>
-                                 </div>
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Deep Linking</label>
-                                 <input
-                                    type="text"
-                                    value="False"
-                                    readOnly
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                 />
-                              </div>
+                                 );
+                              })}
                            </div>
                         </div>
 
-                        {/* Step 2: LTI Configuration */}
-                        <div className="mb-4">
-                           
-                              <h3 className="font-semibold">Step 2: Configure your LMS credentials</h3>
-                              <p className="text-gray-600 mb-4">Save the values generated by your LMS from Step 1.</p>
-                           
+                     {/* People with access — owner only */}
+                        <div className="px-6 py-5">
+                           <SectionLabel>People with access</SectionLabel>
 
-                           <form onSubmit={handleLtiConfigSubmit} className="space-y-4">
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Issuer</label>
-                                 <input
-                                    type="text"
-                                    name="issuer"
-                                    value={ltiConfig.issuer}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Client ID</label>
-                                 <input
-                                    type="text"
-                                    name="client_id"
-                                    value={ltiConfig.client_id}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Auth Login URL</label>
-                                 <input
-                                    type="text"
-                                    name="auth_login_url"
-                                    value={ltiConfig.auth_login_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Auth Token URL</label>
-                                 <input
-                                    type="text"
-                                    name="auth_token_url"
-                                    value={ltiConfig.auth_token_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Keyset URL</label>
-                                 <input
-                                    type="text"
-                                    name="key_set_url"
-                                    value={ltiConfig.key_set_url}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-                              <div>
-                                 <label className="block text-sm font-medium text-gray-700">Deployment ID</label>
-                                 <input
-                                    type="text"
-                                    name="deployment_ids"
-                                    value={ltiConfig.deployment_ids?.length > 0 ? ltiConfig.deployment_ids[0] : ''}
-                                    onChange={handleLtiConfigChange}
-                                    className="mt-1 w-full p-2 border rounded-lg bg-white"
-                                    required
-                                 />
-                              </div>
-            <button 
-                                 type="submit"
-                                 disabled={!hasChanges || isSaving}
-                                 className={`w-full py-2 px-4 rounded-lg transition-colors ${
-                                    hasChanges 
-                                       ? 'bg-primary text-primary-foreground hover:bg-primary-600' 
-                                       : 'bg-gray-100 text-gray-500 cursor-not-allowed'
-                                 }`}
-                              >
-                                 {hasChanges ? (
-                                    <>
-                                       <FaFloppyDisk className="inline mr-2" />
-                                       Save Configuration
-                                    </>
-                                 ) : (
-                                    <>
-                                       <FaCheck className="inline mr-2" />
-                                       Saved
-                                    </>
+                           <form onSubmit={handleAddAdmin} className="flex gap-2 mb-3">
+                              <input
+                                 type="email"
+                                 value={emailInput}
+                                 onChange={(e) => { setEmailInput(e.target.value); setAdminError(null); }}
+                                 placeholder="Add someone by email…"
+                                 disabled={addingAdmin}
+                                 className={cn(
+                                    'flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
+                                    'px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400',
+                                    'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+                                    'disabled:opacity-50',
                                  )}
-            </button>
+                              />
+                              <button
+                                 type="submit"
+                                 disabled={addingAdmin || !emailInput.trim()}
+                                 className={cn(
+                                    'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold',
+                                    'bg-primary text-white shadow-sm transition-colors',
+                                    'hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                                 )}
+                              >
+                                 {addingAdmin ? 'Adding…' : 'Add'}
+                              </button>
                            </form>
+
+                           {adminError && (
+                              <p className="mb-3 text-xs text-destructive">{adminError}</p>
+                           )}
+
+                           {adminsLoading ? (
+                              <p className="text-sm text-gray-400">Loading…</p>
+                           ) : admins.length === 0 ? (
+                              <p className="text-sm text-gray-400">No one has access yet.</p>
+                           ) : (
+                              <ul className="space-y-1">
+                                 {admins.map((person) => {
+                                    const isPersonOwner = person.role === 'owner';
+                                    const initials =
+                                       [person.first_name, person.last_name]
+                                          .filter(Boolean)
+                                          .map((n) => n[0].toUpperCase())
+                                          .join('') || person.email[0].toUpperCase();
+                                    const displayName =
+                                       [person.first_name, person.last_name].filter(Boolean).join(' ') ||
+                                       person.email;
+                                    return (
+                                       <li
+                                          key={person.id}
+                                          className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
+                                       >
+                                          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 text-xs font-semibold flex-shrink-0">
+                                             {initials}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                             <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                                {displayName}
+                                             </p>
+                                             <p className="text-xs text-gray-500 truncate">{person.email}</p>
+                                          </div>
+                                          <span className="text-xs text-gray-400 mr-1">
+                                             {isPersonOwner ? 'Owner' : 'Admin'}
+                                          </span>
+                                          {isOwner && !isPersonOwner ? (
+                                             <button
+                                                onClick={() => handleRemoveAdmin(person.id)}
+                                                disabled={removingAdminId === person.id}
+                                                className="p-1.5 rounded-md text-gray-300 hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40 opacity-0 group-hover:opacity-100"
+                                                title="Remove admin"
+                                             >
+                                                <FaTrashCan size={12} />
+                                             </button>
+                                          ) : (
+                                             <div className="w-[30px]" />
+                                          )}
+                                       </li>
+                                    );
+                                 })}
+                              </ul>
+                           )}
                         </div>
+
+                     {/* Links — always visible */}
+                     <div className="px-6 py-5">
+                        <SectionLabel>Get link</SectionLabel>
+                        <div className="space-y-2">
+                           {/* Direct URL */}
+                           <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5">
+                              <FaLink size={12} className="text-gray-400 flex-shrink-0" />
+                              <span className="flex-1 text-sm text-gray-600 dark:text-gray-400 truncate font-mono">
+                                 {getShareUrl()}
+                              </span>
+                              <button
+                                 onClick={handleCopyLink}
+                                 className={cn(
+                                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors flex-shrink-0',
+                                    copiedLink
+                                       ? 'bg-primary/10 text-primary'
+                                       : 'text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800',
+                                 )}
+                              >
+                                 {copiedLink ? <FaCheck size={10} /> : <Copy size={10} />}
+                                 {copiedLink ? 'Copied!' : 'Copy'}
+                              </button>
+                           </div>
+
+                           {/* Embed code */}
+                           <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5">
+                              <FaCode size={12} className="text-gray-400 flex-shrink-0" />
+                              <span className="flex-1 text-xs text-gray-500 dark:text-gray-400 truncate font-mono">
+                                 {`<iframe src="${getEmbedUrl()}" …>`}
+                              </span>
+                              <button
+                                 onClick={handleCopyEmbed}
+                                 className={cn(
+                                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors flex-shrink-0',
+                                    copiedEmbed
+                                       ? 'bg-primary/10 text-primary'
+                                       : 'text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800',
+                                 )}
+                              >
+                                 {copiedEmbed ? <FaCheck size={10} /> : <Copy size={10} />}
+                                 {copiedEmbed ? 'Copied!' : 'Copy'}
+                              </button>
+                           </div>
+                        </div>
+                     </div>
+                  </div>
+               )}
+
+               {/* ══ LTI TAB ════════════════════════════════════════════════ */}
+               {activeTab === 'lti' && (
+                  <div className="px-6 py-5 space-y-6">
+                     {/* Step 1 */}
+                     <div>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                           Step 1 — Configure your LMS
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                           Enter these values in your LMS to register OnMicro.AI as an LTI 1.3 provider. Your LMS will then generate credentials for Step 2.
+                        </p>
+                        <div className="space-y-3">
+                           <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                 LTI Version
+                              </label>
+                              <input
+                                 type="text"
+                                 value="1.3"
+                                 readOnly
+                                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-300"
+                              />
+                           </div>
+                           {[
+                              { label: 'Tool Launch URL', value: `${window.location.origin}/lti/launch/` },
+                              { label: 'Tool Initiate URL', value: `${window.location.origin}/lti/login/` },
+                              { label: 'JWKs URL', value: `${window.location.origin}/lti/jwks/` },
+                           ].map(({ label, value }) => (
+                              <div key={label}>
+                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    {label}
+                                 </label>
+                                 <div className="flex gap-2">
+                                    <input
+                                       type="text"
+                                       value={value}
+                                       readOnly
+                                       className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-300"
+                                    />
+                                    <button
+                                       onClick={() => navigator.clipboard.writeText(value)}
+                                       className="p-2 rounded-lg text-gray-400 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                    >
+                                       <Copy size={14} />
+                                    </button>
+                                 </div>
+                              </div>
+                           ))}
+                           <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                 Deep Linking
+                              </label>
+                              <input
+                                 type="text"
+                                 value="False"
+                                 readOnly
+                                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 px-3 py-2 text-sm text-gray-700 dark:text-gray-300"
+                              />
+                           </div>
+                        </div>
+                     </div>
+
+                     <Divider />
+
+                     {/* Step 2 */}
+                     <div>
+                        <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-1">
+                           Step 2 — Save your LMS credentials
+                        </h4>
+                        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
+                           Paste the credentials generated by your LMS in Step 1.
+                        </p>
+                        <form onSubmit={handleLtiConfigSubmit} className="space-y-3">
+                           {[
+                              { label: 'Issuer', name: 'issuer', value: ltiConfig.issuer },
+                              { label: 'Client ID', name: 'client_id', value: ltiConfig.client_id },
+                              { label: 'Auth Login URL', name: 'auth_login_url', value: ltiConfig.auth_login_url },
+                              { label: 'Auth Token URL', name: 'auth_token_url', value: ltiConfig.auth_token_url },
+                              { label: 'Keyset URL', name: 'key_set_url', value: ltiConfig.key_set_url },
+                           ].map(({ label, name, value }) => (
+                              <div key={name}>
+                                 <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                    {label}
+                                 </label>
+                                 <input
+                                    type="text"
+                                    name={name}
+                                    value={value}
+                                    onChange={handleLtiConfigChange}
+                                    className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                    required
+                                 />
+                              </div>
+                           ))}
+                           <div>
+                              <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
+                                 Deployment ID
+                              </label>
+                              <input
+                                 type="text"
+                                 name="deployment_ids"
+                                 value={ltiConfig.deployment_ids?.[0] ?? ''}
+                                 onChange={handleLtiConfigChange}
+                                 className="w-full rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 px-3 py-2 text-sm text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                                 required
+                              />
+                           </div>
+                           <button
+                              type="submit"
+                              disabled={!hasChanges || isSaving}
+                              className={cn(
+                                 'mt-1 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold shadow-sm transition-colors',
+                                 hasChanges
+                                    ? 'bg-primary text-white hover:bg-primary-600'
+                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed',
+                              )}
+                           >
+                              {hasChanges ? (
+                                 <><FaFloppyDisk size={13} /> Save Configuration</>
+                              ) : (
+                                 <><FaCheck size={13} /> Saved</>
+                              )}
+                           </button>
+                        </form>
                      </div>
                   </div>
                )}

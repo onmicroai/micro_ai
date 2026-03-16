@@ -24,6 +24,7 @@ interface DashboardStore {
    createApp: (collectionId: number) => Promise<string | null>;
    cloneApp: (appId: number, collectionId?: number) => Promise<void>;
    deleteApp: (appId: number) => void;
+   updateAppPrivacy: (appId: number, privacy: string) => void;
    appSerializer: (app: AppRaw | AppRaw[]) => AppSerialized | AppSerialized[];
    setActiveCollectionId: (collectionId: number | null) => void;
    handleCreateApp: (collectionId: number) => Promise<string | null>;
@@ -215,6 +216,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             copyAllowed: serializedApp.copy_allowed,
             appJson: serializedApp.app_json,
             collectionId: serializedApp.collection_id,
+            role: serializedApp.role ?? 'owner',
          };
       };
 
@@ -397,6 +399,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             apps: updatedApps,
             appsCount: state.appsCount - 1
          };
+      });
+   },
+
+   updateAppPrivacy: (appId: number, privacy: string) => {
+      set(state => {
+         const updatedApps = state.apps.map(app =>
+            app.id === appId ? { ...app, privacy } : app
+         );
+         get().countAppPrivacyTypes(updatedApps);
+         return { apps: updatedApps };
       });
    },
 
