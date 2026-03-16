@@ -10,6 +10,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import IsOwner, AdminRole
+from apps.utils.throttles import AddAdminThrottle
 from apps.microapps.models import MicroAppUserJoin, Microapp
 from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer
 from apps.collection.models import Collection, CollectionUserJoin
@@ -115,16 +116,19 @@ class UserApps(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get user's microapps."""
+        """Get user's microapps with their role."""
         try:
             current_user = request.user.id
-            user_apps_ids = MicroAppUserJoin.objects.filter(user_id=current_user).values_list(
-                "ma_id", flat=True
-            )
-            user_apps = Microapp.objects.filter(id__in=user_apps_ids)
-            serializer = MicroAppSerializer(user_apps, many=True)
+            joins = MicroAppUserJoin.objects.filter(
+                user_id=current_user, is_archived=False
+            ).select_related('ma_id')
+            result = []
+            for join in joins:
+                app_data = MicroAppSerializer(join.ma_id).data
+                app_data['role'] = join.role
+                result.append(app_data)
             return Response(
-                {"data": serializer.data, "status": status.HTTP_200_OK},
+                {"data": result, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
@@ -177,5 +181,142 @@ class UserMicroAppsRoleByHash(APIView, UserPermissionMixin):
                 status=status.HTTP_200_OK,
             )
             
+        except Exception as e:
+            return handle_exception(e)
+
+
+class AppAdminsView(APIView, UserPermissionMixin):
+    """Manage admin users for a microapp (owner-only)."""
+    permission_classes = [IsAuthenticated]
+
+    def get_throttles(self):
+        """Only throttle POST (email lookup) to prevent user enumeration abuse."""
+        if self.request.method == 'POST':
+            return [AddAdminThrottle()]
+        return []
+
+    def _get_app_or_404(self, app_id):
+        try:
+            return Microapp.objects.get(id=app_id)
+        except Microapp.DoesNotExist:
+            return None
+
+    def _check_is_owner(self, request, app_id):
+        return MicroAppUserJoin.objects.filter(
+            user_id=request.user.id, ma_id=app_id, role=MicroAppUserJoin.OWNER
+        ).exists()
+
+    def _add_to_shared_collection(self, user_id, ma_id):
+        """Add the microapp to the target user's 'Shared With Me' collection."""
+        try:
+            shared_collections = Collection.objects.filter(name="Shared With Me")
+            collection_id = CollectionUserJoin.objects.filter(
+                collection_id__in=shared_collections, user_id=user_id
+            ).values_list('collection_id', flat=True).first()
+            if collection_id:
+                data = {"collection_id": collection_id, "ma_id": ma_id}
+                serializer = CollectionMicroappSerializer(data=data)
+                if serializer.is_valid():
+                    serializer.save()
+        except Exception as e:
+            log.error(f"Could not add app to shared collection: {e}")
+
+    def get(self, request, app_id):
+        """List all admins for the app."""
+        try:
+            if not self._check_is_owner(request, app_id):
+                return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+            joins = MicroAppUserJoin.objects.filter(
+                ma_id=app_id, role=MicroAppUserJoin.ADMIN
+            ).select_related('user_id')
+
+            admins = [
+                {
+                    "id": j.user_id.id,
+                    "email": j.user_id.email,
+                    "first_name": j.user_id.first_name,
+                    "last_name": j.user_id.last_name,
+                }
+                for j in joins
+            ]
+            return Response({"data": admins, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+
+    def post(self, request, app_id):
+        """Add a user as admin by email address."""
+        try:
+            if not self._check_is_owner(request, app_id):
+                return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+            app = self._get_app_or_404(app_id)
+            if not app:
+                return Response({"error": "App not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            email = request.data.get("email", "").strip().lower()
+            if not email:
+                return Response({"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+            try:
+                target_user = CustomUser.objects.get(email__iexact=email)
+            except CustomUser.DoesNotExist:
+                return Response(
+                    {"error": "No account found with that email address."},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Prevent adding self
+            if target_user.id == request.user.id:
+                return Response(
+                    {"error": "You are already the owner of this app."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Check if the user already has any role on this app
+            existing = MicroAppUserJoin.objects.filter(user_id=target_user.id, ma_id=app_id).first()
+            if existing:
+                return Response(
+                    {"error": "This user already has access to the app."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            MicroAppUserJoin.objects.create(
+                ma_id=app,
+                user_id=target_user,
+                role=MicroAppUserJoin.ADMIN,
+                counts_toward_max=False,
+            )
+            self._add_to_shared_collection(target_user.id, app_id)
+
+            return Response(
+                {
+                    "data": {
+                        "id": target_user.id,
+                        "email": target_user.email,
+                        "first_name": target_user.first_name,
+                        "last_name": target_user.last_name,
+                    },
+                    "status": status.HTTP_201_CREATED,
+                },
+                status=status.HTTP_201_CREATED,
+            )
+        except Exception as e:
+            return handle_exception(e)
+
+    def delete(self, request, app_id, user_id):
+        """Remove an admin from the app."""
+        try:
+            if not self._check_is_owner(request, app_id):
+                return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+
+            join = MicroAppUserJoin.objects.filter(
+                ma_id=app_id, user_id=user_id, role=MicroAppUserJoin.ADMIN
+            ).first()
+            if not join:
+                return Response({"error": "Admin not found."}, status=status.HTTP_404_NOT_FOUND)
+
+            join.delete()
+            return Response(status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)

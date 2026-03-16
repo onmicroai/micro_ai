@@ -131,6 +131,8 @@ const AppTable: React.FC<AppTableProps> = ({
     setShowShareMenu(true);
   };
 
+  const isOwner = (app: AppSerialized) => app.role === 'owner';
+
   // Show loading state
   if (appLoading) {
     return (
@@ -177,12 +179,19 @@ const AppTable: React.FC<AppTableProps> = ({
             <div className="py-4 grid grid-cols-[1fr_auto_auto] gap-2 sm:gap-4 items-center">
               {/* App Title */}
               <div className="min-w-0">
-                <Link 
-                  href={`/app/edit/${app.hashId}`}
-                  className="text-sm sm:text-base font-semibold text-gray-900 hover:text-primary transition-colors truncate block dark:text-white dark:hover:text-primary-350"
-                >
-                  {app.title}
-                </Link>
+                <div className="flex items-center gap-2">
+                  <Link 
+                    href={`/app/edit/${app.hashId}`}
+                    className="text-sm sm:text-base font-semibold text-gray-900 hover:text-primary transition-colors truncate block dark:text-white dark:hover:text-primary-350"
+                  >
+                    {app.title}
+                  </Link>
+                  {!isOwner(app) && (
+                    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
+                      Admin
+                    </span>
+                  )}
+                </div>
               </div>
 
               {/* Privacy Badge */}
@@ -235,57 +244,65 @@ const AppTable: React.FC<AppTableProps> = ({
                             </Link>
                           )}
                         </MenuItem>
-                        <MenuItem>
-                          {({ focus }) => (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleShareClick(app);
-                              }}
-                              className={cn(
-                                focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
-                                'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                        {isOwner(app) && (
+                          <MenuItem>
+                            {({ focus }) => (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleShareClick(app);
+                                }}
+                                className={cn(
+                                  focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
+                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                                )}
+                              >
+                                <FaShareNodes className="h-4 w-4" aria-hidden="true" />
+                                Share
+                              </button>
+                            )}
+                          </MenuItem>
+                        )}
+                        {isOwner(app) && (
+                          <MenuItem disabled={!app.copyAllowed}>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => handleCloneClick(app)}
+                                disabled={!app.copyAllowed}
+                                className={cn(
+                                  app.copyAllowed
+                                    ? focus 
+                                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' 
+                                      : 'text-gray-700 dark:text-gray-300'
+                                    : 'text-gray-400 cursor-not-allowed dark:text-gray-600',
+                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                                )}
+                              >
+                                <FaRegCopy className="h-4 w-4" aria-hidden="true" />
+                                Clone {!app.copyAllowed && '(disabled)'}
+                              </button>
+                            )}
+                          </MenuItem>
+                        )}
+                        {isOwner(app) && (
+                          <>
+                            <div className="border-t border-gray-100 dark:border-gray-700" />
+                            <MenuItem>
+                              {({ focus }) => (
+                                <button
+                                  onClick={() => handleDeleteClick(app)}
+                                  className={cn(
+                                    focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
+                                    'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                                  )}
+                                >
+                                  <TrashCan className="h-4 w-4" aria-hidden="true" />
+                                  Delete
+                                </button>
                               )}
-                            >
-                              <FaShareNodes className="h-4 w-4" aria-hidden="true" />
-                              Share
-                            </button>
-                          )}
-                        </MenuItem>
-                        <MenuItem disabled={!app.copyAllowed}>
-                          {({ focus }) => (
-                            <button
-                              onClick={() => handleCloneClick(app)}
-                              disabled={!app.copyAllowed}
-                              className={cn(
-                                app.copyAllowed
-                                  ? focus 
-                                    ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' 
-                                    : 'text-gray-700 dark:text-gray-300'
-                                  : 'text-gray-400 cursor-not-allowed dark:text-gray-600',
-                                'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                              )}
-                            >
-                              <FaRegCopy className="h-4 w-4" aria-hidden="true" />
-                              Clone {!app.copyAllowed && '(disabled)'}
-                            </button>
-                          )}
-                        </MenuItem>
-                        <div className="border-t border-gray-100 dark:border-gray-700" />
-                        <MenuItem>
-                          {({ focus }) => (
-                            <button
-                              onClick={() => handleDeleteClick(app)}
-                              className={cn(
-                                focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
-                                'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                              )}
-                            >
-                              <TrashCan className="h-4 w-4" aria-hidden="true" />
-                              Delete
-                            </button>
-                          )}
-                        </MenuItem>
+                            </MenuItem>
+                          </>
+                        )}
                       </div>
                     </MenuItems>
                   </Menu>
@@ -313,43 +330,49 @@ const AppTable: React.FC<AppTableProps> = ({
                     <span className="hidden md:inline">Stats</span>
                   </Link>
 
-                  {/* Share */}
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      handleShareClick(app);
-                    }}
-                    className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                    title="Share app"
-                  >
-                    <FaShareNodes className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Share</span>
-                  </button>
+                  {/* Share — owner only */}
+                  {isOwner(app) && (
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        handleShareClick(app);
+                      }}
+                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
+                      title="Share app"
+                    >
+                      <FaShareNodes className="w-3.5 h-3.5" />
+                      <span className="hidden md:inline">Share</span>
+                    </button>
+                  )}
 
-                  {/* Clone */}
-                  <button
-                    onClick={() => handleCloneClick(app)}
-                    disabled={!app.copyAllowed}
-                    className={`inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      app.copyAllowed 
-                        ? 'text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' 
-                        : 'text-gray-400 cursor-not-allowed dark:text-gray-600'
-                    }`}
-                    title={app.copyAllowed ? "Clone app" : "Cloning not allowed"}
-                  >
-                    <FaRegCopy className="w-3.5 h-3.5" />
-                    <span className="hidden lg:inline">Clone</span>
-                  </button>
+                  {/* Clone — owner only */}
+                  {isOwner(app) && (
+                    <button
+                      onClick={() => handleCloneClick(app)}
+                      disabled={!app.copyAllowed}
+                      className={`inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
+                        app.copyAllowed 
+                          ? 'text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' 
+                          : 'text-gray-400 cursor-not-allowed dark:text-gray-600'
+                      }`}
+                      title={app.copyAllowed ? "Clone app" : "Cloning not allowed"}
+                    >
+                      <FaRegCopy className="w-3.5 h-3.5" />
+                      <span className="hidden lg:inline">Clone</span>
+                    </button>
+                  )}
 
-                  {/* Delete */}
-                  <button
-                    onClick={() => handleDeleteClick(app)}
-                    className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                    title="Delete app"
-                  >
-                    <TrashCan className="w-3.5 h-3.5" />
-                    <span className="hidden lg:inline">Delete</span>
-                  </button>
+                  {/* Delete — owner only */}
+                  {isOwner(app) && (
+                    <button
+                      onClick={() => handleDeleteClick(app)}
+                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                      title="Delete app"
+                    >
+                      <TrashCan className="w-3.5 h-3.5" />
+                      <span className="hidden lg:inline">Delete</span>
+                    </button>
+                  )}
                 </div>
               </div>
             </div>
@@ -366,7 +389,8 @@ const AppTable: React.FC<AppTableProps> = ({
           setShowModal={(show) => {
             setShowShareMenu(show);
             if (!show) setSelectedApp(null);
-          }} 
+          }}
+          isOwner={isOwner(selectedApp)}
         />
       )}
 

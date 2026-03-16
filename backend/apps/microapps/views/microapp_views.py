@@ -158,6 +158,31 @@ class MicroAppDetails(APIView, MicroAppMixin):
         except Exception as e:
             return handle_exception(e)
 
+    def patch(self, request, app_id, format=None):
+        """Partially update microapp fields by ID."""
+        try:
+            self.permission_classes = [IsAdminOrOwner]
+            self.check_permissions(request)
+            micro_apps = self.get_microapp(app_id)
+            if micro_apps:
+                serializer = MicroAppSerializer(micro_apps, data=request.data, partial=True)
+                if serializer.is_valid():
+                    serializer.save()
+                    return Response(
+                        {"data": serializer.data, "status": status.HTTP_200_OK},
+                        status=status.HTTP_200_OK,
+                    )
+                return Response(
+                    error.validation_error(serializer.errors),
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            return Response(
+                error.MICROAPP_NOT_EXIST,
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        except Exception as e:
+            return handle_exception(e)
+
 
 @extend_schema_view(
     delete=extend_schema(responses={200: {}}, summary="API doesn't delete the microapp, it just archives it"),
