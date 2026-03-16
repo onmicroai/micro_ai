@@ -149,6 +149,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
             setAdminError('No account found with that email address.');
          } else if (status === 429) {
             setAdminError('Too many attempts. Please wait before trying again.');
+         } else if (status === 400) {
+            setAdminError(err.response?.data?.error ?? 'Could not add this user.');
          } else {
             setAdminError(err.response?.data?.error ?? 'Something went wrong. Please try again.');
          }

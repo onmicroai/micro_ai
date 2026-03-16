@@ -192,7 +192,8 @@ class AppAdminsView(APIView, UserPermissionMixin):
     def get_throttles(self):
         """Only throttle POST (email lookup) to prevent user enumeration abuse."""
         if self.request.method == 'POST':
-            return [AddAdminThrottle()]
+            self._admin_throttle = AddAdminThrottle()
+            return [self._admin_throttle]
         return []
 
     def _get_app_or_404(self, app_id):
@@ -270,6 +271,9 @@ class AppAdminsView(APIView, UserPermissionMixin):
             try:
                 target_user = CustomUser.objects.get(email__iexact=email)
             except CustomUser.DoesNotExist:
+                # Only failed lookups count against the throttle limit.
+                if hasattr(self, '_admin_throttle'):
+                    self._admin_throttle.record_failed_attempt()
                 return Response(
                     {"error": "No account found with that email address."},
                     status=status.HTTP_404_NOT_FOUND,
@@ -287,6 +291,16 @@ class AppAdminsView(APIView, UserPermissionMixin):
             if existing:
                 return Response(
                     {"error": "This user already has access to the app."},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Enforce admin cap
+            admin_count = MicroAppUserJoin.objects.filter(
+                ma_id=app_id, role=MicroAppUserJoin.ADMIN
+            ).count()
+            if admin_count >= 25:
+                return Response(
+                    {"error": "This app has reached the maximum of 25 admins."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -314,10 +328,16 @@ class AppAdminsView(APIView, UserPermissionMixin):
             return handle_exception(e)
 
     def delete(self, request, app_id, user_id):
-        """Remove an admin from the app."""
+        """Remove an admin from the app. Owners can remove any admin; admins can remove themselves."""
         try:
-            if not self._check_is_owner(request, app_id):
-                return Response({"error": "Permission denied. Only the owner can remove admins."}, status=status.HTTP_403_FORBIDDEN)
+            is_owner = self._check_is_owner(request, app_id)
+            is_self_removal = request.user.id == user_id
+
+            if not is_owner and not is_self_removal:
+                return Response(
+                    {"error": "Permission denied."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
 
             join = MicroAppUserJoin.objects.filter(
                 ma_id=app_id, user_id=user_id, role=MicroAppUserJoin.ADMIN

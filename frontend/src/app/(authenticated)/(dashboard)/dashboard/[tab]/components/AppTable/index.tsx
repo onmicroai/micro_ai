@@ -1,13 +1,14 @@
 'use client'
 
 import React, { useState, useEffect } from 'react';
-import { FaTrashCan as TrashCan, FaRegCopy, FaShareNodes, FaPenToSquare, FaChartLine } from 'react-icons/fa6';
+import { FaTrashCan as TrashCan, FaRegCopy, FaShareNodes, FaPenToSquare, FaChartLine, FaArrowRightFromBracket } from 'react-icons/fa6';
 import { Bars3Icon } from '@heroicons/react/20/solid';
 import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
 import Link from "next/link";
 import { useDashboardStore } from '../../store/dashboardStore';
 import axiosInstance from "@/utils/axiosInstance";
 import { toast } from 'react-toastify';
+import { useUserStore } from '@/store/userStore';
 import ShareModal from '../ShareModal';
 import Modal from '../Modal';
 import { AppSerialized } from '@/app/(authenticated)/(dashboard)/types';
@@ -27,8 +28,11 @@ const AppTable: React.FC<AppTableProps> = ({
   activeTab
 }) => {
   const { apps, appLoading, fetchApps, fetchAllApps, cloneApp, deleteApp } = useDashboardStore();
+  const { user } = useUserStore();
+  const currentUserId = Number(user?.id);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppSerialized | null>(null);
   const api = axiosInstance();
 
@@ -129,6 +133,27 @@ const AppTable: React.FC<AppTableProps> = ({
   const handleShareClick = (app: AppSerialized) => {
     setSelectedApp(app);
     setShowShareMenu(true);
+  };
+
+  /**
+   * Handle leave app (admin self-removal)
+   */
+  const handleLeaveClick = (app: AppSerialized) => {
+    setSelectedApp(app);
+    setShowLeaveModal(true);
+  };
+
+  const handleConfirmLeave = async () => {
+    if (!selectedApp || !currentUserId) return;
+    try {
+      await api.delete(`/api/microapps/${selectedApp.id}/admins/${currentUserId}/`);
+      toast.success(`You have left "${selectedApp.title}".`, { theme: 'colored' });
+      deleteApp(selectedApp.id);
+    } catch {
+      toast.error('Could not leave the app. Please try again.', { theme: 'colored' });
+    }
+    setShowLeaveModal(false);
+    setSelectedApp(null);
   };
 
   const isOwner = (app: AppSerialized) => app.role === 'owner';
@@ -283,24 +308,37 @@ const AppTable: React.FC<AppTableProps> = ({
                               </button>
                             )}
                           </MenuItem>
-                        {isOwner(app) && (
-                          <>
-                            <div className="border-t border-gray-100 dark:border-gray-700" />
-                            <MenuItem>
-                              {({ focus }) => (
-                                <button
-                                  onClick={() => handleDeleteClick(app)}
-                                  className={cn(
-                                    focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
-                                    'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                                  )}
-                                >
-                                  <TrashCan className="h-4 w-4" aria-hidden="true" />
-                                  Delete
-                                </button>
-                              )}
-                            </MenuItem>
-                          </>
+                        <div className="border-t border-gray-100 dark:border-gray-700" />
+                        {isOwner(app) ? (
+                          <MenuItem>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => handleDeleteClick(app)}
+                                className={cn(
+                                  focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
+                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                                )}
+                              >
+                                <TrashCan className="h-4 w-4" aria-hidden="true" />
+                                Delete
+                              </button>
+                            )}
+                          </MenuItem>
+                        ) : (
+                          <MenuItem>
+                            {({ focus }) => (
+                              <button
+                                onClick={() => handleLeaveClick(app)}
+                                className={cn(
+                                  focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
+                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                                )}
+                              >
+                                <FaArrowRightFromBracket className="h-4 w-4" aria-hidden="true" />
+                                Leave
+                              </button>
+                            )}
+                          </MenuItem>
                         )}
                       </div>
                     </MenuItems>
@@ -361,7 +399,7 @@ const AppTable: React.FC<AppTableProps> = ({
                     </button>
 
                   {/* Delete — owner only */}
-                  {isOwner(app) && (
+                  {isOwner(app) ? (
                     <button
                       onClick={() => handleDeleteClick(app)}
                       className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
@@ -369,6 +407,16 @@ const AppTable: React.FC<AppTableProps> = ({
                     >
                       <TrashCan className="w-3.5 h-3.5" />
                       <span className="hidden lg:inline">Delete</span>
+                    </button>
+                  ) : (
+                    /* Leave — admin self-removal */
+                    <button
+                      onClick={() => handleLeaveClick(app)}
+                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+                      title="Leave app"
+                    >
+                      <FaArrowRightFromBracket className="w-3.5 h-3.5" />
+                      <span className="hidden lg:inline">Leave</span>
                     </button>
                   )}
                 </div>
@@ -403,6 +451,20 @@ const AppTable: React.FC<AppTableProps> = ({
           onConfirm={handleConfirmDelete}
           title="Delete Application"
           message={`Are you sure you want to delete "${selectedApp.title}"?`}
+        />
+      )}
+
+      {/* Leave Confirmation Modal */}
+      {showLeaveModal && selectedApp && (
+        <Modal
+          isOpen={showLeaveModal}
+          onClose={() => {
+            setShowLeaveModal(false);
+            setSelectedApp(null);
+          }}
+          onConfirm={handleConfirmLeave}
+          title="Leave App"
+          message={`Are you sure you want to remove yourself as an admin of "${selectedApp.title}"? You will lose access immediately.`}
         />
       )}
     </>
