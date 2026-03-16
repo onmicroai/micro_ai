@@ -38,6 +38,16 @@ interface LTIConfig {
 
 type ActiveTab = 'share' | 'lti';
 
+function formatRetryAfter(seconds: number): string {
+   if (seconds < 60) return `${seconds} second${seconds === 1 ? '' : 's'}`;
+   const minutes = Math.ceil(seconds / 60);
+   if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+   const hours = Math.floor(minutes / 60);
+   const remainingMinutes = minutes % 60;
+   if (remainingMinutes === 0) return `${hours} hour${hours === 1 ? '' : 's'}`;
+   return `${hours} hour${hours === 1 ? '' : 's'} ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}`;
+}
+
 const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, isOwner }) => {
    const hashId = app.hashId;
    const { updateAppPrivacy } = useDashboardStore();
@@ -148,7 +158,10 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
          if (status === 404) {
             setAdminError('No account found with that email address.');
          } else if (status === 429) {
-            setAdminError('Too many attempts. Please wait before trying again.');
+            const retryAfter = err.response?.headers?.['retry-after'];
+            const seconds = retryAfter ? parseInt(retryAfter, 10) : null;
+            const waitMsg = seconds ? formatRetryAfter(seconds) : 'a little while';
+            setAdminError(`Too many failed attempts. Try again in ${waitMsg}.`);
          } else if (status === 400) {
             setAdminError(err.response?.data?.error ?? 'Could not add this user.');
          } else {
