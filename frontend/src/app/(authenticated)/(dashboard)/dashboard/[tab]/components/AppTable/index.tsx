@@ -244,26 +244,26 @@ const AppTable: React.FC<AppTableProps> = ({
                             </Link>
                           )}
                         </MenuItem>
-                        {isOwner(app) && (
-                          <MenuItem>
-                            {({ focus }) => (
-                              <button
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handleShareClick(app);
-                                }}
-                                className={cn(
-                                  focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
-                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                                )}
-                              >
-                                <FaShareNodes className="h-4 w-4" aria-hidden="true" />
-                                Share
-                              </button>
-                            )}
-                          </MenuItem>
-                        )}
-                        {isOwner(app) && (
+
+                        <MenuItem>
+                          {({ focus }) => (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                handleShareClick(app);
+                              }}
+                              className={cn(
+                                focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
+                                'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
+                              )}
+                            >
+                              <FaShareNodes className="h-4 w-4" aria-hidden="true" />
+                              Share
+                            </button>
+                          )}
+                        </MenuItem>
+
+
                           <MenuItem disabled={!app.copyAllowed}>
                             {({ focus }) => (
                               <button
@@ -283,7 +283,6 @@ const AppTable: React.FC<AppTableProps> = ({
                               </button>
                             )}
                           </MenuItem>
-                        )}
                         {isOwner(app) && (
                           <>
                             <div className="border-t border-gray-100 dark:border-gray-700" />
@@ -330,8 +329,8 @@ const AppTable: React.FC<AppTableProps> = ({
                     <span className="hidden md:inline">Stats</span>
                   </Link>
 
-                  {/* Share — owner only */}
-                  {isOwner(app) && (
+                  {/* Share */}
+
                     <button
                       onClick={(e) => {
                         e.preventDefault();
@@ -343,10 +342,10 @@ const AppTable: React.FC<AppTableProps> = ({
                       <FaShareNodes className="w-3.5 h-3.5" />
                       <span className="hidden md:inline">Share</span>
                     </button>
-                  )}
 
-                  {/* Clone — owner only */}
-                  {isOwner(app) && (
+
+                  {/* Clone */}
+
                     <button
                       onClick={() => handleCloneClick(app)}
                       disabled={!app.copyAllowed}
@@ -360,7 +359,6 @@ const AppTable: React.FC<AppTableProps> = ({
                       <FaRegCopy className="w-3.5 h-3.5" />
                       <span className="hidden lg:inline">Clone</span>
                     </button>
-                  )}
 
                   {/* Delete — owner only */}
                   {isOwner(app) && (

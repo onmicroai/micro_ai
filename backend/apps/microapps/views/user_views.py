@@ -206,6 +206,11 @@ class AppAdminsView(APIView, UserPermissionMixin):
             user_id=request.user.id, ma_id=app_id, role=MicroAppUserJoin.OWNER
         ).exists()
 
+    def _check_is_owner_or_admin(self, request, app_id):
+        return MicroAppUserJoin.objects.filter(
+            user_id=request.user.id, ma_id=app_id, role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
+        ).exists()
+
     def _add_to_shared_collection(self, user_id, ma_id):
         """Add the microapp to the target user's 'Shared With Me' collection."""
         try:
@@ -222,25 +227,29 @@ class AppAdminsView(APIView, UserPermissionMixin):
             log.error(f"Could not add app to shared collection: {e}")
 
     def get(self, request, app_id):
-        """List all admins for the app."""
+        """List the owner and all admins for the app."""
         try:
-            if not self._check_is_owner(request, app_id):
+            if not self._check_is_owner_or_admin(request, app_id):
                 return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
 
             joins = MicroAppUserJoin.objects.filter(
-                ma_id=app_id, role=MicroAppUserJoin.ADMIN
+                ma_id=app_id, role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
             ).select_related('user_id')
 
-            admins = [
+            role_order = {MicroAppUserJoin.OWNER: 0, MicroAppUserJoin.ADMIN: 1}
+            sorted_joins = sorted(joins, key=lambda j: role_order.get(j.role, 2))
+
+            people = [
                 {
                     "id": j.user_id.id,
                     "email": j.user_id.email,
                     "first_name": j.user_id.first_name,
                     "last_name": j.user_id.last_name,
+                    "role": j.role,
                 }
-                for j in joins
+                for j in sorted_joins
             ]
-            return Response({"data": admins, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            return Response({"data": people, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 

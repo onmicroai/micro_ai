@@ -22,6 +22,7 @@ interface AdminUser {
    email: string;
    first_name: string;
    last_name: string;
+   role: 'owner' | 'admin';
 }
 
 interface LTIConfig {
@@ -221,7 +222,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
 
    // ── Effects ───────────────────────────────────────────────────────────────
    useEffect(() => {
-      if (activeTab === 'share' && isOwner) fetchAdmins();
+      if (activeTab === 'share') fetchAdmins();
       // eslint-disable-next-line react-hooks/exhaustive-deps
    }, [activeTab]);
 
@@ -338,7 +339,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                   <div className="divide-y divide-gray-100 dark:divide-gray-800">
 
                      {/* Visibility — owner only */}
-                     {isOwner && (
                         <div className="px-6 py-5">
                            <div className="flex items-center justify-between mb-3">
                               <SectionLabel>Visibility</SectionLabel>
@@ -390,10 +390,8 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                               })}
                            </div>
                         </div>
-                     )}
 
                      {/* People with access — owner only */}
-                     {isOwner && (
                         <div className="px-6 py-5">
                            <SectionLabel>People with access</SectionLabel>
 
@@ -431,21 +429,22 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                            {adminsLoading ? (
                               <p className="text-sm text-gray-400">Loading…</p>
                            ) : admins.length === 0 ? (
-                              <p className="text-sm text-gray-400">No admins added yet.</p>
+                              <p className="text-sm text-gray-400">No one has access yet.</p>
                            ) : (
                               <ul className="space-y-1">
-                                 {admins.map((admin) => {
+                                 {admins.map((person) => {
+                                    const isPersonOwner = person.role === 'owner';
                                     const initials =
-                                       [admin.first_name, admin.last_name]
+                                       [person.first_name, person.last_name]
                                           .filter(Boolean)
                                           .map((n) => n[0].toUpperCase())
-                                          .join('') || admin.email[0].toUpperCase();
+                                          .join('') || person.email[0].toUpperCase();
                                     const displayName =
-                                       [admin.first_name, admin.last_name].filter(Boolean).join(' ') ||
-                                       admin.email;
+                                       [person.first_name, person.last_name].filter(Boolean).join(' ') ||
+                                       person.email;
                                     return (
                                        <li
-                                          key={admin.id}
+                                          key={person.id}
                                           className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group"
                                        >
                                           <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary dark:bg-primary/20 text-xs font-semibold flex-shrink-0">
@@ -455,24 +454,29 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                                                 {displayName}
                                              </p>
-                                             <p className="text-xs text-gray-500 truncate">{admin.email}</p>
+                                             <p className="text-xs text-gray-500 truncate">{person.email}</p>
                                           </div>
-                                          <span className="text-xs text-gray-400 mr-1">Admin</span>
-                                          <button
-                                             onClick={() => handleRemoveAdmin(admin.id)}
-                                             disabled={removingAdminId === admin.id}
-                                             className="p-1.5 rounded-md text-gray-300 hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40 opacity-0 group-hover:opacity-100"
-                                             title="Remove admin"
-                                          >
-                                             <FaTrashCan size={12} />
-                                          </button>
+                                          <span className="text-xs text-gray-400 mr-1">
+                                             {isPersonOwner ? 'Owner' : 'Admin'}
+                                          </span>
+                                          {isOwner && !isPersonOwner ? (
+                                             <button
+                                                onClick={() => handleRemoveAdmin(person.id)}
+                                                disabled={removingAdminId === person.id}
+                                                className="p-1.5 rounded-md text-gray-300 hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-40 opacity-0 group-hover:opacity-100"
+                                                title="Remove admin"
+                                             >
+                                                <FaTrashCan size={12} />
+                                             </button>
+                                          ) : (
+                                             <div className="w-[30px]" />
+                                          )}
                                        </li>
                                     );
                                  })}
                               </ul>
                            )}
                         </div>
-                     )}
 
                      {/* Links — always visible */}
                      <div className="px-6 py-5">
