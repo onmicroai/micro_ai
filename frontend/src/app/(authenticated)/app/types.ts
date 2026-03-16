@@ -380,6 +380,7 @@ export interface SurveyState {
   description: string | undefined;
   collectionId: number | null;
   privacy: string;
+  embedAllowedDomains: string[];
   clonable: boolean;
   completedHtml: string;
   attachedFiles: AttachedFile[];
@@ -411,6 +412,11 @@ export interface SurveyState {
   ) => void;
   setPrivacy: (
     privacy: string,
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
+  setEmbedAllowedDomains: (
+    domains: string[],
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => void;

@@ -19,6 +19,7 @@ const initialState = {
   description: "",
   collectionId: null,
   privacy: "private",
+  embedAllowedDomains: [] as string[],
   clonable: true,
   completedHtml: "",
   attachedFiles: [] as AttachedFile[],
@@ -89,6 +90,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         title: state.title,
         description: state.description,
         privacySettings: state.privacy,
+        embedAllowedDomains: state.embedAllowedDomains,
         clonable: state.clonable,
         completedHtml: state.completedHtml,
         aiConfig: state.aiConfig,
@@ -281,6 +283,28 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
       const state = get();
       if (state.privacy !== privacy) {
         set({ privacy });
+        if (!skipServerUpdate) {
+          await get().saveToServer(signal);
+        }
+      }
+    },
+
+    /**
+     * Sets the allowed embed domains (for restricted privacy)
+     * @param domains - List of domains allowed to embed the app
+     * @param skipServerUpdate - Whether to skip saving to server
+     * @param signal - The AbortSignal to cancel the request
+     */
+    setEmbedAllowedDomains: async (
+      domains: string[],
+      skipServerUpdate?: boolean,
+      signal?: AbortSignal
+    ) => {
+      const state = get();
+      if (
+        JSON.stringify(state.embedAllowedDomains) !== JSON.stringify(domains)
+      ) {
+        set({ embedAllowedDomains: domains });
         if (!skipServerUpdate) {
           await get().saveToServer(signal);
         }

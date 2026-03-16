@@ -28,6 +28,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setDescription,
       setCollectionId,
       setPrivacy,
+      setEmbedAllowedDomains,
       setClonable,
       resetStore,
       setAppId,
@@ -105,6 +106,13 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
             setTitle(appJson.title || "Untitled App", true, signal);
             setDescription(appJson.description, true, signal);
             setPrivacy(getPrivacyName(appJson.privacySettings), true, signal);
+            setEmbedAllowedDomains(
+              Array.isArray(appJson.embedAllowedDomains)
+                ? appJson.embedAllowedDomains
+                : [],
+              true,
+              signal
+            );
             setClonable(appJson.clonable === undefined ? true : appJson.clonable, true, signal);
             setCompletedHtml(appJson.completedHtml, true, signal);
             setAIConfig(appJson.aiConfig || {}, true, signal);
@@ -143,7 +151,8 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setElements,
       setTitle, 
       setDescription, 
-      setPrivacy, 
+      setPrivacy,
+      setEmbedAllowedDomains,
       setClonable, 
       setCompletedHtml, 
       setAIConfig, 
@@ -163,6 +172,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       switch (privacy.toLowerCase()) {
          case "public":
             return "public";
+         case "restricted":
          case "site-specific":
             return "restricted";
          default:

@@ -249,9 +249,11 @@ export default function FormBuilder() {
   const cardRef = useRef<HTMLDivElement>(null);
   const lastBuildSidebarOpenRef = useRef(false);
 
+  const [newDomainInput, setNewDomainInput] = useState("");
   const {
     elements,
     privacy,
+    embedAllowedDomains,
     clonable,
     completedHtml,
     collectionId,
@@ -268,6 +270,7 @@ export default function FormBuilder() {
     setDescription,
     setCollectionId,
     setPrivacy,
+    setEmbedAllowedDomains,
     setClonable,
     setCompletedHtml,
     setAIConfig,
@@ -1144,9 +1147,94 @@ export default function FormBuilder() {
           <SelectContent className="bg-white">
             <SelectItem value="private">Private</SelectItem>
             <SelectItem value="public">Public</SelectItem>
+            <SelectItem value="restricted">Restricted</SelectItem>
           </SelectContent>
         </Select>
       </div>
+
+      {privacy === "restricted" && (
+        <div className="space-y-2">
+          <div className="flex items-center gap-2">
+            <label className="text-sm font-medium text-left">
+              Allowed embed domains
+            </label>
+            <TooltipProvider delayDuration={0}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent side="right" sideOffset={5}>
+                  <p className="w-[200px] text-sm">
+                    Only these domains can embed your app. Add domains like
+                    example.com or app.example.com. Use localhost for testing.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          <div className="flex gap-2">
+            <Input
+              value={newDomainInput}
+              onChange={(e) => setNewDomainInput(e.target.value)}
+              placeholder="example.com"
+              className="flex-1"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  const domain = newDomainInput.trim().toLowerCase();
+                  if (domain && !embedAllowedDomains.includes(domain)) {
+                    setEmbedAllowedDomains([...embedAllowedDomains, domain]);
+                    setNewDomainInput("");
+                  }
+                }
+              }}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                const domain = newDomainInput.trim().toLowerCase();
+                if (domain && !embedAllowedDomains.includes(domain)) {
+                  setEmbedAllowedDomains([...embedAllowedDomains, domain]);
+                  setNewDomainInput("");
+                }
+              }}
+              disabled={!newDomainInput.trim()}
+            >
+              Add
+            </Button>
+          </div>
+          {embedAllowedDomains.length > 0 ? (
+            <ul className="space-y-1 mt-2">
+              {embedAllowedDomains.map((domain) => (
+                <li
+                  key={domain}
+                  className="flex items-center justify-between gap-2 py-1.5 px-2 rounded-md bg-gray-50 text-sm"
+                >
+                  <span className="truncate">{domain}</span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setEmbedAllowedDomains(
+                        embedAllowedDomains.filter((d) => d !== domain)
+                      )
+                    }
+                    className="p-1 rounded hover:bg-gray-200 text-gray-500 hover:text-gray-700"
+                    aria-label={`Remove ${domain}`}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-gray-500 mt-1">
+              No domains added. Add at least one domain to allow embedding.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center space-x-2">
         <Checkbox
