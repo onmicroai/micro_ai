@@ -257,7 +257,7 @@ class AppAdminsView(APIView, UserPermissionMixin):
         """Add a user as admin by email address."""
         try:
             if not self._check_is_owner(request, app_id):
-                return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"error": "Permission denied. Only the owner can add admins."}, status=status.HTTP_403_FORBIDDEN)
 
             app = self._get_app_or_404(app_id)
             if not app:
@@ -317,7 +317,7 @@ class AppAdminsView(APIView, UserPermissionMixin):
         """Remove an admin from the app."""
         try:
             if not self._check_is_owner(request, app_id):
-                return Response({"error": "Permission denied."}, status=status.HTTP_403_FORBIDDEN)
+                return Response({"error": "Permission denied. Only the owner can remove admins."}, status=status.HTTP_403_FORBIDDEN)
 
             join = MicroAppUserJoin.objects.filter(
                 ma_id=app_id, user_id=user_id, role=MicroAppUserJoin.ADMIN
