@@ -375,3 +375,48 @@ class MicroAppVisibility(APIView, MicroAppMixin):
                 }, 
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
+
+
+class MicroAppEmbedAccess(APIView, MicroAppMixin):
+    """
+    Check whether an embedded app is allowed to run on a given domain.
+
+    Intended to be called from the iframe using document.referrer parsed to a hostname.
+    """
+
+    permission_classes = [AllowAny]
+
+    def post(self, request, hash_id):
+        try:
+            microapp = self.get_microapp_by_hash(hash_id)
+            if not microapp or microapp.is_archived:
+                return Response(
+                    {"data": {"allowed": False}, "status": status.HTTP_404_NOT_FOUND},
+                    status=status.HTTP_404_NOT_FOUND,
+                )
+
+            # Only enforce domain restrictions when privacy is RESTRICTED.
+            if microapp.privacy != Microapp.RESTRICTED:
+                return Response(
+                    {"data": {"allowed": True}, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+
+            domain = (request.data.get("domain") or "").strip().lower()
+            if not domain:
+                return Response(
+                    {"data": {"allowed": False}, "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            allowed_domains = microapp.embed_allowed_domains or []
+            normalized_allowed = [d.strip().lower() for d in allowed_domains if d]
+
+            is_allowed = domain in normalized_allowed
+
+            return Response(
+                {"data": {"allowed": is_allowed}, "status": status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return handle_exception(e)

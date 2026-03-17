@@ -61,6 +61,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
    } = useConversationStore();
    const [isOwner, setIsOwner] = useState(false);
    const [isAdmin, setIsAdmin] = useState(false);
+   const [embedAllowed, setEmbedAllowed] = useState<boolean | null>(null);
 
    useEffect(() => {
       const controller = new AbortController();
@@ -68,7 +69,47 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       const initializeApp = async () => {
          if (hashId) {
             const { isPublic } = await checkIsPublic(hashId, signal);
-            
+
+            // Check embed access based on parent domain (document.referrer)
+            try {
+               const referrer = document.referrer || "";
+               let domain = "";
+               if (referrer) {
+                  try {
+                     const url = new URL(referrer);
+                     domain = url.hostname.toLowerCase();
+                  } catch {
+                     // Fallback: naive extraction
+                     const match = referrer.match(/^https?:\/\/([^/]+)/i);
+                     if (match && match[1]) {
+                        domain = match[1].toLowerCase();
+                     }
+                  }
+               }
+
+               if (domain) {
+                  const api = axiosInstance();
+                  const resp = await api.post(
+                     `/api/microapps/embed-access/${hashId}`,
+                     { domain },
+                     { signal }
+                  );
+                  const allowed = resp.data?.data?.allowed ?? false;
+                  setEmbedAllowed(allowed);
+                  if (!allowed) {
+                     return;
+                  }
+               } else {
+                  // If no referrer, treat as not allowed for restricted apps; appFetchError handling will show generic error
+                  setEmbedAllowed(false);
+                  return;
+               }
+            } catch (e) {
+               console.error("Error checking embed access:", e);
+               setEmbedAllowed(false);
+               return;
+            }
+
             const wasAppUpdated = await fetchApp(hashId, !isPublic, signal);
             
             if (wasAppUpdated) {
@@ -145,6 +186,33 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
       return () => abortController.abort();
    }, [userId, hashId]);
+
+   // If we haven't checked embed access yet, or app is loading, show skeleton as before
+   if (embedAllowed === null || loading) {
+      return (
+         <div className="min-h-screen bg-gray-50">
+            <div className="max-w-3xl mx-auto px-4 py-4">
+               <SkeletonLoader />
+            </div>
+         </div>
+      );
+   }
+
+   if (!embedAllowed) {
+      return (
+         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+            <div className="text-center max-w-md px-4">
+               <h1 className="text-lg font-semibold text-gray-900">
+                  This app is not available on this site.
+               </h1>
+               <p className="mt-2 text-sm text-gray-600">
+                  The app owner has restricted embedding to specific domains. If you think this is a mistake,
+                  please contact the app owner.
+               </p>
+            </div>
+         </div>
+      );
+   }
 
    return (
       <div className="min-h-screen bg-gray-50">

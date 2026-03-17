@@ -72,6 +72,10 @@ class Microapp(models.Model):
     # This field can get quite large with large and complex apps, or apps that include objects that are converted to long base64 strings.   
     app_json = models.JSONField()
 
+    # List of domains allowed to embed this app when privacy is set to RESTRICTED
+    # Example: ["example.com", "app.example.com"]
+    embed_allowed_domains = models.JSONField(default=list, blank=True)
+
     # Add this new field
     is_archived = models.BooleanField(default=False)
     

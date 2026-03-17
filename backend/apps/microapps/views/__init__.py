@@ -7,7 +7,8 @@ from .microapp_views import (
     MicroAppDetailsByHash,
     PublicMicroApps,
     PublicMicroAppsByHash,
-    MicroAppVisibility
+    MicroAppVisibility,
+    MicroAppEmbedAccess,
 )
 
 from .user_views import (
@@ -57,6 +58,7 @@ __all__ = [
     'PublicMicroApps',
     'PublicMicroAppsByHash',
     'MicroAppVisibility',
+    'MicroAppEmbedAccess',
     
     # User views
     'UserMicroApps',

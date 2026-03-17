@@ -10,6 +10,7 @@ from .views import (
     PublicMicroApps,
     PublicMicroAppsByHash,
     MicroAppVisibility,
+    MicroAppEmbedAccess,
     
     # User views
     UserMicroApps,
@@ -55,6 +56,7 @@ urlpatterns = [
     path('public/app/<int:id>', PublicMicroApps.as_view(), name="public_microapps"),
     path('public/hash/<str:hash_id>', PublicMicroAppsByHash.as_view(), name="public_microapps_by_hash"),
     path('visibility/<str:hash_id>', MicroAppVisibility.as_view(), name="app_visibility"),
+    path('embed-access/<str:hash_id>', MicroAppEmbedAccess.as_view(), name="app_embed_access"),
     
     # User management
     path('user', UserMicroAppsDetails.as_view(), name="users-roles"),
