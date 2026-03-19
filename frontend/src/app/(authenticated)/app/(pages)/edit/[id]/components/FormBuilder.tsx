@@ -22,6 +22,8 @@ import {
   MessagesSquare,
   PanelLeft,
   PanelLeftClose,
+  PanelRight,
+  Sparkles,
 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card } from "./ui/card";
@@ -61,6 +63,7 @@ import { HelpCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
 import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
+import ChatBuildSidebar from "./ui/chat-build-sidebar";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import Image from "next/image";
@@ -283,6 +286,8 @@ export default function FormBuilder() {
     setConditionalSidebarContext,
     conditionalSidebarContext,
     saveState,
+    chatBuildSidebarOpen,
+    setChatBuildSidebarOpen,
   } = useSurveyStore();
 
   const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
@@ -1491,6 +1496,33 @@ export default function FormBuilder() {
               </AnimatePresence>
             </div>
           )}
+          {activeTab === "build" && !chatBuildSidebarOpen && (
+            <AnimatePresence>
+              <motion.button
+                key="chat-build-open"
+                initial={{ opacity: 0, x: 10 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 10 }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                onClick={() => {
+                  setChatBuildSidebarOpen(true);
+                  setConditionalSidebarOpen(false);
+                }}
+                className={`
+                fixed right-6 top-[96px] z-30 flex items-center gap-2
+                bg-white p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
+                xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50
+                `}
+                aria-label="Open App Builder"
+              >
+                <Sparkles className="h-5 w-5 text-indigo-500" />
+                <span className="hidden xl:inline text-[16px] font-semibold text-black whitespace-nowrap">
+                  App Builder
+                </span>
+                <PanelRight className="h-6 w-6 text-gray-400" />
+              </motion.button>
+            </AnimatePresence>
+          )}
           <div className="flex-1 flex">
             <AnimatePresence>
               {activeTab === "build" && sidebarOpen && (
@@ -1524,7 +1556,7 @@ export default function FormBuilder() {
             </AnimatePresence>
 
             <div className="flex-1 flex justify-center">
-              <div className="w-full max-w-[900px] px-2 sm:px-4">
+              <div className="flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4">
                 {activeTab === "build" ? (
                   <div className="pt-8 pb-24">
                     <>
@@ -2261,6 +2293,11 @@ export default function FormBuilder() {
               currentLogic={conditionalSidebarContext?.currentLogic}
               targetFieldName={conditionalSidebarContext?.field.name}
               instructionIndex={conditionalSidebarContext?.instructionIndex}
+            />
+            <ChatBuildSidebar
+              isOpen={chatBuildSidebarOpen}
+              onClose={() => setChatBuildSidebarOpen(false)}
+              appId={appId}
             />
           </div>
         </div>

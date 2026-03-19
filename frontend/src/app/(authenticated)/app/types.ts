@@ -467,6 +467,14 @@ export interface SurveyState {
       instructionIndex?: number;
     } | null
   ) => void;
+
+  // App Builder Chat sidebar
+  chatBuildSidebarOpen: boolean;
+  setChatBuildSidebarOpen: (open: boolean) => void;
+  chatBuildMessages: ChatBuildMessage[];
+  addChatBuildMessage: (message: ChatBuildMessage) => void;
+  updateChatBuildMessage: (id: string, patch: Partial<ChatBuildMessage>) => void;
+  replaceEntireAppJson: (newJson: AppJsonV2) => Promise<void>;
 }
 
 export interface SaveState {
@@ -529,6 +537,16 @@ export interface ProcessedPrompts {
   prompts: string[];
   aiInstructions: string[];
   fixedResponses: string[];
+}
+
+export type ChatBuildMessageStatus = "streaming" | "done" | "refused" | "error";
+
+export interface ChatBuildMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  thinkingContent?: string;
+  status: ChatBuildMessageStatus;
 }
 
 export const HIDDEN_HEADER_ELEMENTS = [
