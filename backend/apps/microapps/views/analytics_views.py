@@ -8,7 +8,7 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField, OuterRef, Subquery
-from django.db.models.functions import Round
+from django.db.models.functions import Coalesce, Round
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
@@ -16,6 +16,35 @@ from apps.microapps.models import Microapp, MicroAppUserJoin, Run
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
+
+
+def get_stats_for_app_ids(app_ids):
+    """
+    Return stats (sessions, unique_users, total_credits, avg_credits_session) for given app IDs.
+    Returns dict mapping app_id -> stats. Apps with no runs get zeroed stats.
+    """
+    if not app_ids:
+        return {}
+    app_ids = list(app_ids)
+    stats_qs = Run.objects.filter(ma_id__in=app_ids).values('ma_id').annotate(
+        total_credits=Coalesce(Sum('credits'), 0),
+        unique_users=Count('user_ip', distinct=True),
+        sessions=Count('session_id', distinct=True),
+    ).values('ma_id', 'total_credits', 'unique_users', 'sessions')
+
+    result = {aid: {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0} for aid in app_ids}
+    for row in stats_qs:
+        ma_id = row['ma_id']
+        sessions = row['sessions'] or 0
+        total_credits = int(row['total_credits'] or 0)
+        avg_credits_session = round(total_credits / sessions, 2) if sessions else 0
+        result[ma_id] = {
+            'sessions': sessions,
+            'unique_users': row['unique_users'] or 0,
+            'total_credits': total_credits,
+            'avg_credits_session': avg_credits_session,
+        }
+    return result
 
 
 @extend_schema_view(
@@ -139,7 +168,7 @@ class AppStatistics(APIView):
                 'avg_cost_session', 'avg_credits_session'
             )
 
-            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            return Response({"data": list(runs), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return handle_exception(e)

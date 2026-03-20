@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+} from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DragDropContext } from "@hello-pangea/dnd";
 import {
@@ -47,6 +53,11 @@ import {
 import { Input } from "../../../../../../../components/basic/input";
 import { useSurveyStore } from "../store/editSurveyStore";
 import AppRuntimeView from "@/components/AppRuntimeView";
+import ShareModal from "@/app/(authenticated)/(dashboard)/dashboard/[tab]/components/ShareModal";
+import type { AppSerialized } from "@/app/(authenticated)/(dashboard)/types";
+import MicroappStatsContent from "@/app/(authenticated)/app/(pages)/[id]/stats/MicroappStatsContent";
+import { checkIsOwner } from "@/utils/checkRoles";
+import { useUserStore } from "@/store/userStore";
 import { showUndoToast } from "@/components/UndoToast";
 import {
   Element,
@@ -256,7 +267,9 @@ export default function FormBuilder() {
   const [insertAfterIndex, setInsertAfterIndex] = useState<number | null>(null);
   const [backgroundTheme] = useState<"white" | "gray">("gray");
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState<"build" | "preview">("build");
+  type EditorTab = "build" | "preview" | "share" | "stats";
+  const [activeTab, setActiveTab] = useState<EditorTab>("build");
+  const [editorIsOwner, setEditorIsOwner] = useState(false);
   const [popoverPosition, setPopoverPosition] = useState<{
     x: number;
     y: number;
@@ -313,17 +326,69 @@ export default function FormBuilder() {
     setChatBuildSidebarOpen,
   } = useSurveyStore();
 
+  const userId = useUserStore((s) => s.user?.id ?? null);
+
+  useEffect(() => {
+    if (!hashId || userId == null) {
+      setEditorIsOwner(false);
+      return;
+    }
+    const ac = new AbortController();
+    void checkIsOwner(hashId, userId, ac.signal)
+      .then(({ isOwner }) => {
+        setEditorIsOwner(isOwner);
+      })
+      .catch(() => {});
+    return () => ac.abort();
+  }, [hashId, userId]);
+
+  const shareAppForModal: AppSerialized | null = useMemo(() => {
+    if (appId == null) return null;
+    return {
+      id: appId,
+      hashId,
+      title: title || "Untitled App",
+      explanation: description || "",
+      privacy,
+      temperature: aiConfig.temperature ?? 0.7,
+      copyAllowed: clonable,
+      appJson: "",
+      collectionId: collectionIds[0] ?? 0,
+      role: editorIsOwner ? "owner" : "admin",
+    };
+  }, [
+    appId,
+    hashId,
+    title,
+    description,
+    privacy,
+    clonable,
+    collectionIds,
+    aiConfig.temperature,
+    editorIsOwner,
+  ]);
+
+  const handleShareModalVisibility = useCallback(() => {}, []);
+
+  const handlePrivacySavedFromShare = useCallback(
+    (newPrivacy: string) => {
+      void setPrivacy(newPrivacy, true);
+    },
+    [setPrivacy]
+  );
+
   const isSavingIndicator = saveState.isDebouncing || saveState.isSaving;
-  const buildLabelClassName =
-    activeTab === "build"
-      ? "text-primary"
-      : "text-gray-600 group-hover:text-gray-900";
-  const buildButtonClassName = `group px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-    activeTab === "build" ? "bg-white shadow-sm" : ""
-  }`;
-  const handleTabChange = (tab: "build" | "preview") => {
+
+  const tabButtonClass = (tab: EditorTab) =>
+    `px-3 sm:px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+      activeTab === tab
+        ? "bg-white text-primary shadow-sm"
+        : "text-gray-600 hover:text-gray-900"
+    }`;
+
+  const handleTabChange = (tab: EditorTab) => {
     if (tab === activeTab) return;
-    if (tab === "preview") {
+    if (tab === "preview" || tab === "share" || tab === "stats") {
       lastBuildSidebarOpenRef.current = sidebarOpen;
       setSidebarOpen(false);
       setConditionalSidebarOpen(false);
@@ -1696,23 +1761,35 @@ export default function FormBuilder() {
                   priority
                 />
               </div>
-              <div className="absolute left-1/2 -translate-x-1/2">
-                <div className="relative flex items-center bg-gray-100 rounded-lg p-1">
+              <div className="absolute left-1/2 -translate-x-1/2 max-w-[min(100vw-10rem,28rem)]">
+                <div className="relative flex flex-wrap items-center justify-center gap-1 bg-gray-100 rounded-lg p-1">
                   <button
+                    type="button"
                     onClick={() => handleTabChange("build")}
-                    className={buildButtonClassName}
+                    className={tabButtonClass("build")}
                   >
-                    <span className={buildLabelClassName}>Build</span>
+                    Build
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleTabChange("preview")}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                      activeTab === "preview"
-                        ? "bg-white text-primary shadow-sm"
-                        : "text-gray-600 hover:text-gray-900"
-                    }`}
+                    className={tabButtonClass("preview")}
                   >
                     Preview
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange("share")}
+                    className={tabButtonClass("share")}
+                  >
+                    Share
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange("stats")}
+                    className={tabButtonClass("stats")}
+                  >
+                    Statistics
                   </button>
                 </div>
                 <AnimatePresence>
@@ -1836,7 +1913,7 @@ export default function FormBuilder() {
 
             <div className="flex-1 flex justify-center">
               <div className="flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4">
-                {activeTab === "build" ? (
+                {activeTab === "build" && (
                   <div className="pt-8 pb-24">
                     <>
                       {/* This motion.div animates the App Details card when switching between edit and preview modes,
@@ -2664,12 +2741,30 @@ export default function FormBuilder() {
                       </div>
                     </>
                   </div>
-                ) : (
+                )}
+                {activeTab === "preview" && (
                   <MonitorPreview
                     previewUrl={`${window.location.origin}/app/${hashId}`}
                   >
                     <AppRuntimeView hashId={hashId} showEditLink={false} />
                   </MonitorPreview>
+                )}
+                {activeTab === "share" && shareAppForModal && (
+                  <div className="pt-8 pb-24 w-full min-w-0">
+                    <ShareModal
+                      app={shareAppForModal}
+                      showModal={true}
+                      setShowModal={handleShareModalVisibility}
+                      isOwner={editorIsOwner}
+                      variant="inline"
+                      onPrivacySaved={handlePrivacySavedFromShare}
+                    />
+                  </div>
+                )}
+                {activeTab === "stats" && (
+                  <div className="pt-2 pb-24 w-full min-w-0">
+                    <MicroappStatsContent hashId={hashId} embedded />
+                  </div>
                 )}
               </div>
             </div>
