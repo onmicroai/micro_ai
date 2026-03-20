@@ -136,7 +136,7 @@ const AppTable: React.FC<AppTableProps> = ({
   const getPrivacyBadge = (privacy: string) => {
     const privacyLower = privacy.toLowerCase();
     const baseClasses =
-      "inline-flex items-center px-2.5 py-1 text-sm font-medium rounded-full";
+      "inline-flex items-center px-2.5 py-1 text-sm rounded-full";
     const colorClasses = {
       public:
         "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
