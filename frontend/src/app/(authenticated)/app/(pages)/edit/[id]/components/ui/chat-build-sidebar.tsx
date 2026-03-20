@@ -15,7 +15,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./button";
 import { useSurveyStore } from "../../store/editSurveyStore";
 import { AppJsonV2 } from "@/app/(authenticated)/app/types";
-import { getAccessToken } from "@/utils/tokenCookieUtils";
+import { authorizedFetch } from "@/utils/authorizedFetch";
+import { readSseResponse } from "@/utils/readSseStream";
 
 interface ChatBuildSidebarProps {
   isOpen: boolean;
@@ -122,102 +123,78 @@ export default function ChatBuildSidebar({
       .map((m) => ({ role: m.role, content: m.content }));
 
     try {
-      const accessToken = getAccessToken();
-
-      const response = await fetch("/api/microapps/app-builder-chat/", {
+      const response = await authorizedFetch("/api/microapps/app-builder-chat/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
         },
-        credentials: "include",
         body: JSON.stringify({ app_id: appId, message: userText, history }),
         signal: abortControllerRef.current.signal,
       });
 
-      if (!response.ok || !response.body) {
+      if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      let currentEventType = "";
+      for await (const { event, data: dataRaw } of readSseResponse(response)) {
+        let data: { chunk?: string; message?: string; app_json?: unknown };
+        try {
+          data = JSON.parse(dataRaw) as typeof data;
+        } catch {
+          continue;
+        }
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
+        switch (event) {
+          case "thinking":
+            useSurveyStore.setState((state) => ({
+              chatBuildMessages: state.chatBuildMessages.map((msg) =>
+                msg.id === assistantId
+                  ? {
+                      ...msg,
+                      thinkingContent:
+                        (msg.thinkingContent ?? "") + (data.chunk ?? ""),
+                    }
+                  : msg
+              ),
+            }));
+            break;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
+          case "content":
+            useSurveyStore.setState((state) => ({
+              chatBuildMessages: state.chatBuildMessages.map((msg) =>
+                msg.id === assistantId
+                  ? { ...msg, content: msg.content + (data.chunk ?? "") }
+                  : msg
+              ),
+            }));
+            break;
 
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            currentEventType = line.slice(7).trim();
-          } else if (line.startsWith("data: ")) {
-            const dataStr = line.slice(6).trim();
-            let data: any;
-            try {
-              data = JSON.parse(dataStr);
-            } catch {
-              currentEventType = "";
-              continue;
+          case "complete":
+            updateChatBuildMessage(assistantId, { status: "done" });
+            if (data.app_json) {
+              replaceEntireAppJson(data.app_json as AppJsonV2);
             }
+            break;
 
-            switch (currentEventType) {
-              case "thinking":
-                useSurveyStore.setState((state) => ({
-                  chatBuildMessages: state.chatBuildMessages.map((msg) =>
-                    msg.id === assistantId
-                      ? {
-                          ...msg,
-                          thinkingContent:
-                            (msg.thinkingContent ?? "") + (data.chunk ?? ""),
-                        }
-                      : msg
-                  ),
-                }));
-                break;
+          case "refused":
+            updateChatBuildMessage(assistantId, {
+              content:
+                data.message ?? "I can only help with building microapps.",
+              status: "refused",
+              thinkingContent: undefined,
+            });
+            break;
 
-              case "content":
-                useSurveyStore.setState((state) => ({
-                  chatBuildMessages: state.chatBuildMessages.map((msg) =>
-                    msg.id === assistantId
-                      ? { ...msg, content: msg.content + (data.chunk ?? "") }
-                      : msg
-                  ),
-                }));
-                break;
-
-              case "complete":
-                updateChatBuildMessage(assistantId, { status: "done" });
-                if (data.app_json) {
-                  replaceEntireAppJson(data.app_json as AppJsonV2);
-                }
-                break;
-
-              case "refused":
-                updateChatBuildMessage(assistantId, {
-                  content:
-                    data.message ??
-                    "I can only help with building microapps.",
-                  status: "refused",
-                  thinkingContent: undefined,
-                });
-                break;
-
-              case "error":
-                updateChatBuildMessage(assistantId, {
-                  content:
-                    data.message ?? "An error occurred. Please try again.",
-                  status: "error",
-                  thinkingContent: undefined,
-                });
-                break;
-            }
-            currentEventType = "";
-          }
+          case "error":
+            updateChatBuildMessage(assistantId, {
+              content:
+                data.message ?? "An error occurred. Please try again.",
+              status: "error",
+              thinkingContent: undefined,
+            });
+            break;
+          default:
+            break;
         }
       }
     } catch (err: any) {

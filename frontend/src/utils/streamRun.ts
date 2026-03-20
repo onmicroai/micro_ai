@@ -10,6 +10,9 @@
  *   });
  */
 
+import { authorizedFetch } from "./authorizedFetch";
+import { readSseResponse } from "./readSseStream";
+
 export interface StreamCallbacks {
   onChunk: (text: string) => void;
   onDone?: (meta?: unknown) => void;
@@ -46,12 +49,11 @@ export async function streamRun(
   try {
     const endpoint = options?.endpoint ?? getEndpoint(userId);
 
-    const response = await fetch(endpoint, {
+    const response = await authorizedFetch(endpoint, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      credentials: "include",
       body: JSON.stringify(payload),
     });
 
@@ -59,37 +61,13 @@ export async function streamRun(
       throw new Error(`Request failed (${response.status})`);
     }
 
-    // Check if response is streaming (SSE) or JSON
-    const contentType = response.headers.get('content-type');
-    if (!contentType?.includes('text/event-stream')) {
+    const contentType = response.headers.get("content-type");
+    if (!contentType?.includes("text/event-stream")) {
       return response;
     }
 
-    if (!response.body) {
-      throw new Error(`Stream response missing body`);
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = "";
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-
-      // Process complete SSE event blocks (\n\n delimiter)
-      let idx;
-      while ((idx = buffer.indexOf("\n\n")) !== -1) {
-        const rawEvent = buffer.slice(0, idx); // keep exact spacing
-        buffer = buffer.slice(idx + 2); // remove delimiter but keep rest
-        handleEvent(rawEvent, onChunk, onDone, onScore);
-      }
-    }
-
-    // Drain any remaining buffered event (rare)
-    if (buffer.trim()) {
-      handleEvent(buffer.trim(), onChunk, onDone, onScore);
+    for await (const { event, data } of readSseResponse(response)) {
+      dispatchStreamRunEvent(event, data, onChunk, onDone, onScore);
     }
 
     onDone?.();
@@ -101,28 +79,13 @@ export async function streamRun(
   }
 }
 
-function handleEvent(
-  raw: string,
+function dispatchStreamRunEvent(
+  eventType: string,
+  data: string,
   onChunk: (t: string) => void,
   onDone?: (meta?: unknown) => void,
   onScore?: (scoreData: ScoreData) => void
 ) {
-  // Split by newline, strip leading prefixes
-  const lines = raw.split(/\n/);
-  let eventType = "message";
-  const dataLines: string[] = [];
-
-  for (const l of lines) {
-    if (l.startsWith("event:")) {
-      eventType = l.slice(6).trim();
-    } else if (l.startsWith("data:")) {
-      // Preserve leading spaces exactly as sent
-      dataLines.push(l.slice(5));
-    }
-  }
-
-  const data = dataLines.join("\n");
-
   if (eventType === "done") {
     if (data !== "") {
       try {
@@ -143,15 +106,13 @@ function handleEvent(
       }
     }
   } else if (eventType === "message" || eventType === "") {
-    // Regular data chunk
     if (data !== "") {
       try {
         const decodedChunk = JSON.parse(data);
         onChunk(decodedChunk);
-      } catch (e) {
-        // Fallback for non-JSON data
+      } catch {
         onChunk(data);
       }
     }
   }
-} 
+}
