@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import LogoIcon from "@/img/logos/small-logo.png";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/select";
 import { cn } from "@/utils/cn";
 import { CirclePlus } from "lucide-react";
 
@@ -24,26 +33,59 @@ export default function DashboardHeader({
   onCreateApp,
   isCreatingApp = false,
 }: DashboardHeaderProps) {
+  const router = useRouter();
+
+  const handlePrivacyChange = (value: string) => {
+    router.push(value === "all" ? "/dashboard" : `/dashboard/${value}`);
+  };
+
   return (
     <header className="flex h-16 w-full min-w-0 shrink-0 items-center gap-x-4 bg-white sm:gap-x-6 dark:bg-gray-900">
-      {/* Logo */}
+      {/* Logo - icon on mobile, full logo on desktop */}
       <div className="flex shrink-0">
-        <Link href="/dashboard">
+        <Link href="/dashboard" className="flex items-center">
+          <Image
+            src={LogoIcon}
+            alt="OnMicro.AI"
+            width={36}
+            height={36}
+            className="h-9 w-9 lg:hidden"
+            priority
+          />
           <Image
             src={Logo}
             alt="OnMicro.AI"
             width={140}
             height={36}
-            className="h-5 w-auto"
+            className="h-5 w-auto hidden lg:block"
             priority
           />
         </Link>
       </div>
 
-      {/* Privacy filter - segmented control (center) */}
-      <div className="flex flex-1 justify-center overflow-x-auto">
+      {/* Privacy filter - segmented control on desktop, dropdown on mobile */}
+      <div className="flex flex-1 justify-center overflow-x-auto min-w-0">
+        {/* Mobile: custom select dropdown */}
+        <div className="md:hidden w-full max-w-[140px]">
+          <Select value={activeTab} onValueChange={handlePrivacyChange}>
+            <SelectTrigger
+              className="h-9 bg-white dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+              aria-label="Apps privacy filter"
+            >
+              <SelectValue placeholder="Filter apps" />
+            </SelectTrigger>
+            <SelectContent className="bg-white dark:bg-gray-800">
+              {PRIVACY_TABS.map((tab) => (
+                <SelectItem key={tab.value} value={tab.value}>
+                  {tab.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {/* Desktop: segmented control */}
         <nav
-          className="inline-flex shrink-0 rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
+          className="hidden md:inline-flex shrink-0 rounded-lg bg-gray-100 p-1 dark:bg-gray-800"
           aria-label="Apps privacy filter"
         >
           {PRIVACY_TABS.map((tab) => {
@@ -69,20 +111,23 @@ export default function DashboardHeader({
         </nav>
       </div>
 
-      {/* Add new app button */}
+      {/* Add new app button - icon only on mobile */}
       <div className="flex shrink-0">
         <button
           onClick={onCreateApp}
           disabled={isCreatingApp}
+          title={isCreatingApp ? "Creating..." : "Add new app"}
           className={cn(
-            "inline-flex items-center gap-x-2 rounded-lg bg-primary px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors",
+            "inline-flex items-center justify-center gap-x-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors md:px-6",
             isCreatingApp
               ? "cursor-not-allowed opacity-50"
               : "hover:bg-primary-600"
           )}
         >
-          <CirclePlus />
-          {isCreatingApp ? "Creating..." : "Add new app"}
+          <CirclePlus className="h-5 w-5 shrink-0" />
+          <span className="hidden md:inline">
+            {isCreatingApp ? "Creating..." : "Add new app"}
+          </span>
         </button>
       </div>
     </header>
