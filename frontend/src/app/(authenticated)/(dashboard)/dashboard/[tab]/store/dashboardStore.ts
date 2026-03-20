@@ -634,15 +634,31 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     );
     const newSubsetIds = reordered.map((a) => a.id);
 
-    let previousGlobal: number[] | null = null;
-    let previousCollection: number[] | null = null;
-    let mergedGlobal: number[] | null = null;
-
     if (listScope.kind === "collection") {
       if (collectionOrderForId !== listScope.id) return;
-      const cur = get().collectionDashboardOrderIds;
-      previousCollection = cur ? [...cur] : null;
+
+      const prevOrder = collectionDashboardOrderIds;
       set({ collectionDashboardOrderIds: newSubsetIds });
+
+      try {
+        await api.put(
+          `/api/microapps/me/collection/${listScope.id}/app-order/`,
+          { ordered_ids: newSubsetIds }
+        );
+      } catch (error: any) {
+        set({ collectionDashboardOrderIds: prevOrder });
+        const errorMessage =
+          error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message;
+        toast.error(
+          "Could not save app order: " +
+            (typeof errorMessage === "string"
+              ? errorMessage
+              : "Please try again."),
+          { theme: "colored" }
+        );
+      }
     } else {
       const accessibleIds = [...apps.map((a) => a.id)].sort((a, b) => a - b);
       const accessibleSet = new Set(accessibleIds);
@@ -663,40 +679,33 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         baseOrder = accessibleIds;
       }
       const subsetIds = new Set(sortedVisible.map((a) => a.id));
-      mergedGlobal = mergeSubsetReorder(baseOrder, subsetIds, newSubsetIds);
-      const cur = get().globalDashboardOrderIds;
-      previousGlobal = cur ? [...cur] : null;
-      set({ globalDashboardOrderIds: mergedGlobal });
-    }
-
-    try {
-      if (listScope.kind === "collection") {
-        await api.put(
-          `/api/microapps/me/collection/${listScope.id}/app-order/`,
-          { ordered_ids: newSubsetIds }
-        );
-      } else if (mergedGlobal) {
-        await api.put("/api/microapps/me/dashboard-app-order/", {
-          ordered_ids: mergedGlobal,
-        });
-      }
-    } catch (error: any) {
-      if (listScope.kind === "collection") {
-        set({ collectionDashboardOrderIds: previousCollection });
-      } else {
-        set({ globalDashboardOrderIds: previousGlobal });
-      }
-      const errorMessage =
-        error.response?.data?.error ||
-        error.response?.data?.message ||
-        error.message;
-      toast.error(
-        "Could not save app order: " +
-          (typeof errorMessage === "string"
-            ? errorMessage
-            : "Please try again."),
-        { theme: "colored" }
+      const merged = mergeSubsetReorder(
+        baseOrder,
+        subsetIds,
+        newSubsetIds
       );
+
+      const prevOrder = globalDashboardOrderIds;
+      set({ globalDashboardOrderIds: merged });
+
+      try {
+        await api.put("/api/microapps/me/dashboard-app-order/", {
+          ordered_ids: merged,
+        });
+      } catch (error: any) {
+        set({ globalDashboardOrderIds: prevOrder });
+        const errorMessage =
+          error.response?.data?.error ||
+          error.response?.data?.message ||
+          error.message;
+        toast.error(
+          "Could not save app order: " +
+            (typeof errorMessage === "string"
+              ? errorMessage
+              : "Please try again."),
+          { theme: "colored" }
+        );
+      }
     }
   },
 

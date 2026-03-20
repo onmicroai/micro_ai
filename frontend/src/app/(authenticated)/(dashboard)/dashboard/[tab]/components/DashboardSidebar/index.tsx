@@ -421,7 +421,7 @@ export default function DashboardSidebar({
                               </Menu>
                             </button>
                           </div>
-                          {dropProvided.placeholder}
+                          <div style={{ display: 'none' }}>{dropProvided.placeholder}</div>
                         </li>
                       )}
                     </Droppable>
