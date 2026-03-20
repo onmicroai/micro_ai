@@ -25,16 +25,17 @@ interface DashboardStore {
    fetchDefaultModel: (signal?: AbortSignal) => Promise<void>;
    createCollection: () => Promise<void>;
    updateCollectionName: (collectionId: number, newName: string) => Promise<void>;
+   deleteCollection: (collectionId: number) => Promise<void>;
    countAppPrivacyTypes: (apps: AppSerialized[]) => void;
    fetchApps: (collectionId: number, signal?: AbortSignal) => Promise<void>;
    fetchAllApps: (signal?: AbortSignal) => Promise<void>;
-   createApp: (collectionId: number) => Promise<string | null>;
+   createApp: (collectionId: number, options?: { title?: string; privacy?: string }) => Promise<string | null>;
    cloneApp: (appId: number, collectionId?: number) => Promise<void>;
    deleteApp: (appId: number) => void;
    updateAppPrivacy: (appId: number, privacy: string) => void;
    appSerializer: (app: AppRaw | AppRaw[]) => AppSerialized | AppSerialized[];
    setActiveCollectionId: (collectionId: number | null) => void;
-   handleCreateApp: (collectionId: number) => Promise<string | null>;
+   handleCreateApp: (collectionId: number, options?: { title?: string; privacy?: string }) => Promise<string | null>;
    reset: () => void;
 }
 
@@ -166,6 +167,28 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    },
 
    /**
+    * Deletes a collection.
+    * @param {number} collectionId - The ID of the collection to delete.
+    */
+   deleteCollection: async (collectionId: number) => {
+      const api = axiosInstance();
+      const { activeCollectionId } = get();
+      try {
+         await api.delete(`/api/collection/${collectionId}`);
+         set((state) => ({
+            collections: state.collections.filter((c) => c.id !== collectionId),
+            collectionCount: Math.max(0, state.collectionCount - 1),
+            activeCollectionId: activeCollectionId === collectionId ? null : activeCollectionId,
+         }));
+         toast.success("Collection deleted successfully", { theme: "colored" });
+      } catch (error: any) {
+         const errorResponse = error?.response?.data || {};
+         const errorMessage = errorResponse.error || errorResponse.message || error.message;
+         toast.error("Failed to delete collection: " + errorMessage, { theme: "colored" });
+      }
+   },
+
+   /**
     * Counts the privacy types of the apps in the collection.
     * @param {App[]} apps - The apps to count.
     */
@@ -224,6 +247,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             appJson: serializedApp.app_json,
             collectionId: serializedApp.collection_id,
             role: serializedApp.role ?? 'owner',
+            stats: serializedApp.stats,
          };
       };
 
@@ -300,26 +324,32 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    /**
     * Creates a new app in the specified collection.
     * @param {number} collectionId - The ID of the collection to create the app in.
+    * @param {Object} [options] - Optional overrides for title and privacy.
     * @returns {Promise<string | null>} - The hash ID of the new app or null if creation fails.
     */
-   createApp: async (collectionId: number): Promise<string | null> => {
+   createApp: async (
+      collectionId: number,
+      options?: { title?: string; privacy?: string }
+   ): Promise<string | null> => {
       const api = axiosInstance();
       set({ appLoading: true });
-      
-      try {
-         const nextAppNumber = get().appsCount + 1;
-         const nextAppName = "App " + nextAppNumber;
 
+      const nextAppNumber = get().appsCount + 1;
+      const appName = options?.title?.trim() || `App ${nextAppNumber}`;
+      const privacySetting = options?.privacy || "private";
+
+      try {
          const defaultAppDetails = {
-            title: nextAppName,
+            title: appName,
             type: "Private",
             copyAllowed: true,
+            privacy: privacySetting,
             // Backend stores this as a string; frontend owns schema.
             // New apps start with V2 (no phases) so we don't rely on phase defaults.
             app_json: {
-               title: nextAppName,
+               title: appName,
                description: "",
-               privacySettings: "private",
+               privacySettings: privacySetting,
                clonable: true,
                attachedFiles: [],
                aiConfig: {
@@ -442,8 +472,11 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       });
    },
 
-   handleCreateApp: async (collectionId: number) => {
-      const newAppHashId = await get().createApp(collectionId);
+   handleCreateApp: async (
+      collectionId: number,
+      options?: { title?: string; privacy?: string }
+   ) => {
+      const newAppHashId = await get().createApp(collectionId, options);
       if (newAppHashId) {
          window.location.href = `/app/edit/${newAppHashId}`;
       }
