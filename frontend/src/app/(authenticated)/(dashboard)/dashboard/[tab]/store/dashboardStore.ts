@@ -2,6 +2,13 @@ import { create } from 'zustand';
 import { Collection, AppSerialized, AppRaw } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
 import { toast } from 'react-toastify';
+
+/** Coalesces concurrent cloneApp calls for the same app/collection into one request. */
+const cloneAppInFlight = new Map<string, Promise<void>>();
+
+function cloneRequestKey(appId: number, collectionId?: number) {
+   return `${appId}:${collectionId ?? 'default'}`;
+}
 interface DashboardStore {
    // State
    collections: Collection[];
@@ -360,31 +367,44 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     * @param {number} [collectionId] - Optional ID of the collection to clone the app to.
     */
    cloneApp: async (appId: number, collectionId?: number) => {
-      set({ appLoading: true });
-      const api = axiosInstance();
-      try {
-         // Use simpler URL if no collection ID provided
-         const url = collectionId ? `/api/microapps/${appId}/${collectionId}/clone` : `/api/microapps/${appId}/clone`;
-         const response = await api.post(url);
-         const data = response?.data?.data;
-         
-         if (data !== undefined) {
-            const serializedData = get().appSerializer(data) as AppSerialized;
-            set(state => ({ 
-               apps: [...state.apps, serializedData],
-               appsCount: state.appsCount + 1 
-            }));
-            get().countAppPrivacyTypes([serializedData]);
-            
-            // Redirect to the new app
-            window.location.href = `/app/${serializedData.hashId}`;
+      const key = cloneRequestKey(appId, collectionId);
+      const existing = cloneAppInFlight.get(key);
+      if (existing) {
+         await existing;
+         return;
+      }
+
+      const promise = (async () => {
+         set({ appLoading: true });
+         const api = axiosInstance();
+         try {
+            const url = collectionId ? `/api/microapps/${appId}/${collectionId}/clone` : `/api/microapps/${appId}/clone`;
+            const response = await api.post(url);
+            const data = response?.data?.data;
+
+            if (data !== undefined) {
+               const serializedData = get().appSerializer(data) as AppSerialized;
+               set(state => ({
+                  apps: [...state.apps, serializedData],
+                  appsCount: state.appsCount + 1
+               }));
+               get().countAppPrivacyTypes([serializedData]);
+               window.location.href = `/app/${serializedData.hashId}`;
+            }
+         } catch (error: any) {
+            const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
+            toast.error("Failed to clone app: " + errorMessage, { theme: "colored" });
+         } finally {
+            set({ appLoading: false });
          }
-         set({ appLoading: false });
-      } catch (error: any) {
-         const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message;
-         toast.error("Failed to clone app: " + errorMessage, { theme: "colored" });
-         set({ appLoading: false });
-      } 
+      })();
+
+      cloneAppInFlight.set(key, promise);
+      try {
+         await promise;
+      } finally {
+         cloneAppInFlight.delete(key);
+      }
    },
 
    /**
