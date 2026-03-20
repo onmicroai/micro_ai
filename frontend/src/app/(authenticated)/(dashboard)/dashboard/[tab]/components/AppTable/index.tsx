@@ -11,7 +11,10 @@ import { toast } from "react-toastify";
 import { useUserStore } from "@/store/userStore";
 import ShareModal from "../ShareModal";
 import Modal from "../Modal";
-import { AppSerialized } from "@/app/(authenticated)/(dashboard)/types";
+import {
+  AppSerialized,
+  AppStats,
+} from "@/app/(authenticated)/(dashboard)/types";
 import { cn } from "@/utils/cn";
 import {
   ChartLine,
@@ -91,14 +94,6 @@ interface AppTableProps {
   activeTab: string;
 }
 
-/** Placeholder metrics - replace with real API when available */
-const PLACEHOLDER_METRICS = {
-  totalUsage: 0,
-  uniqueUsers: 0,
-  totalCost: 0,
-  avgCostPerUsage: 0,
-};
-
 /**
  * AppTable component - Card layout for apps with filtering
  * Default: privacy badge visible. On hover: title turns blue, action icons appear.
@@ -107,6 +102,7 @@ const AppTable: React.FC<AppTableProps> = ({
   activeCollectionId,
   activeTab,
 }) => {
+  const api = axiosInstance();
   const { apps, appLoading, fetchApps, fetchAllApps, cloneApp, deleteApp } =
     useDashboardStore();
   const { user } = useUserStore();
@@ -115,7 +111,6 @@ const AppTable: React.FC<AppTableProps> = ({
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppSerialized | null>(null);
-  const api = axiosInstance();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -164,18 +159,20 @@ const AppTable: React.FC<AppTableProps> = ({
     }
   };
 
-  const formatMetrics = () => {
-    const { totalUsage, uniqueUsers, totalCost, avgCostPerUsage } =
-      PLACEHOLDER_METRICS;
+  const formatMetrics = (metrics: AppStats | undefined) => {
+    const totalUsage = metrics?.sessions ?? 0;
+    const uniqueUsers = metrics?.unique_users ?? 0;
+    const totalCost = metrics?.total_credits ?? 0;
+    const avgCostPerUsage = metrics?.avg_credits_session ?? 0;
 
     return (
-      <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <span>{`Total usage: ${totalUsage}`}</span>
-        <span>▪</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
         <span>{`Unique users: ${uniqueUsers}`}</span>
-        <span>▪</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
         <span>{`Total cost (Credits): ${totalCost}`}</span>
-        <span>▪</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
         <span>{`Avg. cost per usage (Credits): ${avgCostPerUsage}`}</span>
       </div>
     );
@@ -415,7 +412,9 @@ const AppTable: React.FC<AppTableProps> = ({
                 )}
 
                 {/* Metrics line */}
-                <p className="mt-5 text-sm text-gray-400">{formatMetrics()}</p>
+                <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+                  {formatMetrics(app.stats)}
+                </p>
               </div>
 
               {/* Right: Privacy badge + action icons (under badge on hover) */}

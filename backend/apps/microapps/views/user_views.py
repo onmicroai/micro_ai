@@ -17,6 +17,7 @@ from apps.collection.models import Collection, CollectionUserJoin
 from apps.collection.serializer import CollectionMicroappSerializer
 from apps.users.models import CustomUser
 from .mixins import handle_exception, UserPermissionMixin
+from .analytics_views import get_stats_for_app_ids
 
 
 @extend_schema_view(
@@ -116,16 +117,21 @@ class UserApps(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get user's microapps with their role."""
+        """Get user's microapps with their role and stats."""
         try:
             current_user = request.user.id
             joins = MicroAppUserJoin.objects.filter(
                 user_id=current_user, is_archived=False
             ).select_related('ma_id')
+            app_ids = [join.ma_id.id for join in joins]
+            stats_by_id = get_stats_for_app_ids(app_ids)
             result = []
             for join in joins:
                 app_data = MicroAppSerializer(join.ma_id).data
                 app_data['role'] = join.role
+                app_data['stats'] = stats_by_id.get(join.ma_id.id, {
+                    'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0
+                })
                 result.append(app_data)
             return Response(
                 {"data": result, "status": status.HTTP_200_OK},

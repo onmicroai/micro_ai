@@ -240,6 +240,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
             appJson: serializedApp.app_json,
             collectionId: serializedApp.collection_id,
             role: serializedApp.role ?? 'owner',
+            stats: serializedApp.stats,
          };
       };
 

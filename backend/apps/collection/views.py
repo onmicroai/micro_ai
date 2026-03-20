@@ -5,8 +5,9 @@ import logging as log
 from rest_framework.permissions import IsAuthenticated
 from apps.collection.models import Collection, CollectionMaJoin, CollectionUserJoin
 from .serializer import CollectionSerializer, CollectionMicroappSerializer, CollectionUserSerializer, CollectionMicroAppSwaggerGetSerializer
-from apps.microapps.models import Microapp
+from apps.microapps.models import Microapp, MicroAppUserJoin
 from apps.microapps.serializer import MicroAppSerializer
+from apps.microapps.views.analytics_views import get_stats_for_app_ids
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import IsCollectionAdmin
@@ -240,12 +241,23 @@ class UserCollectionMicroAppsList(APIView):
                 "ma_id", flat=True
             )
 
-            # Filter out micro-apps created by the current user and not archived
+            # Filter out micro-apps where user has access and not archived
             collection_ma = Microapp.objects.filter(id__in=ma_ids, microappuserjoin__user_id=current_user, is_archived=False)
-            serializer = MicroAppSerializer(collection_ma, many=True)
+            app_ids = list(collection_ma.values_list('id', flat=True))
+            stats_by_id = get_stats_for_app_ids(app_ids)
+            role_by_id = dict(
+                MicroAppUserJoin.objects.filter(
+                    ma_id__in=app_ids, user_id=current_user
+                ).values_list('ma_id', 'role')
+            )
+            data = MicroAppSerializer(collection_ma, many=True).data
+            default_stats = {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0}
+            for item in data:
+                item['stats'] = stats_by_id.get(item['id'], default_stats)
+                item['role'] = role_by_id.get(item['id'], 'owner')
 
             return Response(
-                {"data": serializer.data, "status": status.HTTP_200_OK},
+                {"data": data, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
