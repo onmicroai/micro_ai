@@ -7,10 +7,10 @@ import {
    FaFloppyDisk,
    FaCheck,
    FaTrashCan,
-   FaLink,
    FaCode,
    FaGlobe,
    FaLock,
+   FaUserGroup,
 } from 'react-icons/fa6';
 import { ShareModalProps } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
@@ -48,7 +48,15 @@ function formatRetryAfter(seconds: number): string {
    return `${hours} hour${hours === 1 ? '' : 's'} ${remainingMinutes} minute${remainingMinutes === 1 ? '' : 's'}`;
 }
 
-const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, isOwner }) => {
+const ShareModal: React.FC<ShareModalProps> = ({
+   app,
+   showModal,
+   setShowModal,
+   isOwner,
+   variant = 'modal',
+   onPrivacySaved,
+}) => {
+   const isInline = variant === 'inline';
    const hashId = app.hashId;
    const { updateAppPrivacy } = useDashboardStore();
 
@@ -92,6 +100,16 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
 
    const getShareUrl = () => `${window.location.origin}/app/${hashId}`;
    const getEmbedUrl = () => `${window.location.origin}/app/embed/${hashId}`;
+   const getEmbedSnippet = () =>
+      `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`;
+
+   const normalizedPrivacy = (() => {
+      const p = currentPrivacy.toLowerCase();
+      if (p === 'public' || p === 'private' || p === 'restricted') return p;
+      return 'private';
+   })() as 'public' | 'private' | 'restricted';
+
+
 
    // ── Copy handlers ──────────────────────────────────────────────────────────
    const handleCopyLink = () => {
@@ -101,15 +119,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
    };
 
    const handleCopyEmbed = () => {
-      const code = `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`;
-      navigator.clipboard.writeText(code);
+      navigator.clipboard.writeText(getEmbedSnippet());
       setCopiedEmbed(true);
       setTimeout(() => setCopiedEmbed(false), 2000);
    };
 
    // ── Privacy ────────────────────────────────────────────────────────────────
    const handlePrivacyChange = async (newPrivacy: string) => {
-      if (newPrivacy === currentPrivacy || privacySaving) return;
+      if (newPrivacy === currentPrivacy.toLowerCase() || privacySaving) return;
       const previous = currentPrivacy;
       setCurrentPrivacy(newPrivacy);
       setPrivacySaving(true);
@@ -118,6 +135,7 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
          const api = axiosInstance();
          await api.patch(`/api/microapps/${app.id}`, { privacy: newPrivacy });
          updateAppPrivacy(app.id, newPrivacy);
+         onPrivacySaved?.(newPrivacy);
          setPrivacySaved(true);
          if (privacySavedTimerRef.current) clearTimeout(privacySavedTimerRef.current);
          privacySavedTimerRef.current = setTimeout(() => setPrivacySaved(false), 2500);
@@ -282,6 +300,11 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
    useEffect(() => { setShowShareMenu(showModal); }, [showModal]);
 
    useEffect(() => {
+      setCurrentPrivacy(app.privacy);
+   }, [app.privacy]);
+
+   useEffect(() => {
+      if (isInline) return;
       const onClickOutside = (e: MouseEvent) => {
          if (shareMenuRef.current && !shareMenuRef.current.contains(e.target as Node)) closeModal();
       };
@@ -293,13 +316,20 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
          document.removeEventListener('keydown', onEsc);
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-   }, []);
+   }, [isInline]);
 
    useEffect(() => () => {
       if (privacySavedTimerRef.current) clearTimeout(privacySavedTimerRef.current);
    }, []);
 
    if (!showShareMenu) return null;
+
+   const SharePrivacyIcon =
+      normalizedPrivacy === 'public'
+         ? FaGlobe
+         : normalizedPrivacy === 'restricted'
+            ? FaUserGroup
+            : FaLock;
 
    // ── Helpers ───────────────────────────────────────────────────────────────
    const tabBtn = (tab: ActiveTab, label: string) => (
@@ -326,11 +356,14 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
       <div className="border-t border-gray-100 dark:border-gray-800" />
    );
 
-   return (
-      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+   const shellClassName = isInline
+      ? 'w-full max-w-md mx-auto flex flex-col min-h-0 max-h-[min(90vh,calc(100vh-8rem))]'
+      : 'bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col';
+
+   const inner = (
          <div
             ref={shareMenuRef}
-            className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] flex flex-col"
+            className={shellClassName}
          >
             {/* ── Header ────────────────────────────────────────────────── */}
             <div className="flex items-center gap-4 px-6 pt-5 border-b border-gray-100 dark:border-gray-800">
@@ -338,12 +371,15 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                   {tabBtn('share', 'Share')}
                   {tabBtn('lti', 'LTI')}
                </div>
-               <button
-                  onClick={closeModal}
-                  className="mb-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
-               >
-                  <X size={13} />
-               </button>
+               {!isInline && (
+                  <button
+                     type="button"
+                     onClick={closeModal}
+                     className="mb-3 p-1.5 rounded-md text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 transition-colors"
+                  >
+                     <X size={13} />
+                  </button>
+               )}
             </div>
 
             {/* ── Scrollable body ────────────────────────────────────────── */}
@@ -352,11 +388,72 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                {/* ══ SHARE TAB ══════════════════════════════════════════════ */}
                {activeTab === 'share' && (
                   <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                     
 
-                     {/* Visibility — owner only */}
+                     {/* Link + embed (top) */}
+                     <div className="px-6 py-5 space-y-3">
+                     <SectionLabel>Share Links</SectionLabel>
+                        <button
+                           type="button"
+                           onClick={handleCopyLink}
+                           className="w-full text-left rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 px-3 py-3 hover:bg-gray-100/70 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                        >
+                           <div className="flex items-start justify-between gap-3 mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                 <SharePrivacyIcon size={13} className="text-gray-400 shrink-0" aria-hidden />
+                                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Direct link</span>
+                              </div>
+                              <span className={cn(
+                                 'shrink-0 text-xs font-semibold',
+                                 copiedLink ? 'text-primary' : 'text-primary',
+                              )}>
+                                 {copiedLink ? (
+                                    <span className="flex items-center gap-1">
+                                       <FaCheck size={11} /> Copied!
+                                    </span>
+                                 ) : (
+                                    'Copy direct link'
+                                 )}
+                              </span>
+                           </div>
+                           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed truncate font-mono pl-5">
+                              {getShareUrl()}
+                           </p>
+                        </button>
+
+                        <button
+                           type="button"
+                           onClick={handleCopyEmbed}
+                           className="w-full text-left rounded-lg border border-dashed border-gray-200 dark:border-gray-700 bg-gray-50/50 dark:bg-gray-900/30 px-3 py-3 hover:bg-gray-100/70 dark:hover:bg-gray-800/50 transition-colors cursor-pointer"
+                        >
+                           <div className="flex items-start justify-between gap-3 mb-1.5">
+                              <div className="flex items-center gap-2 min-w-0">
+                                 <FaCode size={13} className="text-gray-400 shrink-0" aria-hidden />
+                                 <span className="text-sm font-medium text-gray-800 dark:text-gray-200">Embed</span>
+                              </div>
+                              <span className={cn(
+                                 'shrink-0 text-xs font-semibold',
+                                 copiedEmbed ? 'text-primary' : 'text-primary',
+                              )}>
+                                 {copiedEmbed ? (
+                                    <span className="flex items-center gap-1">
+                                       <FaCheck size={11} /> Copied iframe code
+                                    </span>
+                                 ) : (
+                                    'Copy iframe code'
+                                 )}
+                              </span>
+                           </div>
+                           <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed pl-5">
+                              Paste an iframe snippet into any webpage to embed this app.
+                           </p>
+                        </button>
+                     </div>
+
+                     {/* Visibility */}
                         <div className="px-6 py-5">
                            <div className="flex items-center justify-between mb-3">
-                              <SectionLabel>Visibility</SectionLabel>
+                              <SectionLabel>Who can access</SectionLabel>
                               <span className={cn(
                                  'text-xs font-medium transition-opacity',
                                  privacySaving ? 'text-gray-400 opacity-100' :
@@ -366,37 +463,37 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                               </span>
                            </div>
 
-                           <div className="grid grid-cols-2 gap-2">
+                           <div className="flex flex-col gap-1.5">
                               {([
-                                 { value: 'private', label: 'Private', icon: FaLock, description: 'Only you and admins' },
+                                 { value: 'private', label: 'Private', icon: FaLock, description: 'You and admins only' },
                                  { value: 'public',  label: 'Public',  icon: FaGlobe, description: 'Anyone with the link' },
+                                 { value: 'restricted', label: 'Restricted', icon: FaUserGroup, description: 'Site-specific Embedding Only' },
                               ] as const).map(({ value, label, icon: Icon, description }) => {
-                                 const active = currentPrivacy === value;
+                                 const active = currentPrivacy.toLowerCase() === value;
                                  return (
                                     <button
                                        key={value}
+                                       type="button"
                                        onClick={() => handlePrivacyChange(value)}
                                        disabled={privacySaving}
                                        className={cn(
-                                          'flex flex-col items-start gap-1 rounded-lg border-2 px-4 py-3 text-left transition-all',
+                                          'flex items-center gap-2.5 rounded-lg border-2 px-3 py-2 text-left transition-all w-full',
                                           active
                                              ? 'border-primary bg-primary/5 dark:bg-primary/10'
                                              : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600',
                                           privacySaving && 'cursor-not-allowed opacity-60',
                                        )}
                                     >
-                                       <div className="flex items-center gap-2">
-                                          <Icon
-                                             size={13}
-                                             className={active ? 'text-primary' : 'text-gray-400'}
-                                          />
-                                          <span className={cn(
-                                             'text-sm font-semibold',
-                                             active ? 'text-primary' : 'text-gray-700 dark:text-gray-300',
-                                          )}>
-                                             {label}
-                                          </span>
-                                       </div>
+                                       <Icon
+                                          size={13}
+                                          className={cn('shrink-0', active ? 'text-primary' : 'text-gray-400')}
+                                       />
+                                       <span className={cn(
+                                          'text-sm font-semibold',
+                                          active ? 'text-primary' : 'text-gray-700 dark:text-gray-300',
+                                       )}>
+                                          {label}
+                                       </span>
                                        <span className="text-xs text-gray-500 dark:text-gray-400">
                                           {description}
                                        </span>
@@ -492,52 +589,6 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                               </ul>
                            )}
                         </div>
-
-                     {/* Links — always visible */}
-                     <div className="px-6 py-5">
-                        <SectionLabel>Get link</SectionLabel>
-                        <div className="space-y-2">
-                           {/* Direct URL */}
-                           <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5">
-                              <FaLink size={12} className="text-gray-400 flex-shrink-0" />
-                              <span className="flex-1 text-sm text-gray-600 dark:text-gray-400 truncate font-mono">
-                                 {getShareUrl()}
-                              </span>
-                              <button
-                                 onClick={handleCopyLink}
-                                 className={cn(
-                                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors flex-shrink-0',
-                                    copiedLink
-                                       ? 'bg-primary/10 text-primary'
-                                       : 'text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800',
-                                 )}
-                              >
-                                 {copiedLink ? <FaCheck size={10} /> : <Copy size={10} />}
-                                 {copiedLink ? 'Copied!' : 'Copy'}
-                              </button>
-                           </div>
-
-                           {/* Embed code */}
-                           <div className="flex items-center gap-3 rounded-lg border border-gray-200 dark:border-gray-700 px-3 py-2.5">
-                              <FaCode size={12} className="text-gray-400 flex-shrink-0" />
-                              <span className="flex-1 text-xs text-gray-500 dark:text-gray-400 truncate font-mono">
-                                 {`<iframe src="${getEmbedUrl()}" …>`}
-                              </span>
-                              <button
-                                 onClick={handleCopyEmbed}
-                                 className={cn(
-                                    'flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors flex-shrink-0',
-                                    copiedEmbed
-                                       ? 'bg-primary/10 text-primary'
-                                       : 'text-gray-500 hover:text-primary hover:bg-gray-100 dark:hover:bg-gray-800',
-                                 )}
-                              >
-                                 {copiedEmbed ? <FaCheck size={10} /> : <Copy size={10} />}
-                                 {copiedEmbed ? 'Copied!' : 'Copy'}
-                              </button>
-                           </div>
-                        </div>
-                     </div>
                   </div>
                )}
 
@@ -670,6 +721,21 @@ const ShareModal: React.FC<ShareModalProps> = ({ app, showModal, setShowModal, i
                )}
             </div>
          </div>
+   );
+
+   if (isInline) {
+      return (
+         <div className="w-full flex justify-center py-2">
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm w-full max-w-md flex flex-col min-h-0">
+               {inner}
+            </div>
+         </div>
+      );
+   }
+
+   return (
+      <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+         {inner}
       </div>
    );
 };
