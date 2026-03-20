@@ -25,7 +25,6 @@ export default function EditLayout({
     return (
       <>
         <ToastContainer stacked position="bottom-left" hideProgressBar={true} />
-        <NavBarClientSwitch />
         <SkeletonLoader variant="app" />
       </>
     );
@@ -41,10 +40,10 @@ export default function EditLayout({
     );
   }
 
+  /* Builder (FormBuilder) provides its own header; global nav is redundant here. */
   return (
     <>
       <ToastContainer stacked position="bottom-left" hideProgressBar={true} />
-      <NavBarClientSwitch />
       {children}
     </>
   );
