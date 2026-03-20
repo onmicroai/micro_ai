@@ -167,7 +167,18 @@ const AppTable: React.FC<AppTableProps> = ({
   const formatMetrics = () => {
     const { totalUsage, uniqueUsers, totalCost, avgCostPerUsage } =
       PLACEHOLDER_METRICS;
-    return `Total usage: ${totalUsage} • Unique users: ${uniqueUsers} • Total cost (Credits): ${totalCost} • Avg. cost per usage (Credits): ${avgCostPerUsage}`;
+
+    return (
+      <div className="flex items-center gap-3">
+        <span>{`Total usage: ${totalUsage}`}</span>
+        <span>▪</span>
+        <span>{`Unique users: ${uniqueUsers}`}</span>
+        <span>▪</span>
+        <span>{`Total cost (Credits): ${totalCost}`}</span>
+        <span>▪</span>
+        <span>{`Avg. cost per usage (Credits): ${avgCostPerUsage}`}</span>
+      </div>
+    );
   };
 
   const handleCloneClick = async (app: AppSerialized) => {
@@ -382,7 +393,7 @@ const AppTable: React.FC<AppTableProps> = ({
         {filteredApps.map((app) => (
           <div
             key={app.id}
-            className="group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors hover:border-gray-300 dark:border-gray-700 dark:bg-gray-800 dark:hover:border-gray-600"
+            className="group relative rounded-lg bg-white p-5 shadow-sm transition-colors dark:bg-gray-800"
           >
             <div className="flex items-start justify-between gap-4">
               {/* Left: Title + metrics */}
@@ -404,9 +415,7 @@ const AppTable: React.FC<AppTableProps> = ({
                 )}
 
                 {/* Metrics line */}
-                <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
-                  {formatMetrics()}
-                </p>
+                <p className="mt-5 text-sm text-gray-400">{formatMetrics()}</p>
               </div>
 
               {/* Right: Privacy badge + action icons (under badge on hover) */}
