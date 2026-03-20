@@ -318,11 +318,11 @@ class MicroAppDetailsByHash(APIView, MicroAppMixin):
         try:
             snippet = self.get_microapp_by_hash(hash_id)
             if snippet and not snippet.is_archived:
-                # Check permissions if app is private
-                if snippet.privacy == "private":
-                    self.permission_classes = [IsAdminOrOwner]
-                    self.check_permissions(request)
-                    
+                # Full serializer (incl. app_json) is only for owners/admins on this
+                # authenticated endpoint — public runtime uses PublicMicroAppsByHash.
+                self.permission_classes = [IsAdminOrOwner]
+                self.check_permissions(request)
+
                 serializer = MicroAppSerializer(snippet)
                 return Response(
                     {"data": serializer.data, "status": status.HTTP_200_OK},

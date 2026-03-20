@@ -31,37 +31,31 @@ const handleApiError = (error: any) => {
 };
 
 export const useUserStore = create<UserState>((set, get) => {
-   
    /**
-    * Private function not exposed in the interface
-    * 
-    * Sets the loading state
-    * @param isLoading - The loading state to set
-    * @returns void
+    * Bumps on each profile fetch so a stale request (e.g. aborted by React Strict
+    * Mode remount) cannot clear `isLoading` while a newer fetch is in flight.
     */
+   let fetchGeneration = 0;
+
    const setLoading = (isLoading: boolean) => {
       return set({ isLoading });
    };
-   
-   /**
-    * Private function not exposed in the interface
-    * 
-    * Fetches user data from the API
-    * @param signal - AbortSignal for cancelling the request
-    * @returns void
-    */
+
    const fetchUserData = async (signal?: AbortSignal) => {
+      const gen = ++fetchGeneration;
       setLoading(true);
       try {
          const accessToken = getAccessToken();
          if (!accessToken) {
-            set({ user: null, isLoading: false });
+            if (gen === fetchGeneration) {
+               set({ user: null });
+            }
             return;
          }
 
          const api = axiosInstance();
          const { data } = await api.get(`/api/auth/user/`, { signal });
-         
+
          const userData = {
             id: data.id,
             email: data.email,
@@ -72,13 +66,19 @@ export const useUserStore = create<UserState>((set, get) => {
             isBetaTester: data.is_beta_tester,
          };
 
-         set({ user: userData });
-      } catch (error: any) {
-         if (error.name !== 'CanceledError') {
-            handleApiError(error);
+         if (gen === fetchGeneration) {
+            set({ user: userData });
          }
+      } catch (error: any) {
+         const name = error?.name ?? '';
+         if (name === 'CanceledError' || name === 'AbortError') {
+            return;
+         }
+         handleApiError(error);
       } finally {
-         setLoading(false);
+         if (gen === fetchGeneration) {
+            setLoading(false);
+         }
       }
    };
    
@@ -112,4 +112,4 @@ export const useUserStore = create<UserState>((set, get) => {
        */
       reset: () => set({ user: null, isLoading: false })
    };
-}); 
+});

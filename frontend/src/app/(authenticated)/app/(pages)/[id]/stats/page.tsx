@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { checkIsOwner, checkIsAdmin } from "@/utils/checkRoles";
+import { useEffect, useRef, useState } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied";
 import DebugInformation from "@/components/DebugInformation";
@@ -16,59 +15,70 @@ import { ThumbsUp, ThumbsDown, Download } from 'lucide-react';
 import axiosInstance from "@/utils/axiosInstance";
 import * as XLSX from 'xlsx';
 import { format } from "date-fns";
-import { useUserStore } from "@/store/userStore";
+import { useMicroappAccess } from "@/hooks/useMicroappAccess";
 
 export default function StatsPage({ params }: { params: { id: string } }) {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
-  const { user } = useUserStore();
-  const userId = Number(user?.id);
   const hashId = params.id;
 
-  useEffect(() => {
+  const { shellLoading, isAuthorized } = useMicroappAccess(hashId, "edit");
+  const fetchSeq = useRef(0);
 
+  useEffect(() => {
+    if (shellLoading) {
+      return;
+    }
+    if (!isAuthorized) {
+      setDataLoading(false);
+      setStats(null);
+      setConversations([]);
+      return;
+    }
+
+    const seq = ++fetchSeq.current;
     const abortController = new AbortController();
     const signal = abortController.signal;
 
-    const fetchData = async () => {
-
-
+    const load = async () => {
+      setDataLoading(true);
       try {
-        const [ownerResult, adminResult] = await Promise.all([
-          checkIsOwner(hashId, userId, signal),
-          checkIsAdmin(hashId, userId, signal)
-        ]);
         const api = axiosInstance();
-        setIsAuthorized(ownerResult.isOwner || adminResult.isAdmin);
-
-        if (ownerResult.isOwner || adminResult.isAdmin) {
-          // Fetch both stats and conversations
-          const [statsResponse, conversationsResponse] = await Promise.all([
-            api.get(`/api/microapps/stats/run?hash_id=${hashId}`),
-            api.get(`/api/microapps/stats/conversations?hash_id=${hashId}`)
-          ]);
-          
-          setStats(statsResponse.data);
-          setConversations(conversationsResponse.data.data);
+        const [statsResponse, conversationsResponse] = await Promise.all([
+          api.get(`/api/microapps/stats/run?hash_id=${hashId}`, { signal }),
+          api.get(`/api/microapps/stats/conversations?hash_id=${hashId}`, {
+            signal,
+          }),
+        ]);
+        if (seq !== fetchSeq.current) {
+          return;
         }
-      } catch (error: any) {
-         const errorName = error?.name;
-         if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
-            console.error("Error:", error);
-         }
+        setStats(statsResponse.data);
+        setConversations(conversationsResponse.data.data);
+      } catch (error: unknown) {
+        const errorName =
+          error && typeof error === "object" && "name" in error
+            ? String((error as { name?: string }).name)
+            : "";
+        if (
+          errorName &&
+          errorName !== "AbortError" &&
+          errorName !== "CanceledError"
+        ) {
+          console.error("Error:", error);
+        }
       } finally {
-         setIsLoading(false);
+        if (seq === fetchSeq.current) {
+          setDataLoading(false);
+        }
       }
     };
 
-    if (userId) {
-      fetchData();
-    }
+    void load();
 
     return () => abortController.abort();
-  }, [hashId, userId]);
+  }, [hashId, shellLoading, isAuthorized]);
 
   const calculateSatisfactionData = () => {
     const stats_data = stats?.data[0];
@@ -94,7 +104,6 @@ export default function StatsPage({ params }: { params: { id: string } }) {
 
   const exportAllConversations = async () => {
     try {
-      // Fetch details for all conversations
       const allConversationDetails = await Promise.all(
         conversations.map(async (conv) => {
           const response = await axiosInstance().get(
@@ -108,7 +117,6 @@ export default function StatsPage({ params }: { params: { id: string } }) {
         })
       );
 
-      // Prepare data for export
       const exportData = allConversationDetails.flatMap(conversation => {
         return conversation.messages.map((message: any) => ({
           'Session ID': conversation.session_id,
@@ -124,39 +132,34 @@ export default function StatsPage({ params }: { params: { id: string } }) {
         }));
       });
 
-      // Create worksheet
       const ws = XLSX.utils.json_to_sheet(exportData);
-
-      // Create workbook
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'All Conversations');
-
-      // Generate filename
-      const fileName = `all_conversations_${hashId}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`;
-
-      // Save file
+      const fileName = `all_conversations_${hashId}_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
       XLSX.writeFile(wb, fileName);
     } catch (error) {
       console.error('Error exporting conversations:', error);
-      // You might want to add error handling UI here
     }
   };
 
-  if (isLoading) return <SkeletonLoader />;
-  if (!isAuthorized) return <AccessDenied />;
+  if (shellLoading || dataLoading) {
+    return <SkeletonLoader />;
+  }
+  if (!isAuthorized) {
+    return <AccessDenied />;
+  }
 
   const stats_data = stats?.data[0];
   const total = stats_data ? (stats_data.thumbs_up_count + stats_data.thumbs_down_count) : 0;
   const SATISFACTION_COLORS = total === 0 
-    ? ["#9CA3AF"]  // gray for no data
-    : ["#22c55e", "#ef4444"]; // green and red colors
+    ? ["#9CA3AF"]
+    : ["#22c55e", "#ef4444"];
 
   return (
     <div className="container mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold mb-8">App Statistics</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Key Metrics */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">Key Metrics</h2>
           <div className="grid grid-cols-2 gap-4">
@@ -187,7 +190,6 @@ export default function StatsPage({ params }: { params: { id: string } }) {
           </div>
         </Card>
 
-        {/* Add new Satisfaction Card */}
         <Card className="p-6">
           <h2 className="text-xl font-semibold mb-4">User Satisfaction</h2>
           <div className="h-[300px] relative">
@@ -218,7 +220,6 @@ export default function StatsPage({ params }: { params: { id: string } }) {
           </div>
         </Card>
 
-        {/* Conversations Table */}
         <Card className="p-6 col-span-2">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">Recent Conversations</h2>
@@ -294,18 +295,15 @@ export default function StatsPage({ params }: { params: { id: string } }) {
 
       </div>
 
-      {/* Debug Information */}
-      {(isAuthorized) && (
-         <DebugInformation
-            surveyJson={null}
-            currentConversation={null}
-            conversations={null}
-            answers={null}
-            base64Images={null}
-            statsData={stats}
-            conversations_json={conversations}
-         />
-      )}
+      <DebugInformation
+        surveyJson={null}
+        currentConversation={null}
+        conversations={null}
+        answers={null}
+        base64Images={null}
+        statsData={stats}
+        conversations_json={conversations}
+      />
     </div>
   );
-} 
+}
