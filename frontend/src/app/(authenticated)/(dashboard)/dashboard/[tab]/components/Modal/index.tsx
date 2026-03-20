@@ -1,113 +1,147 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
+import { createPortal } from "react-dom";
 import { FaX as X } from "react-icons/fa6";
+
+/** Optional container for dropdowns/portals inside the modal. When set, portaled content renders inside the modal DOM so click-outside works correctly. */
+export const ModalPortalContext = createContext<HTMLElement | null>(null);
+
+export function useModalPortalContainer(): HTMLElement | null {
+  return useContext(ModalPortalContext);
+}
+
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
   title: string;
-  message: string;
+  /** Simple message for confirm dialogs. Omit when using children. */
+  message?: string;
+  /** Called when Confirm is clicked. Omit when using children with custom footer. */
+  onConfirm?: () => void;
   confirmText?: string;
   cancelText?: string;
+  /** Primary variant for confirm button: danger (red) or default (primary). */
+  confirmVariant?: "danger" | "default";
+  /** Custom content. When provided, replaces message and default footer. */
+  children?: React.ReactNode;
+  /** When true (or when returns true), outside clicks do not close the modal. Use when a dropdown is open. */
+  preventCloseOnOutsideClick?: boolean | (() => boolean);
 }
 
 const Modal: React.FC<ModalProps> = ({
   isOpen,
   onClose,
-  onConfirm,
   title,
   message,
+  onConfirm,
   confirmText = "Confirm",
   cancelText = "Cancel",
+  confirmVariant = "danger",
+  children,
+  preventCloseOnOutsideClick = false,
 }) => {
   const modalRef = useRef<HTMLDivElement>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLDivElement | null>(
+    null
+  );
+  const portalContainerRef = useCallback((node: HTMLDivElement | null) => {
+    setPortalContainer(node);
+  }, []);
   const [showModal, setShowModal] = useState(isOpen);
+  const useCustomContent = children != null;
 
-  /**
-   * Method allows users to close the modal
-   */
-  const handleClose = (event: React.MouseEvent<HTMLButtonElement>) => {
-    event.preventDefault();
+  useEffect(() => {
+    setShowModal(isOpen);
+  }, [isOpen]);
+
+  const handleClose = (event?: React.MouseEvent<HTMLButtonElement>) => {
+    event?.preventDefault();
     setShowModal(false);
     onClose();
   };
 
-  // Effect to handle clicks outside the share menu and escape key
-  useEffect(() => {
-    /**
-     * Method allows users to close the modal when clicking outside the modal
-     * @param {MouseEvent} event - The event object.
-     */
-    const handleClickOutside = (event: MouseEvent) => {
-      if (
-        modalRef.current &&
-        !modalRef.current.contains(event.target as Node)
-      ) {
-        setShowModal(false);
-        onClose();
-      }
-    };
-
-    /**
-     * Method allows users to close the modal when pressing the escape key
-     * @param {KeyboardEvent} event - The event object.
-     */
-    const handleEscapeKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        setShowModal(false);
-        onClose();
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    document.addEventListener("keydown", handleEscapeKey);
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      document.removeEventListener("keydown", handleEscapeKey);
-    };
-  }, [onClose]);
-
-  if (!isOpen) {
+  if (!isOpen || showModal === false) {
     return null;
   }
 
-  if (showModal === false) {
-    return null;
-  }
+  const confirmButtonClasses =
+    confirmVariant === "danger"
+      ? "px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+      : "px-4 py-2 rounded-lg bg-primary text-white hover:bg-primary-600 transition-colors";
 
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+  const modalContent = (
+    <ModalPortalContext.Provider value={portalContainer}>
       <div
-        ref={modalRef}
-        className="bg-white rounded-lg shadow-xl w-full max-w-xl p-6 relative"
+        className="fixed inset-0 flex items-center justify-center z-[9999]"
+        style={{ backgroundColor: "rgba(0, 0, 0, 0.7)" }}
+        onClick={(e) => {
+          if (e.target !== e.currentTarget) return;
+          const shouldPrevent =
+            typeof preventCloseOnOutsideClick === "function"
+              ? preventCloseOnOutsideClick()
+              : preventCloseOnOutsideClick;
+          if (shouldPrevent) return;
+          handleClose();
+        }}
       >
-        <h2 className="text-xl font-semibold mb-4">{title}</h2>
-        <p className="text-gray-600 mb-6">{message}</p>
+        <div
+          ref={modalRef}
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-xl relative dark:text-white"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Portal container for Select dropdowns - keeps them inside modal DOM so click-outside works */}
+          <div
+            ref={portalContainerRef}
+            className="absolute inset-0 pointer-events-none z-[10001]"
+            aria-hidden
+          />
+          <h2 className="text-xl p-6 font-semibold text-gray-900 dark:text-white">
+            {title}
+          </h2>
+          <div className="w-full border-b border-gray-200" />
+          <div className="p-6">
+            {useCustomContent ? (
+              children
+            ) : (
+              <>
+                <p className="text-gray-600 dark:text-gray-300 mb-6">
+                  {message}
+                </p>
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => handleClose()}
+                    className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    {cancelText}
+                  </button>
+                  <button onClick={onConfirm} className={confirmButtonClasses}>
+                    {confirmText}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
 
-        <div className="flex justify-end space-x-3">
           <button
-            onClick={onClose}
-            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
+            onClick={() => handleClose()}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-md transition-colors"
+            aria-label="Close"
           >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-          >
-            {confirmText}
+            <X size={16} />
           </button>
         </div>
-
-        <button
-          onClick={handleClose}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
-        >
-          <X size={16} />
-        </button>
       </div>
-    </div>
+    </ModalPortalContext.Provider>
   );
+
+  if (typeof document === "undefined") return null;
+  return createPortal(modalContent, document.body);
 };
 
 export default Modal;

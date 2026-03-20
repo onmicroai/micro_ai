@@ -16,6 +16,7 @@ import UserMenuDropdown from "@/components/modules/user-menu-dropdown/UserMenuDr
 import { useDashboardStore } from "../../store/dashboardStore";
 import DashboardHeader from "../DashboardHeader";
 import Modal from "../Modal";
+import CreateAppModal from "../CreateAppModal";
 import {
   DarkTooltip,
   DarkTooltipContent,
@@ -39,7 +40,7 @@ interface DashboardSidebarProps {
   activeCollectionId: number | null;
   activeTab: string;
   appCounts: { [key: string]: number };
-  onCreateApp: () => Promise<void>;
+  onCreateApp: () => void;
   onCreateCollection: () => Promise<void>;
   updateCollectionName: (
     collectionId: number,
@@ -47,6 +48,11 @@ interface DashboardSidebarProps {
   ) => Promise<void>;
   isCreatingApp?: boolean;
   isCreatingCollection?: boolean;
+  showCreateAppModal?: boolean;
+  setShowCreateAppModal?: (show: boolean) => void;
+  onConfirmCreateApp?: (
+    values: import("../CreateAppModal").CreateAppFormValues
+  ) => void | Promise<void>;
 }
 
 export default function DashboardSidebar({
@@ -59,6 +65,9 @@ export default function DashboardSidebar({
   updateCollectionName,
   isCreatingApp = false,
   isCreatingCollection = false,
+  showCreateAppModal = false,
+  setShowCreateAppModal,
+  onConfirmCreateApp,
 }: DashboardSidebarProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [editingCollectionId, setEditingCollectionId] = useState<number | null>(
@@ -378,6 +387,18 @@ export default function DashboardSidebar({
           title="Delete Collection"
           message={`Are you sure that you want to delete "${collectionToDelete.name}"? All apps added to this collection will remain and won’t be deleted.`}
           confirmText="Delete"
+        />
+      )}
+
+      {/* Create app modal */}
+      {setShowCreateAppModal && onConfirmCreateApp && (
+        <CreateAppModal
+          isOpen={showCreateAppModal}
+          onClose={() => setShowCreateAppModal(false)}
+          onConfirm={onConfirmCreateApp}
+          collections={collections}
+          defaultCollectionId={activeCollectionId ?? collections[0]?.id ?? null}
+          isLoading={isCreatingApp}
         />
       )}
     </div>

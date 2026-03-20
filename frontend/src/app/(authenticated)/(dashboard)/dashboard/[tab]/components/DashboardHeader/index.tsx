@@ -24,7 +24,7 @@ const PRIVACY_TABS = [
 
 interface DashboardHeaderProps {
   activeTab: string;
-  onCreateApp: () => Promise<void>;
+  onCreateApp: () => void;
   isCreatingApp?: boolean;
 }
 

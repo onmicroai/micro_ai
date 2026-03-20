@@ -131,7 +131,7 @@ const AppTable: React.FC<AppTableProps> = ({
   const getPrivacyBadge = (privacy: string) => {
     const privacyLower = privacy.toLowerCase();
     const baseClasses =
-      "inline-flex items-center px-2.5 py-1 text-sm rounded-full";
+      "inline-flex items-center px-3 py-1 text-sm rounded-full";
     const colorClasses = {
       public:
         "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
@@ -166,7 +166,7 @@ const AppTable: React.FC<AppTableProps> = ({
     const avgCostPerUsage = metrics?.avg_credits_session ?? 0;
 
     return (
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pr-6">
         <span>{`Total usage: ${totalUsage}`}</span>
         <span className="text-gray-300 dark:text-gray-600">▪</span>
         <span>{`Unique users: ${uniqueUsers}`}</span>
@@ -390,7 +390,7 @@ const AppTable: React.FC<AppTableProps> = ({
         {filteredApps.map((app) => (
           <div
             key={app.id}
-            className="group relative rounded-lg bg-white p-5 shadow-sm transition-colors dark:bg-gray-800"
+            className="group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:bg-gray-800"
           >
             <div className="flex items-start justify-between gap-4">
               {/* Left: Title + metrics */}
