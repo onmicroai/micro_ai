@@ -13,7 +13,9 @@ import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
 import { BookTextIcon } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
-import AccessDenied from "@/components/access-denied"; 
+import AccessDenied from "@/components/access-denied";
+import { useUserStore } from "@/store/userStore";
+import { checkIsAdmin, checkIsOwner } from "@/utils/checkRoles";
 import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
 const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) => {
    const api = axiosInstance();
@@ -70,6 +72,24 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
             if (!appData) {
                showModal("Failed to load the microapp data.");
+               setLoading(false);
+               setIsInitialLoad(false);
+               return;
+            }
+
+            const editorUserId = useUserStore.getState().user?.id ?? null;
+            if (editorUserId === null) {
+               setIsAuthorized(false);
+               setLoading(false);
+               setIsInitialLoad(false);
+               return;
+            }
+            const [ownerResult, adminResult] = await Promise.all([
+               checkIsOwner(hashId, editorUserId, signal!),
+               checkIsAdmin(hashId, editorUserId, signal!),
+            ]);
+            if (!ownerResult.isOwner && !adminResult.isAdmin) {
+               setIsAuthorized(false);
                setLoading(false);
                setIsInitialLoad(false);
                return;
