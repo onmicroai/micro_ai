@@ -18,6 +18,7 @@ interface DashboardStore {
    fetchDefaultModel: (signal?: AbortSignal) => Promise<void>;
    createCollection: () => Promise<void>;
    updateCollectionName: (collectionId: number, newName: string) => Promise<void>;
+   deleteCollection: (collectionId: number) => Promise<void>;
    countAppPrivacyTypes: (apps: AppSerialized[]) => void;
    fetchApps: (collectionId: number, signal?: AbortSignal) => Promise<void>;
    fetchAllApps: (signal?: AbortSignal) => Promise<void>;
@@ -155,6 +156,28 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
          const errorResponse = error?.response?.data || {};
          const errorMessage = errorResponse.error || errorResponse.message || error.message;
          toast.error("Failed to update collection name: " + errorMessage, { theme: "colored" });
+      }
+   },
+
+   /**
+    * Deletes a collection.
+    * @param {number} collectionId - The ID of the collection to delete.
+    */
+   deleteCollection: async (collectionId: number) => {
+      const api = axiosInstance();
+      const { activeCollectionId } = get();
+      try {
+         await api.delete(`/api/collection/${collectionId}`);
+         set((state) => ({
+            collections: state.collections.filter((c) => c.id !== collectionId),
+            collectionCount: Math.max(0, state.collectionCount - 1),
+            activeCollectionId: activeCollectionId === collectionId ? null : activeCollectionId,
+         }));
+         toast.success("Collection deleted successfully", { theme: "colored" });
+      } catch (error: any) {
+         const errorResponse = error?.response?.data || {};
+         const errorMessage = errorResponse.error || errorResponse.message || error.message;
+         toast.error("Failed to delete collection: " + errorMessage, { theme: "colored" });
       }
    },
 
