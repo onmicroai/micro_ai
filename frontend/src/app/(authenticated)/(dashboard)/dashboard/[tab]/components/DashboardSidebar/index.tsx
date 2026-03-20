@@ -376,7 +376,7 @@ export default function DashboardSidebar({
           onClose={() => setCollectionToDelete(null)}
           onConfirm={handleConfirmDeleteCollection}
           title="Delete Collection"
-          message={`Are you sure you want to delete "${collectionToDelete.name}"?`}
+          message={`Are you sure that you want to delete "${collectionToDelete.name}"? All apps added to this collection will remain and won’t be deleted.`}
           confirmText="Delete"
         />
       )}
