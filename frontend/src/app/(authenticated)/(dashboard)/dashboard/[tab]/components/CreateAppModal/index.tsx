@@ -13,10 +13,10 @@ import { Collection } from "@/app/(authenticated)/(dashboard)/types";
 import { cn } from "@/utils/cn";
 import Modal, { useModalPortalContainer } from "../Modal";
 
+//TODO: add restricted option
 const PRIVACY_OPTIONS = [
   { name: "Private", value: "private" },
   { name: "Public", value: "public" },
-  { name: "Restricted", value: "restricted" },
 ] as const;
 
 export interface CreateAppFormValues {
