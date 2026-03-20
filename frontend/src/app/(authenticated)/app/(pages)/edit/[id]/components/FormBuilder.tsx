@@ -63,7 +63,9 @@ import { HelpCircle } from "lucide-react";
 import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
 import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
-import ChatBuildSidebar from "./ui/chat-build-sidebar";
+import ChatBuildSidebar, {
+  type ChatBuildSidebarHandle,
+} from "./ui/chat-build-sidebar";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import Image from "next/image";
@@ -164,6 +166,13 @@ const cardTypes = [
 
 export const availableSections = [...fieldTypes, ...cardTypes];
 
+const BLANK_APP_STARTER_PROMPTS = [
+  "Build me a Multiple Choice Question Generator",
+  "Build an AI-Powered Debate",
+  "Create a Simple Clinical Scenario",
+  "Build a Language Practice Chatbot",
+] as const;
+
 const normalizeTagBase = (type: string) =>
   type.replace(/[^a-zA-Z0-9]/g, "").toLowerCase();
 
@@ -251,6 +260,13 @@ export default function FormBuilder() {
   );
   const cardRef = useRef<HTMLDivElement>(null);
   const lastBuildSidebarOpenRef = useRef(false);
+  const chatBuildRef = useRef<ChatBuildSidebarHandle>(null);
+  const blankWelcomeTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [hideBlankAppWelcome, setHideBlankAppWelcome] = useState(false);
+  const [welcomeIdeaText, setWelcomeIdeaText] = useState("");
+  const [pendingChatBootstrap, setPendingChatBootstrap] = useState<
+    string | null
+  >(null);
 
   const {
     elements,
@@ -534,14 +550,46 @@ export default function FormBuilder() {
     }
   }, [attachedFiles]);
 
-  // Ensure at least one element exists and open sidebar on mount
+  const elementCount = Array.isArray(elements) ? elements.length : 0;
+  const showBlankAppWelcome =
+    elementCount === 0 && !hideBlankAppWelcome;
+
   useEffect(() => {
-    if (Array.isArray(elements) && elements.length === 0) {
-      addElementToApp("text");
+    if (elementCount > 0) {
+      setHideBlankAppWelcome(false);
     }
+  }, [elementCount]);
+
+  // Open the app-details sidebar on mount (left panel)
+  useEffect(() => {
     setSidebarOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const handleWelcomeDescribeSubmit = useCallback(() => {
+    const text = welcomeIdeaText.trim();
+    if (!text) return;
+    setHideBlankAppWelcome(true);
+    setWelcomeIdeaText("");
+    setChatBuildSidebarOpen(true);
+    setPendingChatBootstrap(text);
+  }, [welcomeIdeaText, setChatBuildSidebarOpen]);
+
+  const handleStarterPromptChip = useCallback((prompt: string) => {
+    setWelcomeIdeaText(prompt);
+    queueMicrotask(() => blankWelcomeTextareaRef.current?.focus());
+  }, []);
+
+  const handleWelcomeBuildFromScratch = useCallback(() => {
+    setHideBlankAppWelcome(true);
+    setWelcomeIdeaText("");
+  }, []);
+
+  useEffect(() => {
+    if (!pendingChatBootstrap || !chatBuildSidebarOpen) return;
+    const text = pendingChatBootstrap;
+    setPendingChatBootstrap(null);
+    void chatBuildRef.current?.sendMessage(text);
+  }, [pendingChatBootstrap, chatBuildSidebarOpen]);
 
   // Load collections on mount
   useEffect(() => {
@@ -1668,6 +1716,104 @@ export default function FormBuilder() {
                         </AnimatePresence>
                       </motion.div>
 
+                      <AnimatePresence>
+                        {showBlankAppWelcome && (
+                          <motion.div
+                            key="blank-app-welcome"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -8 }}
+                            transition={{ duration: 0.25, ease: "easeOut" }}
+                            className="relative mb-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm ring-1 ring-black/[0.04] before:pointer-events-none before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:rounded-l-lg before:bg-gradient-to-b before:from-[#5C5EF1] before:to-[#4CFFD4]"
+                          >
+                            <button
+                              type="button"
+                              onClick={handleWelcomeBuildFromScratch}
+                              className="absolute right-3 top-3 rounded-md p-1.5 text-gray-400 transition-colors hover:bg-gray-100 hover:text-gray-600"
+                              aria-label="Dismiss and build from scratch"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                            <div className="flex flex-wrap items-start gap-3 pr-8">
+                              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-indigo-50">
+                                <Sparkles
+                                  className="h-5 w-5 text-indigo-600"
+                                  aria-hidden
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <h3 className="text-sm font-semibold text-gray-900">
+                                  Describe what you want to build
+                                </h3>
+                                <p className="mt-1 text-xs text-gray-500 leading-relaxed">
+                                  Your app will automatically be drafted using the AI, and you can edit it as you like.
+                                </p>
+                                <label
+                                  htmlFor="blank-app-welcome-input"
+                                  className="sr-only"
+                                >
+                                  Describe your app
+                                </label>
+                                <Textarea
+                                  ref={blankWelcomeTextareaRef}
+                                  id="blank-app-welcome-input"
+                                  value={welcomeIdeaText}
+                                  onChange={(e) =>
+                                    setWelcomeIdeaText(e.target.value)
+                                  }
+                                  placeholder="e.g. Build me an MCQ generator…"
+                                  className="mt-3 min-h-[100px] resize-y border-gray-200 bg-gray-50/80 text-sm focus-visible:bg-white"
+                                  autoFocus
+                                  onKeyDown={(e) => {
+                                    if (
+                                      e.key === "Enter" &&
+                                      (e.metaKey || e.ctrlKey)
+                                    ) {
+                                      e.preventDefault();
+                                      handleWelcomeDescribeSubmit();
+                                    }
+                                  }}
+                                />
+                                <p className="mt-3 text-[11px] font-medium uppercase tracking-wide text-gray-400">
+                                  Or, choose from a list of starter ideas
+                                </p>
+                                <div className="mt-1.5 flex flex-wrap gap-2">
+                                  {BLANK_APP_STARTER_PROMPTS.map((prompt) => (
+                                    <button
+                                      key={prompt}
+                                      type="button"
+                                      onClick={() =>
+                                        handleStarterPromptChip(prompt)
+                                      }
+                                      className="max-w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-left text-xs font-medium leading-snug text-gray-700 shadow-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50/80 hover:text-indigo-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 focus-visible:ring-offset-2 sm:max-w-[calc(50%-0.25rem)]"
+                                    >
+                                      {prompt}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                  <Button
+                                    type="button"
+                                    className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700"
+                                    disabled={!welcomeIdeaText.trim()}
+                                    onClick={handleWelcomeDescribeSubmit}
+                                  >
+                                    Continue with App Builder
+                                  </Button>
+                                  <button
+                                    type="button"
+                                    onClick={handleWelcomeBuildFromScratch}
+                                    className="w-full text-center text-sm text-gray-500 underline-offset-4 hover:text-gray-700 hover:underline sm:w-auto sm:text-left"
+                                  >
+                                    Build from scratch instead
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
                       <div className="flex flex-col min-h-[calc(100vh-320px)]">
                         <div className="flex-1">
                           <LayoutGroup>
@@ -2152,79 +2298,91 @@ export default function FormBuilder() {
                                   })()}
                                   {provided.placeholder}
 
-                                  {/* Add Section button at the end */}
-                                  <div className="mt-4 flex justify-start">
-                                    <Popover
-                                      open={addSectionOpenFor === "end-button"}
-                                      onOpenChange={(open) => {
-                                        setAddSectionOpenFor(
-                                          open ? "end-button" : null
-                                        );
-                                        if (!open) {
-                                          setInsertAfterIndex(null);
-                                        }
-                                      }}
-                                    >
-                                      <PopoverTrigger asChild>
-                                        <Button
-                                          variant="default"
-                                          size="lg"
-                                          className="bg-primary text-primary-foreground hover:bg-primary-600"
-                                          onClick={() =>
-                                            setInsertAfterIndex(null)
+                                  {!showBlankAppWelcome && (
+                                    <>
+                                      {/* Add Section button at the end */}
+                                      <div className="mt-4 flex justify-start">
+                                        <Popover
+                                          open={
+                                            addSectionOpenFor === "end-button"
                                           }
-                                        >
-                                          <Plus className="h-5 w-5 mr-2" />
-                                          Add Section
-                                        </Button>
-                                      </PopoverTrigger>
-                                      <PopoverContent
-                                        align="start"
-                                        side="bottom"
-                                        className="w-72 p-2"
-                                      >
-                                        <div className="space-y-1">
-                                          {availableSections.map((section) => {
-                                            const Icon = section.icon;
-                                            return (
-                                              <button
-                                                key={section.id}
-                                                onClick={() => {
-                                                  addElementToApp(
-                                                    section.id,
-                                                    insertAfterIndex
-                                                  );
-                                                  setAddSectionOpenFor(null);
-                                                }}
-                                                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                              >
-                                                <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-xs font-medium text-gray-900">
-                                                    {section.label}
-                                                  </div>
-                                                </div>
-                                                <TooltipProvider
-                                                  delayDuration={0}
-                                                >
-                                                  <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                    </TooltipTrigger>
-                                                    <TooltipContent side="right">
-                                                      <p className="max-w-xs text-xs">
-                                                        {section.helper}
-                                                      </p>
-                                                    </TooltipContent>
-                                                  </Tooltip>
-                                                </TooltipProvider>
-                                              </button>
+                                          onOpenChange={(open) => {
+                                            setAddSectionOpenFor(
+                                              open ? "end-button" : null
                                             );
-                                          })}
-                                        </div>
-                                      </PopoverContent>
-                                    </Popover>
-                                  </div>
+                                            if (!open) {
+                                              setInsertAfterIndex(null);
+                                            }
+                                          }}
+                                        >
+                                          <PopoverTrigger asChild>
+                                            <Button
+                                              variant="default"
+                                              size="lg"
+                                              className="bg-primary text-primary-foreground hover:bg-primary-600"
+                                              onClick={() =>
+                                                setInsertAfterIndex(null)
+                                              }
+                                            >
+                                              <Plus className="h-5 w-5 mr-2" />
+                                              Add Section
+                                            </Button>
+                                          </PopoverTrigger>
+                                          <PopoverContent
+                                            align="start"
+                                            side="bottom"
+                                            className="w-72 p-2"
+                                          >
+                                            <div className="space-y-1">
+                                              {availableSections.map(
+                                                (section) => {
+                                                  const Icon = section.icon;
+                                                  return (
+                                                    <button
+                                                      key={section.id}
+                                                      onClick={() => {
+                                                        addElementToApp(
+                                                          section.id,
+                                                          insertAfterIndex
+                                                        );
+                                                        setAddSectionOpenFor(
+                                                          null
+                                                        );
+                                                      }}
+                                                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
+                                                    >
+                                                      <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="text-xs font-medium text-gray-900">
+                                                          {section.label}
+                                                        </div>
+                                                      </div>
+                                                      <TooltipProvider
+                                                        delayDuration={0}
+                                                      >
+                                                        <Tooltip>
+                                                          <TooltipTrigger
+                                                            asChild
+                                                          >
+                                                            <HelpCircle className="h-4 w-4 text-gray-400" />
+                                                          </TooltipTrigger>
+                                                          <TooltipContent side="right">
+                                                            <p className="max-w-xs text-xs">
+                                                              {section.helper}
+                                                            </p>
+                                                          </TooltipContent>
+                                                        </Tooltip>
+                                                      </TooltipProvider>
+                                                    </button>
+                                                  );
+                                                }
+                                              )}
+                                            </div>
+                                          </PopoverContent>
+                                        </Popover>
+                                      </div>
+                                    </>
+                                  )}
                                 </div>
                               )}
                             </Droppable>
@@ -2295,6 +2453,7 @@ export default function FormBuilder() {
               instructionIndex={conditionalSidebarContext?.instructionIndex}
             />
             <ChatBuildSidebar
+              ref={chatBuildRef}
               isOpen={chatBuildSidebarOpen}
               onClose={() => setChatBuildSidebarOpen(false)}
               appId={appId}

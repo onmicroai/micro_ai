@@ -1,6 +1,13 @@
 "use client";
 
-import React, { useRef, useEffect, useState, useCallback } from "react";
+import React, {
+  useRef,
+  useEffect,
+  useState,
+  useCallback,
+  useImperativeHandle,
+  forwardRef,
+} from "react";
 import {
   X,
   Send,
@@ -17,6 +24,10 @@ import { useSurveyStore } from "../../store/editSurveyStore";
 import { AppJsonV2 } from "@/app/(authenticated)/app/types";
 import { authorizedFetch } from "@/utils/authorizedFetch";
 import { readSseResponse } from "@/utils/readSseStream";
+
+export type ChatBuildSidebarHandle = {
+  sendMessage: (text: string) => Promise<void>;
+};
 
 interface ChatBuildSidebarProps {
   isOpen: boolean;
@@ -67,11 +78,10 @@ function ThinkingBlock({
   );
 }
 
-export default function ChatBuildSidebar({
-  isOpen,
-  onClose,
-  appId,
-}: ChatBuildSidebarProps) {
+const ChatBuildSidebar = forwardRef<
+  ChatBuildSidebarHandle,
+  ChatBuildSidebarProps
+>(function ChatBuildSidebar({ isOpen, onClose, appId }, ref) {
   const {
     chatBuildMessages,
     addChatBuildMessage,
@@ -81,6 +91,7 @@ export default function ChatBuildSidebar({
 
   const [inputValue, setInputValue] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const isStreamingRef = useRef(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
@@ -88,134 +99,155 @@ export default function ChatBuildSidebar({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatBuildMessages]);
 
-  const handleSend = useCallback(async () => {
-    if (!inputValue.trim() || isStreaming || !appId) return;
+  const runSendMessage = useCallback(
+    async (userText: string) => {
+      if (!userText.trim() || !appId) return;
 
-    const userText = inputValue.trim();
-    setInputValue("");
+      const assistantId = `assistant-${Date.now()}`;
 
-    const assistantId = `assistant-${Date.now()}`;
-
-    addChatBuildMessage({
-      id: `user-${Date.now()}`,
-      role: "user",
-      content: userText,
-      status: "done",
-    });
-
-    addChatBuildMessage({
-      id: assistantId,
-      role: "assistant",
-      content: "",
-      thinkingContent: undefined,
-      status: "streaming",
-    });
-
-    setIsStreaming(true);
-    abortControllerRef.current = new AbortController();
-
-    // Build history from completed messages
-    const history = useSurveyStore
-      .getState()
-      .chatBuildMessages.filter(
-        (m) => m.status === "done" || m.role === "user"
-      )
-      .map((m) => ({ role: m.role, content: m.content }));
-
-    try {
-      const response = await authorizedFetch("/api/microapps/app-builder-chat/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ app_id: appId, message: userText, history }),
-        signal: abortControllerRef.current.signal,
+      addChatBuildMessage({
+        id: `user-${Date.now()}`,
+        role: "user",
+        content: userText.trim(),
+        status: "done",
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
+      addChatBuildMessage({
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        thinkingContent: undefined,
+        status: "streaming",
+      });
 
-      for await (const { event, data: dataRaw } of readSseResponse(response)) {
-        let data: { chunk?: string; message?: string; app_json?: unknown };
-        try {
-          data = JSON.parse(dataRaw) as typeof data;
-        } catch {
-          continue;
+      setIsStreaming(true);
+      isStreamingRef.current = true;
+      abortControllerRef.current = new AbortController();
+
+      const history = useSurveyStore
+        .getState()
+        .chatBuildMessages.filter(
+          (m) => m.status === "done" || m.role === "user"
+        )
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      try {
+        const response = await authorizedFetch(
+          "/api/microapps/app-builder-chat/",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              app_id: appId,
+              message: userText.trim(),
+              history,
+            }),
+            signal: abortControllerRef.current.signal,
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
         }
 
-        switch (event) {
-          case "thinking":
-            useSurveyStore.setState((state) => ({
-              chatBuildMessages: state.chatBuildMessages.map((msg) =>
-                msg.id === assistantId
-                  ? {
-                      ...msg,
-                      thinkingContent:
-                        (msg.thinkingContent ?? "") + (data.chunk ?? ""),
-                    }
-                  : msg
-              ),
-            }));
-            break;
+        for await (const { event, data: dataRaw } of readSseResponse(
+          response
+        )) {
+          let data: { chunk?: string; message?: string; app_json?: unknown };
+          try {
+            data = JSON.parse(dataRaw) as typeof data;
+          } catch {
+            continue;
+          }
 
-          case "content":
-            useSurveyStore.setState((state) => ({
-              chatBuildMessages: state.chatBuildMessages.map((msg) =>
-                msg.id === assistantId
-                  ? { ...msg, content: msg.content + (data.chunk ?? "") }
-                  : msg
-              ),
-            }));
-            break;
+          switch (event) {
+            case "thinking":
+              useSurveyStore.setState((state) => ({
+                chatBuildMessages: state.chatBuildMessages.map((msg) =>
+                  msg.id === assistantId
+                    ? {
+                        ...msg,
+                        thinkingContent:
+                          (msg.thinkingContent ?? "") + (data.chunk ?? ""),
+                      }
+                    : msg
+                ),
+              }));
+              break;
 
-          case "complete":
-            updateChatBuildMessage(assistantId, { status: "done" });
-            if (data.app_json) {
-              replaceEntireAppJson(data.app_json as AppJsonV2);
-            }
-            break;
+            case "content":
+              useSurveyStore.setState((state) => ({
+                chatBuildMessages: state.chatBuildMessages.map((msg) =>
+                  msg.id === assistantId
+                    ? { ...msg, content: msg.content + (data.chunk ?? "") }
+                    : msg
+                ),
+              }));
+              break;
 
-          case "refused":
-            updateChatBuildMessage(assistantId, {
-              content:
-                data.message ?? "I can only help with building microapps.",
-              status: "refused",
-              thinkingContent: undefined,
-            });
-            break;
+            case "complete":
+              updateChatBuildMessage(assistantId, { status: "done" });
+              if (data.app_json) {
+                replaceEntireAppJson(data.app_json as AppJsonV2);
+              }
+              break;
 
-          case "error":
-            updateChatBuildMessage(assistantId, {
-              content:
-                data.message ?? "An error occurred. Please try again.",
-              status: "error",
-              thinkingContent: undefined,
-            });
-            break;
-          default:
-            break;
+            case "refused":
+              updateChatBuildMessage(assistantId, {
+                content:
+                  data.message ?? "I can only help with building microapps.",
+                status: "refused",
+                thinkingContent: undefined,
+              });
+              break;
+
+            case "error":
+              updateChatBuildMessage(assistantId, {
+                content:
+                  data.message ?? "An error occurred. Please try again.",
+                status: "error",
+                thinkingContent: undefined,
+              });
+              break;
+            default:
+              break;
+          }
         }
+      } catch (err: any) {
+        if (err?.name !== "AbortError") {
+          updateChatBuildMessage(assistantId, {
+            content: "Something went wrong. Please try again.",
+            status: "error",
+          });
+        }
+      } finally {
+        setIsStreaming(false);
+        isStreamingRef.current = false;
+        abortControllerRef.current = null;
       }
-    } catch (err: any) {
-      if (err?.name !== "AbortError") {
-        updateChatBuildMessage(assistantId, {
-          content: "Something went wrong. Please try again.",
-          status: "error",
-        });
-      }
-    } finally {
-      setIsStreaming(false);
-      abortControllerRef.current = null;
-    }
-  }, [
-    inputValue,
-    isStreaming,
-    appId,
-    addChatBuildMessage,
-    updateChatBuildMessage,
-    replaceEntireAppJson,
-  ]);
+    },
+    [appId, addChatBuildMessage, updateChatBuildMessage, replaceEntireAppJson]
+  );
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      sendMessage: async (text: string) => {
+        if (!text.trim() || isStreamingRef.current || !appId) return;
+        await runSendMessage(text);
+      },
+    }),
+    [runSendMessage, appId]
+  );
+
+  const handleSend = useCallback(async () => {
+    if (!inputValue.trim() || isStreaming || !appId) return;
+    const userText = inputValue.trim();
+    setInputValue("");
+    await runSendMessage(userText);
+  }, [inputValue, isStreaming, appId, runSendMessage]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -401,4 +433,6 @@ export default function ChatBuildSidebar({
       )}
     </AnimatePresence>
   );
-}
+});
+
+export default ChatBuildSidebar;
