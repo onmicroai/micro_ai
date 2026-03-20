@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { toast } from "react-toastify";
 import { useDashboardStore } from "./store/dashboardStore";
 import DashboardSidebar from "./components/DashboardSidebar";
 import AppTable from "./components/AppTable";
-import type { CreateAppFormValues } from "./components/CreateAppModal";
 
 const DashboardTabPage = () => {
   const params = useParams() ?? {};
@@ -26,7 +26,6 @@ const DashboardTabPage = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isCreatingApp, setIsCreatingApp] = useState(false);
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
-  const [showCreateAppModal, setShowCreateAppModal] = useState(false);
 
   // Initialize dashboard: fetch collections, default model, and all apps.
   // isInitializing gates the UI so createApp never runs before defaultAiModel is set.
@@ -62,17 +61,16 @@ const DashboardTabPage = () => {
     };
   }, [fetchCollections, fetchAllApps, fetchDefaultModel]);
 
-  const onCreateApp = () => {
-    setShowCreateAppModal(true);
-  };
-
-  const onConfirmCreateApp = async (values: CreateAppFormValues) => {
+  const onCreateApp = async () => {
     if (isCreatingApp) return;
+    if (collections.length === 0) {
+      toast.error("Please create a collection first.", { theme: "colored" });
+      return;
+    }
     setIsCreatingApp(true);
     try {
-      const hashId = await handleCreateApp(values.collectionId, {
-        title: values.title,
-        privacy: values.privacy,
+      const hashId = await handleCreateApp(collections[0].id, {
+        privacy: "private",
       });
       if (!hashId) throw new Error("Failed to create app");
     } finally {
@@ -110,9 +108,6 @@ const DashboardTabPage = () => {
       updateCollectionName={updateCollectionName}
       isCreatingApp={isCreatingApp}
       isCreatingCollection={isCreatingCollection}
-      showCreateAppModal={showCreateAppModal}
-      setShowCreateAppModal={setShowCreateAppModal}
-      onConfirmCreateApp={onConfirmCreateApp}
     >
       <AppTable activeCollectionId={activeCollectionId} activeTab={activeTab} />
     </DashboardSidebar>
