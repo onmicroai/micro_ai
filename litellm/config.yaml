@@ -20,6 +20,14 @@ model_list:
     model_info:
       access_groups: ["pro", "enterprise"]
 
+  - model_name: text-embedding-3-small
+    litellm_params:
+      model: openai/text-embedding-3-small
+      api_key: os.environ/OPENAI_API_KEY
+    model_info:
+      access_groups: ["free", "pro", "enterprise"]
+      tags: ["do-not-display"]
+
   - model_name: whisper-1
     litellm_params:
       model: openai/whisper-1
