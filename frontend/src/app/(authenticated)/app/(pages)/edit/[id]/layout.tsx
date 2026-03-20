@@ -41,10 +41,10 @@ export default function EditLayout({
     );
   }
 
+  /* Builder (FormBuilder) provides its own header; global nav is redundant here. */
   return (
     <>
       <ToastContainer stacked position="bottom-left" hideProgressBar={true} />
-      <NavBarClientSwitch />
       {children}
     </>
   );
