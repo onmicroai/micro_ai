@@ -367,7 +367,7 @@ const ChatBuildSidebar = forwardRef<
                 return (
                   <div key={message.id} className="flex justify-end mb-4">
                     <div className="flex items-start gap-2 max-w-[85%]">
-                      <div className="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm leading-relaxed">
+                      <div className="bg-indigo-600 text-white rounded-2xl rounded-tr-sm px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap">
                         {message.content}
                       </div>
                       <div className="flex-shrink-0 w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center mt-0.5">
@@ -395,7 +395,7 @@ const ChatBuildSidebar = forwardRef<
                       )}
                       {isError || isRefused ? (
                         <div
-                          className={`rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm leading-relaxed ${
+                          className={`rounded-2xl rounded-tl-sm px-3.5 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
                             isError
                               ? "bg-red-50 text-red-700 border border-red-200"
                               : "bg-amber-50 text-amber-800 border border-amber-200"
