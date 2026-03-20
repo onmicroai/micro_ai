@@ -1,3 +1,10 @@
+/** Sidebar list scope: virtual views (role-based) or a real collection folder */
+export type DashboardListScope =
+  | { kind: "all" }
+  | { kind: "owned" }
+  | { kind: "shared" }
+  | { kind: "collection"; id: number };
+
 // Stats included with each app from /api/microapps/apps and /api/collection/user/apps
 export type AppStats = {
     sessions: number;
@@ -16,7 +23,7 @@ export type AppSerialized = {
     temperature: number;
     copyAllowed: boolean;
     appJson: string;
-    collectionId: number;
+    collectionId?: number;
     role: 'owner' | 'admin';
     stats?: AppStats;
 };
@@ -30,7 +37,7 @@ export type AppRaw = {
     temperature: number;
     copy_allowed: boolean;
     app_json: string;
-    collection_id: number;
+    collection_id?: number;
     role: 'owner' | 'admin';
     stats?: AppStats;
 };

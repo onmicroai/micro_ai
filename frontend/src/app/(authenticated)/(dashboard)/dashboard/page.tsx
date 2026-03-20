@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { toast } from "react-toastify";
 import { useDashboardStore } from "./[tab]/store/dashboardStore";
 import DashboardSidebar from "./[tab]/components/DashboardSidebar";
 import AppTable from "./[tab]/components/AppTable";
@@ -9,11 +8,12 @@ import AppTable from "./[tab]/components/AppTable";
 const DashboardPage = () => {
   const {
     appCounts,
-    activeCollectionId,
+    listScope,
     createCollection,
     updateCollectionName,
     collections,
     fetchCollections,
+    fetchApps,
     fetchAllApps,
     fetchDefaultModel,
     handleCreateApp,
@@ -42,8 +42,12 @@ const DashboardPage = () => {
 
       await Promise.all(promises);
 
-      // Fetch all apps
-      await fetchAllApps(controller.signal);
+      const s = useDashboardStore.getState();
+      if (s.listScope.kind === "collection") {
+        await fetchApps(s.listScope.id, controller.signal);
+      } else {
+        await fetchAllApps(controller.signal);
+      }
 
       setIsInitializing(false);
     };
@@ -53,17 +57,15 @@ const DashboardPage = () => {
     return () => {
       controller.abort();
     };
-  }, [fetchCollections, fetchAllApps, fetchDefaultModel]);
+  }, [fetchCollections, fetchApps, fetchAllApps, fetchDefaultModel]);
 
   const onCreateApp = async () => {
     if (isCreatingApp) return;
-    if (collections.length === 0) {
-      toast.error("Please create a collection first.", { theme: "colored" });
-      return;
-    }
     setIsCreatingApp(true);
     try {
-      const hashId = await handleCreateApp(collections[0].id, {
+      const collectionId =
+        listScope.kind === "collection" ? listScope.id : undefined;
+      const hashId = await handleCreateApp(collectionId, {
         privacy: "private",
       });
       if (!hashId) throw new Error("Failed to create app");
@@ -94,7 +96,6 @@ const DashboardPage = () => {
   return (
     <DashboardSidebar
       collections={collections}
-      activeCollectionId={activeCollectionId}
       activeTab="all"
       appCounts={appCounts}
       onCreateApp={onCreateApp}
@@ -103,7 +104,7 @@ const DashboardPage = () => {
       isCreatingApp={isCreatingApp}
       isCreatingCollection={isCreatingCollection}
     >
-      <AppTable activeCollectionId={activeCollectionId} activeTab="all" />
+      <AppTable activeTab="all" />
     </DashboardSidebar>
   );
 };

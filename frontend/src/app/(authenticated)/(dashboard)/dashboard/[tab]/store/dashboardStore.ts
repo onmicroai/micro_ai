@@ -3,9 +3,15 @@ import {
   Collection,
   AppSerialized,
   AppRaw,
+  DashboardListScope,
 } from "@/app/(authenticated)/(dashboard)/types";
 import axiosInstance from "@/utils/axiosInstance";
 import { toast } from "react-toastify";
+import {
+  getSortedDashboardAppList,
+  mergeSubsetReorder,
+  reorderArray,
+} from "../dashboardSortUtils";
 
 /** Coalesces concurrent cloneApp calls for the same app/collection into one request. */
 const cloneAppInFlight = new Map<string, Promise<void>>();
@@ -22,7 +28,13 @@ interface DashboardStore {
   apps: AppSerialized[];
   appsCount: number;
   appLoading: boolean;
-  activeCollectionId: number | null;
+  listScope: DashboardListScope;
+  /** Merged global order from API; null = no saved order (sort by id). */
+  globalDashboardOrderIds: number[] | null;
+  /** Order for current collection view; null = no saved order. */
+  collectionDashboardOrderIds: number[] | null;
+  /** Which collection `collectionDashboardOrderIds` belongs to. */
+  collectionOrderForId: number | null;
   defaultAiModel: string;
   // Actions
   fetchCollections: (signal?: AbortSignal) => Promise<void>;
@@ -37,16 +49,21 @@ interface DashboardStore {
   fetchApps: (collectionId: number, signal?: AbortSignal) => Promise<void>;
   fetchAllApps: (signal?: AbortSignal) => Promise<void>;
   createApp: (
-    collectionId: number,
+    collectionId?: number | null,
     options?: { title?: string; privacy?: string }
   ) => Promise<string | null>;
   cloneApp: (appId: number, collectionId?: number) => Promise<void>;
   deleteApp: (appId: number) => void;
   updateAppPrivacy: (appId: number, privacy: string) => void;
   appSerializer: (app: AppRaw | AppRaw[]) => AppSerialized | AppSerialized[];
-  setActiveCollectionId: (collectionId: number | null) => void;
+  setListScope: (scope: DashboardListScope) => void;
+  reorderDashboardList: (
+    sourceIndex: number,
+    destinationIndex: number,
+    activeTab: string
+  ) => Promise<void>;
   handleCreateApp: (
-    collectionId: number,
+    collectionId?: number | null,
     options?: { title?: string; privacy?: string }
   ) => Promise<string | null>;
   reset: () => void;
@@ -72,7 +89,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   apps: [],
   appsCount: 0,
   appLoading: false,
-  activeCollectionId: null,
+  listScope: { kind: "all" },
+  globalDashboardOrderIds: null,
+  collectionDashboardOrderIds: null,
+  collectionOrderForId: null,
   defaultAiModel: FALLBACK_AI_MODEL,
 
   /**
@@ -92,7 +112,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           collections: sortedCollections,
           collectionCount: data.length,
         });
-        // Don't automatically set activeCollectionId - let it remain null to show all apps
+        // listScope stays user-selected (default all)
       } else {
         toast.error("Failed to fetch collections", { theme: "colored" });
       }
@@ -205,14 +225,16 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    */
   deleteCollection: async (collectionId: number) => {
     const api = axiosInstance();
-    const { activeCollectionId } = get();
     try {
       await api.delete(`/api/collection/${collectionId}`);
       set((state) => ({
         collections: state.collections.filter((c) => c.id !== collectionId),
         collectionCount: Math.max(0, state.collectionCount - 1),
-        activeCollectionId:
-          activeCollectionId === collectionId ? null : activeCollectionId,
+        listScope:
+          state.listScope.kind === "collection" &&
+          state.listScope.id === collectionId
+            ? { kind: "all" }
+            : state.listScope,
       }));
       toast.success("Collection deleted successfully", { theme: "colored" });
     } catch (error: any) {
@@ -285,7 +307,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
         temperature: serializedApp.temperature,
         copyAllowed: serializedApp.copy_allowed,
         appJson: serializedApp.app_json,
-        collectionId: serializedApp.collection_id,
+        ...(serializedApp.collection_id != null
+          ? { collectionId: serializedApp.collection_id }
+          : {}),
         role: serializedApp.role ?? "owner",
         stats: serializedApp.stats,
       };
@@ -314,9 +338,27 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       if (data !== undefined) {
         const serializedData = get().appSerializer(data);
         if (Array.isArray(serializedData)) {
+          let orderIds: number[] | null = null;
+          try {
+            const or = await api.get(
+              `/api/microapps/me/collection/${collectionId}/app-order/`,
+              { signal }
+            );
+            orderIds = or?.data?.data?.ordered_ids ?? null;
+          } catch (orderErr: any) {
+            if (
+              orderErr.name !== "CanceledError" &&
+              orderErr.name !== "AbortError"
+            ) {
+              console.error("Failed to fetch collection app order:", orderErr);
+            }
+          }
           set({
             apps: serializedData,
             appsCount: data.length,
+            collectionDashboardOrderIds: orderIds,
+            collectionOrderForId: collectionId,
+            globalDashboardOrderIds: null,
           });
           get().countAppPrivacyTypes(serializedData);
         }
@@ -351,9 +393,26 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       if (data !== undefined) {
         const serializedData = get().appSerializer(data);
         if (Array.isArray(serializedData)) {
+          let orderIds: number[] | null = null;
+          try {
+            const or = await api.get("/api/microapps/me/dashboard-app-order/", {
+              signal,
+            });
+            orderIds = or?.data?.data?.ordered_ids ?? null;
+          } catch (orderErr: any) {
+            if (
+              orderErr.name !== "CanceledError" &&
+              orderErr.name !== "AbortError"
+            ) {
+              console.error("Failed to fetch global app order:", orderErr);
+            }
+          }
           set({
             apps: serializedData,
             appsCount: data.length,
+            globalDashboardOrderIds: orderIds,
+            collectionDashboardOrderIds: null,
+            collectionOrderForId: null,
           });
           get().countAppPrivacyTypes(serializedData);
         }
@@ -381,7 +440,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
    * @returns {Promise<string | null>} - The hash ID of the new app or null if creation fails.
    */
   createApp: async (
-    collectionId: number,
+    collectionId?: number | null,
     options?: { title?: string; privacy?: string }
   ): Promise<string | null> => {
     try {
@@ -394,7 +453,7 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       const appName = options?.title?.trim() || `App ${nextAppNumber}`;
       const privacySetting = options?.privacy || "private";
 
-      const defaultAppDetails = {
+      const defaultAppDetails: Record<string, unknown> = {
         title: appName,
         type: "Private",
         copyAllowed: true,
@@ -415,8 +474,14 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           },
           elements: [],
         },
-        collection_id: collectionId,
       };
+      if (
+        collectionId != null &&
+        typeof collectionId === "number" &&
+        collectionId > 0
+      ) {
+        defaultAppDetails.collection_id = collectionId;
+      }
 
       const response = await api.post("/api/microapps/", defaultAppDetails);
       const data = response?.data?.data;
@@ -513,6 +578,12 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       return {
         apps: updatedApps,
         appsCount: state.appsCount - 1,
+        globalDashboardOrderIds: state.globalDashboardOrderIds?.filter(
+          (id) => id !== deletedAppId
+        ) ?? null,
+        collectionDashboardOrderIds: state.collectionDashboardOrderIds?.filter(
+          (id) => id !== deletedAppId
+        ) ?? null,
       };
     });
   },
@@ -527,18 +598,110 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
     });
   },
 
-  /**
-   * Sets the active collection in the state.
-   * @param {number | null} collectionId - The ID of the collection to set as active, or null for all collections.
-   */
-  setActiveCollectionId: (collectionId: number | null) => {
-    set({
-      activeCollectionId: collectionId,
-    });
+  /** Sidebar scope: all apps, owned-only, shared-only, or a collection folder. */
+  setListScope: (scope: DashboardListScope) => {
+    set({ listScope: scope });
+  },
+
+  reorderDashboardList: async (
+    sourceIndex: number,
+    destinationIndex: number,
+    activeTab: string
+  ) => {
+    const api = axiosInstance();
+    const {
+      apps,
+      listScope,
+      globalDashboardOrderIds,
+      collectionDashboardOrderIds,
+      collectionOrderForId,
+    } = get();
+
+    const sortedVisible = getSortedDashboardAppList(
+      apps,
+      listScope,
+      activeTab,
+      globalDashboardOrderIds,
+      collectionDashboardOrderIds,
+      collectionOrderForId
+    );
+    if (sortedVisible.length < 2) return;
+
+    const reordered = reorderArray(
+      sortedVisible,
+      sourceIndex,
+      destinationIndex
+    );
+    const newSubsetIds = reordered.map((a) => a.id);
+
+    let previousGlobal: number[] | null = null;
+    let previousCollection: number[] | null = null;
+    let mergedGlobal: number[] | null = null;
+
+    if (listScope.kind === "collection") {
+      if (collectionOrderForId !== listScope.id) return;
+      const cur = get().collectionDashboardOrderIds;
+      previousCollection = cur ? [...cur] : null;
+      set({ collectionDashboardOrderIds: newSubsetIds });
+    } else {
+      const accessibleIds = [...apps.map((a) => a.id)].sort((a, b) => a - b);
+      const accessibleSet = new Set(accessibleIds);
+      let baseOrder: number[];
+      if (globalDashboardOrderIds?.length) {
+        const seen = new Set<number>();
+        baseOrder = [];
+        for (const id of globalDashboardOrderIds) {
+          if (accessibleSet.has(id) && !seen.has(id)) {
+            baseOrder.push(id);
+            seen.add(id);
+          }
+        }
+        for (const id of accessibleIds) {
+          if (!seen.has(id)) baseOrder.push(id);
+        }
+      } else {
+        baseOrder = accessibleIds;
+      }
+      const subsetIds = new Set(sortedVisible.map((a) => a.id));
+      mergedGlobal = mergeSubsetReorder(baseOrder, subsetIds, newSubsetIds);
+      const cur = get().globalDashboardOrderIds;
+      previousGlobal = cur ? [...cur] : null;
+      set({ globalDashboardOrderIds: mergedGlobal });
+    }
+
+    try {
+      if (listScope.kind === "collection") {
+        await api.put(
+          `/api/microapps/me/collection/${listScope.id}/app-order/`,
+          { ordered_ids: newSubsetIds }
+        );
+      } else if (mergedGlobal) {
+        await api.put("/api/microapps/me/dashboard-app-order/", {
+          ordered_ids: mergedGlobal,
+        });
+      }
+    } catch (error: any) {
+      if (listScope.kind === "collection") {
+        set({ collectionDashboardOrderIds: previousCollection });
+      } else {
+        set({ globalDashboardOrderIds: previousGlobal });
+      }
+      const errorMessage =
+        error.response?.data?.error ||
+        error.response?.data?.message ||
+        error.message;
+      toast.error(
+        "Could not save app order: " +
+          (typeof errorMessage === "string"
+            ? errorMessage
+            : "Please try again."),
+        { theme: "colored" }
+      );
+    }
   },
 
   handleCreateApp: async (
-    collectionId: number,
+    collectionId?: number | null,
     options?: { title?: string; privacy?: string }
   ) => {
     const newAppHashId = await get().createApp(collectionId, options);
@@ -562,7 +725,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       apps: [],
       appsCount: 0,
       appLoading: false,
-      activeCollectionId: null,
+      listScope: { kind: "all" },
+      globalDashboardOrderIds: null,
+      collectionDashboardOrderIds: null,
+      collectionOrderForId: null,
       defaultAiModel: FALLBACK_AI_MODEL,
     });
   },
