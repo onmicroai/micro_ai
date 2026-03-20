@@ -379,7 +379,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
   ): Promise<string | null> => {
     try {
       const api = axiosInstance();
-      set({ appLoading: true });
+      // Do not set appLoading: the dashboard table would show "Loading apps..."
+      // during create even though we append the new row and usually redirect immediately.
+      // The Add-app control uses local isCreatingApp for feedback.
 
       const nextAppNumber = get().appsCount + 1;
       const appName = options?.title?.trim() || `App ${nextAppNumber}`;
@@ -423,13 +425,10 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           toast.success("Redirecting to the app editor...", {
             theme: "colored",
           });
-          set({ appLoading: false });
           return serializedData.hashId;
         }
-        set({ appLoading: false });
         return null;
       }
-      set({ appLoading: false });
       return null;
     } catch (error: any) {
       const errorMessage =
@@ -439,7 +438,6 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       toast.error("Failed to create app: " + errorMessage, {
         theme: "colored",
       });
-      set({ appLoading: false });
       return null;
     }
   },

@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { toast } from "react-toastify";
 import { useDashboardStore } from "./[tab]/store/dashboardStore";
 import DashboardSidebar from "./[tab]/components/DashboardSidebar";
 import AppTable from "./[tab]/components/AppTable";
-import type { CreateAppFormValues } from "./[tab]/components/CreateAppModal";
 
 const DashboardPage = () => {
   const {
@@ -22,7 +22,6 @@ const DashboardPage = () => {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isCreatingApp, setIsCreatingApp] = useState(false);
   const [isCreatingCollection, setIsCreatingCollection] = useState(false);
-  const [showCreateAppModal, setShowCreateAppModal] = useState(false);
 
   // Initialize dashboard: fetch collections, default model, and all apps.
   // isInitializing gates the UI so createApp never runs before defaultAiModel is set.
@@ -56,17 +55,16 @@ const DashboardPage = () => {
     };
   }, [fetchCollections, fetchAllApps, fetchDefaultModel]);
 
-  const onCreateApp = () => {
-    setShowCreateAppModal(true);
-  };
-
-  const onConfirmCreateApp = async (values: CreateAppFormValues) => {
+  const onCreateApp = async () => {
     if (isCreatingApp) return;
+    if (collections.length === 0) {
+      toast.error("Please create a collection first.", { theme: "colored" });
+      return;
+    }
     setIsCreatingApp(true);
     try {
-      const hashId = await handleCreateApp(values.collectionId, {
-        title: values.title,
-        privacy: values.privacy,
+      const hashId = await handleCreateApp(collections[0].id, {
+        privacy: "private",
       });
       if (!hashId) throw new Error("Failed to create app");
     } finally {
@@ -104,9 +102,6 @@ const DashboardPage = () => {
       updateCollectionName={updateCollectionName}
       isCreatingApp={isCreatingApp}
       isCreatingCollection={isCreatingCollection}
-      showCreateAppModal={showCreateAppModal}
-      setShowCreateAppModal={setShowCreateAppModal}
-      onConfirmCreateApp={onConfirmCreateApp}
     >
       <AppTable activeCollectionId={activeCollectionId} activeTab="all" />
     </DashboardSidebar>
