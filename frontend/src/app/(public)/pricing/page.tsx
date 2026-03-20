@@ -8,12 +8,12 @@ const faqs = [
   {
     question: "Who pays for usage?",
     answer:
-      "Every interaction with a MicroApp uses credits from the creator/owner of the microapp. This allows us to only charge for app creators, while allowing apps to be shareable. This means that you should protect who has access to your apps, and consider using cheaper models like GPT-4o-mini when you can. Don't worry. You'll never be charged more than your monthly subscription amount. You'll simply run out of usage credits and either have to buy more or wait until the next month's cycle.",
+      "Every interaction with a MicroApp uses credits from the creator/owner of the microapp. This allows us to only charge for app creators, while allowing apps to be shareable. This means that you should protect who has access to your apps, and consider using cheaper models when you can. Don't worry. You'll never be charged more than your monthly subscription amount. You'll simply run out of usage credits and either have to buy more or wait until the next month's cycle.",
   },
   {
     question: "How much usage do I get?",
     answer:
-      "More than you think. For example, on the free tier you can generate over 4,000 multiple choice questions using the MCQ Generator with GPT 4o-mini and typical use cases. Model costs change frequently and each MicroApp is different, so we are working on stable usage guidelines and hope to provide those soon.",
+      "More than you think. For example, on the free tier you can generate over 4,000 multiple choice questions using the MCQ Generator with a lightweight model and typical use cases. Model costs change frequently and each MicroApp is different, so we are working on stable usage guidelines and hope to provide those soon.",
   },
   // More questions...
 ]

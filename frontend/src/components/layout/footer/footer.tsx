@@ -31,7 +31,6 @@ export default function Footer() {
               <ul className="space-y-2 text-gray-600">
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/pricing/">Pricing</a></li>
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/what-are-ai-microapps/">What are MicroApps?</a></li>
-                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/building-microapps-101/">Building MicroApps 101</a></li>
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/library/">Apps Library</a></li>
               </ul>
             </div>

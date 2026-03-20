@@ -23,7 +23,7 @@ const features = [
   },
   {
     name: 'Flexibility.',
-    description: 'Apps have access to the major AI providers, or you can use your own. Use the best AI for the task.',
+    description: 'Apps have access to the major AI providers. Use the best AI for the task.',
     icon: FaPuzzlePiece,
   },
   {
@@ -32,8 +32,8 @@ const features = [
     icon: FaShieldHalved,
   },
   {
-    name: 'Drag and Drop Development.',
-    description: 'Design your app visually with drag and drop components, no coding required.',
+    name: 'AI-Powered, no-code Development.',
+    description: 'Design your app via AI chat and/or drag and drop components, no coding required.',
     icon: FaCubes,
   },
 ]
