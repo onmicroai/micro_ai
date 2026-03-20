@@ -6,7 +6,7 @@ from pgvector.django import VectorField
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('microapps', '0058_rubricbuild'),
+        ('microapps', '0059_run_session_id_index'),
     ]
 
     operations = [
