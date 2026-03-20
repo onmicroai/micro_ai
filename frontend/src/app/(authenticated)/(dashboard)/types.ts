@@ -47,4 +47,8 @@ export type ShareModalProps = {
     showModal: boolean;
     setShowModal: (showModal: boolean) => void;
     isOwner: boolean;
+    /** Default `modal`. Use `inline` when embedding in a page/tab (no backdrop, no outside-click close). */
+    variant?: "modal" | "inline";
+    /** Called after privacy PATCH succeeds (e.g. sync editor store without double-save). */
+    onPrivacySaved?: (privacy: string) => void;
 };
