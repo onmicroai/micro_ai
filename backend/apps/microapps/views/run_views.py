@@ -403,10 +403,6 @@ class RunList(APIView, UsageTrackingMixin):
                 user_prompt=data.get("user_prompt", ""),
             )
 
-            # DEBUG: log full prompt (set LOG_PROMPT_DEBUG=1 in .env)
-            print("=== FULL PROMPT TO AI ===\n%s\n=== END PROMPT ===",
-                     json.dumps(api_params["messages"], indent=2, ensure_ascii=False))
-
             # Add transcription cost to api_params before get_response
             api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
 
