@@ -17,6 +17,7 @@ import {
   Bot,
   User,
   Loader2,
+  Undo2,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "./button";
@@ -24,6 +25,7 @@ import { useSurveyStore } from "../../store/editSurveyStore";
 import { AppJsonV2 } from "@/app/(authenticated)/app/types";
 import { authorizedFetch } from "@/utils/authorizedFetch";
 import { readSseResponse } from "@/utils/readSseStream";
+import { toast } from "react-toastify";
 
 export type ChatBuildSidebarHandle = {
   sendMessage: (text: string) => Promise<void>;
@@ -87,6 +89,9 @@ const ChatBuildSidebar = forwardRef<
     addChatBuildMessage,
     updateChatBuildMessage,
     replaceEntireAppJson,
+    pushAppBuilderUndoSnapshot,
+    undoLastAppBuilderChange,
+    appBuilderUndoStack,
   } = useSurveyStore();
 
   const [inputValue, setInputValue] = useState("");
@@ -190,6 +195,7 @@ const ChatBuildSidebar = forwardRef<
             case "complete":
               updateChatBuildMessage(assistantId, { status: "done" });
               if (data.app_json) {
+                pushAppBuilderUndoSnapshot();
                 replaceEntireAppJson(data.app_json as AppJsonV2);
               }
               break;
@@ -228,8 +234,26 @@ const ChatBuildSidebar = forwardRef<
         abortControllerRef.current = null;
       }
     },
-    [appId, addChatBuildMessage, updateChatBuildMessage, replaceEntireAppJson]
+    [
+      appId,
+      addChatBuildMessage,
+      updateChatBuildMessage,
+      replaceEntireAppJson,
+      pushAppBuilderUndoSnapshot,
+    ]
   );
+
+  const handleUndoAppUpdate = useCallback(async () => {
+    if (isStreaming || appBuilderUndoStack.length === 0) return;
+    const ok = await undoLastAppBuilderChange();
+    if (ok) {
+      toast.success("Restored the app to before the last AI update.");
+    }
+  }, [
+    isStreaming,
+    appBuilderUndoStack.length,
+    undoLastAppBuilderChange,
+  ]);
 
   useImperativeHandle(
     ref,
@@ -283,14 +307,34 @@ const ChatBuildSidebar = forwardRef<
                 <p className="text-xs text-gray-400">AI-powered app generation</p>
               </div>
             </div>
-            <Button
-              variant="ghost"
-              size="lg"
-              onClick={onClose}
-              className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+            <div className="flex items-center gap-0.5">
+              <Button
+                variant="ghost"
+                size="lg"
+                type="button"
+                onClick={handleUndoAppUpdate}
+                disabled={
+                  isStreaming || appBuilderUndoStack.length === 0
+                }
+                className="h-8 px-2 gap-1 text-gray-500 hover:text-gray-800 disabled:opacity-40"
+                title={
+                  appBuilderUndoStack.length === 0
+                    ? "Nothing to undo yet"
+                    : "Undo last AI app update"
+                }
+              >
+                <Undo2 className="h-4 w-4" />
+                <span className="text-xs font-medium">Undo</span>
+              </Button>
+              <Button
+                variant="ghost"
+                size="lg"
+                onClick={onClose}
+                className="h-8 w-8 p-0 text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
 
           {/* Messages */}

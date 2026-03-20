@@ -117,6 +117,9 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
                setCollectionIds(ids, true, signal);
             }
 
+            // App Builder: restore chat + undo stack from session (same tab / refresh).
+            useSurveyStore.getState().hydrateAppBuilderFromSession(appIdFetched);
+
             setIsAuthorized(true); 
          } else if (response.status === 400) {
            
