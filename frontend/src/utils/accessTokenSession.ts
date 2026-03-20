@@ -93,7 +93,11 @@ export const refreshAccessToken: () => Promise<string | null> = (() => {
       processQueue(error, null);
       if (error.name !== "CanceledError") {
         if (error?.response?.status === 401) {
-          forceLogout(error);
+          let isPublic = false;
+          if (typeof window !== "undefined") {
+            isPublic = await checkCurrentPagePrivacy(window.location.pathname);
+          }
+          forceLogout(error, isPublic);
         }
       }
       throw error;
@@ -106,6 +110,29 @@ export const refreshAccessToken: () => Promise<string | null> = (() => {
 let lastCheckedPath: string | null = null;
 let lastCheckedPathVisibility: boolean = false;
 
+/**
+ * Resolves the microapp hash from the browser path (not the API path).
+ * Examples: `/app/abc-123`, `/app/edit/abc-123`, `/app/embed/abc-123`, `/app/abc-123/stats`.
+ */
+function extractMicroappHashFromPath(path: string): string | null {
+  const pathname = path.split("?")[0] ?? path;
+  if (!pathname.includes("/app/")) {
+    return null;
+  }
+
+  const editEmbed = pathname.match(/^\/app\/(?:edit|embed)\/([^/]+)/i);
+  if (editEmbed?.[1]) {
+    return editEmbed[1];
+  }
+
+  const direct = pathname.match(/^\/app\/([^/]+)/i);
+  const seg = direct?.[1];
+  if (!seg || /^edit$/i.test(seg) || /^embed$/i.test(seg)) {
+    return null;
+  }
+  return seg;
+}
+
 export async function checkCurrentPagePrivacy(
   path: string | undefined,
   signal?: AbortSignal
@@ -116,9 +143,7 @@ export async function checkCurrentPagePrivacy(
 
   if (path === lastCheckedPath) return lastCheckedPathVisibility;
 
-  const appIdMatch = path?.match(/\/microapps\/.*?\/([a-zA-Z0-9-]+)/);
-
-  const appId = appIdMatch ? appIdMatch[1] : null;
+  const appId = extractMicroappHashFromPath(path);
 
   if (!appId) {
     return false;

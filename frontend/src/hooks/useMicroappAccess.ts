@@ -18,7 +18,10 @@ import isTokenExpired from "@/utils/isTokenExpired";
 export type MicroappAccessMode = "run" | "embed" | "edit" | "owner";
 
 export interface MicroappAccessResult {
-  /** Profile pending or authorization still resolving */
+  /**
+   * True while visibility/roles are resolving. For public run/embed apps, profile
+   * fetch does not extend this once `isPublicApp` is known.
+   */
   shellLoading: boolean;
   /** When shellLoading is false, whether this surface may be shown */
   isAuthorized: boolean;
@@ -58,7 +61,13 @@ export function useMicroappAccess(
 
   const seqRef = useRef(0);
 
-  const shellLoading = isProfilePending || authLoading;
+  /**
+   * Once a run/embed app is known to be public, guests do not need a resolved
+   * profile — otherwise we keep them on the shell while getUser() runs and they
+   * never match the old layout branches that expected isAuthorized + routing.
+   */
+  const shellLoading =
+    authLoading || (isProfilePending && !isPublicApp);
 
   useEffect(() => {
     const seq = ++seqRef.current;

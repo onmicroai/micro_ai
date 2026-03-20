@@ -25,7 +25,6 @@ export default function EditLayout({
     return (
       <>
         <ToastContainer stacked position="bottom-left" hideProgressBar={true} />
-        <NavBarClientSwitch />
         <SkeletonLoader variant="app" />
       </>
     );
