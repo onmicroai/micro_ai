@@ -118,7 +118,7 @@ export default function DashboardHeader({
           disabled={isCreatingApp}
           title={isCreatingApp ? "Creating..." : "Add new app"}
           className={cn(
-            "inline-flex items-center justify-center gap-x-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-white shadow-sm transition-colors md:px-6",
+            "inline-flex items-center justify-center gap-x-2 rounded-lg bg-primary px-4 py-3 text-sm text-white shadow-sm transition-colors md:px-6",
             isCreatingApp
               ? "cursor-not-allowed opacity-50"
               : "hover:bg-primary-600"
