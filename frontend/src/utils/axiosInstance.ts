@@ -46,9 +46,12 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
 
         return config;
       },
-      (error: any) => {
+      async (error: any) => {
         if (error?.response?.status == 401) {
-          forceLogout(error);
+          const isPublic = await checkCurrentPagePrivacy(
+            typeof window !== "undefined" ? window.location.pathname : undefined
+          );
+          forceLogout(error, isPublic);
         }
 
         return Promise.reject(error);

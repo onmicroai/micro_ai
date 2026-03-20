@@ -1,10 +1,12 @@
 "use client";
 
+import { useRef, useState } from 'react';
 import { XMarkIcon } from '@heroicons/react/20/solid'
 import { toast } from 'react-toastify';
 import { useDashboardStore } from '@/app/(authenticated)/(dashboard)/dashboard/[tab]/store/dashboardStore';
 import { useAuth } from '@/context/AuthContext';
 import { useRouter } from 'next/navigation';
+import { cn } from '@/utils/cn';
 
 interface RemixBannerProps {
   onDismiss?: () => void;
@@ -16,6 +18,8 @@ export default function RemixBanner({ onDismiss, appId, copyAllowed }: RemixBann
   const cloneApp = useDashboardStore(state => state.cloneApp);
   const { isAuthenticated } = useAuth();
   const router = useRouter();
+  const remixInFlightRef = useRef(false);
+  const [remixBusy, setRemixBusy] = useState(false);
 
   const handleRemixClick = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
@@ -32,11 +36,19 @@ export default function RemixBanner({ onDismiss, appId, copyAllowed }: RemixBann
       return;
     }
 
+    if (remixInFlightRef.current) {
+      return;
+    }
+    remixInFlightRef.current = true;
+    setRemixBusy(true);
     try {
       await cloneApp(appId); // Let the backend handle collection management
     } catch (error) {
       // Error handling is done in the store
       console.error('Error in remix:', error);
+    } finally {
+      remixInFlightRef.current = false;
+      setRemixBusy(false);
     }
   };
 
@@ -74,7 +86,15 @@ export default function RemixBanner({ onDismiss, appId, copyAllowed }: RemixBann
           </p>
           <a
             href="#"
-            className="flex-none rounded-full bg-gray-900 px-3.5 py-1 text-sm font-semibold text-white shadow-sm hover:bg-gray-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+            aria-busy={remixBusy}
+            aria-disabled={remixBusy}
+            tabIndex={remixBusy ? -1 : undefined}
+            className={cn(
+              "flex-none rounded-full bg-gray-900 px-3.5 py-1 text-sm font-semibold text-white shadow-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900",
+              remixBusy
+                ? "pointer-events-none cursor-not-allowed opacity-60"
+                : "hover:bg-gray-700"
+            )}
             onClick={handleRemixClick}
           >
             Remix this app <span aria-hidden="true">&rarr;</span>
