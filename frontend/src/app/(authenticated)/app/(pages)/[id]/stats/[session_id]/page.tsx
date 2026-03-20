@@ -1,7 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { checkIsOwner } from "@/utils/checkRoles";
+import { useEffect, useRef, useState } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied";
 import axiosInstance from "@/utils/axiosInstance";
@@ -9,7 +8,7 @@ import { Card } from "../../../edit/[id]/components/ui/card";
 import { format } from "date-fns";
 import * as XLSX from 'xlsx';
 import { Button } from "@/components/Button";
-import { useUserStore } from "@/store/userStore";
+import { useMicroappAccess } from "@/hooks/useMicroappAccess";
 
 interface Message {
   timestamp: string;
@@ -27,45 +26,62 @@ export default function ConversationDetailPage({
 }: { 
   params: { id: string; session_id: string } 
 }) {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(true);
   const [conversation, setConversation] = useState<any>(null);
-  const { user } = useUserStore();
-  const userId = Number(user?.id);
   const hashId = params.id;
   const sessionId = params.session_id;
 
+  const { shellLoading, isAuthorized } = useMicroappAccess(hashId, "owner");
+  const fetchSeq = useRef(0);
+
   useEffect(() => {
+    if (shellLoading) {
+      return;
+    }
+    if (!isAuthorized) {
+      setDataLoading(false);
+      setConversation(null);
+      return;
+    }
+
+    const seq = ++fetchSeq.current;
     const abortController = new AbortController();
     const signal = abortController.signal;
 
-    const fetchData = async () => {
+    const load = async () => {
+      setDataLoading(true);
       try {
-        const isOwner = await checkIsOwner(hashId, userId, signal);
-        setIsAuthorized(Boolean(isOwner));
-
-        if (isOwner) {
-          const response = await axiosInstance().get(
-            `/api/microapps/stats/conversation-details?session_id=${sessionId}`
-          );
-          setConversation(response.data);
+        const response = await axiosInstance().get(
+          `/api/microapps/stats/conversation-details?session_id=${sessionId}`,
+          { signal }
+        );
+        if (seq !== fetchSeq.current) {
+          return;
         }
-      } catch (error: any) {
-        const errorName = error?.name;
-        if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
-           console.error("Error:", error);
+        setConversation(response.data);
+      } catch (error: unknown) {
+        const errorName =
+          error && typeof error === "object" && "name" in error
+            ? String((error as { name?: string }).name)
+            : "";
+        if (
+          errorName &&
+          errorName !== "AbortError" &&
+          errorName !== "CanceledError"
+        ) {
+          console.error("Error:", error);
         }
       } finally {
-        setIsLoading(false);
+        if (seq === fetchSeq.current) {
+          setDataLoading(false);
+        }
       }
     };
 
-    if (userId) {
-      fetchData();
-    }
+    void load();
 
     return () => abortController.abort();
-  }, [hashId, userId, sessionId]);
+  }, [hashId, sessionId, shellLoading, isAuthorized]);
 
   const formatTimestamp = (timestamp: string) => {
     return format(new Date(timestamp), "MMM d, yyyy HH:mm:ss");
@@ -74,7 +90,6 @@ export default function ConversationDetailPage({
   const exportToExcel = () => {
     if (!conversation?.data) return;
 
-    // Prepare the data for export
     const exportData = conversation.data.map((message: Message) => ({
       Timestamp: formatTimestamp(message.timestamp),
       'System Prompt': message.system_prompt,
@@ -86,22 +101,19 @@ export default function ConversationDetailPage({
       'Passed': message.run_passed === null ? '' : message.run_passed ? 'Yes' : 'No'
     }));
 
-    // Create worksheet
     const ws = XLSX.utils.json_to_sheet(exportData);
-
-    // Create workbook
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Conversation');
-
-    // Generate filename with session ID and date
-    const fileName = `conversation_${sessionId}_${format(new Date(), 'yyyyMMdd_HHmmss')}.xlsx`;
-
-    // Save file
+    const fileName = `conversation_${sessionId}_${format(new Date(), "yyyyMMdd_HHmmss")}.xlsx`;
     XLSX.writeFile(wb, fileName);
   };
 
-  if (isLoading) return <SkeletonLoader />;
-  if (!isAuthorized) return <AccessDenied />;
+  if (shellLoading || dataLoading) {
+    return <SkeletonLoader />;
+  }
+  if (!isAuthorized) {
+    return <AccessDenied />;
+  }
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -168,4 +180,4 @@ export default function ConversationDetailPage({
       </div>
     </div>
   );
-} 
+}

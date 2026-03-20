@@ -182,7 +182,9 @@ export default function ConditionalLogicSidebar({
           animate={{ width: 400 }}
           exit={{ width: 0 }}
           transition={{ type: "spring", damping: 25, stiffness: 200 }}
-          className="sticky top-16 right-0 h-screen bg-white z-50 flex flex-col overflow-hidden"
+          // Sticky (in-flow) keeps the sidebar pushing the main editor,
+          // while the explicit height keeps the input visible below the header.
+          className="sticky top-16 bg-white z-50 flex flex-col overflow-hidden self-start h-[calc(100vh-4rem)]"
           style={{ minWidth: 0, maxWidth: 400 }}
         >
           <div className="flex items-center justify-between px-4 py-3 bg-white">

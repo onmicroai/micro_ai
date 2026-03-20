@@ -171,7 +171,7 @@ class Run(models.Model):
     # The session ID of the run. Session IDs are randomly generated and used to group a series of a user's runs as they navigate through an app. 
     # If a run is not associated with a session, then the session_id is created by the backend.
     # A user's runs should be tracked to the same session_id as they go through the app. Session_ids are reset when the user "restarts" the app, like when they refresh the page, or exit and return. 
-    session_id = models.TextField(blank=True)
+    session_id = models.TextField(blank=True, db_index=True)
 
     # The user-reported satisfaction of the run. -1 is negative, 1 is positive. 
     satisfaction = models.IntegerField()
@@ -267,6 +267,11 @@ class Run(models.Model):
     litellm_response_id = models.CharField(max_length=255, blank=True, null=True)
     
     response_type = models.CharField(max_length = 20, default = MicroappVariables.DEFAULT_RESPONSE_TYPE, choices = RESPONSE_TYPE)
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['ma_id', 'session_id'], name='run_ma_session_idx'),
+        ]
 
     def __str__(self):
         return self.ai_model

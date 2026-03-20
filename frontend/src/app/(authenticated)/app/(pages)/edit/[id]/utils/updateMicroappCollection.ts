@@ -1,31 +1,38 @@
 import axiosInstance from "@/utils//axiosInstance"
 
 /**
- * Updates the collection ID of a microapp
+ * Adds a microapp to a collection (many-to-many).
  * @param appId - The ID of the microapp
- * @param newCollectionId - The ID of the new collection
- * @param oldCollectionId - The ID of the old collection
+ * @param collectionId - The ID of the collection
  * @param signal - The AbortSignal to cancel the request
  */
-export async function updateMicroappCollection(appId: number, newCollectionId: number, oldCollectionId?: number, signal?: AbortSignal) {
-   const api = axiosInstance();
+export async function addMicroappToCollection(
+  appId: number,
+  collectionId: number,
+  signal?: AbortSignal
+) {
+  const api = axiosInstance();
+  const response = await api.post(
+    `/api/collection/${collectionId}/microapp/${appId}`,
+    { collection_id: collectionId, ma_id: appId },
+    { signal }
+  );
+  return response.data;
+}
 
-   if (oldCollectionId === newCollectionId) {
-      return;
-   }
- 
-   try {
-     // Use the new PUT endpoint to move the app to the new collection in one step
-     const response = await api.put(`/api/collection/${newCollectionId}/microapp/${appId}`, {
-       collection_id: newCollectionId,
-       ma_id: appId
-     }, {
-      signal: signal
-     });
- 
-     return response.data;
-   } catch (error) {
-     console.error("Error updating microapp collection:", error);
-     throw error;
-   }
+/**
+ * Removes a microapp from a collection (many-to-many).
+ * @param appId - The ID of the microapp
+ * @param collectionId - The ID of the collection
+ * @param signal - The AbortSignal to cancel the request
+ */
+export async function removeMicroappFromCollection(
+  appId: number,
+  collectionId: number,
+  signal?: AbortSignal
+) {
+  const api = axiosInstance();
+  await api.delete(`/api/collection/${collectionId}/microapp/${appId}`, {
+    signal,
+  });
 }

@@ -11,9 +11,10 @@ import Modal from '@/components/modules/custom-prompt-modal/custom-prompt-modal'
 import { SurveyCreatorProps } from '@/app/(authenticated)/app/types';
 import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
-import { BookTextIcon } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
-import AccessDenied from "@/components/access-denied"; 
+import AccessDenied from "@/components/access-denied";
+import { useUserStore } from "@/store/userStore";
+import { checkIsAdmin, checkIsOwner } from "@/utils/checkRoles";
 import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
 const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) => {
    const api = axiosInstance();
@@ -21,12 +22,11 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    const [modalInfo, setModalInfo] = useState({ isOpen: false, message: "" });
    const [loading, setLoading] = useState(true);
    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-   const collectionId = useRef<number | null>(null);
    const {
       setElements,
       setTitle,
       setDescription,
-      setCollectionId,
+      setCollectionIds,
       setPrivacy,
       setClonable,
       resetStore,
@@ -76,6 +76,24 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
                return;
             }
 
+            const editorUserId = useUserStore.getState().user?.id ?? null;
+            if (editorUserId === null) {
+               setIsAuthorized(false);
+               setLoading(false);
+               setIsInitialLoad(false);
+               return;
+            }
+            const [ownerResult, adminResult] = await Promise.all([
+               checkIsOwner(hashId, editorUserId, signal!),
+               checkIsAdmin(hashId, editorUserId, signal!),
+            ]);
+            if (!ownerResult.isOwner && !adminResult.isAdmin) {
+               setIsAuthorized(false);
+               setLoading(false);
+               setIsInitialLoad(false);
+               return;
+            }
+
             appId.current = appIdFetched;
             setAppId(appIdFetched);
 
@@ -112,15 +130,14 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
 
             if (Array.isArray(appCollectionsData)) {
                const appCollections = structuredClone(appCollectionsData);
-               if (appCollections.length > 0) {
-                  const defaultCollection = appCollections[0]?.id;
-                  if (typeof defaultCollection === 'number') {
-                     appData.collection = defaultCollection;
-                     collectionId.current = defaultCollection;
-                     setCollectionId(defaultCollection, true, signal);
-                  }
-               }
+               const ids = appCollections
+                 .map((c: { id?: number }) => c?.id)
+                 .filter((id): id is number => typeof id === "number");
+               setCollectionIds(ids, true, signal);
             }
+
+            // App Builder: restore chat + undo stack from session (same tab / refresh).
+            useSurveyStore.getState().hydrateAppBuilderFromSession(appIdFetched);
 
             setIsAuthorized(true); 
          } else if (response.status === 400) {
@@ -148,7 +165,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setCompletedHtml, 
       setAIConfig, 
       setAttachedFiles,
-      setCollectionId,
+      setCollectionIds,
       setIsInitialLoad,
       setLoading,
       setIsAuthorized,
@@ -169,27 +186,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
             return "private";
       }
    };
-
-   const TutorialButton = () => {
-      return (
-        <div className="fixed bottom-10 right-6 z-50">
-                <a
-                  href="/building-microapps-101"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 
-                    shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105
-                    hover:translate-x-[-8px] group"
-                >
-                  <BookTextIcon className="h-5 w-5" />
-                  <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[200px] 
-                    transition-all duration-300">
-                    Watch Tutorial
-                  </span>
-                </a>
-        </div>
-      );
-    };
 
    useEffect(() => {
       const controller = new AbortController();
@@ -230,7 +226,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       <div>
          <>
             <FormBuilder />
-            <TutorialButton />
          </>
          <Modal isOpen={modalInfo.isOpen} onClose={() => setModalInfo({ ...modalInfo, isOpen: false })}>
             <div>{modalInfo.message}</div>

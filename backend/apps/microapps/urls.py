@@ -16,6 +16,7 @@ from .views import (
     UserMicroAppsDetails,
     UserApps,
     UserMicroAppsRoleByHash,
+    AppAdminsView,
     
     # Run views
     RunList,
@@ -43,6 +44,7 @@ from .views import (
     AnonymousTextToSpeech,
 )
 from .views.rubric_build_views import RubricBuildView
+from .views.app_builder_views import AppBuilderChatView
 
 urlpatterns = [
     # Microapp management
@@ -63,6 +65,8 @@ urlpatterns = [
     path('<int:app_id>/user/<int:user_id>', UserMicroApps.as_view(), name="user-role"),
     path('hash/<str:hash_id>/user/<int:user_id>', UserMicroAppsRoleByHash.as_view(), name="user-role-by-hash"),
     path('apps', UserApps.as_view(), name="user_apps"),
+    path('<int:app_id>/admins/', AppAdminsView.as_view(), name='app-admins'),
+    path('<int:app_id>/admins/<int:user_id>/', AppAdminsView.as_view(), name='app-admin-detail'),
     
     # AI Model execution
     path('run', RunList.as_view(), name="run_model"),
@@ -89,4 +93,5 @@ urlpatterns = [
     path('tts/', TextToSpeech.as_view(), name='text-to-speech'),
     path('tts/anonymous/', AnonymousTextToSpeech.as_view(), name='anonymous-text-to-speech'),
     path('rubric-build/', RubricBuildView.as_view(), name='rubric-build'),
+    path('app-builder-chat/', AppBuilderChatView.as_view(), name='app-builder-chat'),
 ]

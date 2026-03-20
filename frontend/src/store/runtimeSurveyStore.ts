@@ -48,6 +48,17 @@ const serializeAppData = (data: any): SurveyJson => {
    const v2 = normalizeAppJsonToV2(appJson);
    appJson.elements = v2.elements;
 
+   // "Allow others to clone" lives in app_json as `clonable` and on the model as
+   // `copy_allowed`. Prefer the model when present; otherwise trust app_json.
+   const clonableFromAppJson =
+      typeof appJson.clonable === "boolean" ? appJson.clonable : undefined;
+   const copyAllowed =
+      typeof parsedJSON?.copy_allowed === "boolean"
+         ? parsedJSON.copy_allowed
+         : clonableFromAppJson !== undefined
+            ? clonableFromAppJson
+            : true;
+
    return {
       title: parsedJSON?.title || "",
       description: parsedJSON?.app_json?.description || "",
@@ -55,7 +66,7 @@ const serializeAppData = (data: any): SurveyJson => {
       hashId: parsedJSON?.hash_id || null,
       privacy: parsedJSON?.privacy || "Public",
       temperature: parsedJSON?.temperature || 0.5,
-      copyAllowed: parsedJSON?.copy_allowed ?? true,
+      copyAllowed,
       aiConfig: parsedJSON?.app_json?.aiConfig || [],
       attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
       phases: appJson.phases,

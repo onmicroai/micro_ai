@@ -1,128 +1,45 @@
 "use client";
 
 import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
-import { ToastContainer } from 'react-toastify';
-import { useEffect, useState } from "react";
-import { checkIsAdmin, checkIsOwner } from "@/utils//checkRoles";
-import { checkIsPublic } from "@/utils//checkAppPrivacy";
+import { ToastContainer } from "react-toastify";
 import AccessDenied from "@/components/access-denied";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
-import { useUserStore } from "@/store/userStore";
-import { useAuth } from "@/context/AuthContext";
+import { useMicroappAccess } from "@/hooks/useMicroappAccess";
 
 export default function RootLayout({
-   children,
-   params,
+  children,
+  params,
 }: {
-   children: React.ReactNode;
-   params: { id: string };
+  children: React.ReactNode;
+  params: { id: string };
 }) {
-   const { isAuthenticated } = useAuth();
-   const [isAuthorized, setIsAuthorized] = useState<boolean>(false);
-   const [isLoading, setIsLoading] = useState(true);
-   const { user, isLoading: userIsLoading } = useUserStore();
-   const userId = user?.id ?? null;
-   const hashId = params.id;
+  const { shellLoading, isAuthorized } = useMicroappAccess(params.id, "run");
 
-   useEffect(() => {
-      const abortController = new AbortController();
-      const signal = abortController.signal;
-
-      /**
-       * Check if the app is public or if the user is authorized to access it
-       * @param signal - The abort signal for the request
-       * @returns void
-       */
-      const checkAuthorization = async (signal: AbortSignal) => {
-         try {
-            const { isPublic, error } = await checkIsPublic(hashId, signal);
-            
-            if (error) {
-               const errorName = error?.name;
-               if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
-                  console.error('Error checking public status:', error);
-                  setIsAuthorized(false);
-               }
-               
-               return;
-            }
-
-            if (isPublic) {
-               setIsAuthorized(true);
-               return;
-            }
-
-            // If app is private, check user permissions
-            if (userId !== null) {
-               const [ownerResult, adminResult] = await Promise.all([
-                  checkIsOwner(hashId, userId, signal),
-                  checkIsAdmin(hashId, userId, signal)
-               ]);
-
-               setIsAuthorized(ownerResult.isOwner || adminResult.isAdmin);
-            }
-         } catch (error: any) {
-            const errorName = error?.name;
-            if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
-               console.error('Error checking authorization:', error);
-            }
-         } finally {
-            setIsLoading(false);
-         }
-      };
-
-      checkAuthorization(signal);
-
-      return () => abortController.abort();
-   }, [userId, hashId]);
-
-   // Show loading state while waiting for user data
-   if (userIsLoading || isLoading) {
-      return (
-        <>
-          <ToastContainer />
-          <NavBarClientSwitch />
-          <SkeletonLoader variant="app" />
-        </>
-      );
-   }
-
-   if (!isAuthorized && isAuthenticated) {
-      return (
-         <>
-            <ToastContainer />
-            <NavBarClientSwitch />
-            <AccessDenied />
-         </>
-      );
-   }
-
-   if (isAuthorized && isAuthenticated) {
-      return (
-        <>
-          <ToastContainer />
-          <NavBarClientSwitch />
-          {children ? children : <div></div>}
-        </>
-      );
-   }
-
-
-   if (!isAuthorized) {
-      return (
-        <>
-          <ToastContainer />
-          <NavBarClientSwitch />
-          <AccessDenied />
-        </>
-      );
-   }
-
-   return (
+  if (shellLoading) {
+    return (
       <>
-         <ToastContainer />
-         <NavBarClientSwitch />
-         {children ? children : <div></div>}
+        <ToastContainer />
+        <NavBarClientSwitch />
+        <SkeletonLoader variant="app" />
       </>
-   );
+    );
+  }
+
+  if (!isAuthorized) {
+    return (
+      <>
+        <ToastContainer />
+        <NavBarClientSwitch />
+        <AccessDenied />
+      </>
+    );
+  }
+
+  return (
+    <>
+      <ToastContainer />
+      <NavBarClientSwitch />
+      {children ? children : <div></div>}
+    </>
+  );
 }

@@ -14,7 +14,8 @@ from .user_views import (
     UserMicroApps,
     UserMicroAppsDetails,
     UserApps,
-    UserMicroAppsRoleByHash
+    UserMicroAppsRoleByHash,
+    AppAdminsView,
 )
 
 from .run_views import (
@@ -37,8 +38,6 @@ from .analytics_views import (
 from .media_views import (
     MicroAppImageUpload,
     MicroAppFileUpload,
-    MicroAppFileDelete,
-    FileEmbeddingStatusView,
     ParseFile,
     AudioTranscription,
     AnonymousAudioTranscription,
@@ -65,6 +64,7 @@ __all__ = [
     'UserMicroAppsDetails',
     'UserApps',
     'UserMicroAppsRoleByHash',
+    'AppAdminsView',
     
     # Run views
     'RunList',
@@ -83,8 +83,6 @@ __all__ = [
     # Media views
     'MicroAppImageUpload',
     'MicroAppFileUpload',
-    'MicroAppFileDelete',
-    'FileEmbeddingStatusView',
     'ParseFile',
     'AudioTranscription',
     'AnonymousAudioTranscription',

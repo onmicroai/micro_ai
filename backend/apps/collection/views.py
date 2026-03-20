@@ -328,17 +328,25 @@ class CollectionMicroAppsDetails(APIView):
             return handle_exception(e)
 
 @extend_schema_view(
-    get=extend_schema(responses={200: CollectionSerializer(many=True)}, summary="Get all collections for a specific app"),
+    get=extend_schema(responses={200: CollectionSerializer(many=True)}, summary="Get collections for a specific app (user-scoped: only collections the current user has access to)"),
 )
 class AppCollectionsList(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, app_id, format=None):
         try:
-            collection_ids = CollectionMaJoin.objects.filter(ma_id=app_id).values_list(
+            current_user = request.user.id
+            # Collections this app is in (from join table)
+            collection_ids_for_app = CollectionMaJoin.objects.filter(ma_id=app_id).values_list(
                 "collection_id", flat=True
             )
-            app_collections = Collection.objects.filter(id__in=collection_ids)
+            # Restrict to collections the current user has access to (CollectionUserJoin)
+            user_collection_ids = CollectionUserJoin.objects.filter(
+                user_id=current_user
+            ).values_list("collection_id", flat=True)
+            # Intersection: app's collections that the user can see
+            allowed_ids = set(collection_ids_for_app) & set(user_collection_ids)
+            app_collections = Collection.objects.filter(id__in=allowed_ids).order_by("id")
             serializer = CollectionSerializer(app_collections, many=True)
             return Response(
                 {"data": serializer.data, "status": status.HTTP_200_OK},

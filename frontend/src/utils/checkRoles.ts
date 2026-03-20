@@ -1,4 +1,4 @@
-import axiosInstance from "@/utils//axiosInstance";
+import axiosInstance from "@/utils/axiosInstance";
 
 interface CheckIsOwnerResult {
   isOwner: boolean;
@@ -59,20 +59,21 @@ const makeRequest = async (hashId: string, userId: number, signal: AbortSignal):
     return result;
   } catch (error: any) {
     const errorName = error?.name;
-    if (errorName && errorName !== 'AbortError' && errorName !== 'CanceledError') {
+    if (errorName === 'AbortError' || errorName === 'CanceledError') {
+      // Must reject so deduped callers don't receive a fulfilled "failed roles" payload,
+      // and checkRole's pending .catch can start a fresh request (Strict Mode remount).
+      throw error;
+    }
+    if (errorName) {
       console.error('Error checking roles:', error);
     }
-    
+
     const result = {
       roles: [],
       error: 'Failed to check roles'
     };
-    
-    // Cache the error result as well
-    roleCache.hashId = hashId;
-    roleCache.userId = userId;
-    roleCache.result = result;
-    
+
+    // Do not cache failures — avoids sticky "no access" after transient errors
     return result;
   }
 };
@@ -85,23 +86,22 @@ const makeRequest = async (hashId: string, userId: number, signal: AbortSignal):
  * @returns The roles of the user or an error
  */
 export const checkRole = async (hashId: string, userId: number | null, signal: AbortSignal): Promise<CheckRoleResult> => {
-// Check if we have a cached result for the same hashId and userId
-  if (roleCache.hashId === hashId && roleCache.userId === userId && roleCache.result !== null) {
-   return roleCache.result;
- }
+// Reuse cached success only (never cache errors — see makeRequest)
+  if (
+    roleCache.hashId === hashId &&
+    roleCache.userId === userId &&
+    roleCache.result !== null &&
+    roleCache.result.error === null
+  ) {
+    return roleCache.result;
+  }
 
 
   if (userId === null) {
-    const result = {
+    return {
       roles: [],
       error: 'User ID is null'
     };
-    
-    // Cache the result
-    roleCache.hashId = hashId;
-    roleCache.userId = userId;
-    roleCache.result = result;
-    return result;
   }
 
   // Create a unique key for this request
