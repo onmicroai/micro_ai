@@ -19,11 +19,15 @@ import { cn } from "@/utils/cn";
 import {
   ChartLine,
   Copy,
+  GripVertical,
   PencilIcon,
   Share2,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
+import { Draggable, Droppable } from "@hello-pangea/dnd";
+import { dashboardAppsListDroppableId } from "../../dashboardDndConstants";
+import { getSortedDashboardAppList } from "../../dashboardSortUtils";
 import {
   DarkTooltip,
   DarkTooltipContent,
@@ -90,7 +94,6 @@ const APP_ACTIONS: AppActionConfig[] = [
 ];
 
 interface AppTableProps {
-  activeCollectionId: number | null;
   activeTab: string;
 }
 
@@ -98,13 +101,20 @@ interface AppTableProps {
  * AppTable component - Card layout for apps with filtering
  * Default: privacy badge visible. On hover: title turns blue, action icons appear.
  */
-const AppTable: React.FC<AppTableProps> = ({
-  activeCollectionId,
-  activeTab,
-}) => {
+const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
   const api = axiosInstance();
-  const { apps, appLoading, fetchApps, fetchAllApps, cloneApp, deleteApp } =
-    useDashboardStore();
+  const {
+    apps,
+    appLoading,
+    fetchApps,
+    fetchAllApps,
+    cloneApp,
+    deleteApp,
+    listScope,
+    globalDashboardOrderIds,
+    collectionDashboardOrderIds,
+    collectionOrderForId,
+  } = useDashboardStore();
   const { user } = useUserStore();
   const currentUserId = Number(user?.id);
   const [showShareMenu, setShowShareMenu] = useState(false);
@@ -112,21 +122,27 @@ const AppTable: React.FC<AppTableProps> = ({
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppSerialized | null>(null);
 
+  const collectionFetchId =
+    listScope.kind === "collection" ? listScope.id : null;
+
   useEffect(() => {
     const controller = new AbortController();
-    if (activeCollectionId === null) {
+    if (collectionFetchId === null) {
       fetchAllApps(controller.signal);
     } else {
-      fetchApps(activeCollectionId, controller.signal);
+      fetchApps(collectionFetchId, controller.signal);
     }
     return () => controller.abort();
-  }, [activeCollectionId, fetchApps, fetchAllApps]);
+  }, [collectionFetchId, fetchApps, fetchAllApps]);
 
-  const filteredApps = apps
-    .filter(
-      (app) => activeTab === "all" || app?.privacy?.toLowerCase() === activeTab
-    )
-    .sort((a, b) => a.id - b.id);
+  const filteredApps = getSortedDashboardAppList(
+    apps,
+    listScope,
+    activeTab,
+    globalDashboardOrderIds,
+    collectionDashboardOrderIds,
+    collectionOrderForId
+  );
 
   const getPrivacyBadge = (privacy: string) => {
     const privacyLower = privacy.toLowerCase();
@@ -386,80 +402,104 @@ const AppTable: React.FC<AppTableProps> = ({
 
   return (
     <>
-      <div className="space-y-3">
-        {filteredApps.map((app) => (
+      <Droppable droppableId={dashboardAppsListDroppableId}>
+        {(listProvided) => (
           <div
-            key={app.id}
-            className="group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:bg-gray-800"
+            ref={listProvided.innerRef}
+            {...listProvided.droppableProps}
+            className="space-y-3"
           >
-            <div className="flex items-start justify-between gap-4">
-              {/* Left: Title + metrics */}
-              <div className="min-w-0 flex-1">
-                {/* Title - turns blue on hover */}
-                <Link
-                  href={`/app/edit/${app.hashId}`}
-                  className={cn(
-                    "text-lg font-semibold transition-colors duration-200",
-                    "text-gray-900 group-hover:text-primary dark:text-white dark:group-hover:text-primary-350"
-                  )}
-                >
-                  {app.title}
-                </Link>
-                {!isOwner(app) && (
-                  <span className="ml-2 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                    Admin
-                  </span>
-                )}
-
-                {/* Metrics line */}
-                <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
-                  {formatMetrics(app.stats)}
-                </p>
-              </div>
-
-              {/* Right: Privacy badge + action icons (under badge on hover) */}
-              <div className="flex shrink-0 flex-col items-end gap-2">
-                <div className="flex items-center gap-1">
-                  {/* Privacy badge - always visible */}
-                  <span className={getPrivacyBadge(app.privacy)}>
-                    {getPrivacyName(app.privacy)}
-                  </span>
-                  {/* Mobile: always-visible hamburger menu */}
-                  <div className="flex md:hidden">
-                    <Menu as="div" className="relative border-none">
-                      <MenuButton className="inline-flex items-center gap-x-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10">
-                        <Bars3Icon className="h-5 w-5" />
-                      </MenuButton>
-                      <MenuItems
-                        transition
-                        className="absolute right-0 z-10 mt-2 w-48 origin-top-left rounded-md bg-white py-1 shadow-lg transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800"
+            {filteredApps.map((app, index) => (
+              <Draggable
+                key={app.id}
+                draggableId={`app-${app.id}`}
+                index={index}
+              >
+                {(dragProvided, snapshot) => (
+                  <div
+                    ref={dragProvided.innerRef}
+                    {...dragProvided.draggableProps}
+                    className={cn(
+                      "group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:bg-gray-800",
+                      snapshot.isDragging &&
+                        "shadow-lg ring-2 ring-primary/50 dark:ring-primary-350/50"
+                    )}
+                  >
+                    <div className="flex items-start justify-between gap-2 sm:gap-4">
+                      <button
+                        type="button"
+                        {...dragProvided.dragHandleProps}
+                        className="mt-0.5 shrink-0 cursor-grab touch-manipulation rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:hover:bg-white/10 dark:hover:text-gray-300"
+                        aria-label={`Drag to add “${app.title}” to a collection`}
                       >
-                        {getVisibleActions(app).map((action) => (
-                          <React.Fragment key={action.id}>
-                            {renderAction(action, app, "menu")}
-                          </React.Fragment>
-                        ))}
-                      </MenuItems>
-                    </Menu>
-                  </div>
-                </div>
+                        <GripVertical className="h-5 w-5" />
+                      </button>
+                      {/* Left: Title + metrics */}
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/app/edit/${app.hashId}`}
+                          className={cn(
+                            "text-lg font-semibold transition-colors duration-200",
+                            "text-gray-900 group-hover:text-primary dark:text-white dark:group-hover:text-primary-350"
+                          )}
+                        >
+                          {app.title}
+                        </Link>
+                        {!isOwner(app) && (
+                          <span className="ml-2 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            Admin
+                          </span>
+                        )}
 
-                {/* Action icons - appear on hover below badge (desktop only) */}
-                <div
-                  className={cn(
-                    "hidden md:flex items-center gap-x-1 transition-all duration-200",
-                    "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
-                  )}
-                >
-                  {getVisibleActions(app).map((action) =>
-                    renderAction(action, app, "icon")
-                  )}
-                </div>
-              </div>
-            </div>
+                        <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+                          {formatMetrics(app.stats)}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className={getPrivacyBadge(app.privacy)}>
+                            {getPrivacyName(app.privacy)}
+                          </span>
+                          <div className="flex md:hidden">
+                            <Menu as="div" className="relative border-none">
+                              <MenuButton className="inline-flex items-center gap-x-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10">
+                                <Bars3Icon className="h-5 w-5" />
+                              </MenuButton>
+                              <MenuItems
+                                transition
+                                className="absolute right-0 z-10 mt-2 w-48 origin-top-left rounded-md bg-white py-1 shadow-lg transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800"
+                              >
+                                {getVisibleActions(app).map((action) => (
+                                  <React.Fragment key={action.id}>
+                                    {renderAction(action, app, "menu")}
+                                  </React.Fragment>
+                                ))}
+                              </MenuItems>
+                            </Menu>
+                          </div>
+                        </div>
+
+                        <div
+                          className={cn(
+                            "hidden md:flex items-center gap-x-1 transition-all duration-200",
+                            "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
+                          )}
+                        >
+                          {getVisibleActions(app).map((action) =>
+                            renderAction(action, app, "icon")
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {listProvided.placeholder}
           </div>
-        ))}
-      </div>
+        )}
+      </Droppable>
 
       {selectedApp && (
         <ShareModal

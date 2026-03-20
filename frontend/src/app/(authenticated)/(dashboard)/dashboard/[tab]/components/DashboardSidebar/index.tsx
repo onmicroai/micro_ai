@@ -1,6 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
+import {
+  DragDropContext,
+  Droppable,
+  type DropResult,
+} from "@hello-pangea/dnd";
+import { toast } from "react-toastify";
+import axiosInstance from "@/utils/axiosInstance";
+import { addMicroappToCollection } from "@/app/(authenticated)/app/(pages)/edit/[id]/utils/updateMicroappCollection";
+import {
+  collectionSidebarDroppableId,
+  dashboardAppsListDroppableId,
+  parseCollectionDropDestination,
+} from "../../dashboardDndConstants";
 import {
   Dialog,
   DialogBackdrop,
@@ -11,7 +24,10 @@ import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import { Bars3Icon, XMarkIcon, FolderIcon } from "@heroicons/react/24/outline";
 import Link from "next/link";
 import { cn } from "@/utils/cn";
-import { Collection } from "@/app/(authenticated)/(dashboard)/types";
+import {
+  Collection,
+  type DashboardListScope,
+} from "@/app/(authenticated)/(dashboard)/types";
 import UserMenuDropdown from "@/components/modules/user-menu-dropdown/UserMenuDropdown";
 import { useDashboardStore } from "../../store/dashboardStore";
 import DashboardHeader from "../DashboardHeader";
@@ -31,12 +47,13 @@ import {
   Settings,
   SquareLibrary,
   Trash2,
+  UserRound,
+  UsersRound,
 } from "lucide-react";
 
 interface DashboardSidebarProps {
   children: React.ReactNode;
   collections: Collection[];
-  activeCollectionId: number | null;
   activeTab: string;
   appCounts: { [key: string]: number };
   onCreateApp: () => void | Promise<void>;
@@ -49,10 +66,17 @@ interface DashboardSidebarProps {
   isCreatingCollection?: boolean;
 }
 
+const scopeButtonClass = (active: boolean) =>
+  cn(
+    active
+      ? "bg-primary/10 text-primary dark:bg-white/5 dark:text-primary-350"
+      : "hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white",
+    "group flex gap-x-2 rounded-md p-2 text-sm font-medium leading-6 w-full text-left"
+  );
+
 export default function DashboardSidebar({
   children,
   collections,
-  activeCollectionId,
   activeTab,
   onCreateApp,
   onCreateCollection,
@@ -67,7 +91,85 @@ export default function DashboardSidebar({
   const [editedName, setEditedName] = useState("");
   const [collectionToDelete, setCollectionToDelete] =
     useState<Collection | null>(null);
-  const { setActiveCollectionId, deleteCollection } = useDashboardStore();
+  const { listScope, setListScope, deleteCollection, reorderDashboardList } =
+    useDashboardStore();
+  const [flashCollectionId, setFlashCollectionId] = useState<number | null>(
+    null
+  );
+
+  const flashCollectionRow = useCallback((collectionId: number) => {
+    setFlashCollectionId(collectionId);
+    window.setTimeout(() => setFlashCollectionId(null), 2000);
+  }, []);
+
+  const handleDragEnd = useCallback(
+    async (result: DropResult) => {
+      const { destination, source, draggableId } = result;
+      if (!destination) return;
+
+      const appMatch = draggableId.match(/^app-(\d+)$/);
+      if (!appMatch) return;
+
+      if (
+        destination.droppableId === dashboardAppsListDroppableId &&
+        source.droppableId === dashboardAppsListDroppableId
+      ) {
+        if (destination.index !== source.index) {
+          await reorderDashboardList(
+            source.index,
+            destination.index,
+            activeTab
+          );
+        }
+        return;
+      }
+
+      const collectionId = parseCollectionDropDestination(
+        destination.droppableId
+      );
+      if (collectionId == null) return;
+
+      const appId = Number(appMatch[1]);
+      const app = useDashboardStore.getState().apps.find((a) => a.id === appId);
+      const title = app?.title ?? "App";
+      const collectionName =
+        collections.find((c) => c.id === collectionId)?.name ?? "collection";
+
+      try {
+        const api = axiosInstance();
+        const res = await api.get(
+          `/api/collection/app/${appId}/collections/`
+        );
+        const cols: { id: number }[] = res?.data?.data ?? [];
+        if (cols.some((c) => c.id === collectionId)) {
+          toast.info(
+            `“${title}” is already in “${collectionName}”.`,
+            { theme: "colored" }
+          );
+          flashCollectionRow(collectionId);
+          return;
+        }
+
+        await addMicroappToCollection(appId, collectionId);
+        toast.success(`Added “${title}” to “${collectionName}”.`, {
+          theme: "colored",
+        });
+        flashCollectionRow(collectionId);
+      } catch (e: unknown) {
+        const err = e as { response?: { data?: { error?: string; message?: string } } };
+        const msg =
+          err?.response?.data?.error ||
+          err?.response?.data?.message ||
+          "Could not add app to collection.";
+        toast.error(typeof msg === "string" ? msg : "Could not add app to collection.", {
+          theme: "colored",
+        });
+      }
+    },
+    [activeTab, collections, flashCollectionRow, reorderDashboardList]
+  );
+
+  const setScope = (scope: DashboardListScope) => () => setListScope(scope);
 
   const startEditingCollection = (
     collection: Collection,
@@ -113,7 +215,11 @@ export default function DashboardSidebar({
     }
   };
 
-  const SidebarContent = () => (
+  const SidebarContent = ({
+    dropInstance,
+  }: {
+    dropInstance: "desktop" | "mobile";
+  }) => (
     <div
       className={cn(
         "flex min-h-0 flex-1 flex-col overflow-hidden bg-white text-gray-500 dark:bg-gray-500",
@@ -125,8 +231,45 @@ export default function DashboardSidebar({
         <nav>
           <ul role="list" className="flex flex-col gap-y-7">
             <li>
+              <div className="text-sm font-semibold uppercase leading-6 tracking-wider">
+                Views
+              </div>
+              <ul role="list" className="-mx-2 mt-2 space-y-1">
+                <li>
+                  <button
+                    type="button"
+                    onClick={setScope({ kind: "all" })}
+                    className={scopeButtonClass(listScope.kind === "all")}
+                  >
+                    <SquareLibrary className="h-6 w-6 shrink-0" />
+                    <span className="flex-1 truncate">All apps</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={setScope({ kind: "owned" })}
+                    className={scopeButtonClass(listScope.kind === "owned")}
+                  >
+                    <UserRound className="h-6 w-6 shrink-0" />
+                    <span className="flex-1 truncate">My apps</span>
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={setScope({ kind: "shared" })}
+                    className={scopeButtonClass(listScope.kind === "shared")}
+                  >
+                    <UsersRound className="h-6 w-6 shrink-0" />
+                    <span className="flex-1 truncate">Shared with me</span>
+                  </button>
+                </li>
+              </ul>
+            </li>
+            <li>
               <div className="flex items-center justify-between text-sm font-semibold uppercase leading-6 tracking-wider">
-                <span>Your Collections</span>
+                <span>Collections</span>
                 <button
                   onClick={onCreateCollection}
                   disabled={isCreatingCollection}
@@ -143,30 +286,16 @@ export default function DashboardSidebar({
                 </button>
               </div>
               <ul role="list" className="-mx-2 mt-2 space-y-1">
-                <li>
-                  <button
-                    onClick={() => setActiveCollectionId(null)}
-                    className={cn(
-                      activeCollectionId === null
-                        ? "bg-primary/10 text-primary dark:bg-white/5 dark:text-primary-350"
-                        : " hover:bg-gray-50 hover:text-primary dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-white",
-                      "group flex gap-x-2 rounded-md p-2 text-sm font-medium leading-6 w-full"
-                    )}
-                  >
-                    <SquareLibrary />
-                    <span className="flex-1 truncate text-left">
-                      All collections
-                    </span>
-                  </button>
-                </li>
-
                 {collections.map((collection) => {
-                  const isActive = activeCollectionId === collection.id;
+                  const isActive =
+                    listScope.kind === "collection" &&
+                    listScope.id === collection.id;
                   const isEditing = editingCollectionId === collection.id;
+                  const isFlashing = flashCollectionId === collection.id;
 
-                  return (
-                    <li key={collection.id}>
-                      {isEditing ? (
+                  if (isEditing) {
+                    return (
+                      <li key={collection.id}>
                         <div className="flex items-center gap-x-2 px-2 py-2">
                           <FolderClosedIcon />
                           <input
@@ -179,94 +308,123 @@ export default function DashboardSidebar({
                             className="flex-1 min-w-0 rounded border border-primary px-2 py-1 text-sm focus:border-transparent focus:ring-2 focus:ring-primary dark:border-primary dark:bg-gray-800 dark:text-white"
                           />
                         </div>
-                      ) : (
-                        <div className="group flex gap-x-2 rounded-md p-2 text-sm font-medium leading-6 w-full items-center">
-                          <button
-                            onClick={() =>
-                              setActiveCollectionId(collection.id)
-                            }
-                            className={cn(
-                              isActive
-                                ? "bg-primary/10 text-primary dark:bg-white/5 dark:text-primary-350"
-                                : "hover:bg-gray-50 hover:text-primary  dark:hover:bg-white/5 dark:hover:text-white",
-                              "flex gap-x-2 flex-1 min-w-0 rounded-md -m-2 p-2 text-left"
-                            )}
-                          >
-                            <FolderIcon
+                      </li>
+                    );
+                  }
+
+                  return (
+                    <Droppable
+                      key={collection.id}
+                      droppableId={collectionSidebarDroppableId(
+                        dropInstance,
+                        collection.id
+                      )}
+                    >
+                      {(dropProvided, snapshot) => (
+                        <li
+                          ref={dropProvided.innerRef}
+                          {...dropProvided.droppableProps}
+                          className={cn(
+                            "rounded-md transition-colors",
+                            snapshot.isDraggingOver &&
+                              "bg-primary/10 dark:bg-primary/20",
+                            isFlashing &&
+                              "ring-2 ring-emerald-500/80 dark:ring-emerald-400/80"
+                          )}
+                        >
+                          <div className="group flex gap-x-2 rounded-md p-2 text-sm font-medium leading-6 w-full items-center">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setListScope({
+                                  kind: "collection",
+                                  id: collection.id,
+                                })
+                              }
                               className={cn(
                                 isActive
-                                  ? "text-primary"
-                                  : "group-hover:text-primary",
-                                "h-6 w-6 shrink-0"
+                                  ? "bg-primary/10 text-primary dark:bg-white/5 dark:text-primary-350"
+                                  : "hover:bg-gray-50 hover:text-primary  dark:hover:bg-white/5 dark:hover:text-white",
+                                "flex gap-x-2 flex-1 min-w-0 rounded-md -m-2 p-2 text-left"
                               )}
-                            />
-                            <span className="flex-1 truncate text-left">
-                              {collection.name}
-                            </span>
-                            <Menu as="div" className="relative">
-                              <DarkTooltipProvider delayDuration={300}>
-                                <DarkTooltip>
-                                  <DarkTooltipTrigger asChild>
-                                    <MenuButton
-                                      onClick={(e) => e.stopPropagation()}
-                                      className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-0"
-                                    >
-                                      <EllipsisVertical className="h-4 w-4" />
-                                    </MenuButton>
-                                  </DarkTooltipTrigger>
-                                  <DarkTooltipContent>
-                                    Collection actions
-                                  </DarkTooltipContent>
-                                </DarkTooltip>
-                              </DarkTooltipProvider>
-                              <MenuItems
-                                transition
-                                className="absolute right-0 z-20 mt-1 w-40 origin-top-right rounded-md bg-white py-1 shadow-lg transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800"
-                              >
-                                <MenuItem>
-                                  {({ focus }) => (
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        startEditingCollection(collection, e);
-                                      }}
-                                      className={cn(
-                                        focus
-                                          ? "bg-gray-100 dark:bg-gray-700"
-                                          : "",
-                                        "flex w-full items-center gap-x-2 px-4 py-2 text-sm text-left text-gray-500 dark:text-gray-300"
-                                      )}
-                                    >
-                                      <Pencil className="h-4 w-4" />
-                                      Edit
-                                    </button>
-                                  )}
-                                </MenuItem>
-                                <MenuItem>
-                                  {({ focus }) => (
-                                    <button
-                                      onClick={(e) => {
-                                        e.preventDefault();
-                                        setCollectionToDelete(collection);
-                                      }}
-                                      className={cn(
-                                        focus
-                                          ? "bg-red-50 dark:bg-red-950/50"
-                                          : "",
-                                        "flex w-full items-center gap-x-2 px-4 py-2 text-sm text-left text-red-600 dark:text-red-400"
-                                      )}
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                      Delete
-                                    </button>
-                                  )}
-                                </MenuItem>
-                              </MenuItems>
-                            </Menu>
-                          </button>
-                        </div>
+                            >
+                              <FolderIcon
+                                className={cn(
+                                  isActive
+                                    ? "text-primary"
+                                    : "group-hover:text-primary",
+                                  "h-6 w-6 shrink-0"
+                                )}
+                              />
+                              <span className="flex-1 truncate text-left">
+                                {collection.name}
+                              </span>
+                              <Menu as="div" className="relative">
+                                <DarkTooltipProvider delayDuration={300}>
+                                  <DarkTooltip>
+                                    <DarkTooltipTrigger asChild>
+                                      <MenuButton
+                                        onClick={(e) => e.stopPropagation()}
+                                        className="rounded p-1 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-200 dark:hover:bg-gray-700 focus:outline-none focus:ring-0"
+                                      >
+                                        <EllipsisVertical className="h-4 w-4" />
+                                      </MenuButton>
+                                    </DarkTooltipTrigger>
+                                    <DarkTooltipContent>
+                                      Collection actions
+                                    </DarkTooltipContent>
+                                  </DarkTooltip>
+                                </DarkTooltipProvider>
+                                <MenuItems
+                                  transition
+                                  className="absolute right-0 z-20 mt-1 w-40 origin-top-right rounded-md bg-white py-1 shadow-lg transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800"
+                                >
+                                  <MenuItem>
+                                    {({ focus }) => (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          startEditingCollection(collection, e);
+                                        }}
+                                        className={cn(
+                                          focus
+                                            ? "bg-gray-100 dark:bg-gray-700"
+                                            : "",
+                                          "flex w-full items-center gap-x-2 px-4 py-2 text-sm text-left text-gray-500 dark:text-gray-300"
+                                        )}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                        Edit
+                                      </button>
+                                    )}
+                                  </MenuItem>
+                                  <MenuItem>
+                                    {({ focus }) => (
+                                      <button
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          setCollectionToDelete(collection);
+                                        }}
+                                        className={cn(
+                                          focus
+                                            ? "bg-red-50 dark:bg-red-950/50"
+                                            : "",
+                                          "flex w-full items-center gap-x-2 px-4 py-2 text-sm text-left text-red-600 dark:text-red-400"
+                                        )}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                        Delete
+                                      </button>
+                                    )}
+                                  </MenuItem>
+                                </MenuItems>
+                              </Menu>
+                            </button>
+                          </div>
+                          <div style={{ display: 'none' }}>{dropProvided.placeholder}</div>
+                        </li>
                       )}
-                    </li>
+                    </Droppable>
                   );
                 })}
               </ul>
@@ -309,6 +467,7 @@ export default function DashboardSidebar({
   );
 
   return (
+    <DragDropContext onDragEnd={handleDragEnd}>
     <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
       {/* Mobile sidebar overlay */}
       <Dialog
@@ -340,7 +499,7 @@ export default function DashboardSidebar({
                 </button>
               </div>
             </TransitionChild>
-            <SidebarContent />
+            <SidebarContent dropInstance="mobile" />
           </DialogPanel>
         </div>
       </Dialog>
@@ -374,7 +533,7 @@ export default function DashboardSidebar({
             "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:max-h-[calc(100vh-4rem)] lg:self-start"
           )}
         >
-          <SidebarContent />
+          <SidebarContent dropInstance="desktop" />
         </aside>
 
         {/* Page content */}
@@ -395,5 +554,6 @@ export default function DashboardSidebar({
         />
       )}
     </div>
+    </DragDropContext>
   );
 }
