@@ -34,6 +34,8 @@ from .views import (
     # Media views
     MicroAppImageUpload,
     MicroAppFileUpload,
+    MicroAppFileDelete,
+    FileEmbeddingStatusView,
     ParseFile,
     AudioTranscription,
     AnonymousAudioTranscription,
@@ -79,6 +81,8 @@ urlpatterns = [
     # File & Media processing
     path('<int:pk>/upload-image/', MicroAppImageUpload.as_view(), name='microapp-upload-image'),
     path('<int:pk>/upload-file/', MicroAppFileUpload.as_view(), name='microapp-upload-file'),
+    path('<int:pk>/delete-file/', MicroAppFileDelete.as_view(), name='microapp-delete-file'),
+    path('<int:pk>/file-status/', FileEmbeddingStatusView.as_view(), name='microapp-file-status'),
     path('parse-file/', ParseFile.as_view(), name='parse-file'),
     path('transcribe/', AudioTranscription.as_view(), name='audio-transcription'),
     path('transcribe/anonymous/', AnonymousAudioTranscription.as_view(), name='anonymous-audio-transcription'),

@@ -22,8 +22,7 @@ interface FileUploadResult {
   url?: string;
   filename?: string;
   original_file?: string;
-  text_file?: string;
-  word_count?: number;
+  status?: string;
 }
 
 interface FileUploadConfig {
@@ -53,15 +52,21 @@ export class FileUploadService {
    */
   async uploadFile(file: File): Promise<FileUploadResult> {
     const api = axiosInstance();
+
+    // Images use a timestamp suffix to guarantee unique S3 keys (presigned POST).
+    // Documents use the sanitized original name so re-uploading the same file
+    // hits the same S3 key and the backend can skip re-embedding.
     const timestamp = new Date().getTime();
     const fileExtension = file.name.split('.').pop();
-    const uniqueFilename = `${file.name.split('.')[0]}_${timestamp}.${fileExtension}`;
+    const baseName = file.name.replace(/\.[^.]+$/, '');
+    const imageFilename = `${baseName}_${timestamp}.${fileExtension}`;
+    const documentFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '');
 
     // Handle image uploads with presigned URLs
     if (this.endpoint === 'upload-image') {
       // Get pre-signed URL from server
       const presignedResponse = await api.post(`/api/microapps/${this.microappId}/${this.endpoint}/`, {
-        filename: uniqueFilename,
+        filename: imageFilename,
         content_type: file.type,
       });
 
@@ -109,14 +114,14 @@ export class FileUploadService {
       // Return the CloudFront URL for images
       return {
         url: `https://${this.cloudFrontDomain}/${data.fields.key}`,
-        filename: uniqueFilename
+        filename: imageFilename
       };
     }
 
     // Handle document uploads through backend
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('filename', uniqueFilename);
+    formData.append('filename', documentFilename);
     formData.append('content_type', file.type);
 
     const uploadResponse = await api.post(
@@ -135,11 +140,9 @@ export class FileUploadService {
 
     const { data } = uploadResponse.data;
 
-    // Return processed document data
     return {
-      original_file: data.original_file,
-      text_file: data.text_file,
-      word_count: data.word_count
+      original_file: data.original_filename,
+      status: data.status,
     };
   }
 }

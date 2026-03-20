@@ -12,7 +12,7 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.custom_permissions import IsAdminOrOwner
 from apps.utils.global_variables import MicroappVariables
-from apps.microapps.models import Microapp
+from apps.microapps.models import Microapp, AppFileReference
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -266,6 +266,16 @@ class CloneMicroApp(APIView, MicroAppMixin):
                     micro_app_list = MicroAppList
                     micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count=True)
                     micro_app_list.add_collection_microapp(self, target_collection_id, new_microapp)
+
+                    # Copy RAG file references - cloned app shares the same chunks,
+                    # no vector data is duplicated.
+                    references = AppFileReference.objects.filter(app=microapp)
+                    if references.exists():
+                        AppFileReference.objects.bulk_create([
+                            AppFileReference(app=new_microapp, file_source=ref.file_source)
+                            for ref in references
+                        ])
+
                     return Response(
                         {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
                         status=status.HTTP_200_OK,

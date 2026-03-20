@@ -1,4 +1,4 @@
-import { AttachedFile, PageConfigOverride } from '@/app/(authenticated)/app/types';
+import { PageConfigOverride } from '@/app/(authenticated)/app/types';
 import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
 import { useConversationStore } from '@/store/conversationStore';
 
@@ -48,7 +48,6 @@ export const buildRequestBody = async (
    pageConfig: PageConfigOverride,
    images: Base64Images,
    appHashId: string | undefined,
-   attachedFiles: AttachedFile[],
    skipScoredRun: boolean = false,
    hasFixedResponse: boolean = false,
    fixedResponseText: string = "",
@@ -75,44 +74,7 @@ export const buildRequestBody = async (
       }
    }
 
-   // First, fetch all text file contents
-   const fileContents = await Promise.all(
-      attachedFiles.map(async file => {
-         const textUrl = `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/microapps/${appId}/files/text/${file.text_filename}`;
-         try {
-            const response = await fetch(textUrl);
-            const text = await response.text();
-            return {
-               filename: file.original_filename,
-               description: file.description || 'No description provided',
-               content: text
-            };
-         } catch (error) {
-            console.error(`Failed to fetch text for ${file.original_filename}:`, error);
-            return null;
-         }
-      })
-   );
-
-   // Build context string from files
-   const contextString = fileContents
-      .filter(file => file !== null)
-      .map(file => `
-File: ${file!.filename}
-Description: ${file!.description}
-============
-${file!.content}
-============
-`)
-      .join('\n\n');
-
    const historyMessages = [
-      // Add context documents as first user message if there are any
-      ...(contextString ? [{
-         role: "user",
-         content: `Context Documents:\n${contextString}`,
-      }] : []),
-      // Add the rest of the conversation history
       ...conversationHistory.map(msg => ({
          role: msg.role,
          content: msg.content,
