@@ -108,13 +108,15 @@ class UnifiedLLMInterface:
             log.error(e)
             return []
 
-    def _make_proxy_request(self, params: Dict[str, Any], stream: bool = False) -> Any:
+    def _make_proxy_request(self, params: Dict[str, Any], stream: bool = False, enable_thinking: bool = False) -> Any:
         """
         Make a request to the litellm proxy
         
         Args:
             params: Dictionary containing API parameters
             stream: Whether to stream the response
+            enable_thinking: When True, enables extended thinking for Claude models
+                             instead of the default disabled behaviour.
             
         Returns:
             Response object or generator for streaming
@@ -140,7 +142,10 @@ class UnifiedLLMInterface:
             if "model" in params and params["model"]:
                 model_name_lower = params["model"].lower()
                 if "anthropic" in model_name_lower or "claude" in model_name_lower:
-                    payload["thinking"] = {"type": "disabled"}
+                    if enable_thinking:
+                        payload["thinking"] = {"type": "enabled", "budget_tokens": 10000}
+                    else:
+                        payload["thinking"] = {"type": "disabled"}
                 elif "openai" in model_name_lower or "gpt" in model_name_lower:
                     if "gpt-5.1" in model_name_lower:
                         payload["reasoning_effort"] = "none"

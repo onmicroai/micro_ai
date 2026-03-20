@@ -137,6 +137,9 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
                setCollectionIds(ids, true, signal);
             }
 
+            // App Builder: restore chat + undo stack from session (same tab / refresh).
+            useSurveyStore.getState().hydrateAppBuilderFromSession(appIdFetched);
+
             setIsAuthorized(true); 
          } else if (response.status === 400) {
            
@@ -185,27 +188,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       }
    };
 
-   const TutorialButton = () => {
-      return (
-        <div className="fixed bottom-10 right-6 z-50">
-                <a
-                  href="/building-microapps-101"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 bg-primary text-primary-foreground px-6 py-3 
-                    shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105
-                    hover:translate-x-[-8px] group"
-                >
-                  <BookTextIcon className="h-5 w-5" />
-                  <span className="max-w-0 overflow-hidden whitespace-nowrap group-hover:max-w-[200px] 
-                    transition-all duration-300">
-                    Watch Tutorial
-                  </span>
-                </a>
-        </div>
-      );
-    };
-
    useEffect(() => {
       const controller = new AbortController();
       const signal = controller.signal;
@@ -245,7 +227,6 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       <div>
          <>
             <FormBuilder />
-            <TutorialButton />
          </>
          <Modal isOpen={modalInfo.isOpen} onClose={() => setModalInfo({ ...modalInfo, isOpen: false })}>
             <div>{modalInfo.message}</div>

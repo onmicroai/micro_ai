@@ -42,6 +42,7 @@ from .views import (
     AnonymousTextToSpeech,
 )
 from .views.rubric_build_views import RubricBuildView
+from .views.app_builder_views import AppBuilderChatView
 
 urlpatterns = [
     # Microapp management
@@ -88,4 +89,5 @@ urlpatterns = [
     path('tts/', TextToSpeech.as_view(), name='text-to-speech'),
     path('tts/anonymous/', AnonymousTextToSpeech.as_view(), name='anonymous-text-to-speech'),
     path('rubric-build/', RubricBuildView.as_view(), name='rubric-build'),
+    path('app-builder-chat/', AppBuilderChatView.as_view(), name='app-builder-chat'),
 ]

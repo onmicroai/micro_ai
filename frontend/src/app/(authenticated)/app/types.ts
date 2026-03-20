@@ -467,6 +467,27 @@ export interface SurveyState {
       instructionIndex?: number;
     } | null
   ) => void;
+
+  // App Builder Chat sidebar
+  chatBuildSidebarOpen: boolean;
+  setChatBuildSidebarOpen: (open: boolean) => void;
+  chatBuildMessages: ChatBuildMessage[];
+  /** Snapshots of app_json before each successful App Builder apply (for undo). */
+  appBuilderUndoStack: AppJsonV2[];
+  addChatBuildMessage: (message: ChatBuildMessage) => void;
+  updateChatBuildMessage: (id: string, patch: Partial<ChatBuildMessage>) => void;
+  /** Current editor state as V2 app_json (for snapshots). */
+  getAppJsonSnapshot: () => AppJsonV2;
+  /** Push current app_json onto undo stack (call immediately before applying AI output). */
+  pushAppBuilderUndoSnapshot: () => void;
+  /** Restore the previous app_json from the stack; returns false if stack is empty. */
+  undoLastAppBuilderChange: () => Promise<boolean>;
+  /** Restore chat + undo stack from sessionStorage for this app (after server load). */
+  hydrateAppBuilderFromSession: (forAppId: number) => void;
+  replaceEntireAppJson: (
+    newJson: AppJsonV2,
+    options?: { skipServerUpdate?: boolean }
+  ) => Promise<void>;
 }
 
 export interface SaveState {
@@ -529,6 +550,16 @@ export interface ProcessedPrompts {
   prompts: string[];
   aiInstructions: string[];
   fixedResponses: string[];
+}
+
+export type ChatBuildMessageStatus = "streaming" | "done" | "refused" | "error";
+
+export interface ChatBuildMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  thinkingContent?: string;
+  status: ChatBuildMessageStatus;
 }
 
 export const HIDDEN_HEADER_ELEMENTS = [
