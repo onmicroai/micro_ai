@@ -9,6 +9,7 @@ export type AppSerialized = {
     copyAllowed: boolean;
     appJson: string;
     collectionId: number;
+    role: 'owner' | 'admin';
 };
 
 export type AppRaw = {
@@ -21,6 +22,7 @@ export type AppRaw = {
     copy_allowed: boolean;
     app_json: string;
     collection_id: number;
+    role: 'owner' | 'admin';
 };
 
 // Collection types
@@ -34,4 +36,5 @@ export type ShareModalProps = {
     app: AppSerialized;
     showModal: boolean;
     setShowModal: (showModal: boolean) => void;
+    isOwner: boolean;
 };

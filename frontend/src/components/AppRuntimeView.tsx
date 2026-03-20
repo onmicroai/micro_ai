@@ -192,29 +192,38 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
    * Decide when the Remix ("Like this app?") banner should be visible.
    * ------------------------------------------------------------------
    * Rules:
-   *  1. Unauthenticated visitors → show banner.
-   *  2. Authenticated visitors → show banner only if NOT owner/admin.
-   *  3. If the banner has been manually dismissed this session, keep it
-   *     hidden for the rest of the page-view.
-   *  4. The banner starts hidden (useState(false)).
+   *  0. Respect "Allow others to clone" (SurveyJson.copyAllowed from
+   *     model copy_allowed + app_json.clonable) — never show if false.
+   *  1. Wait until surveyJson is loaded so copyAllowed is known.
+   *  2. Unauthenticated visitors → show banner when cloning allowed.
+   *  3. Authenticated visitors → show only if NOT owner/admin.
+   *  4. If dismissed this session, keep hidden.
    * ------------------------------------------------------------------
    */
   useEffect(() => {
-    // Do nothing if the user has already dismissed it.
     if (bannerDismissed) return;
 
-    // Show for guests immediately.
+    if (!surveyJson) {
+      setShowRemixBanner(false);
+      return;
+    }
+
+    if (!surveyJson.copyAllowed) {
+      setShowRemixBanner(false);
+      return;
+    }
+
     if (!isAuthenticated) {
       setShowRemixBanner(true);
       return;
     }
 
-    // For authenticated users, wait until role check completes.
     if (rolesLoaded) {
-      const shouldShow = !roles.isOwner && !roles.isAdmin;
-      setShowRemixBanner(shouldShow);
+      setShowRemixBanner(!roles.isOwner && !roles.isAdmin);
     }
   }, [
+    surveyJson,
+    surveyJson?.copyAllowed,
     isAuthenticated,
     rolesLoaded,
     roles.isOwner,

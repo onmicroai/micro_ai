@@ -4,6 +4,8 @@ import {
   SaveState,
   ModelTemperatureRanges,
   AttachedFile,
+  ChatBuildMessage,
+  AppJsonV2,
 } from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
 import { toast } from "react-toastify";
@@ -11,13 +13,21 @@ import debounce from "lodash/debounce";
 import { fetchUserCollectionsSingleton } from "../utils/fetchCollectionsList";
 import { fetchAvailableModelsSingleton } from "../utils/fetchAvailableModels";
 import { fetchLiteLLMModelsSingleton } from "../utils/fetchLiteLLMModels";
-import { updateMicroappCollection } from "../utils/updateMicroappCollection";
+import {
+  addMicroappToCollection,
+  removeMicroappFromCollection,
+} from "../utils/updateMicroappCollection";
+import {
+  APP_BUILDER_UNDO_STACK_MAX,
+  readAppBuilderSession,
+  writeAppBuilderSession,
+} from "./appBuilderSessionStorage";
 
 const initialState = {
   elements: [],
   title: "",
   description: "",
-  collectionId: null,
+  collectionIds: [] as number[],
   privacy: "private",
   clonable: true,
   completedHtml: "",
@@ -45,6 +55,11 @@ const initialState = {
   },
   conditionalSidebarOpen: false,
   conditionalSidebarContext: null as SurveyState["conditionalSidebarContext"],
+
+  // App Builder Chat sidebar
+  chatBuildSidebarOpen: false,
+  chatBuildMessages: [] as ChatBuildMessage[],
+  appBuilderUndoStack: [] as AppJsonV2[],
 };
 
 export const useSurveyStore = create<SurveyState>((set, get) => {
@@ -135,6 +150,22 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     }
   }, 1000);
 
+  const persist_app_builder_session = () => {
+    const { appId, chatBuildMessages, appBuilderUndoStack } = get();
+    if (!appId) return;
+    try {
+      writeAppBuilderSession(appId, {
+        messages: chatBuildMessages,
+        undoStack: appBuilderUndoStack,
+      });
+    } catch (e) {
+      console.warn(
+        "App Builder: could not persist session (storage full or disabled)",
+        e
+      );
+    }
+  };
+
   // Create singleton instances
   const fetchCollectionsInitial = fetchUserCollectionsSingleton();
   const fetchModelsInitial = fetchAvailableModelsSingleton();
@@ -216,54 +247,69 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
 
     /**
-     * Updates the collection ID of the app
-     * @param id - The new collection ID
-     * @param skipServerUpdate - Whether to skip saving to server
-     * @param signal - The AbortSignal to cancel the request
-     * @returns
+     * Sets the collection IDs for the app (initial load only; no API calls).
      */
-    setCollectionId: async (
-      id: number | null,
-      skipServerUpdate?: boolean,
-      signal?: AbortSignal
+    setCollectionIds: (
+      ids: number[],
+      _skipServerUpdate?: boolean,
+      _signal?: AbortSignal
     ) => {
+      set({ collectionIds: ids ?? [] });
+    },
+
+    /**
+     * Adds the app to a collection (many-to-many).
+     */
+    addCollection: async (id: number, signal?: AbortSignal) => {
       const state = get();
-      const oldCollectionId = state.collectionId;
       const appId = state.appId;
-
-      // If id is null, we're just updating the state
-      if (id === null) {
-        set({ collectionId: null });
-        return;
-      }
-
       if (!appId) {
-        toast.error("Cannot update collection: App ID is missing");
+        toast.error("Cannot add to collection: App ID is missing");
         return;
       }
-
-      if (skipServerUpdate) {
-        set({ collectionId: id });
+      if (state.collectionIds.includes(id)) {
         return;
       }
-
       try {
-        // Only pass oldCollectionId if it's a number
-        if (typeof oldCollectionId === "number") {
-          await updateMicroappCollection(appId, id, oldCollectionId, signal);
-        } else {
-          await updateMicroappCollection(appId, id, undefined, signal);
-        }
-        set({ collectionId: id });
-        toast.success("Collection updated successfully");
+        await addMicroappToCollection(appId, id, signal);
+        set((s) => ({
+          collectionIds: [...s.collectionIds, id].sort((a, b) => a - b),
+        }));
+        toast.success("Added to collection");
       } catch (error) {
         const errorMessage =
           error instanceof Error
             ? error.message
-            : "Failed to update collection";
-        toast.error(`Failed to update collection: ${errorMessage}`);
-        // Revert the UI state on error
-        set({ collectionId: oldCollectionId });
+            : "Failed to add to collection";
+        toast.error(errorMessage);
+      }
+    },
+
+    /**
+     * Removes the app from a collection (many-to-many).
+     */
+    removeCollection: async (id: number, signal?: AbortSignal) => {
+      const state = get();
+      const appId = state.appId;
+      if (!appId) {
+        toast.error("Cannot remove from collection: App ID is missing");
+        return;
+      }
+      if (!state.collectionIds.includes(id)) {
+        return;
+      }
+      try {
+        await removeMicroappFromCollection(appId, id, signal);
+        set((s) => ({
+          collectionIds: s.collectionIds.filter((c) => c !== id),
+        }));
+        toast.success("Removed from collection");
+      } catch (error) {
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to remove from collection";
+        toast.error(errorMessage);
       }
     },
 
@@ -493,6 +539,128 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     },
     setConditionalSidebarContext: (context) => {
       set({ conditionalSidebarContext: context });
+    },
+
+    // App Builder Chat sidebar
+    chatBuildSidebarOpen: false,
+    chatBuildMessages: [],
+
+    setChatBuildSidebarOpen: (open: boolean) => {
+      set({ chatBuildSidebarOpen: open });
+    },
+
+    addChatBuildMessage: (message: ChatBuildMessage) => {
+      set((state) => ({
+        chatBuildMessages: [...state.chatBuildMessages, message],
+      }));
+      persist_app_builder_session();
+    },
+
+    updateChatBuildMessage: (id: string, patch: Partial<ChatBuildMessage>) => {
+      set((state) => ({
+        chatBuildMessages: state.chatBuildMessages.map((msg) =>
+          msg.id === id ? { ...msg, ...patch } : msg
+        ),
+      }));
+      persist_app_builder_session();
+    },
+
+    getAppJsonSnapshot: (): AppJsonV2 => {
+      const s = get();
+      return {
+        elements: s.elements,
+        title: s.title,
+        description: s.description,
+        privacySettings: s.privacy,
+        clonable: s.clonable,
+        completedHtml: s.completedHtml ?? "",
+        aiConfig: s.aiConfig,
+        attachedFiles: s.attachedFiles,
+      };
+    },
+
+    pushAppBuilderUndoSnapshot: () => {
+      const snapshot = structuredClone(get().getAppJsonSnapshot());
+      set((state) => {
+        const next = [...state.appBuilderUndoStack, snapshot];
+        const capped =
+          next.length > APP_BUILDER_UNDO_STACK_MAX
+            ? next.slice(-APP_BUILDER_UNDO_STACK_MAX)
+            : next;
+        return { appBuilderUndoStack: capped };
+      });
+      persist_app_builder_session();
+    },
+
+    undoLastAppBuilderChange: async () => {
+      const stack = get().appBuilderUndoStack;
+      if (stack.length === 0) return false;
+      const previous = stack[stack.length - 1];
+      set((state) => ({
+        appBuilderUndoStack: state.appBuilderUndoStack.slice(0, -1),
+      }));
+      await get().replaceEntireAppJson(previous, { skipServerUpdate: true });
+      persist_app_builder_session();
+      return true;
+    },
+
+    hydrateAppBuilderFromSession: (forAppId: number) => {
+      const saved = readAppBuilderSession(forAppId);
+      if (!saved) return;
+      set({
+        chatBuildMessages: saved.messages,
+        appBuilderUndoStack: saved.undoStack,
+      });
+    },
+
+    /**
+     * Replaces the entire app JSON with a new value generated by the AI builder.
+     * Calls individual setters so the existing debounced save is triggered.
+     * Use skipServerUpdate to batch all field updates then save once (e.g. undo).
+     */
+    replaceEntireAppJson: async (
+      newJson: AppJsonV2,
+      options?: { skipServerUpdate?: boolean }
+    ) => {
+      const skip = options?.skipServerUpdate ?? false;
+      const {
+        setElements,
+        setTitle,
+        setDescription,
+        setAIConfig,
+        setPrivacy,
+        setClonable,
+        setCompletedHtml,
+        setAttachedFiles,
+      } = get();
+
+      if (newJson.elements !== undefined) {
+        await setElements(newJson.elements, skip);
+      }
+      if (newJson.title !== undefined) {
+        await setTitle(newJson.title, skip);
+      }
+      if (newJson.description !== undefined) {
+        await setDescription(newJson.description, skip);
+      }
+      if (newJson.aiConfig !== undefined) {
+        await setAIConfig(newJson.aiConfig, skip);
+      }
+      if (newJson.privacySettings !== undefined) {
+        await setPrivacy(newJson.privacySettings, skip);
+      }
+      if (newJson.clonable !== undefined) {
+        await setClonable(newJson.clonable, skip);
+      }
+      if (newJson.completedHtml !== undefined) {
+        await setCompletedHtml(newJson.completedHtml, skip);
+      }
+      if (newJson.attachedFiles !== undefined) {
+        await setAttachedFiles(newJson.attachedFiles, skip);
+      }
+      if (skip) {
+        await get().saveToServer();
+      }
     },
   };
 });

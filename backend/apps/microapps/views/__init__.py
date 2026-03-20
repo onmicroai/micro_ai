@@ -14,7 +14,8 @@ from .user_views import (
     UserMicroApps,
     UserMicroAppsDetails,
     UserApps,
-    UserMicroAppsRoleByHash
+    UserMicroAppsRoleByHash,
+    AppAdminsView,
 )
 
 from .run_views import (
@@ -63,6 +64,7 @@ __all__ = [
     'UserMicroAppsDetails',
     'UserApps',
     'UserMicroAppsRoleByHash',
+    'AppAdminsView',
     
     # Run views
     'RunList',

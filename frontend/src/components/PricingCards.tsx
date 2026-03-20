@@ -19,7 +19,8 @@ const pricing = {
       features: [
         "10,000 AI credits",
         "3 apps",
-        "Basic AI Models (GPT 4o-mini, Claude Haiku, Google Gemini Flash, and more...",
+        "Public, Private, and Site-restricted apps",
+        "Basic AI Models",
       ],
       mostPopular: false,
     },
@@ -32,7 +33,8 @@ const pricing = {
       features: [
         "100,000 AI credits",
         "Unlimited apps",
-        "Advanced AI Models (GPT 4o, Claude Sonnet, Google Gemini Pro, and more...",
+        "Public, Private, and Site-restricted apps",
+        "Advanced AI Models",
       ],
       mostPopular: true,
     },
@@ -42,14 +44,14 @@ const pricing = {
       href: "/accounts/registration/",
       price: { monthly: "$79" },
       description:
-        "Advanced analytics, SSO, credit sharing, and bring your own models.",
+        "Advanced analytics, SSO, and LTI integration.",
       features: [
         "400,000 AI credits",
+        "LTI integration",
         "Unlimited apps",
-        "BYO AI Models",
+        "Public, Private, and Site-restricted apps",
         "Advanced analytics",
         "SSO",
-        "Credit sharing",
       ],
       mostPopular: false,
     },

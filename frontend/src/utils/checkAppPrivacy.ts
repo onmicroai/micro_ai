@@ -13,6 +13,18 @@ let lastCheckedResult: CheckIsPublicResult | null = null;
 const pendingRequests: Map<string, Promise<CheckIsPublicResult>> = new Map();
 
 /**
+ * Same base as `axiosInstance` so visibility checks hit the API when the UI is on
+ * another origin. Plain `axios` is used here (not `axiosInstance`) to avoid
+ * interceptor recursion with `checkCurrentPagePrivacy` → `checkIsPublic`.
+ * When `NEXT_PUBLIC_API_URL` is unset, fall back to a same-origin `/api/...` path.
+ */
+function visibilityRequestUrl(hashId: string): string {
+  const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+  const path = `/api/microapps/visibility/${hashId}`;
+  return base ? `${base}${path}` : path;
+}
+
+/**
  * Makes an API request to check if the app is public
  * @param hashId - The hash ID of the app
  * @param signal - The abort signal for the request
@@ -33,10 +45,7 @@ const makeRequest = async (
       config.signal = signal;
     }
 
-    const response = await axios.get(
-      `/api/microapps/visibility/${hashId}`,
-      config
-    );
+    const response = await axios.get(visibilityRequestUrl(hashId), config);
 
     // Cache the result
     const result = {
