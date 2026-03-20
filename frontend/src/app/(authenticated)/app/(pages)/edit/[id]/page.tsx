@@ -11,7 +11,6 @@ import Modal from '@/components/modules/custom-prompt-modal/custom-prompt-modal'
 import { SurveyCreatorProps } from '@/app/(authenticated)/app/types';
 import { useSurveyStore } from './store/editSurveyStore';
 import FormBuilder from "./components/FormBuilder";
-import { BookTextIcon } from 'lucide-react';
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied";
 import { useUserStore } from "@/store/userStore";
