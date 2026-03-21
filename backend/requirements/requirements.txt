@@ -275,6 +275,8 @@ pyparsing==3.2.3
     # via httplib2
 pypdfium2==4.30.0
     # via pdfplumber
+pgvector==0.3.0
+    # via vector database support for RAG
 pytesseract==0.3.13
     # via -r requirements/requirements.in
 python-dateutil==2.9.0.post0

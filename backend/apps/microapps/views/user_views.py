@@ -1,7 +1,6 @@
 """
 User management views - User-microapp relationships and permissions.
 """
-import logging as log
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -13,10 +12,9 @@ from apps.utils.custom_permissions import IsOwner, AdminRole
 from apps.utils.throttles import AddAdminThrottle
 from apps.microapps.models import MicroAppUserJoin, Microapp
 from apps.microapps.serializer import MicroAppSerializer, MicroappUserSerializer
-from apps.collection.models import Collection, CollectionUserJoin
-from apps.collection.serializer import CollectionMicroappSerializer
 from apps.users.models import CustomUser
 from .mixins import handle_exception, UserPermissionMixin
+from .analytics_views import get_stats_for_app_ids
 
 
 @extend_schema_view(
@@ -68,32 +66,12 @@ class UserMicroAppsDetails(APIView, UserPermissionMixin):
         except Exception as e:
             return handle_exception(e)
         
-    def get_user_shared_collection(self, uid, ma_id):
-        """Add microapp to user's shared collection."""
-        try:
-            shared_collections = Collection.objects.filter(name="Shared With Me")
-
-            collection_user_joins = CollectionUserJoin.objects.filter(collection_id__in=shared_collections, user_id=uid)
-            collection_ids = collection_user_joins.values_list('collection_id', flat=True).first()
-            data = {"collection_id": collection_ids, "ma_id": ma_id}
-            serializer = CollectionMicroappSerializer(data=data)
-            if serializer.is_valid():   
-                serializer.save()
-                return True
-            return Response(
-                error.validation_error(serializer.errors),
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        except Exception as e:
-            return handle_exception(e)
-        
     def post(self, request, format=None):
         """Add user to microapp."""
         try:
             self.permission_classes = [IsOwner, AdminRole]
             self.check_permissions(request)
             data = request.data
-            self.get_user_shared_collection(data.get("user_id"), data.get("ma_id"))
             serializer = MicroappUserSerializer(data=data)
             if serializer.is_valid():
                 serializer.save()
@@ -116,16 +94,21 @@ class UserApps(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        """Get user's microapps with their role."""
+        """Get user's microapps with their role and stats."""
         try:
             current_user = request.user.id
             joins = MicroAppUserJoin.objects.filter(
                 user_id=current_user, is_archived=False
             ).select_related('ma_id')
+            app_ids = [join.ma_id.id for join in joins]
+            stats_by_id = get_stats_for_app_ids(app_ids)
             result = []
             for join in joins:
                 app_data = MicroAppSerializer(join.ma_id).data
                 app_data['role'] = join.role
+                app_data['stats'] = stats_by_id.get(join.ma_id.id, {
+                    'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0
+                })
                 result.append(app_data)
             return Response(
                 {"data": result, "status": status.HTTP_200_OK},
@@ -212,21 +195,6 @@ class AppAdminsView(APIView, UserPermissionMixin):
             user_id=request.user.id, ma_id=app_id, role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN]
         ).exists()
 
-    def _add_to_shared_collection(self, user_id, ma_id):
-        """Add the microapp to the target user's 'Shared With Me' collection."""
-        try:
-            shared_collections = Collection.objects.filter(name="Shared With Me")
-            collection_id = CollectionUserJoin.objects.filter(
-                collection_id__in=shared_collections, user_id=user_id
-            ).values_list('collection_id', flat=True).first()
-            if collection_id:
-                data = {"collection_id": collection_id, "ma_id": ma_id}
-                serializer = CollectionMicroappSerializer(data=data)
-                if serializer.is_valid():
-                    serializer.save()
-        except Exception as e:
-            log.error(f"Could not add app to shared collection: {e}")
-
     def get(self, request, app_id):
         """List the owner and all admins for the app."""
         try:
@@ -310,7 +278,6 @@ class AppAdminsView(APIView, UserPermissionMixin):
                 role=MicroAppUserJoin.ADMIN,
                 counts_toward_max=False,
             )
-            self._add_to_shared_collection(target_user.id, app_id)
 
             return Response(
                 {

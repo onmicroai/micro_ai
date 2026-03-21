@@ -13,14 +13,14 @@ const LegacyDashboard = () => {
   const params = useParams() ?? {};
   const activeTab = (params.tab as string) || 'all';
   const pageCollectionId = (params.id as string) || '';
-  const { setActiveCollectionId } = useDashboardStore();
+  const { setListScope } = useDashboardStore();
 
   useEffect(() => {
     // Set the collection filter based on the URL parameter
     if (pageCollectionId) {
       const collectionId = parseInt(pageCollectionId);
       if (!isNaN(collectionId)) {
-        setActiveCollectionId(collectionId);
+        setListScope({ kind: "collection", id: collectionId });
       }
     }
     
@@ -28,7 +28,7 @@ const LegacyDashboard = () => {
     // Use /dashboard for "all" tab, /dashboard/[tab] for others
     const redirectUrl = activeTab === 'all' ? '/dashboard' : `/dashboard/${activeTab}`;
     router.replace(redirectUrl);
-  }, [pageCollectionId, activeTab, setActiveCollectionId, router]);
+  }, [pageCollectionId, activeTab, setListScope, router]);
 
   return (
     <div className="flex justify-center items-center min-h-screen">

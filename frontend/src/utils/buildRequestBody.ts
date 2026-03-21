@@ -1,24 +1,28 @@
-import { AttachedFile, PageConfigOverride } from '@/app/(authenticated)/app/types';
-import { SurveyPage, Base64Images } from '@/app/(authenticated)/app/types';
-import { useConversationStore } from '@/store/conversationStore';
+import { PageConfigOverride } from "@/app/(authenticated)/app/types";
+import {
+  SurveyPage,
+  Base64Images,
+  AttachedFile,
+} from "@/app/(authenticated)/app/types";
+import { useConversationStore } from "@/store/conversationStore";
 
 interface AIConfig {
-   aiModel: string;
-   temperature: number;
-   maxResponseTokens: number | null;
-   systemPrompt: string;
+  aiModel: string;
+  temperature: number;
+  maxResponseTokens: number | null;
+  systemPrompt: string;
 }
 
 const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
-   return {
-      scoredPhase: page?.scoredPhase || false,
-      rubric: page?.rubric || "",
-      minScore: page?.minScore || 0,
-      scoreExplanation: page?.scoreExplanation ?? true,
-      scoreExplanationMode: page?.scoreExplanationMode ?? "always",
-      scoreFeedbackEnabled: page?.scoreFeedbackEnabled ?? true,
-      scoreFeedbackInstructions: page?.scoreFeedbackInstructions ?? "",
-   };
+  return {
+    scoredPhase: page?.scoredPhase || false,
+    rubric: page?.rubric || "",
+    minScore: page?.minScore || 0,
+    scoreExplanation: page?.scoreExplanation ?? true,
+    scoreExplanationMode: page?.scoreExplanationMode ?? "always",
+    scoreFeedbackEnabled: page?.scoreFeedbackEnabled ?? true,
+    scoreFeedbackInstructions: page?.scoreFeedbackInstructions ?? "",
+  };
 };
 
 /**
@@ -36,200 +40,183 @@ const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
  * @param noSubmit Whether to skip the submission.
  * @param transcriptionCost The transcription cost.
  * @param run_uuid The run UUID.
- * @returns 
+ * @returns
  */
 export const buildRequestBody = async (
-   finalPrompt: string,
-   finalAiInstructions: string,
-   appId: number,
-   requestSkip: boolean,
-   userId: number | null,
-   aiConfig: AIConfig,
-   pageConfig: PageConfigOverride,
-   images: Base64Images,
-   appHashId: string | undefined,
-   attachedFiles: AttachedFile[],
-   skipScoredRun: boolean = false,
-   hasFixedResponse: boolean = false,
-   fixedResponseText: string = "",
-   noSubmit: boolean = false,
-   transcriptionCost?: number,
-   run_uuid?: string,
-   scoreExplanation?: boolean,
-   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never",
-   activeTryId?: string
+  finalPrompt: string,
+  finalAiInstructions: string,
+  appId: number,
+  requestSkip: boolean,
+  userId: number | null,
+  aiConfig: AIConfig,
+  pageConfig: PageConfigOverride,
+  images: Base64Images,
+  appHashId: string | undefined,
+  _attachedFiles: AttachedFile[] = [],
+  skipScoredRun: boolean = false,
+  hasFixedResponse: boolean = false,
+  fixedResponseText: string = "",
+  noSubmit: boolean = false,
+  transcriptionCost?: number,
+  run_uuid?: string,
+  scoreExplanation?: boolean,
+  scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never",
+  activeTryId?: string,
 ) => {
-   const store = useConversationStore.getState();
-   const scopedRuns = store.getRunsForTry(activeTryId);
+  const store = useConversationStore.getState();
+  const scopedRuns = store.getRunsForTry(activeTryId);
 
-   let conversationHistory = scopedRuns.flatMap(run => 
-      run.messages.filter(msg => 
-         msg.role === 'assistant' || msg.role === 'user'
-      )
-   );
+  let conversationHistory = scopedRuns.flatMap((run) =>
+    run.messages.filter(
+      (msg) => msg.role === "assistant" || msg.role === "user",
+    ),
+  );
 
-   if (finalPrompt) {
-      const lastUserIndex = [...conversationHistory].reverse().findIndex(msg => msg.role === 'user');
-      if (lastUserIndex !== -1) {
-         conversationHistory = conversationHistory.slice(0, conversationHistory.length - lastUserIndex - 1);
-      }
-   }
+  if (finalPrompt) {
+    const lastUserIndex = [...conversationHistory]
+      .reverse()
+      .findIndex((msg) => msg.role === "user");
+    if (lastUserIndex !== -1) {
+      conversationHistory = conversationHistory.slice(
+        0,
+        conversationHistory.length - lastUserIndex - 1,
+      );
+    }
+  }
 
-   // First, fetch all text file contents
-   const fileContents = await Promise.all(
-      attachedFiles.map(async file => {
-         const textUrl = `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/microapps/${appId}/files/text/${file.text_filename}`;
-         try {
-            const response = await fetch(textUrl);
-            const text = await response.text();
-            return {
-               filename: file.original_filename,
-               description: file.description || 'No description provided',
-               content: text
-            };
-         } catch (error) {
-            console.error(`Failed to fetch text for ${file.original_filename}:`, error);
-            return null;
-         }
-      })
-   );
+  const historyMessages = [
+    ...conversationHistory.map((msg) => ({
+      role: msg.role,
+      content: msg.content,
+    })),
+  ];
 
-   // Build context string from files
-   const contextString = fileContents
-      .filter(file => file !== null)
-      .map(file => `
-File: ${file!.filename}
-Description: ${file!.description}
-============
-${file!.content}
-============
-`)
-      .join('\n\n');
+  // Add dummy user message if first message exists and is not from user
+  if (historyMessages.length == 0 || historyMessages[0].role !== "user") {
+    historyMessages.unshift({
+      role: "user",
+      content: ".",
+    });
+  }
 
-   const historyMessages = [
-      // Add context documents as first user message if there are any
-      ...(contextString ? [{
-         role: "user",
-         content: `Context Documents:\n${contextString}`,
-      }] : []),
-      // Add the rest of the conversation history
-      ...conversationHistory.map(msg => ({
-         role: msg.role,
-         content: msg.content,
-      }))
-   ];
+  const requestBody: any = {
+    model: aiConfig.aiModel,
+    messages: [
+      // System prompt (if exists)
+      ...(aiConfig.systemPrompt
+        ? [
+            {
+              role: "system",
+              content: aiConfig.systemPrompt,
+            },
+          ]
+        : []),
+      // Rest of the conversation including context documents
+      ...historyMessages,
+      ...(finalAiInstructions
+        ? [
+            {
+              role: "assistant",
+              content: finalAiInstructions,
+            },
+          ]
+        : []),
+      ...(Object.keys(images).length > 0
+        ? [
+            {
+              role: "user" as const,
+              content: [
+                ...Object.values(images).flatMap((imageData) =>
+                  Object.values(imageData).map((base64) => ({
+                    type: "image_url",
+                    image_url: {
+                      url: base64,
+                    },
+                  })),
+                ),
+                {
+                  type: "text",
+                  text: finalPrompt,
+                },
+              ],
+            },
+          ]
+        : [
+            {
+              role: "user",
+              content: finalPrompt,
+            },
+          ]),
+    ],
+    ma_id: Number(appId),
 
-   // Add dummy user message if first message exists and is not from user
-   if (historyMessages.length == 0 || historyMessages[0].role !== 'user') {
-      historyMessages.unshift({
-         role: "user",
-         content: ".",
-      });
-   }
+    request_skip: requestSkip,
+    no_submission: noSubmit,
+    run_uuid: run_uuid,
+  };
 
-   const requestBody: any = {
-      model: aiConfig.aiModel,
-      messages: [
-         // System prompt (if exists)
-         ...(aiConfig.systemPrompt ? [{
-            role: "system",
-            content: aiConfig.systemPrompt,
-         }] : []),
-         // Rest of the conversation including context documents
-         ...historyMessages,
-         ...(finalAiInstructions ? [{ 
-            role: "assistant",
-            content: finalAiInstructions,
-         }] : []),
-         ...(Object.keys(images).length > 0 
-           ? [{
-               role: "user" as const,
-               content: [
-                 ...Object.values(images).flatMap(imageData => 
-                   Object.values(imageData).map(base64 => ({
-                     type: "image_url",
-                     image_url: {
-                       url: base64
-                     }
-                   }))
-                 ),
-                 {
-                   type: "text",
-                   text: finalPrompt
-                 }
-               ]
-             }]
-           : [{
-               role: "user",
-               content: finalPrompt,
-             }]
-         ),
-      ],
-      ma_id: Number(appId),
+  if (userId !== null) {
+    requestBody.user_id = Number(userId);
+  }
 
-      request_skip: requestSkip,
-      no_submission: noSubmit,
-      run_uuid: run_uuid
-   };
+  if (pageConfig.scoredPhase) {
+    requestBody.scored_run = pageConfig.scoredPhase;
+    requestBody.rubric = pageConfig.rubric;
+    requestBody.minimum_score = pageConfig.minScore;
+    requestBody.score_explanation =
+      scoreExplanation ?? pageConfig.scoreExplanation ?? true;
+    requestBody.score_explanation_mode =
+      scoreExplanationMode ?? pageConfig.scoreExplanationMode ?? "always";
+    requestBody.score_feedback_enabled =
+      pageConfig.scoreFeedbackEnabled ?? true;
+    requestBody.score_feedback_instructions =
+      pageConfig.scoreFeedbackInstructions ?? "";
+  }
 
-   if (userId !== null) {
-      requestBody.user_id = Number(userId);
-   }
+  if (skipScoredRun) {
+    requestBody.scored_run = false;
+  }
 
-   if (pageConfig.scoredPhase) {
-      requestBody.scored_run = pageConfig.scoredPhase;
-      requestBody.rubric = pageConfig.rubric;
-      requestBody.minimum_score = pageConfig.minScore;
-      requestBody.score_explanation = scoreExplanation ?? pageConfig.scoreExplanation ?? true;
-      requestBody.score_explanation_mode = scoreExplanationMode ?? pageConfig.scoreExplanationMode ?? "always";
-      requestBody.score_feedback_enabled = pageConfig.scoreFeedbackEnabled ?? true;
-      requestBody.score_feedback_instructions = pageConfig.scoreFeedbackInstructions ?? "";
-   }
+  if (aiConfig.temperature !== undefined) {
+    requestBody.temperature = Number(aiConfig.temperature);
+  }
 
-   if (skipScoredRun) {
-      requestBody.scored_run = false;
-   }
+  if (aiConfig.maxResponseTokens !== undefined) {
+    requestBody.max_response_tokens = Number(aiConfig.maxResponseTokens);
+  }
 
-   if (aiConfig.temperature !== undefined) {
-      requestBody.temperature = Number(aiConfig.temperature);
-   }
+  if (aiConfig.systemPrompt !== undefined) {
+    requestBody.system_prompt = aiConfig.systemPrompt;
+  }
 
-   if (aiConfig.maxResponseTokens !== undefined) {
-      requestBody.max_response_tokens = Number(aiConfig.maxResponseTokens);
-   }
+  if (finalAiInstructions !== undefined) {
+    requestBody.phase_instructions = finalAiInstructions;
+  }
 
-   if (aiConfig.systemPrompt !== undefined) {
-      requestBody.system_prompt = aiConfig.systemPrompt;
-   }
+  if (finalPrompt !== undefined) {
+    requestBody.user_prompt = finalPrompt;
+  }
 
-   if (finalAiInstructions !== undefined) {
-      requestBody.phase_instructions = finalAiInstructions;
-   }
+  if (appHashId !== undefined) {
+    requestBody.app_hash_id = appHashId;
+  }
 
-   if (finalPrompt !== undefined) {
-      requestBody.user_prompt = finalPrompt;
-   }
+  if (hasFixedResponse) {
+    requestBody.fixed_response = fixedResponseText;
+    requestBody.no_submission = true;
+    requestBody.scored_run = false;
+    requestBody.has_fixed_response = true;
+  }
 
-   if (appHashId !== undefined) {
-      requestBody.app_hash_id = appHashId;
-   }
+  if (transcriptionCost !== undefined) {
+    requestBody.transcription_cost = transcriptionCost;
+  }
 
-   if (hasFixedResponse) {
-      requestBody.fixed_response = fixedResponseText;
-      requestBody.no_submission = true;
-      requestBody.scored_run = false;
-      requestBody.has_fixed_response = true;
-   }
+  const conversationId = store.ensureConversation();
+  requestBody.session_id = conversationId;
 
-   if (transcriptionCost !== undefined) {
-      requestBody.transcription_cost = transcriptionCost;
-   }
-
-   const conversationId = store.ensureConversation();
-   requestBody.session_id = conversationId;
-
-   return requestBody;
+  return requestBody;
 };
 
 export { getPageConfig };
-export type { AIConfig }; 
+export type { AIConfig };

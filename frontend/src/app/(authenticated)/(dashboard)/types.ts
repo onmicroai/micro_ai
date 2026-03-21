@@ -1,3 +1,18 @@
+/** Sidebar list scope: virtual views (role-based) or a real collection folder */
+export type DashboardListScope =
+  | { kind: "all" }
+  | { kind: "owned" }
+  | { kind: "shared" }
+  | { kind: "collection"; id: number };
+
+// Stats included with each app from /api/microapps/apps and /api/collection/user/apps
+export type AppStats = {
+    sessions: number;
+    unique_users: number;
+    total_credits: number;
+    avg_credits_session: number;
+};
+
 // App types
 export type AppSerialized = {
     id: number;
@@ -8,8 +23,9 @@ export type AppSerialized = {
     temperature: number;
     copyAllowed: boolean;
     appJson: string;
-    collectionId: number;
+    collectionId?: number;
     role: 'owner' | 'admin';
+    stats?: AppStats;
 };
 
 export type AppRaw = {
@@ -21,8 +37,9 @@ export type AppRaw = {
     temperature: number;
     copy_allowed: boolean;
     app_json: string;
-    collection_id: number;
+    collection_id?: number;
     role: 'owner' | 'admin';
+    stats?: AppStats;
 };
 
 // Collection types
@@ -37,4 +54,8 @@ export type ShareModalProps = {
     showModal: boolean;
     setShowModal: (showModal: boolean) => void;
     isOwner: boolean;
+    /** Default `modal`. Use `inline` when embedding in a page/tab (no backdrop, no outside-click close). */
+    variant?: "modal" | "inline";
+    /** Called after privacy PATCH succeeds (e.g. sync editor store without double-save). */
+    onPrivacySaved?: (privacy: string) => void;
 };

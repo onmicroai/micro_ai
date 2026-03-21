@@ -3,7 +3,8 @@
 services:
   db:
     container_name: db
-    image: postgres:16
+    # pgvector is required for microapps.0061_rag_filesource_schema (CREATE EXTENSION vector).
+    image: pgvector/pgvector:pg16
     # persist data beyond lifetime of container
     volumes:
       - /docker/volumes/postgres/:/var/lib/postgresql/data/

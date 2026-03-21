@@ -83,7 +83,7 @@ class OCRParser(DocumentParser):
 class DocumentProcessor:
     """Determines the appropriate parser for a document and validates file type and size."""
 
-    MAX_FILE_SIZE_MB = 10  # 10MB limit
+    MAX_FILE_SIZE_MB = 20  # 20MB limit
 
     def __init__(self):
         self.parsers = {

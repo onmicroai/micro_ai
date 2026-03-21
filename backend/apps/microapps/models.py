@@ -1,4 +1,5 @@
 from django.db import models
+from pgvector.django import VectorField
 from micro_ai import settings
 import logging as log
 from rest_framework.response import Response
@@ -293,3 +294,114 @@ class RubricBuild(models.Model):
 
     def __str__(self):
         return f"RubricBuild {self.id} ({self.model_used})"
+
+
+class FileSource(models.Model):
+    """
+    Represents one uploaded and embedded file.
+    Chunks belong to a FileSource, not directly to an app — allowing shared
+    references across cloned apps without duplicating vector data.
+    """
+
+    PENDING = 'pending'
+    PROCESSING = 'processing'
+    READY = 'ready'
+    FAILED = 'failed'
+    STATUS_CHOICES = [
+        (PENDING, 'Pending'),
+        (PROCESSING, 'Processing'),
+        (READY, 'Ready'),
+        (FAILED, 'Failed'),
+    ]
+
+    file_name = models.CharField(max_length=255)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
+    error = models.TextField(null=True, blank=True)
+    chunk_count = models.IntegerField(null=True, blank=True)
+    word_count = models.IntegerField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    # Tracks which app originally uploaded this file.
+    # Useful if file download is ever implemented — only the owner can download.
+    file_owner = models.ForeignKey(
+        Microapp, on_delete=models.SET_NULL, null=True, blank=True, related_name='owned_sources'
+    )
+
+    def __str__(self):
+        return f"{self.file_name} [{self.status}]"
+
+
+class AppFileReference(models.Model):
+    """
+    Join table linking apps to file sources.
+    Clone  → insert new rows here (no chunk duplication).
+    Delete → remove the row; prune orphaned FileSource records periodically.
+    """
+
+    app = models.ForeignKey(Microapp, on_delete=models.CASCADE, related_name='file_references')
+    file_source = models.ForeignKey(FileSource, on_delete=models.CASCADE, related_name='app_references')
+    added_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [('app', 'file_source')]
+
+    def __str__(self):
+        return f"App {self.app_id} → {self.file_source.file_name}"
+
+
+class DocumentChunk(models.Model):
+    """One chunk of a FileSource with its embedding. Shared across all apps that reference the same FileSource."""
+
+    file_source = models.ForeignKey(FileSource, on_delete=models.CASCADE, related_name='chunks')
+    content = models.TextField()
+    embedding = VectorField(dimensions=1536, null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        indexes = [models.Index(fields=['file_source'])]
+        ordering = ['file_source', 'id']
+
+    def __str__(self):
+        return f"{self.file_source.file_name} chunk {self.id}"
+class UserDashboardAppOrder(models.Model):
+    """Per-user ordering on dashboard for All / My apps / Shared with me (global scope)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    ma = models.ForeignKey(Microapp, on_delete=models.CASCADE)
+    sort_index = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "ma"],
+                name="uniq_user_dashboard_app_order",
+            ),
+        ]
+        ordering = ["sort_index", "ma_id"]
+
+    def __str__(self):
+        return f"{self.user_id} #{self.sort_index} app {self.ma_id_id}"
+
+
+class UserCollectionAppOrder(models.Model):
+    """Per-user ordering of apps when viewing a specific collection on the dashboard."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    collection = models.ForeignKey(
+        "collection.Collection", on_delete=models.CASCADE
+    )
+    ma = models.ForeignKey(Microapp, on_delete=models.CASCADE)
+    sort_index = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "collection", "ma"],
+                name="uniq_user_collection_dashboard_app_order",
+            ),
+        ]
+        ordering = ["sort_index", "ma_id"]
+
+    def __str__(self):
+        return f"{self.user_id} coll {self.collection_id} #{self.sort_index}"

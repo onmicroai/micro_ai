@@ -1,118 +1,214 @@
-'use client'
+"use client";
 
-import React, { useState, useEffect } from 'react';
-import { FaTrashCan as TrashCan, FaRegCopy, FaShareNodes, FaPenToSquare, FaChartLine, FaArrowRightFromBracket } from 'react-icons/fa6';
-import { Bars3Icon } from '@heroicons/react/20/solid';
-import { Menu, MenuButton, MenuItem, MenuItems } from '@headlessui/react';
+import React, { useState, useEffect } from "react";
+import { FaArrowRightFromBracket } from "react-icons/fa6";
+import { Bars3Icon } from "@heroicons/react/20/solid";
+import { Menu, MenuButton, MenuItem, MenuItems } from "@headlessui/react";
 import Link from "next/link";
-import { useDashboardStore } from '../../store/dashboardStore';
+import { useDashboardStore } from "../../store/dashboardStore";
 import axiosInstance from "@/utils/axiosInstance";
-import { toast } from 'react-toastify';
-import { useUserStore } from '@/store/userStore';
-import ShareModal from '../ShareModal';
-import Modal from '../Modal';
-import { AppSerialized } from '@/app/(authenticated)/(dashboard)/types';
-import { cn } from '@/utils/cn';
+import { toast } from "react-toastify";
+import { useUserStore } from "@/store/userStore";
+import ShareModal from "../ShareModal";
+import Modal from "../Modal";
+import {
+  AppSerialized,
+  AppStats,
+} from "@/app/(authenticated)/(dashboard)/types";
+import { cn } from "@/utils/cn";
+import {
+  ChartLine,
+  Copy,
+  GripVertical,
+  PencilIcon,
+  Share2,
+  Trash2,
+  type LucideIcon,
+} from "lucide-react";
+import { Draggable, Droppable } from "@hello-pangea/dnd";
+import { dashboardAppsListDroppableId } from "../../dashboardDndConstants";
+import { getSortedDashboardAppList } from "../../dashboardSortUtils";
+import {
+  DarkTooltip,
+  DarkTooltipContent,
+  DarkTooltipProvider,
+  DarkTooltipTrigger,
+} from "../ui/DarkTooltip";
+
+/** Unified app action config - same icons for desktop and mobile */
+type AppActionId = "edit" | "stats" | "share" | "clone" | "delete" | "leave";
+
+interface AppActionConfig {
+  id: AppActionId;
+  label: string;
+  Icon: LucideIcon | typeof FaArrowRightFromBracket;
+  /** Link href - if set, renders as Link */
+  getHref?: (app: AppSerialized) => string;
+  /** Button action key */
+  action?: "share" | "clone" | "delete" | "leave";
+  isDisabled?: (app: AppSerialized) => boolean;
+  isDanger?: boolean;
+  /** Show only when user is owner */
+  ownerOnly?: boolean;
+  /** Show only when user is NOT owner (e.g. Leave) */
+  adminOnly?: boolean;
+}
+
+const APP_ACTIONS: AppActionConfig[] = [
+  {
+    id: "edit",
+    label: "Edit",
+    Icon: PencilIcon,
+    getHref: (app) => `/app/edit/${app.hashId}`,
+  },
+  {
+    id: "stats",
+    label: "Statistics",
+    Icon: ChartLine,
+    getHref: (app) => `/app/${app.hashId}/stats`,
+  },
+  { id: "share", label: "Share", Icon: Share2, action: "share" },
+  {
+    id: "clone",
+    label: "Clone",
+    Icon: Copy,
+    action: "clone",
+    isDisabled: (app) => !app.copyAllowed,
+  },
+  {
+    id: "delete",
+    label: "Delete",
+    Icon: Trash2,
+    action: "delete",
+    isDanger: true,
+    ownerOnly: true,
+  },
+  {
+    id: "leave",
+    label: "Leave",
+    Icon: FaArrowRightFromBracket,
+    action: "leave",
+    isDanger: true,
+    adminOnly: true,
+  },
+];
 
 interface AppTableProps {
-  activeCollectionId: number | null;
   activeTab: string;
 }
 
 /**
- * AppTable component - A consolidated table that displays apps with filtering
- * Responds to sidebar filters (privacy categories and collection selection)
+ * AppTable component - Card layout for apps with filtering
+ * Default: privacy badge visible. On hover: title turns blue, action icons appear.
  */
-const AppTable: React.FC<AppTableProps> = ({ 
-  activeCollectionId, 
-  activeTab
-}) => {
-  const { apps, appLoading, fetchApps, fetchAllApps, cloneApp, deleteApp } = useDashboardStore();
+const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
+  const api = axiosInstance();
+  const {
+    apps,
+    appLoading,
+    fetchApps,
+    fetchAllApps,
+    cloneApp,
+    deleteApp,
+    listScope,
+    globalDashboardOrderIds,
+    collectionDashboardOrderIds,
+    collectionOrderForId,
+  } = useDashboardStore();
   const { user } = useUserStore();
   const currentUserId = Number(user?.id);
   const [showShareMenu, setShowShareMenu] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [selectedApp, setSelectedApp] = useState<AppSerialized | null>(null);
-  const api = axiosInstance();
 
-  // Fetch apps when collection changes
+  const collectionFetchId =
+    listScope.kind === "collection" ? listScope.id : null;
+
   useEffect(() => {
     const controller = new AbortController();
-    
-    if (activeCollectionId === null) {
-      // Fetch all apps when no specific collection is selected
+    if (collectionFetchId === null) {
       fetchAllApps(controller.signal);
     } else {
-      // Fetch apps for specific collection
-      fetchApps(activeCollectionId, controller.signal);
+      fetchApps(collectionFetchId, controller.signal);
     }
-    
     return () => controller.abort();
-  }, [activeCollectionId, fetchApps, fetchAllApps]);
+  }, [collectionFetchId, fetchApps, fetchAllApps]);
 
-  // Filter apps based on privacy tab only
-  // Collection filtering happens at the fetch level (fetchApps vs fetchAllApps)
-  const filteredApps = apps
-    .filter(app => activeTab === "all" || app?.privacy?.toLowerCase() === activeTab)
-    .sort((a, b) => a.id - b.id);
+  const filteredApps = getSortedDashboardAppList(
+    apps,
+    listScope,
+    activeTab,
+    globalDashboardOrderIds,
+    collectionDashboardOrderIds,
+    collectionOrderForId
+  );
 
-  /**
-   * Get privacy badge styling based on privacy type
-   */
   const getPrivacyBadge = (privacy: string) => {
     const privacyLower = privacy.toLowerCase();
-    const baseClasses = "inline-flex items-center px-2.5 py-1 text-xs font-medium rounded-full";
-    
+    const baseClasses =
+      "inline-flex items-center px-3 py-1 text-sm rounded-full";
     const colorClasses = {
-      public: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+      public:
+        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
       private: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-      restricted: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400"
+      restricted:
+        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
     };
-
-    return `${baseClasses} ${colorClasses[privacyLower as keyof typeof colorClasses] || colorClasses.private}`;
+    return `${baseClasses} ${
+      colorClasses[privacyLower as keyof typeof colorClasses] ||
+      colorClasses.private
+    }`;
   };
 
-  /**
-   * Get privacy display name
-   */
   const getPrivacyName = (privacy?: string) => {
     if (!privacy) return "Private";
-    
     switch (privacy.toLowerCase()) {
-      case "public": return "Public";
-      case "private": return "Private";
-      case "restricted": return "Restricted";
-      default: return "Private";
+      case "public":
+        return "Public";
+      case "private":
+        return "Private";
+      case "restricted":
+        return "Restricted";
+      default:
+        return "Private";
     }
   };
 
-  /**
-   * Handle clone app action
-   */
+  const formatMetrics = (metrics: AppStats | undefined) => {
+    const totalUsage = metrics?.sessions ?? 0;
+    const uniqueUsers = metrics?.unique_users ?? 0;
+    const totalCost = metrics?.total_credits ?? 0;
+    const avgCostPerUsage = metrics?.avg_credits_session ?? 0;
+
+    return (
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 pr-6">
+        <span>{`Total usage: ${totalUsage}`}</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
+        <span>{`Unique users: ${uniqueUsers}`}</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
+        <span>{`Total cost (Credits): ${totalCost}`}</span>
+        <span className="text-gray-300 dark:text-gray-600">▪</span>
+        <span>{`Avg. cost per usage (Credits): ${avgCostPerUsage}`}</span>
+      </div>
+    );
+  };
+
   const handleCloneClick = async (app: AppSerialized) => {
-    if (app.copyAllowed) {
-      await cloneApp(app.id);
-    }
+    if (app.copyAllowed) await cloneApp(app.id);
   };
 
-  /**
-   * Handle delete app action
-   */
   const handleDeleteClick = (app: AppSerialized) => {
     setSelectedApp(app);
     setShowDeleteModal(true);
   };
 
-  /**
-   * Confirm delete action
-   */
   const handleConfirmDelete = async () => {
     if (!selectedApp) return;
-
     try {
-      const response = await api.delete(`/api/microapps/${selectedApp.id}/archive`);
-
+      const response = await api.delete(
+        `/api/microapps/${selectedApp.id}/archive`
+      );
       if (response.status === 200) {
         toast.success("App deleted successfully.", { theme: "colored" });
         deleteApp(selectedApp.id);
@@ -122,22 +218,15 @@ const AppTable: React.FC<AppTableProps> = ({
     } catch {
       toast.error("Error deleting the app.", { theme: "colored" });
     }
-    
     setShowDeleteModal(false);
     setSelectedApp(null);
   };
 
-  /**
-   * Handle share app action
-   */
   const handleShareClick = (app: AppSerialized) => {
     setSelectedApp(app);
     setShowShareMenu(true);
   };
 
-  /**
-   * Handle leave app (admin self-removal)
-   */
   const handleLeaveClick = (app: AppSerialized) => {
     setSelectedApp(app);
     setShowLeaveModal(true);
@@ -146,19 +235,153 @@ const AppTable: React.FC<AppTableProps> = ({
   const handleConfirmLeave = async () => {
     if (!selectedApp || !currentUserId) return;
     try {
-      await api.delete(`/api/microapps/${selectedApp.id}/admins/${currentUserId}/`);
-      toast.success(`You have left "${selectedApp.title}".`, { theme: 'colored' });
+      await api.delete(
+        `/api/microapps/${selectedApp.id}/admins/${currentUserId}/`
+      );
+      toast.success(`You have left "${selectedApp.title}".`, {
+        theme: "colored",
+      });
       deleteApp(selectedApp.id);
     } catch {
-      toast.error('Could not leave the app. Please try again.', { theme: 'colored' });
+      toast.error("Could not leave the app. Please try again.", {
+        theme: "colored",
+      });
     }
     setShowLeaveModal(false);
     setSelectedApp(null);
   };
 
-  const isOwner = (app: AppSerialized) => app.role === 'owner';
+  const isOwner = (app: AppSerialized) => app.role === "owner";
 
-  // Show loading state
+  const getVisibleActions = (app: AppSerialized) =>
+    APP_ACTIONS.filter((a) => {
+      if (a.ownerOnly && !isOwner(app)) return false;
+      if (a.adminOnly && isOwner(app)) return false;
+      return true;
+    });
+
+  const renderAction = (
+    action: AppActionConfig,
+    app: AppSerialized,
+    variant: "icon" | "menu"
+  ) => {
+    const {
+      Icon,
+      label,
+      getHref,
+      action: actionKey,
+      isDisabled,
+      isDanger,
+    } = action;
+    const disabled = isDisabled?.(app) ?? false;
+
+    const iconButtonClasses = cn(
+      "inline-flex items-center justify-center rounded-md p-2 transition-colors",
+      isDanger
+        ? "text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-950/50 dark:hover:text-red-400"
+        : disabled
+        ? "cursor-not-allowed text-gray-300 dark:text-gray-600"
+        : "text-gray-400 hover:bg-gray-100 hover:text-primary dark:text-gray-400 dark:hover:bg-white/10 dark:hover:text-primary-350"
+    );
+
+    const menuItemClasses = (focus: boolean) =>
+      cn(
+        "flex w-full items-center gap-x-3 px-4 py-2 text-sm text-left",
+        isDanger
+          ? "text-red-600 dark:text-red-400"
+          : "text-gray-500 dark:text-gray-300",
+        focus &&
+          (isDanger
+            ? "bg-red-50 dark:bg-red-950/50"
+            : "bg-gray-100 dark:bg-gray-700")
+      );
+
+    const icon = <Icon />;
+    const tooltipText =
+      disabled && action.id === "clone" ? "Cloning not allowed" : label;
+
+    if (getHref) {
+      const href = getHref(app);
+      if (variant === "icon") {
+        return (
+          <DarkTooltipProvider key={action.id} delayDuration={300}>
+            <DarkTooltip>
+              <DarkTooltipTrigger asChild>
+                <Link href={href} className={iconButtonClasses}>
+                  {icon}
+                </Link>
+              </DarkTooltipTrigger>
+              <DarkTooltipContent>{tooltipText}</DarkTooltipContent>
+            </DarkTooltip>
+          </DarkTooltipProvider>
+        );
+      }
+      return (
+        <MenuItem key={action.id}>
+          {({ focus }) => (
+            <Link href={href} className={menuItemClasses(focus)}>
+              {icon}
+              {label}
+            </Link>
+          )}
+        </MenuItem>
+      );
+    }
+
+    const onClick = () => {
+      if (actionKey === "share") handleShareClick(app);
+      if (actionKey === "clone") handleCloneClick(app);
+      if (actionKey === "delete") handleDeleteClick(app);
+      if (actionKey === "leave") handleLeaveClick(app);
+    };
+
+    if (variant === "icon") {
+      const buttonEl = (
+        <button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          className={iconButtonClasses}
+        >
+          {icon}
+        </button>
+      );
+      return (
+        <DarkTooltipProvider key={action.id} delayDuration={300}>
+          <DarkTooltip>
+            <DarkTooltipTrigger asChild>
+              {disabled ? (
+                <span className="inline-flex">{buttonEl}</span>
+              ) : (
+                buttonEl
+              )}
+            </DarkTooltipTrigger>
+            <DarkTooltipContent>{tooltipText}</DarkTooltipContent>
+          </DarkTooltip>
+        </DarkTooltipProvider>
+      );
+    }
+
+    return (
+      <MenuItem key={action.id} disabled={disabled}>
+        {({ focus }) => (
+          <button
+            type="button"
+            onClick={onClick}
+            disabled={disabled}
+            className={cn(
+              menuItemClasses(focus),
+              disabled && "cursor-not-allowed opacity-60"
+            )}
+          >
+            {icon}
+            {label}
+          </button>
+        )}
+      </MenuItem>
+    );
+  };
+
   if (appLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -167,11 +390,10 @@ const AppTable: React.FC<AppTableProps> = ({
     );
   }
 
-  // Show empty state
   if (filteredApps.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
-        <p className="text-gray-500 dark:text-gray-400 text-sm">
+        <p className="text-sm text-gray-500 dark:text-gray-400">
           No apps found in this collection.
         </p>
       </div>
@@ -180,258 +402,109 @@ const AppTable: React.FC<AppTableProps> = ({
 
   return (
     <>
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
-        <div className="p-6 space-y-0">
-          {/* Table Header */}
-          <div className="hidden sm:grid sm:grid-cols-[1fr_auto_auto] sm:gap-4 py-3 px-0 border-b-2 border-gray-200 dark:border-gray-700">
-            <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              App Name
-            </div>
-            <div className="w-32 md:w-40 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Privacy
-            </div>
-            <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-              Actions
-            </div>
-          </div>
-
-        {/* Table Body - App Rows */}
-        {filteredApps.map((app) => (
-          <div 
-            key={app.id}
-            className="group relative border-b border-gray-100 hover:border-gray-200 transition-colors dark:border-gray-800 dark:hover:border-gray-700"
+      <Droppable droppableId={dashboardAppsListDroppableId}>
+        {(listProvided) => (
+          <div
+            ref={listProvided.innerRef}
+            {...listProvided.droppableProps}
+            className="space-y-3"
           >
-            <div className="py-4 grid grid-cols-[1fr_auto_auto] gap-2 sm:gap-4 items-center">
-              {/* App Title */}
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <Link 
-                    href={`/app/edit/${app.hashId}`}
-                    className="text-sm sm:text-base font-semibold text-gray-900 hover:text-primary transition-colors truncate block dark:text-white dark:hover:text-primary-350"
+            {filteredApps.map((app, index) => (
+              <Draggable
+                key={app.id}
+                draggableId={`app-${app.id}`}
+                index={index}
+              >
+                {(dragProvided, snapshot) => (
+                  <div
+                    ref={dragProvided.innerRef}
+                    {...dragProvided.draggableProps}
+                    className={cn(
+                      "group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:bg-gray-800",
+                      snapshot.isDragging &&
+                        "shadow-lg ring-2 ring-primary/50 dark:ring-primary-350/50"
+                    )}
                   >
-                    {app.title}
-                  </Link>
-                  {!isOwner(app) && (
-                    <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 text-xs font-medium rounded bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 flex-shrink-0">
-                      Admin
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Privacy Badge */}
-              <div className="flex-shrink-0">
-                <span className={getPrivacyBadge(app.privacy)}>
-                  {getPrivacyName(app.privacy)}
-                </span>
-              </div>
-
-              {/* Actions - Mobile: Hamburger Menu, Desktop: Inline Buttons */}
-              <div className="flex-shrink-0">
-                {/* Mobile: Dropdown Menu */}
-                <div className="sm:hidden">
-                  <Menu as="div" className="relative inline-block text-left">
-                    <MenuButton className="inline-flex items-center justify-center w-8 h-8 text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800">
-                      <span className="sr-only">Open actions menu</span>
-                      <Bars3Icon className="h-5 w-5" aria-hidden="true" />
-                    </MenuButton>
-
-                    <MenuItems
-                      transition
-                      className="absolute right-0 z-10 mt-2 w-48 origin-top-right rounded-md bg-white shadow-lg ring-1 ring-black ring-opacity-5 transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800 dark:ring-gray-700"
-                    >
-                      <div className="py-1">
-                        <MenuItem>
-                          {({ focus }) => (
-                            <Link
-                              href={`/app/edit/${app.hashId}`}
-                              className={cn(
-                                focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
-                                'group flex items-center gap-x-3 px-4 py-2 text-sm'
-                              )}
-                            >
-                              <FaPenToSquare className="h-4 w-4" aria-hidden="true" />
-                              Edit
-                            </Link>
+                    <div className="flex items-start justify-between gap-2 sm:gap-4">
+                      <button
+                        type="button"
+                        {...dragProvided.dragHandleProps}
+                        className="mt-0.5 shrink-0 cursor-grab touch-manipulation rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 active:cursor-grabbing dark:hover:bg-white/10 dark:hover:text-gray-300"
+                        aria-label={`Drag to add “${app.title}” to a collection`}
+                      >
+                        <GripVertical className="h-5 w-5" />
+                      </button>
+                      {/* Left: Title + metrics */}
+                      <div className="min-w-0 flex-1">
+                        <Link
+                          href={`/app/edit/${app.hashId}`}
+                          className={cn(
+                            "text-lg font-semibold transition-colors duration-200",
+                            "text-gray-900 group-hover:text-primary dark:text-white dark:group-hover:text-primary-350"
                           )}
-                        </MenuItem>
-                        <MenuItem>
-                          {({ focus }) => (
-                            <Link
-                              href={`/app/${app.hashId}/stats`}
-                              className={cn(
-                                focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
-                                'group flex items-center gap-x-3 px-4 py-2 text-sm'
-                              )}
-                            >
-                              <FaChartLine className="h-4 w-4" aria-hidden="true" />
-                              Stats
-                            </Link>
-                          )}
-                        </MenuItem>
-
-                        <MenuItem>
-                          {({ focus }) => (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault();
-                                handleShareClick(app);
-                              }}
-                              className={cn(
-                                focus ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' : 'text-gray-700 dark:text-gray-300',
-                                'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                              )}
-                            >
-                              <FaShareNodes className="h-4 w-4" aria-hidden="true" />
-                              Share
-                            </button>
-                          )}
-                        </MenuItem>
-
-
-                          <MenuItem disabled={!app.copyAllowed}>
-                            {({ focus }) => (
-                              <button
-                                onClick={() => handleCloneClick(app)}
-                                disabled={!app.copyAllowed}
-                                className={cn(
-                                  app.copyAllowed
-                                    ? focus 
-                                      ? 'bg-gray-100 text-gray-900 dark:bg-gray-700 dark:text-white' 
-                                      : 'text-gray-700 dark:text-gray-300'
-                                    : 'text-gray-400 cursor-not-allowed dark:text-gray-600',
-                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                                )}
-                              >
-                                <FaRegCopy className="h-4 w-4" aria-hidden="true" />
-                                Clone {!app.copyAllowed && '(disabled)'}
-                              </button>
-                            )}
-                          </MenuItem>
-                        <div className="border-t border-gray-100 dark:border-gray-700" />
-                        {isOwner(app) ? (
-                          <MenuItem>
-                            {({ focus }) => (
-                              <button
-                                onClick={() => handleDeleteClick(app)}
-                                className={cn(
-                                  focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
-                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                                )}
-                              >
-                                <TrashCan className="h-4 w-4" aria-hidden="true" />
-                                Delete
-                              </button>
-                            )}
-                          </MenuItem>
-                        ) : (
-                          <MenuItem>
-                            {({ focus }) => (
-                              <button
-                                onClick={() => handleLeaveClick(app)}
-                                className={cn(
-                                  focus ? 'bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-300' : 'text-red-600 dark:text-red-400',
-                                  'group flex w-full items-center gap-x-3 px-4 py-2 text-sm'
-                                )}
-                              >
-                                <FaArrowRightFromBracket className="h-4 w-4" aria-hidden="true" />
-                                Leave
-                              </button>
-                            )}
-                          </MenuItem>
+                        >
+                          {app.title}
+                        </Link>
+                        {!isOwner(app) && (
+                          <span className="ml-2 inline-flex items-center rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                            Admin
+                          </span>
                         )}
+
+                        <p className="mt-5 text-sm text-gray-500 dark:text-gray-400">
+                          {formatMetrics(app.stats)}
+                        </p>
                       </div>
-                    </MenuItems>
-                  </Menu>
-                </div>
 
-                {/* Desktop: Inline Buttons */}
-                <div className="hidden sm:flex items-center gap-x-1">
-                  {/* Edit */}
-                  <Link 
-                    href={`/app/edit/${app.hashId}`}
-                    className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                    title="Edit app"
-                  >
-                    <FaPenToSquare className="w-3.5 h-3.5" />
-                    <span>Edit</span>
-                  </Link>
+                      <div className="flex shrink-0 flex-col items-end gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className={getPrivacyBadge(app.privacy)}>
+                            {getPrivacyName(app.privacy)}
+                          </span>
+                          <div className="flex md:hidden">
+                            <Menu as="div" className="relative border-none">
+                              <MenuButton className="inline-flex items-center gap-x-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10">
+                                <Bars3Icon className="h-5 w-5" />
+                              </MenuButton>
+                              <MenuItems
+                                transition
+                                className="absolute right-0 z-10 mt-2 w-48 origin-top-left rounded-md bg-white py-1 shadow-lg transition focus:outline-none data-[closed]:scale-95 data-[closed]:opacity-0 dark:bg-gray-800"
+                              >
+                                {getVisibleActions(app).map((action) => (
+                                  <React.Fragment key={action.id}>
+                                    {renderAction(action, app, "menu")}
+                                  </React.Fragment>
+                                ))}
+                              </MenuItems>
+                            </Menu>
+                          </div>
+                        </div>
 
-                  {/* Stats */}
-                  <Link 
-                    href={`/app/${app.hashId}/stats`}
-                    className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                    title="View stats"
-                  >
-                    <FaChartLine className="w-3.5 h-3.5" />
-                    <span className="hidden md:inline">Stats</span>
-                  </Link>
-
-                  {/* Share */}
-
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        handleShareClick(app);
-                      }}
-                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-gray-700 hover:text-primary hover:bg-gray-100 rounded-md transition-colors dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800"
-                      title="Share app"
-                    >
-                      <FaShareNodes className="w-3.5 h-3.5" />
-                      <span className="hidden md:inline">Share</span>
-                    </button>
-
-
-                  {/* Clone */}
-
-                    <button
-                      onClick={() => handleCloneClick(app)}
-                      disabled={!app.copyAllowed}
-                      className={`inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                        app.copyAllowed 
-                          ? 'text-gray-700 hover:text-primary hover:bg-gray-100 dark:text-gray-300 dark:hover:text-white dark:hover:bg-gray-800' 
-                          : 'text-gray-400 cursor-not-allowed dark:text-gray-600'
-                      }`}
-                      title={app.copyAllowed ? "Clone app" : "Cloning not allowed"}
-                    >
-                      <FaRegCopy className="w-3.5 h-3.5" />
-                      <span className="hidden lg:inline">Clone</span>
-                    </button>
-
-                  {/* Delete — owner only */}
-                  {isOwner(app) ? (
-                    <button
-                      onClick={() => handleDeleteClick(app)}
-                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                      title="Delete app"
-                    >
-                      <TrashCan className="w-3.5 h-3.5" />
-                      <span className="hidden lg:inline">Delete</span>
-                    </button>
-                  ) : (
-                    /* Leave — admin self-removal */
-                    <button
-                      onClick={() => handleLeaveClick(app)}
-                      className="inline-flex items-center gap-x-1 px-2 py-1.5 text-xs font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-md transition-colors dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
-                      title="Leave app"
-                    >
-                      <FaArrowRightFromBracket className="w-3.5 h-3.5" />
-                      <span className="hidden lg:inline">Leave</span>
-                    </button>
-                  )}
-                </div>
-              </div>
-            </div>
+                        <div
+                          className={cn(
+                            "hidden md:flex items-center gap-x-1 transition-all duration-200",
+                            "opacity-0 translate-y-1 group-hover:opacity-100 group-hover:translate-y-0"
+                          )}
+                        >
+                          {getVisibleActions(app).map((action) =>
+                            renderAction(action, app, "icon")
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {listProvided.placeholder}
           </div>
-        ))}
-        </div>
-      </div>
+        )}
+      </Droppable>
 
-      {/* Share Modal */}
       {selectedApp && (
-        <ShareModal 
-          app={selectedApp} 
-          showModal={showShareMenu} 
+        <ShareModal
+          app={selectedApp}
+          showModal={showShareMenu}
           setShowModal={(show) => {
             setShowShareMenu(show);
             if (!show) setSelectedApp(null);
@@ -440,7 +513,6 @@ const AppTable: React.FC<AppTableProps> = ({
         />
       )}
 
-      {/* Delete Confirmation Modal */}
       {showDeleteModal && selectedApp && (
         <Modal
           isOpen={showDeleteModal}
@@ -454,7 +526,6 @@ const AppTable: React.FC<AppTableProps> = ({
         />
       )}
 
-      {/* Leave Confirmation Modal */}
       {showLeaveModal && selectedApp && (
         <Modal
           isOpen={showLeaveModal}
@@ -472,4 +543,3 @@ const AppTable: React.FC<AppTableProps> = ({
 };
 
 export default AppTable;
-
