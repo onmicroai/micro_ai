@@ -8,13 +8,10 @@ from rest_framework import serializers
 import django
 import json
 import os
-from apps.collection.models import Collection
-from apps.collection.views import CollectionList
 from apps.microapps.serializer import MicroAppSerializer
 from apps.microapps.views import MicroAppList
 from apps.users.models import CustomUser
 from apps.utils.custom_error_message import ErrorMessages as error
-from apps.utils.global_variables import CollectionVariables
 
 json_file_path = os.path.join(settings.BASE_DIR, 'apps/utils', 'data', 'microapp_create.json')
 with open(json_file_path, 'r') as file:
@@ -86,14 +83,14 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                 user = super().save_user(request, user, form, commit)
                 if user.pk is None: 
                     user.save()
-                self.collection_details(user)
+                self.seed_app_templates(user)
                 return user
         except django.db.utils.IntegrityError as e:  
             raise serializers.ValidationError({'error': repr(e)})
         except Exception as e:
             raise serializers.ValidationError({'error': repr(e)})
             
-    def add_app_templates(self, user, cid):
+    def add_app_templates(self, user):
         try:
             current_user_id = user.id
             micro_app_list = MicroAppList
@@ -103,22 +100,12 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                 if serializer.is_valid():
                     microapp = serializer.save()
                     micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp, max_count = False)
-                    micro_app_list.add_collection_microapp(self, cid, microapp)
         except Exception:
            raise Exception(error.SERVER_ERROR)
-            
-    def collection_details(self, user):
+
+    def seed_app_templates(self, user):
         try:
-            current_user_id = user.id
-            collection_list = CollectionList
-            collections_data = [
-                {"name": CollectionVariables.MY_COLLECTION},
-                {"name": CollectionVariables.SHARED_WITH_ME_COLLECTION},
-            ]
-            collections = Collection.objects.bulk_create([Collection(**data) for data in collections_data])
-            for collection in collections:
-                collection_list.add_collection_user(self, uid=current_user_id, cid=collection.id)
-            self.add_app_templates(user, collections[0].id)
+            self.add_app_templates(user)
         except Exception:
             raise Exception(error.SERVER_ERROR)
 

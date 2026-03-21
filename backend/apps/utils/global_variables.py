@@ -13,10 +13,6 @@ class MicroappVariables:
     DEFAULT_RESPONSE_TYPE = "AI"
     FIXED_RESPONSE_TYPE = "Fixed_Response"
 
-class CollectionVariables:
-    MY_COLLECTION = "My Collection"
-    SHARED_WITH_ME_COLLECTION = "Shared With Me"
-
 class AIModelDefaults:
     """Base default values for all AI models"""
     BASE_DEFAULTS = {

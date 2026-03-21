@@ -72,32 +72,42 @@ class MicroAppList(APIView, MicroAppMixin):
             return handle_exception(e)
 
     def post(self, request, format=None):
-        """Create a new microapp."""
+        """Create a new microapp. collection_id is optional."""
         try:
-            data = request.data
-            cid = data.get("collection_id")
-            if (cid is not None and isinstance(cid, int)):
-                usage_info = MicroAppUsage.check_max_apps(request.user.id)
-                if usage_info["can_create"]:
-                    serializer = MicroAppSerializer(data=data)
-                    if serializer.is_valid():
-                        microapp = serializer.save()
-                        self.add_microapp_user(uid=request.user.id, microapp=microapp, max_count=True)
-                        self.add_collection_microapp(cid, microapp)
-                        return Response(
-                            {"data": serializer.data, "status": status.HTTP_200_OK},
-                            status=status.HTTP_200_OK,
-                        )
+            data = dict(request.data)
+            cid = data.pop("collection_id", None)
+            if cid is not None:
+                if isinstance(cid, str) and cid.isdigit():
+                    cid = int(cid)
+                try:
+                    cid = int(cid)
+                except (TypeError, ValueError):
                     return Response(
-                        error.validation_error(serializer.errors),
+                        error.validation_error({"collection_id": ["Invalid collection id."]}),
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+                if cid <= 0:
+                    cid = None
+
+            usage_info = MicroAppUsage.check_max_apps(request.user.id)
+            if not usage_info["can_create"]:
                 return Response(
                     error.microapp_usage_limit_exceed(usage_info["limit"], usage_info["current_count"]),
-                    status=status.HTTP_400_BAD_REQUEST
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            serializer = MicroAppSerializer(data=data)
+            if serializer.is_valid():
+                microapp = serializer.save()
+                self.add_microapp_user(uid=request.user.id, microapp=microapp, max_count=True)
+                if cid is not None:
+                    self.add_collection_microapp(cid, microapp)
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
                 )
             return Response(
-                error.FIELD_MISSING,
+                error.validation_error(serializer.errors),
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
@@ -208,37 +218,8 @@ class MicroAppArchive(APIView, MicroAppMixin):
 class CloneMicroApp(APIView, MicroAppMixin):
     permission_classes = [IsAuthenticated]
 
-    def get_or_create_default_collection(self, user_id):
-        """Get or create default collection for user."""
-        try:
-            from apps.collection.models import Collection, CollectionUserJoin
-            
-            # First try to get user's collections
-            user_collections = Collection.objects.filter(
-                collectionuserjoin__user_id=user_id
-            ).first()
-
-            if user_collections:
-                return user_collections
-
-            # If no collections exist, create a default one
-            default_collection = Collection.objects.create(
-                name="My Apps",
-                description="Your personal collection of apps"
-            )
-            # Add user as admin of the collection
-            CollectionUserJoin.objects.create(
-                collection_id=default_collection.id,
-                user_id=user_id,
-                role="admin"
-            )
-            return default_collection
-        except Exception as e:
-            log.error(f"Error getting/creating default collection: {e}")
-            return None
-
     def post(self, request, pk, collection_id=None):
-        """Clone a microapp."""
+        """Clone a microapp. Optional collection_id adds the clone to that collection only."""
         try:
             microapp = self.get_microapp(pk)
             if not microapp:
@@ -254,16 +235,7 @@ class CloneMicroApp(APIView, MicroAppMixin):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-            # If collection_id is 0 or None, get or create a default collection
             target_collection_id = collection_id if collection_id and collection_id > 0 else None
-            if not target_collection_id:
-                default_collection = self.get_or_create_default_collection(request.user.id)
-                if not default_collection:
-                    return Response(
-                        {"error": "Could not find or create a default collection.", "status": status.HTTP_400_BAD_REQUEST},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                target_collection_id = default_collection.id
 
             usage_info = MicroAppUsage.check_max_apps(request.user.id)
             if usage_info["can_create"]:
@@ -290,7 +262,8 @@ class CloneMicroApp(APIView, MicroAppMixin):
                     new_microapp = serializer.save()
                     micro_app_list = MicroAppList
                     micro_app_list.add_microapp_user(self, uid=request.user.id, microapp=new_microapp, max_count=True)
-                    micro_app_list.add_collection_microapp(self, target_collection_id, new_microapp)
+                    if target_collection_id:
+                        micro_app_list.add_collection_microapp(self, target_collection_id, new_microapp)
                     return Response(
                         {"data": MicroAppSerializer(new_microapp).data, "status": status.HTTP_200_OK},
                         status=status.HTTP_200_OK,

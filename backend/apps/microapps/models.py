@@ -364,3 +364,44 @@ class DocumentChunk(models.Model):
 
     def __str__(self):
         return f"{self.file_source.file_name} chunk {self.id}"
+class UserDashboardAppOrder(models.Model):
+    """Per-user ordering on dashboard for All / My apps / Shared with me (global scope)."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    ma = models.ForeignKey(Microapp, on_delete=models.CASCADE)
+    sort_index = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "ma"],
+                name="uniq_user_dashboard_app_order",
+            ),
+        ]
+        ordering = ["sort_index", "ma_id"]
+
+    def __str__(self):
+        return f"{self.user_id} #{self.sort_index} app {self.ma_id_id}"
+
+
+class UserCollectionAppOrder(models.Model):
+    """Per-user ordering of apps when viewing a specific collection on the dashboard."""
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    collection = models.ForeignKey(
+        "collection.Collection", on_delete=models.CASCADE
+    )
+    ma = models.ForeignKey(Microapp, on_delete=models.CASCADE)
+    sort_index = models.PositiveIntegerField()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "collection", "ma"],
+                name="uniq_user_collection_dashboard_app_order",
+            ),
+        ]
+        ordering = ["sort_index", "ma_id"]
+
+    def __str__(self):
+        return f"{self.user_id} coll {self.collection_id} #{self.sort_index}"
