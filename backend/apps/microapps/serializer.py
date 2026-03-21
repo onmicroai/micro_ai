@@ -9,7 +9,7 @@ class MicroAppSerializer(serializers.ModelSerializer):
         extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
 
 class MicroAppSwaggerPostSerializer(serializers.ModelSerializer):
-    collection_id = serializers.IntegerField(write_only=True)
+    collection_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
     class Meta:
         model = Microapp
         fields = ["collection_id", "app_json"]

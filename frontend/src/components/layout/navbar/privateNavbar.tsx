@@ -63,9 +63,7 @@ export default function PrivateNavbar({ showCreateApp = false, isHomePage = fals
 
    const onCreateApp = async (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
-      if (collectionId) {
-         await handleCreateApp(collectionId);
-      }
+      await handleCreateApp(collectionId > 0 ? collectionId : undefined);
    };
 
    return (

@@ -353,7 +353,7 @@ export default function FormBuilder() {
       temperature: aiConfig.temperature ?? 0.7,
       copyAllowed: clonable,
       appJson: "",
-      collectionId: collectionIds[0] ?? 0,
+      ...(collectionIds[0] != null ? { collectionId: collectionIds[0] } : {}),
       role: editorIsOwner ? "owner" : "admin",
     };
   }, [
