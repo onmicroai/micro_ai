@@ -3,8 +3,7 @@
 services:
   db:
     container_name: db
-    image: postgres:17
-    # persist data beyond lifetime of container
+    image: pgvector/pgvector:pg17
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
