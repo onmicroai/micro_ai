@@ -20,7 +20,8 @@ from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import RunUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import MicroappVariables, UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, DocumentChunk, AppFileReference
+from apps.microapps.rag_service import retrieve_relevant_chunks_multi_file
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -157,6 +158,68 @@ class RunList(APIView, UsageTrackingMixin):
             log.error(e)
             log.error(f"Response data: {response}")
 
+    def _inject_rag_context(self, messages: list, ma_data, user_prompt: str) -> list:
+        """
+        Retrieve relevant chunks for each sidebar file and prepend them as a
+        context message before the conversation history.
+        No-ops silently if the app has no attached files or chunks aren't ready.
+        """
+        try:
+            app_json = ma_data.app_json or {}
+            if isinstance(app_json, str):
+                app_json = json.loads(app_json) if app_json else {}
+            attached_files = app_json.get("attachedFiles", [])
+            if not attached_files or not user_prompt:
+                return messages
+
+            file_names = [f["original_filename"] for f in attached_files if f.get("original_filename")]
+            if not file_names:
+                return messages
+
+            # Check that at least one file has chunks stored
+            if not DocumentChunk.objects.filter(
+                file_source__app_references__app=ma_data,
+                file_source__file_name__in=file_names,
+            ).exists():
+                log.warning("RAG: no chunks found for microapp=%s files=%s", ma_data.id, file_names)
+                return messages
+
+            results = retrieve_relevant_chunks_multi_file(
+                microapp_id=ma_data.id,
+                file_names=file_names,
+                query=user_prompt,
+                top_k_total=10,
+            )
+
+            sections = []
+            for f in attached_files:
+                fname = f.get("original_filename", "")
+                chunks = results.get(fname, [])
+                if not chunks:
+                    continue
+                description = f.get("description", "")
+                chunk_text = "\n\n---\n\n".join(c for c, _ in chunks)
+                section = f"File: {fname}"
+                if description:
+                    section += f"\nDescription: {description}"
+                section += f"\n============\n{chunk_text}\n============"
+                sections.append(section)
+
+            if not sections:
+                return messages
+
+            context_message = {
+                "role": "user",
+                "content": "Context Documents:\n\n" + "\n\n".join(sections),
+            }
+
+            # Insert context as the first user message (before conversation history)
+            return [context_message] + list(messages)
+
+        except Exception as e:
+            log.error("RAG inject error for microapp=%s: %s", ma_data.id, e)
+            return messages
+
     def skip_phase(self):
         """Handle skip phase response."""
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": "You skipped this phase", "cost": 0, "credits": 0}
@@ -193,6 +256,7 @@ class RunList(APIView, UsageTrackingMixin):
                 billing_cycle.record_usage(main_available)
                 credits_to_deduct -= main_available
 
+            top_up = None
             if credits_to_deduct > 0:
                 top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
                 for top_up in top_ups_to_update:
@@ -331,6 +395,13 @@ class RunList(APIView, UsageTrackingMixin):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            # RAG injection: prepend relevant file chunks as context
+            api_params["messages"] = self._inject_rag_context(
+                messages=api_params["messages"],
+                ma_data=ma_data,
+                user_prompt=data.get("user_prompt", ""),
+            )
 
             # Add transcription cost to api_params before get_response
             api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
