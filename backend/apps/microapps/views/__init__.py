@@ -38,6 +38,8 @@ from .analytics_views import (
 from .media_views import (
     MicroAppImageUpload,
     MicroAppFileUpload,
+    MicroAppFileDelete,
+    FileEmbeddingStatusView,
     ParseFile,
     AudioTranscription,
     AnonymousAudioTranscription,
@@ -83,6 +85,8 @@ __all__ = [
     # Media views
     'MicroAppImageUpload',
     'MicroAppFileUpload',
+    'MicroAppFileDelete',
+    'FileEmbeddingStatusView',
     'ParseFile',
     'AudioTranscription',
     'AnonymousAudioTranscription',
