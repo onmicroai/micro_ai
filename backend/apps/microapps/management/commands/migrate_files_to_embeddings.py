@@ -84,6 +84,30 @@ def _original_key(app_id: int, filename: str) -> str:
     return f"microapps/{app_id}/files/original/{filename}"
 
 
+def _normalize_attached_file_entry(file_entry) -> dict | None:
+    """
+    attachedFiles is usually a list of dicts (original_filename, text_filename, …).
+    Legacy rows may store bare filename strings instead.
+    """
+    if isinstance(file_entry, str):
+        name = file_entry.strip()
+        if not name:
+            return None
+        return {
+            "original_filename": name,
+            "text_filename": None,
+            "description": "",
+        }
+    if isinstance(file_entry, dict):
+        return file_entry
+    log.warning(
+        "Unexpected attachedFiles entry type=%s value=%r",
+        type(file_entry).__name__,
+        file_entry,
+    )
+    return None
+
+
 def _extract_text_from_binary(content: bytes, filename: str) -> str | None:
     """Write bytes to a temp file and run DocumentProcessor on it."""
     from apps.microapps.document_parser import DocumentProcessor
@@ -157,7 +181,13 @@ class Command(BaseCommand):
 
             self.stdout.write(f"\nApp {app.id} — {len(attached_files)} file(s):")
 
-            for file_entry in attached_files:
+            for raw_entry in attached_files:
+                file_entry = _normalize_attached_file_entry(raw_entry)
+                if file_entry is None:
+                    self.stdout.write(f"  [SKIP] invalid or empty entry: {raw_entry!r}")
+                    stats["skipped"] += 1
+                    continue
+
                 original_filename = file_entry.get("original_filename") or file_entry.get("name")
                 text_filename = file_entry.get("text_filename")
                 description = file_entry.get("description", "")

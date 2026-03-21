@@ -6,7 +6,7 @@ from pgvector.django import VectorField
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('microapps', '0059_run_session_id_index'),
+        ("microapps", "0060_user_dashboard_app_orders"),
     ]
 
     operations = [
