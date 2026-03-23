@@ -55,10 +55,11 @@ const ShareModal: React.FC<ShareModalProps> = ({
    isOwner,
    variant = 'modal',
    onPrivacySaved,
+   onPermittedDomainsSaved,
 }) => {
    const isInline = variant === 'inline';
    const hashId = app.hashId;
-   const { updateAppPrivacy } = useDashboardStore();
+   const { updateAppPrivacy, updateAppPermittedDomains } = useDashboardStore();
 
    const [showShareMenu, setShowShareMenu] = useState(false);
    const [activeTab, setActiveTab] = useState<ActiveTab>('share');
@@ -68,6 +69,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
    const [privacySaving, setPrivacySaving] = useState(false);
    const [privacySaved, setPrivacySaved] = useState(false);
    const privacySavedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+   // Permitted domains (for restricted embed)
+   const [permittedDomains, setPermittedDomains] = useState<string[]>(
+      app.permittedDomains ?? []
+   );
+   const [domainInput, setDomainInput] = useState('');
+   const [domainsSaving, setDomainsSaving] = useState(false);
 
    // Copy feedback
    const [copiedLink, setCopiedLink] = useState(false);
@@ -101,7 +109,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
    const getShareUrl = () => `${window.location.origin}/app/${hashId}`;
    const getEmbedUrl = () => `${window.location.origin}/app/embed/${hashId}`;
    const getEmbedSnippet = () =>
-      `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0"></iframe>`;
+      `<iframe src="${getEmbedUrl()}" width="600" height="400" frameBorder="0" referrerpolicy="origin"></iframe>`;
 
    const normalizedPrivacy = (() => {
       const p = currentPrivacy.toLowerCase();
@@ -133,7 +141,13 @@ const ShareModal: React.FC<ShareModalProps> = ({
       setPrivacySaved(false);
       try {
          const api = axiosInstance();
-         await api.patch(`/api/microapps/${app.id}`, { privacy: newPrivacy });
+         const payload: { privacy: string; permitted_domains?: string[] } = {
+            privacy: newPrivacy,
+         };
+         if (newPrivacy === 'restricted') {
+            payload.permitted_domains = permittedDomains;
+         }
+         await api.patch(`/api/microapps/${app.id}`, payload);
          updateAppPrivacy(app.id, newPrivacy);
          onPrivacySaved?.(newPrivacy);
          setPrivacySaved(true);
@@ -143,6 +157,55 @@ const ShareModal: React.FC<ShareModalProps> = ({
          setCurrentPrivacy(previous);
       } finally {
          setPrivacySaving(false);
+      }
+   };
+
+   // ── Permitted domains ──────────────────────────────────────────────────────
+   const normalizeDomain = (raw: string): string | null => {
+      const host = raw.trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0].split(':')[0];
+      if (!host || host.length < 2) return null;
+      return host;
+   };
+
+   const handleAddDomain = async () => {
+      const host = normalizeDomain(domainInput);
+      if (!host || permittedDomains.includes(host)) {
+         setDomainInput('');
+         return;
+      }
+      const next = [...permittedDomains, host];
+      setPermittedDomains(next);
+      setDomainInput('');
+      setDomainsSaving(true);
+      try {
+         const api = axiosInstance();
+         await api.patch(`/api/microapps/${app.id}`, {
+            permitted_domains: next,
+         });
+         updateAppPermittedDomains(app.id, next);
+         onPermittedDomainsSaved?.(next);
+      } catch {
+         setPermittedDomains(permittedDomains);
+      } finally {
+         setDomainsSaving(false);
+      }
+   };
+
+   const handleRemoveDomain = async (domain: string) => {
+      const next = permittedDomains.filter((d) => d !== domain);
+      setPermittedDomains(next);
+      setDomainsSaving(true);
+      try {
+         const api = axiosInstance();
+         await api.patch(`/api/microapps/${app.id}`, {
+            permitted_domains: next,
+         });
+         updateAppPermittedDomains(app.id, next);
+         onPermittedDomainsSaved?.(next);
+      } catch {
+         setPermittedDomains(permittedDomains);
+      } finally {
+         setDomainsSaving(false);
       }
    };
 
@@ -302,6 +365,10 @@ const ShareModal: React.FC<ShareModalProps> = ({
    useEffect(() => {
       setCurrentPrivacy(app.privacy);
    }, [app.privacy]);
+
+   useEffect(() => {
+      setPermittedDomains(app.permittedDomains ?? []);
+   }, [app.permittedDomains]);
 
    useEffect(() => {
       if (isInline) return;
@@ -502,6 +569,75 @@ const ShareModal: React.FC<ShareModalProps> = ({
                               })}
                            </div>
                         </div>
+
+                     {/* Permitted domains (Restricted only) */}
+                     {normalizedPrivacy === 'restricted' && (
+                        <div className="px-6 py-5">
+                           <SectionLabel>Permitted embed domains</SectionLabel>
+                           <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
+                              Add website hostnames where this app can be embedded (e.g. example.com, blog.mysite.com).
+                           </p>
+                           <form
+                              onSubmit={(e) => {
+                                 e.preventDefault();
+                                 handleAddDomain();
+                              }}
+                              className="flex gap-2 mb-3"
+                           >
+                              <input
+                                 type="text"
+                                 value={domainInput}
+                                 onChange={(e) => setDomainInput(e.target.value)}
+                                 placeholder="example.com"
+                                 disabled={domainsSaving}
+                                 className={cn(
+                                    'flex-1 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
+                                    'px-3 py-2 text-sm text-gray-900 dark:text-white placeholder-gray-400',
+                                    'focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent',
+                                    'disabled:opacity-50',
+                                 )}
+                              />
+                              <button
+                                 type="submit"
+                                 disabled={domainsSaving || !domainInput.trim()}
+                                 className={cn(
+                                    'flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-semibold',
+                                    'bg-primary text-white shadow-sm transition-colors',
+                                    'hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed',
+                                 )}
+                              >
+                                 {domainsSaving ? 'Saving…' : 'Add'}
+                              </button>
+                           </form>
+                           {permittedDomains.length === 0 ? (
+                              <p className="text-sm text-gray-400">
+                                 No domains added. The app will show &quot;Not authorized&quot; when embedded anywhere until you add at least one domain.
+                              </p>
+                           ) : (
+                              <ul className="space-y-1">
+                                 {permittedDomains.map((domain) => (
+                                    <li
+                                       key={domain}
+                                       className="flex items-center justify-between gap-2 rounded-lg px-3 py-2 bg-gray-50 dark:bg-gray-800/60 group"
+                                    >
+                                       <span className="text-sm font-mono text-gray-700 dark:text-gray-300 truncate">
+                                          {domain}
+                                       </span>
+                                       <button
+                                          type="button"
+                                          onClick={() => handleRemoveDomain(domain)}
+                                          disabled={domainsSaving}
+                                          className="p-1 rounded text-gray-400 hover:text-destructive hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors disabled:opacity-50"
+                                          title="Remove domain"
+                                       >
+                                          <FaTrashCan size={12} />
+                                       </button>
+                                    </li>
+                                 ))}
+                              </ul>
+                           )}
+                        </div>
+                     )}
 
                      {/* People with access — owner only */}
                         <div className="px-6 py-5">
