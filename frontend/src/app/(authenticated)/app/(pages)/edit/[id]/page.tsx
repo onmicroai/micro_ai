@@ -123,7 +123,11 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
             setElements(v2.elements || [], true, signal);
             setTitle(appJson.title || "Untitled App", true, signal);
             setDescription(appJson.description, true, signal);
-            setPrivacy(getPrivacyName(appJson.privacySettings), true, signal);
+            setPrivacy(
+              getPrivacyName(appData.privacy ?? appJson.privacySettings),
+              true,
+              signal
+            );
             setPermittedDomains(appData.permitted_domains ?? []);
             setClonable(appJson.clonable === undefined ? true : appJson.clonable, true, signal);
             setCompletedHtml(appJson.completedHtml, true, signal);
@@ -176,13 +180,14 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
    ]);
 
    const getPrivacyName = (privacy: string) => {
-      if (privacy === undefined) {
+      if (privacy === undefined || privacy === null) {
          return "private";
       }
 
-      switch (privacy.toLowerCase()) {
+      switch (String(privacy).toLowerCase()) {
          case "public":
             return "public";
+         case "restricted":
          case "site-specific":
             return "restricted";
          default:
