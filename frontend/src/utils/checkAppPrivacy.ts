@@ -106,7 +106,6 @@ export const checkIsPublic = async (
   embedOrigin?: string
 ): Promise<CheckIsPublicResult> => {
   const cacheKey = `${hashId}:${embedOrigin ?? ""}`;
-  const isSameCacheKey = cacheKey === `${lastCheckedHashId ?? ""}:${""}`;
   const isSameResult = lastCheckedResult !== null;
   const isNotError = lastCheckedResult?.error === null;
   // Only use cache when no embedOrigin (legacy path) and same hashId
