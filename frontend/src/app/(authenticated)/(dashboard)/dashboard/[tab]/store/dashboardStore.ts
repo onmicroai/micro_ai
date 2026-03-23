@@ -55,6 +55,7 @@ interface DashboardStore {
   cloneApp: (appId: number, collectionId?: number) => Promise<void>;
   deleteApp: (appId: number) => void;
   updateAppPrivacy: (appId: number, privacy: string) => void;
+  updateAppPermittedDomains: (appId: number, permittedDomains: string[]) => void;
   appSerializer: (app: AppRaw | AppRaw[]) => AppSerialized | AppSerialized[];
   setListScope: (scope: DashboardListScope) => void;
   reorderDashboardList: (
@@ -312,6 +313,9 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
           : {}),
         role: serializedApp.role ?? "owner",
         stats: serializedApp.stats,
+        ...(Array.isArray(serializedApp.permitted_domains)
+          ? { permittedDomains: serializedApp.permitted_domains }
+          : {}),
       };
     };
 
@@ -596,6 +600,14 @@ export const useDashboardStore = create<DashboardStore>((set, get) => ({
       get().countAppPrivacyTypes(updatedApps);
       return { apps: updatedApps };
     });
+  },
+
+  updateAppPermittedDomains: (appId: number, permittedDomains: string[]) => {
+    set((state) => ({
+      apps: state.apps.map((app) =>
+        app.id === appId ? { ...app, permittedDomains } : app
+      ),
+    }));
   },
 
   /** Sidebar scope: all apps, owned-only, shared-only, or a collection folder. */
