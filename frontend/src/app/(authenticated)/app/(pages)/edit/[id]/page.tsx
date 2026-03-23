@@ -28,6 +28,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setDescription,
       setCollectionIds,
       setPrivacy,
+      setPermittedDomains,
       setClonable,
       resetStore,
       setAppId,
@@ -123,6 +124,7 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
             setTitle(appJson.title || "Untitled App", true, signal);
             setDescription(appJson.description, true, signal);
             setPrivacy(getPrivacyName(appJson.privacySettings), true, signal);
+            setPermittedDomains(appData.permitted_domains ?? []);
             setClonable(appJson.clonable === undefined ? true : appJson.clonable, true, signal);
             setCompletedHtml(appJson.completedHtml, true, signal);
             setAIConfig(appJson.aiConfig || {}, true, signal);
@@ -160,7 +162,8 @@ const SurveyCreatorRenderComponent: React.FC<SurveyCreatorProps> = ({ hashId }) 
       setElements,
       setTitle, 
       setDescription, 
-      setPrivacy, 
+      setPrivacy,
+      setPermittedDomains,
       setClonable, 
       setCompletedHtml, 
       setAIConfig, 
