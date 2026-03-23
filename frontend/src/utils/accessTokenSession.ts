@@ -107,7 +107,7 @@ export const refreshAccessToken: () => Promise<string | null> = (() => {
   };
 })();
 
-let lastCheckedPath: string | null = null;
+let lastCheckedKey: string | null = null;
 let lastCheckedPathVisibility: boolean = false;
 
 /**
@@ -133,6 +133,13 @@ function extractMicroappHashFromPath(path: string): string | null {
   return seg;
 }
 
+/**
+ * Returns true if the path is an embed path (/app/embed/...). Edit paths are excluded.
+ */
+function isEmbedPath(path: string): boolean {
+  return /^\/app\/embed\/([^/]+)/i.test(path.split("?")[0] ?? path);
+}
+
 export async function checkCurrentPagePrivacy(
   path: string | undefined,
   signal?: AbortSignal
@@ -141,21 +148,26 @@ export async function checkCurrentPagePrivacy(
 
   if (!path.includes("/app/")) return false;
 
-  if (path === lastCheckedPath) return lastCheckedPathVisibility;
-
   const appId = extractMicroappHashFromPath(path);
+  if (!appId) return false;
 
-  if (!appId) {
-    return false;
-  }
+  // For embed paths, include referrer in cache key since result depends on it
+  const embedOrigin =
+    isEmbedPath(path) && typeof document !== "undefined"
+      ? document.referrer || ""
+      : undefined;
+  const cacheKey = `${path}|${embedOrigin ?? ""}`;
+  if (cacheKey === lastCheckedKey) return lastCheckedPathVisibility;
 
   try {
-    const result = await checkIsPublic(appId, signal);
+    const result = await checkIsPublic(appId, signal, embedOrigin);
 
-    lastCheckedPath = path;
-    lastCheckedPathVisibility = result.isPublic;
+    lastCheckedKey = cacheKey;
+    // Treat as "public" (no auth required) when app is public OR embed is allowed from this origin
+    lastCheckedPathVisibility =
+      result.isPublic || result.embedAllowed === true;
 
-    return result.isPublic;
+    return lastCheckedPathVisibility;
   } catch (error: any) {
     if (error.name !== "AbortError" && error.name !== "CanceledError") {
       console.error("Error checking app visibility:", error);
