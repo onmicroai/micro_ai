@@ -159,6 +159,16 @@ export function useMicroappAccess(
           return;
         }
 
+        // For embed mode, deny when embed is not allowed (domain restriction applies to everyone, including owner)
+        if (mode === "embed") {
+          finish({
+            authLoading: false,
+            isAuthorized: false,
+            isPublicApp: false,
+          });
+          return;
+        }
+
         if (isPublic) {
           finish({
             authLoading: false,
