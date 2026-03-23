@@ -89,7 +89,8 @@ export interface SurveyStore {
   fetchApp: (
     hashId: string,
     privatePage: boolean,
-    signal: AbortSignal
+    signal: AbortSignal,
+    embedOrigin?: string
   ) => Promise<boolean>;
   setPrompt: (prompt: string | null) => void;
   setAiInstructions: (aiInstructions: string | null) => void;
@@ -380,6 +381,7 @@ export interface SurveyState {
   description: string | undefined;
   collectionIds: number[];
   privacy: string;
+  permittedDomains: string[];
   clonable: boolean;
   completedHtml: string;
   attachedFiles: AttachedFile[];
@@ -412,6 +414,7 @@ export interface SurveyState {
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => void;
+  setPermittedDomains: (domains: string[]) => void;
   setClonable: (
     clonable: boolean,
     skipServerUpdate?: boolean,

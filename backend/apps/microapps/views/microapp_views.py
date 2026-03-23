@@ -3,6 +3,7 @@ Microapp management views - CRUD operations for microapps.
 """
 import json
 import logging as log
+from urllib.parse import urlparse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -344,18 +345,56 @@ class PublicMicroApps(APIView, MicroAppMixin):
 )
 class PublicMicroAppsByHash(APIView, MicroAppMixin):
     permission_classes = [AllowAny]
-    
+
     def get(self, request, hash_id):
-        """Get public microapp by hash ID."""
+        """Get public microapp by hash ID. Restricted apps allowed when embed_origin is in permitted_domains."""
         try:
-            microapp = self.get_microapp_by_hash(hash_id)    
+            microapp = self.get_microapp_by_hash(hash_id)
             serializer = MicroAppSerializer(microapp)
-            if serializer.data["privacy"] != "public":
-                return Response({"error": "The App is not public", "status": status.HTTP_403_FORBIDDEN}, status=status.HTTP_403_FORBIDDEN)
-            return Response({"data": serializer.data, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
-        
+            privacy = serializer.data.get("privacy", "")
+
+            if privacy == "public":
+                return Response(
+                    {"data": serializer.data, "status": status.HTTP_200_OK},
+                    status=status.HTTP_200_OK,
+                )
+
+            if privacy == "restricted":
+                embed_origin = request.query_params.get("embed_origin", "")
+                host = _normalize_domain_for_check(embed_origin)
+                permitted = microapp.permitted_domains or []
+                if isinstance(permitted, list) and host:
+                    permitted_normalized = [
+                        str(d).lower().strip() for d in permitted if d
+                    ]
+                    embed_allowed = host in permitted_normalized or any(
+                        host == d or host.endswith("." + d)
+                        for d in permitted_normalized
+                    )
+                    if embed_allowed:
+                        return Response(
+                            {"data": serializer.data, "status": status.HTTP_200_OK},
+                            status=status.HTTP_200_OK,
+                        )
+
+            return Response(
+                {"error": "The App is not public", "status": status.HTTP_403_FORBIDDEN},
+                status=status.HTTP_403_FORBIDDEN,
+            )
         except Exception as e:
             return handle_exception(e)
+
+
+def _normalize_domain_for_check(embed_origin: str):
+    """Extract hostname from URL for domain comparison. Returns None if invalid."""
+    if not embed_origin or not isinstance(embed_origin, str):
+        return None
+    try:
+        parsed = urlparse(embed_origin)
+        host = (parsed.netloc or parsed.path).split(":")[0].lower().strip()
+        return host if host else None
+    except Exception:
+        return None
 
 
 @extend_schema_view(
@@ -363,24 +402,38 @@ class PublicMicroAppsByHash(APIView, MicroAppMixin):
 )
 class MicroAppVisibility(APIView, MicroAppMixin):
     permission_classes = [AllowAny]
-    
+
     def get(self, request, hash_id):
-        """Check if microapp is public by hash ID."""
+        """Check if microapp is public and whether embed is allowed from the given origin."""
         try:
-            # Try to get the app
-            microapp = self.get_microapp_by_hash(hash_id)    
+            microapp = self.get_microapp_by_hash(hash_id)
+            is_public = microapp.privacy == "public"
+
+            # For embed: public allows anywhere; restricted allows only permitted domains
+            embed_allowed = False
+            if microapp.privacy == "public":
+                embed_allowed = True
+            elif microapp.privacy == "restricted":
+                embed_origin = request.query_params.get("embed_origin", "")
+                host = _normalize_domain_for_check(embed_origin)
+                permitted = microapp.permitted_domains or []
+                if isinstance(permitted, list) and host:
+                    # Check exact match; optionally support subdomain (e.g. blog.example.com when example.com is permitted)
+                    permitted_normalized = [str(d).lower().strip() for d in permitted if d]
+                    embed_allowed = host in permitted_normalized or any(
+                        host == d or host.endswith("." + d) for d in permitted_normalized
+                    )
+
             return Response({
                 "data": {
-                    "isPublic": microapp.privacy == "public"
-                }, 
+                    "isPublic": is_public,
+                    "embedAllowed": embed_allowed,
+                },
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
-        
-        except Exception as e:
-            # Return the same response as if the app exists but is private
+
+        except Exception:
             return Response({
-                "data": {
-                    "isPublic": False
-                }, 
+                "data": {"isPublic": False, "embedAllowed": False},
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)

@@ -3,7 +3,12 @@
 import { useEffect, useState } from 'react';
 import SkeletonLoader from '@/components/layout/loading/skeletonLoader';
 
-export default function AccessDenied() {
+interface AccessDeniedProps {
+  /** When "embed", shows "Not authorized" for restricted-embed domain blocks */
+  variant?: 'default' | 'embed';
+}
+
+export default function AccessDenied({ variant = 'default' }: AccessDeniedProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -18,22 +23,29 @@ export default function AccessDenied() {
     return <SkeletonLoader variant="app" />;
   }
 
+  const isEmbed = variant === 'embed';
+
   return (
     <main className="grid min-h-full place-items-center bg-white px-6 py-24 sm:py-32 lg:px-8">
       <div className="text-center">
         <h1 className="mt-4 text-balance text-5xl font-semibold tracking-tight text-gray-900 sm:text-7xl">
-          Access Denied
+          {isEmbed ? 'Not authorized' : 'Access Denied'}
         </h1>
         <p className="mt-6 text-pretty text-lg font-medium text-gray-500 sm:text-xl/8">
-          You don&apos;t have permission to access this page, or it does not exist.
+          {isEmbed
+            ? 'This app cannot be embedded on this website.'
+            : "You don't have permission to access this page, or it does not exist."}
         </p>
-        <div className="mt-10 flex items-center justify-center gap-x-6">
-          <a 
-            href="mailto:support@onmicro.ai?subject=404%20Page%20Error&body=I%20encountered%20a%20404%20error%20on%20your%20website.%20I%20was%20"
-            className="text-sm font-semibold text-gray-900">
-            Contact support <span aria-hidden="true">&rarr;</span>
-          </a>
-        </div>
+        {!isEmbed && (
+          <div className="mt-10 flex items-center justify-center gap-x-6">
+            <a
+              href="mailto:support@onmicro.ai?subject=404%20Page%20Error&body=I%20encountered%20a%20404%20error%20on%20your%20website.%20I%20was%20"
+              className="text-sm font-semibold text-gray-900"
+            >
+              Contact support <span aria-hidden="true">&rarr;</span>
+            </a>
+          </div>
+        )}
       </div>
     </main>
   );

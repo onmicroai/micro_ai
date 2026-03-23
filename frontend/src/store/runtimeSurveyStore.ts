@@ -1,147 +1,165 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
-import { SurveyJson, SurveyPage, Element, ErrorObject, SendPromptResponse, SurveyStore, Answers, Prompt, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
+import {
+  SurveyJson,
+  SurveyPage,
+  Element,
+  ErrorObject,
+  SendPromptResponse,
+  SurveyStore,
+  Answers,
+  Prompt,
+  Base64Images,
+  PageConfigOverride,
+} from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
 import axios from "axios";
-import { sendPromptsUtil } from '@/utils//sendPrompts';
-import { normalizeAppJsonToV2 } from '@/utils/migrateAppJson';
+import { sendPromptsUtil } from "@/utils//sendPrompts";
+import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
 
 /**
  * Serializes the raw app data into a SurveyJson format.
- * 
+ *
  * @param data - The raw app data to serialize.
  * @returns A SurveyJson object.
  */
 const serializeAppData = (data: any): SurveyJson => {
-   let parsedJSON = data || {};
-   let appJson: any = {
-      phases: [],
-      elements: undefined,
-   };
+  let parsedJSON = data || {};
+  let appJson: any = {
+    phases: [],
+    elements: undefined,
+  };
 
-   if (typeof data === "string") {
+  if (typeof data === "string") {
+    try {
+      parsedJSON = JSON.parse(data);
+    } catch (error) {
+      throw new Error("Error parsing data string: " + error);
+    }
+  }
+
+  if (parsedJSON?.app_json) {
+    if (typeof parsedJSON.app_json === "string") {
       try {
-         parsedJSON = JSON.parse(data);
+        appJson = JSON.parse(parsedJSON.app_json);
       } catch (error) {
-         throw new Error("Error parsing data string: " + error);
+        throw new Error("Error parsing app_json string: " + error);
       }
-   }
+    } else if (typeof parsedJSON.app_json === "object") {
+      appJson = parsedJSON.app_json;
+    }
+  }
 
-   if (parsedJSON?.app_json) {
-      if (typeof parsedJSON.app_json === "string") {
-         try {
-            appJson = JSON.parse(parsedJSON.app_json);
-         } catch (error) {
-            throw new Error("Error parsing app_json string: " + error);
-         }
-      } else if (typeof parsedJSON.app_json === "object") {
-         appJson = parsedJSON.app_json;
-      }
-   }
+  if (!appJson.phases) {
+    appJson.phases = [];
+  }
 
-   if (!appJson.phases) {
-      appJson.phases = [];
-   }
+  // Normalize legacy/v2 app_json into a canonical v2 elements[] array.
+  // We keep phases for backward compatibility until runtime is fully element-driven.
+  const v2 = normalizeAppJsonToV2(appJson);
+  appJson.elements = v2.elements;
 
-   // Normalize legacy/v2 app_json into a canonical v2 elements[] array.
-   // We keep phases for backward compatibility until runtime is fully element-driven.
-   const v2 = normalizeAppJsonToV2(appJson);
-   appJson.elements = v2.elements;
+  // "Allow others to clone" lives in app_json as `clonable` and on the model as
+  // `copy_allowed`. Prefer the model when present; otherwise trust app_json.
+  const clonableFromAppJson =
+    typeof appJson.clonable === "boolean" ? appJson.clonable : undefined;
+  const copyAllowed =
+    typeof parsedJSON?.copy_allowed === "boolean"
+      ? parsedJSON.copy_allowed
+      : clonableFromAppJson !== undefined
+      ? clonableFromAppJson
+      : true;
 
-   // "Allow others to clone" lives in app_json as `clonable` and on the model as
-   // `copy_allowed`. Prefer the model when present; otherwise trust app_json.
-   const clonableFromAppJson =
-      typeof appJson.clonable === "boolean" ? appJson.clonable : undefined;
-   const copyAllowed =
-      typeof parsedJSON?.copy_allowed === "boolean"
-         ? parsedJSON.copy_allowed
-         : clonableFromAppJson !== undefined
-            ? clonableFromAppJson
-            : true;
-
-   return {
-      title: parsedJSON?.title || "",
-      description: parsedJSON?.app_json?.description || "",
-      id: parsedJSON?.id || null,
-      hashId: parsedJSON?.hash_id || null,
-      privacy: parsedJSON?.privacy || "Public",
-      temperature: parsedJSON?.temperature || 0.5,
-      copyAllowed,
-      aiConfig: parsedJSON?.app_json?.aiConfig || [],
-      attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
-      phases: appJson.phases,
-      elements: appJson.elements,
-      completedHtml: parsedJSON?.app_json?.completedHtml || "You've reached the end",
-   };
+  return {
+    title: parsedJSON?.title || "",
+    description: parsedJSON?.app_json?.description || "",
+    id: parsedJSON?.id || null,
+    hashId: parsedJSON?.hash_id || null,
+    privacy: parsedJSON?.privacy || "Public",
+    temperature: parsedJSON?.temperature || 0.5,
+    copyAllowed,
+    aiConfig: parsedJSON?.app_json?.aiConfig || [],
+    attachedFiles: parsedJSON?.app_json?.attachedFiles || [],
+    phases: appJson.phases,
+    elements: appJson.elements,
+    completedHtml:
+      parsedJSON?.app_json?.completedHtml || "You've reached the end",
+  };
 };
 
 /**
-    * Serializes the answers state.
-    * 
-    * @param answers - The answers state.
-    * @param name - The name of the input field.
-    * @param value - The value of the input field.
-    * @param otherValue - The other value of the input field.
-    * @param type - The type of the input field.
-    */
-const answersSerializer = (answers: Answers, name: string, value: string | string[] | undefined, otherValue: string, type: string): Answers => {
-   const updatedValue: any = {};
+ * Serializes the answers state.
+ *
+ * @param answers - The answers state.
+ * @param name - The name of the input field.
+ * @param value - The value of the input field.
+ * @param otherValue - The other value of the input field.
+ * @param type - The type of the input field.
+ */
+const answersSerializer = (
+  answers: Answers,
+  name: string,
+  value: string | string[] | undefined,
+  otherValue: string,
+  type: string
+): Answers => {
+  const updatedValue: any = {};
 
-   switch (type) {
-      case "text":
-         updatedValue.value = value;
-         break;
-      case "textarea":
-         updatedValue.value = value;
-         break;
-      case "radiogroup":
-         if (value !== "") {
-            updatedValue.value = value;
-         }
+  switch (type) {
+    case "text":
+      updatedValue.value = value;
+      break;
+    case "textarea":
+      updatedValue.value = value;
+      break;
+    case "radiogroup":
+      if (value !== "") {
+        updatedValue.value = value;
+      }
 
-         if (otherValue !== "") {
-            updatedValue.otherValue = otherValue;
-         }
-         break;
-      case "dropdown":
-         if (value !== "") {
-            updatedValue.value = value;
-         }
+      if (otherValue !== "") {
+        updatedValue.otherValue = otherValue;
+      }
+      break;
+    case "dropdown":
+      if (value !== "") {
+        updatedValue.value = value;
+      }
 
-         if (otherValue !== "") {
-            updatedValue.otherValue = otherValue;
-         }
-         break;
-      case "checkbox":
-         if (Array.isArray(value)) {
-            updatedValue.value = value;
-         }
+      if (otherValue !== "") {
+        updatedValue.otherValue = otherValue;
+      }
+      break;
+    case "checkbox":
+      if (Array.isArray(value)) {
+        updatedValue.value = value;
+      }
 
-         if (otherValue !== "") {
-            updatedValue.otherValue = otherValue;
-         }
-         break;
-      case "slider":
-         updatedValue.value = value;
-         break;
-      case "boolean":
-         updatedValue.value = value;
-         break;
-      case "imageUpload":
-         if (Array.isArray(value)) {
-            updatedValue.value = value;
-         } else if (value) {
-            updatedValue.value = [value];
-         }
-         break;
-      default:
-         updatedValue.value = value;
-   }
+      if (otherValue !== "") {
+        updatedValue.otherValue = otherValue;
+      }
+      break;
+    case "slider":
+      updatedValue.value = value;
+      break;
+    case "boolean":
+      updatedValue.value = value;
+      break;
+    case "imageUpload":
+      if (Array.isArray(value)) {
+        updatedValue.value = value;
+      } else if (value) {
+        updatedValue.value = [value];
+      }
+      break;
+    default:
+      updatedValue.value = value;
+  }
 
-   return {
-      ...answers,
-      [name]: updatedValue,
-   };
+  return {
+    ...answers,
+    [name]: updatedValue,
+  };
 };
 
 interface ProcessedPrompts {
@@ -170,113 +188,128 @@ export const useSurveyStore = create<SurveyStore>()(
       sendPromptError: null,
       appFetchLoading: false,
       appFetchError: {
-         status: null,
-         message: null,
+        status: null,
+        message: null,
       },
       elements: [] as Element[],
       processedPrompts: {
-         prompts: [],
-         aiInstructions: [],
-         fixedResponses: [],
+        prompts: [],
+        aiInstructions: [],
+        fixedResponses: [],
       } as ProcessedPrompts,
       defaultAiModel: "",
       userRole: null,
       userRoleLoading: false,
       userRoleError: null,
       /**
-    * Checks if the given prompt is empty.
-    * @param prompt - The prompt to check, can be a string or an array.
-    * @returns True if the prompt is empty, false otherwise.
-    */
+       * Checks if the given prompt is empty.
+       * @param prompt - The prompt to check, can be a string or an array.
+       * @returns True if the prompt is empty, false otherwise.
+       */
       isPromptEmpty: (prompt: string | any[]): boolean => {
-         if (typeof prompt === 'string') {
-            return prompt.trim() === '';
-         }
+        if (typeof prompt === "string") {
+          return prompt.trim() === "";
+        }
 
-         if (!Array.isArray(prompt) || prompt.length === 0) {
-            return true;
-         }
+        if (!Array.isArray(prompt) || prompt.length === 0) {
+          return true;
+        }
 
-         return prompt.every(item =>
+        return prompt.every(
+          (item) =>
             !item ||
-            typeof item !== 'object' ||
+            typeof item !== "object" ||
             !item.content ||
-            item.content.trim() === ''
-         );
+            item.content.trim() === ""
+        );
       },
       /**
        * TODO: refactor this method, split into smaller methods
-       * 
+       *
        * Fetches the app data for a given ID.
        * @param hashId - The hash ID of the app to fetch.
        * @param privatePage - Boolean indicating if the app is private.
        * @param signal - The AbortSignal to cancel the request.
        * @returns Boolean indicating if the app was updated (true) or not (false).
        */
-      fetchApp: async (hashId: string, privatePage: boolean, signal: AbortSignal) => {
-         try {
-            const api = axiosInstance();
+      fetchApp: async (
+        hashId: string,
+        privatePage: boolean,
+        signal: AbortSignal,
+        embedOrigin?: string
+      ) => {
+        try {
+          const api = axiosInstance();
 
-            const appFetch = privatePage
-               ? api.get(`/api/microapps/hash/${hashId}`, { signal })
-               : axios.get(`/api/microapps/public/hash/${hashId}`, { signal });
+          let appUrl = `/api/microapps/public/hash/${hashId}`;
+          if (!privatePage && embedOrigin) {
+            appUrl += `?embed_origin=${encodeURIComponent(embedOrigin)}`;
+          }
 
-            const modelFetch = api
-               .get('/api/microapps/models/litellm-configuration/', { signal })
-               .then((res: any) => {
-                  const models: any[] = res?.data?.data?.models ?? [];
-                  const defaultEntry = models.find(
-                     (m: any) => Array.isArray(m.tags) && m.tags.includes('default')
-                  );
-                  return defaultEntry?.model ?? "";
-               })
-               .catch(() => "");
+          const appFetch = privatePage
+            ? api.get(`/api/microapps/hash/${hashId}`, { signal })
+            : axios.get(appUrl, { signal });
 
-            const [response, defaultAiModel] = await Promise.all([appFetch, modelFetch]);
+          const modelFetch = api
+            .get("/api/microapps/models/litellm-configuration/", { signal })
+            .then((res: any) => {
+              const models: any[] = res?.data?.data?.models ?? [];
+              const defaultEntry = models.find(
+                (m: any) => Array.isArray(m.tags) && m.tags.includes("default")
+              );
+              return defaultEntry?.model ?? "";
+            })
+            .catch(() => "");
 
-            const parsedData = serializeAppData(response?.data?.data);
-            
-            const currentAppId = get().surveyJson?.id;
-            const newAppId = parsedData?.id;
-            let wasUpdated = false;
-            
-            if (currentAppId !== newAppId) {
-               get().reset();
-               wasUpdated = true;
+          const [response, defaultAiModel] = await Promise.all([
+            appFetch,
+            modelFetch,
+          ]);
+
+          const parsedData = serializeAppData(response?.data?.data);
+
+          const currentAppId = get().surveyJson?.id;
+          const newAppId = parsedData?.id;
+          let wasUpdated = false;
+
+          if (currentAppId !== newAppId) {
+            get().reset();
+            wasUpdated = true;
+          }
+
+          set({
+            surveyJson: parsedData,
+            defaultAiModel,
+            loading: false,
+          });
+
+          return wasUpdated;
+        } catch (error: any) {
+          // Don't handle abort signal specifically
+          if (error.name !== "CanceledError") {
+            let errorResponse = structuredClone(error?.response?.data || {});
+
+            if (Array.isArray(errorResponse)) {
+              errorResponse = errorResponse[0];
             }
-            
+
+            if (typeof errorResponse === "object") {
+              errorResponse = errorResponse.error;
+            }
+
+            const errorMessage =
+              "Failed to fetch app data: " + JSON.stringify(errorResponse);
             set({
-               surveyJson: parsedData,
-               defaultAiModel,
-               loading: false,            
+              appFetchError: {
+                status: error.response.status,
+                message: errorMessage,
+              },
+              loading: false,
+              surveyJson: serializeAppData(null),
             });
-            
-            return wasUpdated;
-         } catch (error: any) {
-            // Don't handle abort signal specifically
-            if (error.name !== "CanceledError") {
-               let errorResponse = structuredClone(error?.response?.data || {});
-
-               if (Array.isArray(errorResponse)) {
-                  errorResponse = errorResponse[0];
-               }
-
-               if (typeof errorResponse === "object") {
-                  errorResponse = errorResponse.error;
-               }
-
-               const errorMessage = "Failed to fetch app data: " + JSON.stringify(errorResponse);
-               set({
-                  appFetchError: {
-                     status: error.response.status,
-                     message: errorMessage,
-                  },
-                  loading: false,
-                  surveyJson: serializeAppData(null),
-               });
-            }
-            return false;
-         }
+          }
+          return false;
+        }
       },
       /**
        * Sets the current prompt.
@@ -287,7 +320,8 @@ export const useSurveyStore = create<SurveyStore>()(
        * Sets the AI instructions.
        * @param aiInstructions - The new AI instructions.
        */
-      setAiInstructions: (aiInstructions: string | null) => set({ aiInstructions }),
+      setAiInstructions: (aiInstructions: string | null) =>
+        set({ aiInstructions }),
       /**
        * Sets the survey JSON data.
        * @param surveyJson - The new survey JSON data.
@@ -297,7 +331,8 @@ export const useSurveyStore = create<SurveyStore>()(
        * Sets the current phase of the survey.
        * @param currentPhase - The new current phase.
        */
-      setCurrentPhase: (currentPhase: SurveyPage | null) => set({ currentPhase }),
+      setCurrentPhase: (currentPhase: SurveyPage | null) =>
+        set({ currentPhase }),
       /**
        * Sets the elements for the current phase.
        * @param elements - The new elements array.
@@ -307,60 +342,65 @@ export const useSurveyStore = create<SurveyStore>()(
        * Sets the index of the current phase.
        * @param currentPhaseIndex - The new phase index.
        */
-      setCurrentPhaseIndex: (currentPhaseIndex: number) => set({ currentPhaseIndex }),
+      setCurrentPhaseIndex: (currentPhaseIndex: number) =>
+        set({ currentPhaseIndex }),
       /**
        * Updates the answers state using a callback function.
        * If there's no answer for a question, it checks for default values.
        * @param updater - A function that takes the previous answers and returns the new answers.
        */
-      setAnswers: (updater: (answers: Answers) => Answers) => set((state: SurveyStore) => {
-         const currentAnswers = state.answers;
-         const updatedAnswers = updater(currentAnswers);
+      setAnswers: (updater: (answers: Answers) => Answers) =>
+        set((state: SurveyStore) => {
+          const currentAnswers = state.answers;
+          const updatedAnswers = updater(currentAnswers);
 
-         // If there's no answer for a question, check for default values
-         if (state.elements) {
-            state.elements.forEach(element => {
-               if (updatedAnswers[element.name] === undefined) {
-                  if (element.defaultValue !== undefined) {
-                     if (Array.isArray(element.defaultValue)) {
-                        updatedAnswers[element.name] = {
-                           value: [...element.defaultValue],
-                        };
-                     } else if (typeof element.defaultValue === 'string') {
-                        updatedAnswers[element.name] = {
-                           value: element.defaultValue,
-                        };
-                     }
-                  } else {
-                     // If the question is a boolean, set the value to "false", boolean can't be undefined
-                     // Otherwise it will be validated as required
-                     if (element.type === 'boolean') {
-                        updatedAnswers[element.name] = {
-                           value: "false",
-                        };
-                     }
+          // If there's no answer for a question, check for default values
+          if (state.elements) {
+            state.elements.forEach((element) => {
+              if (updatedAnswers[element.name] === undefined) {
+                if (element.defaultValue !== undefined) {
+                  if (Array.isArray(element.defaultValue)) {
+                    updatedAnswers[element.name] = {
+                      value: [...element.defaultValue],
+                    };
+                  } else if (typeof element.defaultValue === "string") {
+                    updatedAnswers[element.name] = {
+                      value: element.defaultValue,
+                    };
                   }
-               }
+                } else {
+                  // If the question is a boolean, set the value to "false", boolean can't be undefined
+                  // Otherwise it will be validated as required
+                  if (element.type === "boolean") {
+                    updatedAnswers[element.name] = {
+                      value: "false",
+                    };
+                  }
+                }
+              }
             });
-         }
+          }
 
-         return { answers: updatedAnswers };
-      }),
+          return { answers: updatedAnswers };
+        }),
       /**
        * Updates the images state using a callback function.
        * @param updater - A function that takes the previous images and returns the new images.
        */
-   setImages: (updater) => set((state) => ({ images: updater(state.images) })),
+      setImages: (updater) =>
+        set((state) => ({ images: updater(state.images) })),
       /**
        * Updates the responses state using a callback function.
        * @param updater - A function that takes the previous responses and returns the new responses.
        */
-   setResponses: (updater) => set((state) => ({ responses: updater(state.responses) })),
+      setResponses: (updater) =>
+        set((state) => ({ responses: updater(state.responses) })),
       /**
        * Sets the completed phases.
        * @param completedPhases - An array of completed phase indices.
        */
-      setCompletedPhases: (completedPhases: number[]) => set({ completedPhases }),
+      setCompletedPhases: (completedPhases: number[]) =>
+        set({ completedPhases }),
       /**
        * Sets the errors for the survey.
        * @param errors - An array of error objects.
@@ -380,16 +420,27 @@ export const useSurveyStore = create<SurveyStore>()(
        * Sets the processed prompts.
        * @param processedPrompts - The processed prompts.
        */
-      setProcessedPrompts: (processedPrompts: ProcessedPrompts) => set({ processedPrompts }),
+      setProcessedPrompts: (processedPrompts: ProcessedPrompts) =>
+        set({ processedPrompts }),
       /**
        * Handles input changes for survey questions.
        * @param event - The change event from the input element.
        */
-      handleInputChange: (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
-         const { name, value, type } = event.target;
-         const answers = get().answers;
-         const updatedAnswers = answersSerializer(answers, name, value, "", type);
-         set({ answers: updatedAnswers });
+      handleInputChange: (
+        event: React.ChangeEvent<
+          HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+        >
+      ) => {
+        const { name, value, type } = event.target;
+        const answers = get().answers;
+        const updatedAnswers = answersSerializer(
+          answers,
+          name,
+          value,
+          "",
+          type
+        );
+        set({ answers: updatedAnswers });
       },
       /**
        * Sets the value for an input field.
@@ -398,10 +449,21 @@ export const useSurveyStore = create<SurveyStore>()(
        * @param otherValue - The other value of the input field.
        * @param type - The type of the input field.
        */
-      setInputValue: (name: string, value: string | string[] | undefined, otherValue: string, type: string) => {
-         const answers = get().answers;
-         const updatedAnswers = answersSerializer(answers, name, value, otherValue, type);
-         set({ answers: updatedAnswers });
+      setInputValue: (
+        name: string,
+        value: string | string[] | undefined,
+        otherValue: string,
+        type: string
+      ) => {
+        const answers = get().answers;
+        const updatedAnswers = answersSerializer(
+          answers,
+          name,
+          value,
+          otherValue,
+          type
+        );
+        set({ answers: updatedAnswers });
       },
 
       /**
@@ -413,10 +475,11 @@ export const useSurveyStore = create<SurveyStore>()(
        * Sets the error message for sending a prompt.
        * @param error - The error message or null if no error.
        */
-      setSendPromptError: (error: string | null) => set({ sendPromptError: error }),
+      setSendPromptError: (error: string | null) =>
+        set({ sendPromptError: error }),
       /**
        * TODO: refactor this method, split into smaller methods
-       * 
+       *
        * Sends a prompt to the AI and processes the response.
        * @param prompt - The prompt to send.
        * @param appId - The ID of the app.
@@ -427,161 +490,173 @@ export const useSurveyStore = create<SurveyStore>()(
        * @returns A promise that resolves to an object containing the success status and response or error.
        */
       sendPrompts: async (
-         prompts: Prompt[] | null, 
-         answers: Answers, 
-         appId: number, 
-         appConfig: SurveyJson | null, 
-         pageIndex: number, 
-         userId: number | null, 
-         requestSkip: boolean = false,
-         noSubmit: boolean  = false,
-         pageConfigOverride?: PageConfigOverride,
-         runtimeMeta?: {
-            tryId?: string;
-            tryIndex?: number;
-         }
+        prompts: Prompt[] | null,
+        answers: Answers,
+        appId: number,
+        appConfig: SurveyJson | null,
+        pageIndex: number,
+        userId: number | null,
+        requestSkip: boolean = false,
+        noSubmit: boolean = false,
+        pageConfigOverride?: PageConfigOverride,
+        runtimeMeta?: {
+          tryId?: string;
+          tryIndex?: number;
+        }
       ): Promise<SendPromptResponse> => {
-         set({ promptLoading: true, sendPromptError: null, promptResponse: null });
-         const images = get().images; // Get images from store
-         return sendPromptsUtil({
-            prompts,
-            answers,
-            images,
-            appId,
-            appConfig,
-            pageIndex,
-            userId,
-            requestSkip,
-            set,
-            noSubmit,
-            pageConfigOverride,
-            defaultAiModel: get().defaultAiModel,
-            runtimeMeta
-         });
+        set({
+          promptLoading: true,
+          sendPromptError: null,
+          promptResponse: null,
+        });
+        const images = get().images; // Get images from store
+        return sendPromptsUtil({
+          prompts,
+          answers,
+          images,
+          appId,
+          appConfig,
+          pageIndex,
+          userId,
+          requestSkip,
+          set,
+          noSubmit,
+          pageConfigOverride,
+          defaultAiModel: get().defaultAiModel,
+          runtimeMeta,
+        });
       },
 
       /**
-      * Resets the store to its initial state.
-      */
+       * Resets the store to its initial state.
+       */
       reset: () => {
-         set({
-            prompt: null,
-            aiInstructions: null,
-            surveyJson: null,
-            currentPhase: null,
-            currentPhaseIndex: 0,
-            answers: {},
-            images: {},
-            responses: [],
-            completedPhases: [],
-            errors: [],
-            loading: false,
-            promptLoading: false,
-            promptResponse: null,
-            sendPromptError: null,
-            appFetchLoading: false,
-            appFetchError: {
-               status: null,
-               message: null,
-            },
-            elements: [],
-            processedPrompts: {
-               prompts: [],
-               aiInstructions: [],
-               fixedResponses: [],
-            },
-            userRole: null,
-            userRoleLoading: false,
-            userRoleError: null,
-         });
+        set({
+          prompt: null,
+          aiInstructions: null,
+          surveyJson: null,
+          currentPhase: null,
+          currentPhaseIndex: 0,
+          answers: {},
+          images: {},
+          responses: [],
+          completedPhases: [],
+          errors: [],
+          loading: false,
+          promptLoading: false,
+          promptResponse: null,
+          sendPromptError: null,
+          appFetchLoading: false,
+          appFetchError: {
+            status: null,
+            message: null,
+          },
+          elements: [],
+          processedPrompts: {
+            prompts: [],
+            aiInstructions: [],
+            fixedResponses: [],
+          },
+          userRole: null,
+          userRoleLoading: false,
+          userRoleError: null,
+        });
       },
       /**
        * Performs a soft reset of the store, preserving surveyJson, elements, and userRole.
        * Useful for clearing user progress without reloading the app structure.
        */
       softReset: () => {
-         const state = get();
-         set({
-            prompt: null,
-            aiInstructions: null,
-            // Preserve surveyJson
-            surveyJson: state.surveyJson,
-            currentPhase: state.surveyJson?.phases?.[0] || null,
-            currentPhaseIndex: 0,
-            answers: {},
-            images: {},
-            responses: [],
-            completedPhases: [],
-            errors: [],
-            loading: false,
-            promptLoading: false,
-            promptResponse: null,
-            sendPromptError: null,
-            appFetchLoading: false,
-            appFetchError: {
-               status: null,
-               message: null,
-            },
-            // Preserve elements
-            elements: state.elements,
-            processedPrompts: {
-               prompts: [],
-               aiInstructions: [],
-               fixedResponses: [],
-            },
-            // Preserve userRole data
-            userRole: state.userRole,
-            userRoleLoading: state.userRoleLoading,
-            userRoleError: state.userRoleError,
-         });
+        const state = get();
+        set({
+          prompt: null,
+          aiInstructions: null,
+          // Preserve surveyJson
+          surveyJson: state.surveyJson,
+          currentPhase: state.surveyJson?.phases?.[0] || null,
+          currentPhaseIndex: 0,
+          answers: {},
+          images: {},
+          responses: [],
+          completedPhases: [],
+          errors: [],
+          loading: false,
+          promptLoading: false,
+          promptResponse: null,
+          sendPromptError: null,
+          appFetchLoading: false,
+          appFetchError: {
+            status: null,
+            message: null,
+          },
+          // Preserve elements
+          elements: state.elements,
+          processedPrompts: {
+            prompts: [],
+            aiInstructions: [],
+            fixedResponses: [],
+          },
+          // Preserve userRole data
+          userRole: state.userRole,
+          userRoleLoading: state.userRoleLoading,
+          userRoleError: state.userRoleError,
+        });
       },
       /**
        * Fetches the user's role for a specific app.
-       * 
+       *
        * @param hashId - The hash ID of the app.
        * @param userId - The ID of the user.
        * @param signal - The AbortSignal to cancel the request.
        */
-      fetchUserRole: async (hashId: string, userId: string, signal: AbortSignal) => {
-         set({ userRoleLoading: true, userRoleError: null });
-         try {
-            const api = axiosInstance();
-            const response = await api.get(`/api/microapps/hash/${hashId}/user/${userId}`, { signal });
-            const userRole = response?.data?.data?.[0]?.role || null;
-            set({
-               userRole,
-               userRoleLoading: false
-            });
-            return userRole;
-         } catch (error: any) {
-            // Don't handle abort signal specifically
-            if (error.name !== "CanceledError") {
-               let errorResponse = structuredClone(error?.response?.data || {});
+      fetchUserRole: async (
+        hashId: string,
+        userId: string,
+        signal: AbortSignal
+      ) => {
+        set({ userRoleLoading: true, userRoleError: null });
+        try {
+          const api = axiosInstance();
+          const response = await api.get(
+            `/api/microapps/hash/${hashId}/user/${userId}`,
+            { signal }
+          );
+          const userRole = response?.data?.data?.[0]?.role || null;
+          set({
+            userRole,
+            userRoleLoading: false,
+          });
+          return userRole;
+        } catch (error: any) {
+          // Don't handle abort signal specifically
+          if (error.name !== "CanceledError") {
+            let errorResponse = structuredClone(error?.response?.data || {});
 
-               if (Array.isArray(errorResponse)) {
-                  errorResponse = errorResponse[0];
-               }
-
-               if (typeof errorResponse === "object") {
-                  errorResponse = errorResponse.error;
-               }
-
-               const errorMessage = "Failed to fetch user role: " + JSON.stringify(errorResponse);
-               set({
-                  userRoleError: {
-                     status: error.response?.status,
-                     message: errorMessage,
-                  },
-                  userRoleLoading: false,
-                  userRole: null
-               });
-               throw error;
+            if (Array.isArray(errorResponse)) {
+              errorResponse = errorResponse[0];
             }
-         }
+
+            if (typeof errorResponse === "object") {
+              errorResponse = errorResponse.error;
+            }
+
+            const errorMessage =
+              "Failed to fetch user role: " + JSON.stringify(errorResponse);
+            set({
+              userRoleError: {
+                status: error.response?.status,
+                message: errorMessage,
+              },
+              userRoleLoading: false,
+              userRole: null,
+            });
+            throw error;
+          }
+        }
       },
     }),
     {
-      name: 'survey-storage',
+      name: "survey-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         answers: state.answers,
@@ -597,8 +672,7 @@ export const useSurveyStore = create<SurveyStore>()(
         userRole: state.userRole,
         userRoleLoading: state.userRoleLoading,
         userRoleError: state.userRoleError,
-      })      
+      }),
     }
   )
 );
-

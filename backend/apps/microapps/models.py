@@ -54,6 +54,9 @@ class Microapp(models.Model):
     # Private apps can only be accessed by logged in owners and admins. 
     # Restricted apps are restricted by the domain, and can only be run within iFrames on approved domains. 
     privacy = models.CharField(max_length = 50, default = MicroappVariables.DEFAULT_MICROAPP_PRIVACY, choices = APP_PRIVACY)
+
+    # For restricted apps: list of permitted hostnames where the embed can be rendered (e.g. ["example.com", "blog.example.com"])
+    permitted_domains = models.JSONField(default=list, blank=True)
     
     # The app-wide default temperature for randomness in output generation (0.0 to 1.0)
     # Temperature is a parameter that controls the randomness of the output. 

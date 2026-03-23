@@ -26,6 +26,8 @@ export type AppSerialized = {
     collectionId?: number;
     role: 'owner' | 'admin';
     stats?: AppStats;
+    /** For restricted apps: hostnames where embed is allowed (e.g. ["example.com"]) */
+    permittedDomains?: string[];
 };
 
 export type AppRaw = {
@@ -40,6 +42,7 @@ export type AppRaw = {
     collection_id?: number;
     role: 'owner' | 'admin';
     stats?: AppStats;
+    permitted_domains?: string[];
 };
 
 // Collection types
@@ -58,4 +61,6 @@ export type ShareModalProps = {
     variant?: "modal" | "inline";
     /** Called after privacy PATCH succeeds (e.g. sync editor store without double-save). */
     onPrivacySaved?: (privacy: string) => void;
+    /** Called after permitted domains PATCH succeeds (e.g. sync editor store). */
+    onPermittedDomainsSaved?: (domains: string[]) => void;
 };
