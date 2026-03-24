@@ -159,6 +159,9 @@ class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
             if not parsed_content or parsed_content.startswith("Error:") or parsed_content == "Unsupported file format":
                 raise ValueError(parsed_content or "No text could be extracted from file")
 
+            # Strip NUL bytes - PostgreSQL rejects \x00 in text columns
+            parsed_content = parsed_content.replace('\x00', '')
+
             word_count = self.count_words(parsed_content)
 
             # Skip if chunks already exist (re-upload of same file)

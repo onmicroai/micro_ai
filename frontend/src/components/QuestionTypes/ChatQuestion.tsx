@@ -22,6 +22,7 @@ import { TEST_IDS } from "@/constants/testIds";
 import { transcribeAudio } from "@/utils/audioTranscriptionService";
 import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
 import { useConversationStore } from "@/store/conversationStore";
+import { useSurveyStore } from "@/store/runtimeSurveyStore";
 import ReactMarkdown from "react-markdown";
 import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
@@ -69,6 +70,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   activeTryId,
   activeTryIndex,
 }) => {
+  const defaultAiModel = useSurveyStore((s) => s.defaultAiModel);
   const MESSAGE_LIMIT = element.maxMessages || 10;
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -110,11 +112,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       setMessages(formattedMessages);
     } else {
       // When answers are cleared (e.g. app restart), reset to the initial greeting
-      setMessages([{
-        message: element.initialMessage || "Hello! How can I help you today?",
-        sender: "ai",
-        direction: "incoming",
-      }]);
+      setMessages([
+        {
+          message: element.initialMessage || "Hello! How can I help you today?",
+          sender: "ai",
+          direction: "incoming",
+        },
+      ]);
     }
   }, [answers, element.name, element.initialMessage]);
 
@@ -135,7 +139,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
   // Count only user messages
   const userMessageCount = messages.filter(
-    (msg) => msg.sender === "user"
+    (msg) => msg.sender === "user",
   ).length;
 
   /**
@@ -263,7 +267,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const handleSend = async (
     message: string,
     wasAudioInput: boolean = false,
-    transcriptionCost?: number
+    transcriptionCost?: number,
   ) => {
     if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
       return;
@@ -316,6 +320,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         requestSkip: false,
         skipScoredRun: true,
         transcriptionCost: transcriptionCost,
+        defaultAiModel: defaultAiModel,
         set: (state: any) => {
           if (state.promptResponse) {
             setStreamingMessage(state.promptResponse);
@@ -339,7 +344,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               element.ttsProvider || "openai",
               element.selectedVoiceId || "alloy",
               element.voiceInstructions,
-              userId
+              userId,
             );
           } catch (error) {
             console.error("Error synthesizing speech:", error);
@@ -395,7 +400,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
       const run = store.currentConversation?.runs.find(
-        (r) => r.id === msg.run_id
+        (r) => r.id === msg.run_id,
       );
       return sum + (run?.credits || 0);
     }
@@ -405,7 +410,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     skipVisibilityCheck ||
     evaluateVisibility(
       element.conditionalLogic || ({} as ConditionalLogic),
-      answers
+      answers,
     );
   const questionText = element.text || element.label || element.name;
 
