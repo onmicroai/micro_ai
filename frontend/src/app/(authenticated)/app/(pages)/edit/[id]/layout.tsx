@@ -31,8 +31,6 @@ export default function EditLayout({
     );
   }
 
-  console.log("isAuthorized: ", isAuthorized);
-
   if (!isAuthenticated || !isAuthorized) {
     router.replace(`/app/${id}`);
   }
