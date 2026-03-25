@@ -11,9 +11,22 @@ interface LoginFormData {
 interface LoginProps {
   onSubmit: (data: LoginFormData) => void;
   error?: string;
+  infoMessage?: string;
+  onResendVerification?: (email: string) => void;
+  resendVerificationHint?: string;
+  resendDisabled?: boolean;
+  resendLoading?: boolean;
 }
 
-export default function Login({ onSubmit, error }: LoginProps) {
+export default function Login({
+  onSubmit,
+  error,
+  infoMessage,
+  onResendVerification,
+  resendVerificationHint,
+  resendDisabled = false,
+  resendLoading = false,
+}: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
@@ -119,7 +132,27 @@ export default function Login({ onSubmit, error }: LoginProps) {
             </div>
           </div>
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+          {(error || infoMessage || (onResendVerification && resendVerificationHint)) && (
+            <div className="space-y-2">
+              {error ? <div className="text-red-600 text-sm">{error}</div> : null}
+              {infoMessage ? (
+                <div className="text-sm text-gray-700">{infoMessage}</div>
+              ) : null}
+              {onResendVerification && resendVerificationHint ? (
+                <button
+                  type="button"
+                  onClick={() => onResendVerification(formData.email)}
+                  disabled={resendDisabled || resendLoading}
+                  className="inline-flex items-center gap-2 text-sm font-semibold text-primary-600 hover:text-primary-500 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {resendLoading ? (
+                    <span className="inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+                  ) : null}
+                  {resendVerificationHint}
+                </button>
+              ) : null}
+            </div>
+          )}
 
           <div>
             <button
