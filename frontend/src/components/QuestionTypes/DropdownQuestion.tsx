@@ -137,6 +137,8 @@ const DropdownQuestion = ({
                ${disabled || element.readOnly ? "select-disabled" : ""}
             `}
         classNamePrefix="react-select"
+        menuPortalTarget={typeof document !== "undefined" ? document.body : null}
+        menuPosition="fixed"
         styles={{
           control: (base, state) => ({
             ...base,
@@ -179,6 +181,10 @@ const DropdownQuestion = ({
               : disabled || element.readOnly
               ? "#6B7280"
               : "#111827",
+          }),
+          menuPortal: (base) => ({
+            ...base,
+            zIndex: 9999,
           }),
         }}
         value={selectedOption}
