@@ -40,6 +40,7 @@ import {
   CollapsibleTrigger,
 } from "./ui/collapsible";
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
+import { AddSectionPopover } from "./ui/add-section-popover";
 import JsonPreview from "./JsonPreview";
 import Field from "./Field";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
@@ -87,98 +88,118 @@ import { TagFocusProvider } from "./TagFocusContext";
 import { Textarea } from "@/components/basic/textarea";
 import { AxiosInstance } from "axios";
 
-// Options for the "Add section" dialog
-const fieldTypes = [
+export const AVAILABLE_SECTIONS = [
   {
-    id: "text",
-    label: "Single Line",
-    icon: Type,
-    helper: "Collect a single line of text input.",
+    label: "Display",
+    color: "blue",
+    sections: [
+      {
+        id: "title",
+        label: "Title",
+        icon: Type,
+        helper: "Static title text shown to the user.",
+      },
+      {
+        id: "richText",
+        label: "Rich Text",
+        icon: FileText,
+        helper: "Display text or images to the user.",
+      },
+    ],
   },
   {
-    id: "textarea",
-    label: "Long Text",
-    icon: AlignLeft,
-    helper: "Collect a longer block of text input.",
+    label: "Input",
+    color: "green",
+    sections: [
+      {
+        id: "text",
+        label: "Single Line",
+        icon: Type,
+        helper: "Collect a single line of text input.",
+      },
+      {
+        id: "textarea",
+        label: "Long Text",
+        icon: AlignLeft,
+        helper: "Collect a longer block of text input.",
+      },
+      {
+        id: "radio",
+        label: "Radio Buttons",
+        icon: CircleDot,
+        helper: "Collect a single choice from a list of options.",
+      },
+      {
+        id: "checkbox",
+        label: "Checkboxes",
+        icon: CheckSquare,
+        helper: "Collect one or more choices from a list of options.",
+      },
+      {
+        id: "dropdown",
+        label: "Dropdown",
+        icon: List,
+        helper: "Collect a single choice from a dropdown menu.",
+      },
+      {
+        id: "slider",
+        label: "Slider",
+        icon: SlidersHorizontal,
+        helper: "Collect a numeric value from a slider.",
+      },
+      {
+        id: "boolean",
+        label: "Boolean",
+        icon: ToggleLeft,
+        helper:
+          "Collect a true or false value. Often used for conditional logic.",
+      },
+      {
+        id: "imageUpload",
+        label: "Image Upload",
+        icon: ImagePlus,
+        helper: "Collect an image or images from the user.",
+      },
+    ],
   },
   {
-    id: "richText",
-    label: "Rich Text",
-    icon: FileText,
-    helper: "Display text or images to the user.",
-  },
-  {
-    id: "radio",
-    label: "Radio Buttons",
-    icon: CircleDot,
-    helper: "Collect a single choice from a list of options.",
-  },
-  {
-    id: "checkbox",
-    label: "Checkboxes",
-    icon: CheckSquare,
-    helper: "Collect one or more choices from a list of options.",
-  },
-  {
-    id: "dropdown",
-    label: "Dropdown",
-    icon: List,
-    helper: "Collect a single choice from a dropdown menu.",
-  },
-  {
-    id: "slider",
-    label: "Slider",
-    icon: SlidersHorizontal,
-    helper: "Collect a numeric value from a slider.",
-  },
-  {
-    id: "boolean",
-    label: "Boolean",
-    icon: ToggleLeft,
-    helper: "Collect a true or false value. Often used for conditional logic.",
-  },
-  {
-    id: "imageUpload",
-    label: "Image Upload",
-    icon: ImagePlus,
-    helper: "Collect an image or images from the user.",
-  },
-  {
-    id: "chat",
-    label: "Chatbot",
-    icon: MessagesSquare,
-    helper: "Add a chat interface for users to interact with the AI.",
-  },
-];
-
-const cardTypes = [
-  {
-    id: "title",
-    label: "Title",
-    icon: Type,
-    helper: "Static title text shown to the user.",
-  },
-  {
-    id: "aiResponse",
-    label: "AI Response",
-    icon: Bot,
-    helper: "Stops the flow and runs the AI when the user clicks Run.",
-  },
-  {
-    id: "fixedResponse",
     label: "Response",
-    icon: MessageCircle,
-    helper: "Stops the flow and shows static text (no AI call).",
+    color: "brown",
+    sections: [
+      {
+        id: "aiResponse",
+        label: "AI Response",
+        icon: Bot,
+        helper: "Stops the flow and runs the AI when the user clicks Run.",
+      },
+      {
+        id: "fixedResponse",
+        label: "Response",
+        icon: MessageCircle,
+        helper: "Stops the flow and shows static text (no AI call).",
+      },
+      {
+        id: "scoring",
+        label: "Scoring",
+        icon: SlidersHorizontal,
+        helper:
+          "Stops the flow and runs rubric scoring when the user clicks Run.",
+      },
+    ],
   },
   {
-    id: "scoring",
-    label: "Scoring",
-    icon: SlidersHorizontal,
-    helper: "Stops the flow and runs rubric scoring when the user clicks Run.",
+    label: "Chat",
+    color: "violet",
+    sections: [
+      {
+        id: "chat",
+        label: "Chatbot",
+        icon: MessagesSquare,
+        helper: "Add a chat interface for users to interact with the AI.",
+      },
+    ],
   },
 ];
-
-export const availableSections = [...fieldTypes, ...cardTypes];
 
 const BLANK_APP_STARTER_PROMPTS = [
   "Build me a Multiple Choice Question Generator",
@@ -2618,7 +2639,7 @@ export default function FormBuilder() {
                                                   }}
                                                   type="button"
                                                 />
-                                                <Popover
+                                                <AddSectionPopover
                                                   open={
                                                     addSectionOpenFor ===
                                                     `between-${element.id}`
@@ -2633,8 +2654,7 @@ export default function FormBuilder() {
                                                       setInsertAfterIndex(null);
                                                     }
                                                   }}
-                                                >
-                                                  <PopoverTrigger asChild>
+                                                  trigger={
                                                     <Button
                                                       variant="outline"
                                                       size="sm"
@@ -2647,74 +2667,26 @@ export default function FormBuilder() {
                                                     >
                                                       <Plus className="h-3 w-3" />
                                                     </Button>
-                                                  </PopoverTrigger>
-                                                  <PopoverContent
-                                                    align="center"
-                                                    side="bottom"
-                                                    className="w-72 p-2"
-                                                    style={
-                                                      popoverPosition
-                                                        ? {
-                                                            position: "fixed",
-                                                            left: popoverPosition.x,
-                                                          }
-                                                        : undefined
-                                                    }
-                                                  >
-                                                    <div className="space-y-1">
-                                                      {availableSections.map(
-                                                        (section) => {
-                                                          const Icon =
-                                                            section.icon;
-                                                          return (
-                                                            <button
-                                                              key={section.id}
-                                                              onClick={() => {
-                                                                addElementToApp(
-                                                                  section.id,
-                                                                  insertAfterIndex
-                                                                );
-                                                                setAddSectionOpenFor(
-                                                                  null
-                                                                );
-                                                              }}
-                                                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                                            >
-                                                              <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                              <div className="flex-1 min-w-0">
-                                                                <div className="text-xs font-medium text-gray-900">
-                                                                  {
-                                                                    section.label
-                                                                  }
-                                                                </div>
-                                                              </div>
-                                                              <TooltipProvider
-                                                                delayDuration={
-                                                                  0
-                                                                }
-                                                              >
-                                                                <Tooltip>
-                                                                  <TooltipTrigger
-                                                                    asChild
-                                                                  >
-                                                                    <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                                  </TooltipTrigger>
-                                                                  <TooltipContent side="right">
-                                                                    <p className="max-w-xs text-xs">
-                                                                      {
-                                                                        section.helper
-                                                                      }
-                                                                    </p>
-                                                                  </TooltipContent>
-                                                                </Tooltip>
-                                                              </TooltipProvider>
-                                                            </button>
-                                                          );
+                                                  }
+                                                  sections={AVAILABLE_SECTIONS}
+                                                  onSelect={(sectionId) => {
+                                                    addElementToApp(
+                                                      sectionId,
+                                                      insertAfterIndex
+                                                    );
+                                                    setAddSectionOpenFor(null);
+                                                  }}
+                                                  contentAlign="center"
+                                                  contentSide="bottom"
+                                                  contentStyle={
+                                                    popoverPosition
+                                                      ? {
+                                                          position: "fixed",
+                                                          left: popoverPosition.x,
                                                         }
-                                                      )}
-                                                    </div>
-                                                  </PopoverContent>
-                                                </Popover>
+                                                      : undefined
+                                                  }
+                                                />
                                               </div>
                                             )}
                                           </React.Fragment>
@@ -2727,7 +2699,7 @@ export default function FormBuilder() {
                                     <>
                                       {/* Add Section button at the end */}
                                       <div className="mt-4 flex justify-start">
-                                        <Popover
+                                        <AddSectionPopover
                                           open={
                                             addSectionOpenFor === "end-button"
                                           }
@@ -2739,8 +2711,7 @@ export default function FormBuilder() {
                                               setInsertAfterIndex(null);
                                             }
                                           }}
-                                        >
-                                          <PopoverTrigger asChild>
+                                          trigger={
                                             <Button
                                               variant="default"
                                               size="lg"
@@ -2752,59 +2723,18 @@ export default function FormBuilder() {
                                               <Plus className="h-5 w-5 mr-2" />
                                               Add Section
                                             </Button>
-                                          </PopoverTrigger>
-                                          <PopoverContent
-                                            align="start"
-                                            side="bottom"
-                                            className="w-72 p-2"
-                                          >
-                                            <div className="space-y-1">
-                                              {availableSections.map(
-                                                (section) => {
-                                                  const Icon = section.icon;
-                                                  return (
-                                                    <button
-                                                      key={section.id}
-                                                      onClick={() => {
-                                                        addElementToApp(
-                                                          section.id,
-                                                          insertAfterIndex
-                                                        );
-                                                        setAddSectionOpenFor(
-                                                          null
-                                                        );
-                                                      }}
-                                                      className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-gray-100 transition-colors text-left"
-                                                    >
-                                                      <Icon className="h-4 w-4 text-gray-500 flex-shrink-0" />
-                                                      <div className="flex-1 min-w-0">
-                                                        <div className="text-xs font-medium text-gray-900">
-                                                          {section.label}
-                                                        </div>
-                                                      </div>
-                                                      <TooltipProvider
-                                                        delayDuration={0}
-                                                      >
-                                                        <Tooltip>
-                                                          <TooltipTrigger
-                                                            asChild
-                                                          >
-                                                            <HelpCircle className="h-4 w-4 text-gray-400" />
-                                                          </TooltipTrigger>
-                                                          <TooltipContent side="right">
-                                                            <p className="max-w-xs text-xs">
-                                                              {section.helper}
-                                                            </p>
-                                                          </TooltipContent>
-                                                        </Tooltip>
-                                                      </TooltipProvider>
-                                                    </button>
-                                                  );
-                                                }
-                                              )}
-                                            </div>
-                                          </PopoverContent>
-                                        </Popover>
+                                          }
+                                          sections={AVAILABLE_SECTIONS}
+                                          onSelect={(sectionId) => {
+                                            addElementToApp(
+                                              sectionId,
+                                              insertAfterIndex
+                                            );
+                                            setAddSectionOpenFor(null);
+                                          }}
+                                          contentAlign="start"
+                                          contentSide="bottom"
+                                        />
                                       </div>
                                     </>
                                   )}
