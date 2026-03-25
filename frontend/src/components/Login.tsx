@@ -11,9 +11,16 @@ interface LoginFormData {
 interface LoginProps {
   onSubmit: (data: LoginFormData) => void;
   error?: string;
+  onResendVerification?: (email: string) => void;
+  resendVerificationHint?: string;
 }
 
-export default function Login({ onSubmit, error }: LoginProps) {
+export default function Login({
+  onSubmit,
+  error,
+  onResendVerification,
+  resendVerificationHint,
+}: LoginProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
     email: "",
@@ -119,7 +126,20 @@ export default function Login({ onSubmit, error }: LoginProps) {
             </div>
           </div>
 
-          {error && <div className="text-red-600 text-sm">{error}</div>}
+          {error && (
+            <div className="space-y-2">
+              <div className="text-red-600 text-sm">{error}</div>
+              {onResendVerification && resendVerificationHint ? (
+                <button
+                  type="button"
+                  onClick={() => onResendVerification(formData.email)}
+                  className="text-sm font-semibold text-primary-600 hover:text-primary-500"
+                >
+                  {resendVerificationHint}
+                </button>
+              ) : null}
+            </div>
+          )}
 
           <div>
             <button

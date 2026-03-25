@@ -13,12 +13,17 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework.views import APIView
 from apps.users.models import CustomUser
-from .serializers import LoginResponseSerializer, OtpRequestSerializer, EmailVerificationSerializer
+from .serializers import (
+    LoginResponseSerializer,
+    OtpRequestSerializer,
+    EmailVerificationSerializer,
+    ResendVerificationSerializer,
+)
 import uuid
 from django.core.cache import cache
 from django.conf import settings
 from datetime import datetime, timedelta, UTC
-from allauth.account.models import EmailConfirmation
+from allauth.account.models import EmailConfirmation, EmailAddress
 import logging
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
 import os
@@ -266,6 +271,51 @@ class APICustomLogoutView(APIView):
         except Exception as e:
             logger.error(f"Logout failed: {str(e)}")
             return Response({"detail": "Failed to log out."}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@extend_schema(tags=["api"])
+class ResendVerificationEmailView(GenericAPIView):
+    permission_classes = [AllowAny]
+    serializer_class = ResendVerificationSerializer
+
+    def post(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data["email"]
+
+        generic_success = {
+            "detail": "If this email exists and is unverified, a new verification email has been sent."
+        }
+
+        try:
+            email_address = (
+                EmailAddress.objects.select_related("user")
+                .filter(email__iexact=email)
+                .first()
+            )
+
+            if not email_address:
+                return Response(generic_success, status=status.HTTP_200_OK)
+
+            if email_address.verified:
+                return Response(
+                    {"detail": "Email is already verified."},
+                    status=status.HTTP_200_OK,
+                )
+
+            # Keep resend behavior compatible with EmailVerificationView, which
+            # validates keys from EmailConfirmation table (DB-backed keys).
+            EmailConfirmation.objects.filter(email_address=email_address).delete()
+            confirmation = EmailConfirmation.create(email_address)
+            confirmation.send(signup=False)
+
+            return Response(generic_success, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Failed to resend verification email: {str(e)}")
+            return Response(
+                {"detail": "Failed to resend verification email."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
 class CustomRegisterView(BaseRegisterView):
     def get_response_data(self, user):
