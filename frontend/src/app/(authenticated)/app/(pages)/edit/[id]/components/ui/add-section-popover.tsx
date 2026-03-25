@@ -16,7 +16,10 @@ export type SectionGroup = {
   sections: AddSectionItem[];
 };
 
-function resolveAccent(group: SectionGroup): { text: string; border: string } {
+export function resolveAccent(group: SectionGroup): {
+  text: string;
+  border: string;
+} {
   switch (group.color) {
     case "green":
       return { text: "text-green-700", border: "border-green-700" };
