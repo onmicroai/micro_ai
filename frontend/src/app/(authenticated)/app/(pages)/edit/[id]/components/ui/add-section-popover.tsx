@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { cn } from "../../lib/utils";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 
 export type AddSectionItem = {
@@ -12,7 +13,7 @@ export type AddSectionItem = {
 
 export type SectionGroup = {
   label: string;
-  color: "blue" | "green" | "brown" | string;
+  color: "blue" | "green" | "brown" | "violet" | string;
   sections: AddSectionItem[];
 };
 
@@ -25,6 +26,8 @@ export function resolveAccent(group: SectionGroup): {
       return { text: "text-green-700", border: "border-green-700" };
     case "brown":
       return { text: "text-amber-700", border: "border-amber-700" };
+    case "violet":
+      return { text: "text-violet-700", border: "border-violet-700" };
     case "blue":
     default:
       return { text: "text-blue-800", border: "border-blue-800" };
@@ -41,7 +44,7 @@ export function AddSectionPopover({
   contentSide = "bottom",
   contentClassName = "w-72 p-2",
   contentStyle,
-  showHelpers = false,
+  showHelpers = true,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -60,7 +63,11 @@ export function AddSectionPopover({
       <PopoverContent
         align={contentAlign}
         side={contentSide}
-        className={contentClassName}
+        collisionPadding={8}
+        className={cn(
+          "max-h-[min(24rem,var(--radix-popover-content-available-height))] overflow-y-auto overflow-x-hidden overscroll-contain",
+          contentClassName
+        )}
         style={contentStyle}
       >
         <div className="space-y-2">

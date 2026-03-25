@@ -160,12 +160,6 @@ export const AVAILABLE_SECTIONS = [
         icon: ImagePlus,
         helper: "Collect an image or images from the user.",
       },
-      {
-        id: "chat",
-        label: "Chatbot",
-        icon: MessagesSquare,
-        helper: "Add a chat interface for users to interact with the AI.",
-      },
     ],
   },
   {
@@ -190,6 +184,18 @@ export const AVAILABLE_SECTIONS = [
         icon: SlidersHorizontal,
         helper:
           "Stops the flow and runs rubric scoring when the user clicks Run.",
+      },
+    ],
+  },
+  {
+    label: "Chat",
+    color: "violet",
+    sections: [
+      {
+        id: "chat",
+        label: "Chatbot",
+        icon: MessagesSquare,
+        helper: "Add a chat interface for users to interact with the AI.",
       },
     ],
   },
