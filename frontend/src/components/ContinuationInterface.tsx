@@ -3,6 +3,7 @@
 import React, { useMemo } from "react";
 import ChatQuestion from "./QuestionTypes/ChatQuestion";
 import { Element, Answers } from "@/app/(authenticated)/app/types";
+import { getContinuationChatKey } from "@/utils/continuationChatKey";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
 import { useConversationStore } from "@/store/conversationStore";
 
@@ -37,7 +38,7 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
     return conv?.id ?? s.currentConversation?.id ?? "";
   });
 
-  const elementName = `continuation_chat_${appId}_${userId}`;
+  const elementName = getContinuationChatKey(appId, userId);
   const continuationTryId = conversationId || undefined;
 
   // Create a synthetic chat element for continuation

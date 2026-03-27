@@ -14,6 +14,7 @@ import axiosInstance from "@/utils/axiosInstance";
 import { useSearchParams } from "next/navigation";
 import ContinuationInterface from "@/components/ContinuationInterface";
 import { RotateCcw, MessageCircle } from "lucide-react";
+import { getContinuationChatKey } from "@/utils/continuationChatKey";
 
 type PageParams = {
   params: {
@@ -55,7 +56,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
   // Update expansion state when answers change (e.g., on page refresh)
   useEffect(() => {
-    const elementName = `continuation_chat_${appId}_${userId}`;
+    const elementName = getContinuationChatKey(appId, userId);
     const existingMessages = answers[elementName]?.value || [];
     const hasExistingMessages =
       Array.isArray(existingMessages) && existingMessages.length > 0;

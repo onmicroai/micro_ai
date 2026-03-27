@@ -16,6 +16,7 @@ import { useSurveyStore } from "@/store/runtimeSurveyStore";
 import { useConversationStore } from "@/store/conversationStore";
 import { useUserStore } from "@/store/userStore";
 import { useAuth } from "@/context/AuthContext";
+import { getContinuationChatKey } from "@/utils/continuationChatKey";
 
 import { checkRole } from "@/utils/checkRoles";
 import { checkIsPublic } from "@/utils/checkAppPrivacy";
@@ -73,7 +74,7 @@ export default function AppRuntimeView({
 
   // Update expansion state when answers change (e.g., on page refresh)
   useEffect(() => {
-    const elementName = `continuation_chat_${appId}_${userId}`;
+    const elementName = getContinuationChatKey(appId, userId);
     const existingMessages = answers[elementName]?.value || [];
     const hasExistingMessages =
       Array.isArray(existingMessages) && existingMessages.length > 0;
