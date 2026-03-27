@@ -98,6 +98,89 @@ function serializeAnswer(
   };
 }
 
+function isUnsetAnswerForElement(el: Element, answers: Answers): boolean {
+  const value = answers[el.name]?.value;
+  if (value === undefined) return true;
+
+  // Treat empty values as unset so defaults can apply in preview/runtime
+  // (user hasn't interacted yet).
+  if (el.type === "checkbox") {
+    return Array.isArray(value) ? value.length === 0 : true;
+  }
+  if (
+    el.type === "radio" ||
+    el.type === "dropdown" ||
+    el.type === "slider" ||
+    el.type === "boolean"
+  ) {
+    return typeof value !== "string" || value === "";
+  }
+  return false;
+}
+
+function seedMissingDefaults(
+  sourceAnswers: Answers,
+  elements: Element[],
+): Answers {
+  let next = sourceAnswers;
+  let changed = false;
+
+  for (const el of elements) {
+    if (el.defaultValue === undefined) continue;
+    if (!isUnsetAnswerForElement(el, next)) continue;
+
+    switch (el.type) {
+      case "radio":
+        next = serializeAnswer(
+          next,
+          el.name,
+          String(el.defaultValue),
+          "",
+          "radiogroup",
+        );
+        changed = true;
+        break;
+      case "dropdown":
+        next = serializeAnswer(
+          next,
+          el.name,
+          String(el.defaultValue),
+          "",
+          "dropdown",
+        );
+        changed = true;
+        break;
+      case "checkbox":
+        if (Array.isArray(el.defaultValue)) {
+          next = serializeAnswer(
+            next,
+            el.name,
+            el.defaultValue.map(String),
+            "",
+            "checkbox",
+          );
+          changed = true;
+        }
+        break;
+      case "slider":
+      case "boolean":
+        next = serializeAnswer(
+          next,
+          el.name,
+          String(el.defaultValue),
+          "",
+          el.type,
+        );
+        changed = true;
+        break;
+      default:
+        break;
+    }
+  }
+
+  return changed ? next : sourceAnswers;
+}
+
 export default function CurrentElementFlowV2({
   appId,
   userId,
@@ -140,11 +223,17 @@ export default function CurrentElementFlowV2({
 
   const fixedResponseRunTokenRef = useRef<Record<string, number>>({});
   const previousActiveOriginalIndexRef = useRef<number | null>(null);
+  const seededDefaultsKeyRef = useRef<string | null>(null);
 
   const appElements = useMemo(() => {
     const els = surveyJson?.elements;
     return Array.isArray(els) ? (els as Element[]) : [];
   }, [surveyJson]);
+
+  const appElementsSignature = useMemo(
+    () => JSON.stringify(appElements),
+    [appElements],
+  );
 
   const activeTry = activeTryId ? triesById[activeTryId] || null : null;
   const answers = useMemo(
@@ -168,7 +257,8 @@ export default function CurrentElementFlowV2({
   useEffect(() => {
     reset();
     previousActiveOriginalIndexRef.current = null;
-  }, [surveyJson?.id, reset]);
+    seededDefaultsKeyRef.current = null;
+  }, [surveyJson?.id, appElementsSignature, reset]);
 
   useEffect(() => {
     if (!surveyJson) return;
@@ -207,13 +297,28 @@ export default function CurrentElementFlowV2({
       structuredClone((surveyImages as Base64Images) || {}),
       sessionKey,
     );
-  }, [
-    surveyJson,
-    initRuntimeTry,
-    surveyAnswers,
-    surveyImages,
-    appElements,
-  ]);
+  }, [surveyJson, initRuntimeTry, surveyAnswers, surveyImages, appElements]);
+
+  // Seed default values once per (app, try) to ensure defaults render in preview/runtime.
+  // Important: applyDraftAnswers always writes new state, so we must guard to avoid loops.
+  useEffect(() => {
+    if (!surveyJson?.id) return;
+    if (!activeTryId) return;
+    if (!draftState) return;
+
+    const seedKey = `${surveyJson.id}:${activeTryId}`;
+    if (seededDefaultsKeyRef.current === seedKey) return;
+
+    const needsSeed = appElements.some(
+      (el) =>
+        el.defaultValue !== undefined &&
+        isUnsetAnswerForElement(el, draftState.answers),
+    );
+    seededDefaultsKeyRef.current = seedKey;
+    if (!needsSeed) return;
+
+    applyDraftAnswers((prev) => seedMissingDefaults(prev, appElements));
+  }, [surveyJson?.id, activeTryId, draftState, appElements, applyDraftAnswers]);
 
   const buildVisibleElements = useCallback(
     (sourceAnswers: Answers): VisibleEntry[] => {
@@ -564,7 +669,11 @@ export default function CurrentElementFlowV2({
       // Fixed response stops are local/runtime-rendered (no API request here).
       // We persist their rendered state in the try snapshot so switching tries
       // or editing earlier fields keeps the revealed card behavior consistent.
-      const text = injectValuesIntoPrompt(stop.text || "", answers);
+      const text = injectValuesIntoPrompt(
+        stop.text || "",
+        answers,
+        appElements,
+      );
       const existing = fixedResponseStateById[stop.id];
       applyDraftFixedResponseState((prev) => ({
         ...prev,
@@ -1066,6 +1175,7 @@ export default function CurrentElementFlowV2({
                             const text = injectValuesIntoPrompt(
                               element.text || "",
                               answers,
+                              appElements,
                             );
                             applyDraftFixedResponseState((prev) => ({
                               ...prev,

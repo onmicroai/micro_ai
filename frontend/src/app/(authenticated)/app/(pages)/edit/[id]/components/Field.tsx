@@ -614,18 +614,10 @@ export default function Field({
     // Handle all other field types
     switch (field.type) {
       case "text": {
-        const isDefaultPlaceholder = !field.placeholder;
         return (
           <>
             <Input
               placeholder={field.placeholder || defaultTextPlaceholder}
-              readOnly={isDefaultPlaceholder}
-              onFocus={(event) => {
-                if (isDefaultPlaceholder) {
-                  event.preventDefault();
-                  event.currentTarget.blur();
-                }
-              }}
               onChange={(e) =>
                 onUpdateFieldPlaceholder(field.id, e.target.value)
               }
@@ -641,17 +633,9 @@ export default function Field({
         );
       }
       case "textarea": {
-        const isDefaultPlaceholder = !field.placeholder;
         return (
           <Textarea
             placeholder={field.placeholder || defaultTextareaPlaceholder}
-            readOnly={isDefaultPlaceholder}
-            onFocus={(event) => {
-              if (isDefaultPlaceholder) {
-                event.preventDefault();
-                event.currentTarget.blur();
-              }
-            }}
             onChange={(e) => onUpdateFieldPlaceholder(field.id, e.target.value)}
           />
         );
@@ -1506,6 +1490,34 @@ export default function Field({
   };
 
   function renderFieldPreview() {
+    const previewAnswersWithDefaults =
+      previewAnswers[field.name]?.value !== undefined
+        ? previewAnswers
+        : (() => {
+            if (field.defaultValue === undefined) return previewAnswers;
+            if (
+              field.type === "checkbox" &&
+              Array.isArray(field.defaultValue)
+            ) {
+              return {
+                ...previewAnswers,
+                [field.name]: { value: field.defaultValue },
+              };
+            }
+            if (
+              field.type === "radio" ||
+              field.type === "dropdown" ||
+              field.type === "slider" ||
+              field.type === "boolean"
+            ) {
+              return {
+                ...previewAnswers,
+                [field.name]: { value: String(field.defaultValue) },
+              };
+            }
+            return previewAnswers;
+          })();
+
     const content = (() => {
       switch (field.type) {
         case "title":
@@ -1541,7 +1553,7 @@ export default function Field({
           return (
             <RenderQuestion
               element={field}
-              answers={previewAnswers}
+              answers={previewAnswersWithDefaults}
               errors={[]}
               disabled={true}
               skipVisibilityCheck={true}

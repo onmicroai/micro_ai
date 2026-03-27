@@ -451,13 +451,14 @@ const {
     const groupedPrompts = groupPromptsByType(visiblePrompts);
     
     // Step 3: Inject values into all prompt groups at once
+    const elementsForMapping = (appConfig?.elements || []) as any;
     const finalPrompts = {
         finalAiInstructions: groupedPrompts['aiInstructions'] ? 
-            injectValuesIntoPrompt(groupedPrompts['aiInstructions'], answers) as Prompt[] : [],
+            injectValuesIntoPrompt(groupedPrompts['aiInstructions'], answers, elementsForMapping) as Prompt[] : [],
         finalPrompt: groupedPrompts['prompt'] ? 
-            injectValuesIntoPrompt(groupedPrompts['prompt'], answers) as Prompt[] : [],
+            injectValuesIntoPrompt(groupedPrompts['prompt'], answers, elementsForMapping) as Prompt[] : [],
         finalFixedResponses: groupedPrompts['fixedResponse'] ? 
-            injectValuesIntoPrompt(groupedPrompts['fixedResponse'], answers) as Prompt[] : []
+            injectValuesIntoPrompt(groupedPrompts['fixedResponse'], answers, elementsForMapping) as Prompt[] : []
     };
     
     const aiConfig = {
