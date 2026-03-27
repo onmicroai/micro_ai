@@ -62,7 +62,7 @@
               <tr>
                 <td>
                   <a href="{% if domain|slice:':4' == 'http' %}{{ domain }}{% else %}https://{{ domain }}{% endif %}" style="text-decoration: none;">
-                    <img src="https://d2jqdwayv0rru6.cloudfront.net/onmicroai_logo.png" alt="OnMicro.AI" style="height: 24px; width: auto;">
+                    <img src="https://{{ cloudfront_domain }}/onmicroai_logo.png" alt="OnMicro.AI" style="height: 24px; width: auto;">
                   </a>
                 </td>
               </tr>

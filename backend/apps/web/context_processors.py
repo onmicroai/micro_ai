@@ -39,5 +39,6 @@ def email_context(request):
     """Add email-related context variables"""
     return {
         'domain': settings.DOMAIN,
+        "cloudfront_domain": getattr(settings, "CLOUDFRONT_DOMAIN", ""),
         'user_email': getattr(request.user, 'email', '') if request.user.is_authenticated else '',
     }
