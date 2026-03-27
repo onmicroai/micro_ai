@@ -1,6 +1,6 @@
 "use client";
 
-import React, { ChangeEvent, useState, useEffect } from "react";
+import React, { ChangeEvent, useMemo, useState } from "react";
 import {
   ErrorObject,
   Element,
@@ -37,9 +37,6 @@ const RadioQuestion = ({
   const otherLabel = element.otherText || "Other (describe)";
   const otherPlaceholder = element.otherPlaceholder || "Please specify";
   const noneLabel = element.noneText || "None";
-  const [radioOptions, setRadioOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
 
   /**
    * Extracts the error message for a given question.
@@ -103,7 +100,7 @@ const RadioQuestion = ({
         if (typeof choice === "string") {
           return { value: choice, label: choice };
         }
-        return { value: choice.text, label: choice.text };
+        return { value: choice.value, label: choice.text };
       }) || [];
 
     // Add None option if showNoneItem is true
@@ -119,10 +116,10 @@ const RadioQuestion = ({
     return radioOptions;
   };
 
-  useEffect(() => {
-    const radioOptionsList = getRadioOptions(element, noneLabel, otherLabel);
-    setRadioOptions(radioOptionsList);
-  }, [element, noneLabel, otherLabel]);
+  const radioOptions = useMemo(
+    () => getRadioOptions(element, noneLabel, otherLabel),
+    [element, noneLabel, otherLabel]
+  );
   const isVisible =
     skipVisibilityCheck ||
     evaluateVisibility(

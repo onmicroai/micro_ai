@@ -1,4 +1,4 @@
-import { Answers, Prompt } from "@/app/(authenticated)/app/types";
+import { Answers, Element, Prompt } from "@/app/(authenticated)/app/types";
 
 /**
  * Injects values into the AI prompt property.
@@ -8,24 +8,37 @@ import { Answers, Prompt } from "@/app/(authenticated)/app/types";
  */
 function injectValuesIntoPrompt(
   aiPromptProperty: string,
-  answers: Answers
+  answers: Answers,
+  elements?: Element[]
 ): string;
 
 function injectValuesIntoPrompt(
   aiPromptProperty: Prompt[],
-  answers: Answers
+  answers: Answers,
+  elements?: Element[]
 ): Prompt[];
 function injectValuesIntoPrompt(
    aiPromptProperty: string | Prompt[],
    answers: Answers,
+   elements?: Element[],
 ): string | Prompt[] {
    const placeholderRegex = /\{(\w+)\}/g;
+   const elementsByName = new Map(
+      (elements || []).map((el) => [el.name, el] as const)
+   );
    
    // Handle array input
    if (Array.isArray(aiPromptProperty)) {
       return aiPromptProperty.map(prompt => ({
          ...prompt,
-         text: prompt.text ? processPromptText(prompt.text, answers, placeholderRegex) : ""
+         text: prompt.text
+            ? processPromptText(
+                 prompt.text,
+                 answers,
+                 placeholderRegex,
+                 elementsByName,
+              )
+            : ""
       }));
    }
    
@@ -36,14 +49,15 @@ function injectValuesIntoPrompt(
       return "";
    }
    
-   return processPromptText(aiPromptProperty, answers, placeholderRegex);
+   return processPromptText(aiPromptProperty, answers, placeholderRegex, elementsByName);
 };
 
 // Helper function to process individual prompt text
 const processPromptText = (
    promptText: string,
    answers: Answers,
-   placeholderRegex: RegExp
+   placeholderRegex: RegExp,
+   elementsByName: Map<string, Element>
 ): string => {
    const plainText = htmlToPlainText(promptText);
    return plainText.replace(placeholderRegex, (_, key) => {
@@ -56,12 +70,18 @@ const processPromptText = (
       if (Array.isArray(value)) {
          const notOtherValues = value.filter(val => val !== 'other');
          if (notOtherValues.length > 0) { 
-            valueString = notOtherValues.join(', ');
+            const element = elementsByName.get(key);
+            const mapped = element?.choices
+               ? notOtherValues.map((v) => mapChoiceValueToText(element, v))
+               : notOtherValues;
+            valueString = mapped.join(", ");
          }
       } else {
          const notOtherValue = typeof value === "string" && value !== "" && value !== "other";
          if (notOtherValue) {
-            valueString = value;
+            const element = elementsByName.get(key);
+            valueString =
+               element?.choices ? mapChoiceValueToText(element, value) : value;
          }
       } 
 
@@ -80,6 +100,18 @@ const processPromptText = (
       return `{${key}}`;
    });
 };
+
+function mapChoiceValueToText(element: Element, rawValue: string): string {
+   const choices = element.choices || [];
+   for (const choice of choices) {
+      if (typeof choice === "string") {
+         if (choice === rawValue) return choice;
+      } else if (choice.value === rawValue) {
+         return choice.text;
+      }
+   }
+   return rawValue;
+}
 
 /**
  * Checks if the value is an "other" value.
