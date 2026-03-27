@@ -72,7 +72,7 @@ function serializeAnswer(
   name: string,
   value: string | string[] | undefined,
   otherValue: string,
-  type: string
+  type: string,
 ): Answers {
   const updatedValue: any = {};
   switch (type) {
@@ -115,6 +115,7 @@ export default function CurrentElementFlowV2({
     setElements,
     setImages: setSurveyImages,
     sendPrompts,
+    setInputValue: surveySetInputValue,
   } = useSurveyStore();
   const { getRunsForTry, getLatestRunForStop } = useConversationStore();
   const {
@@ -148,11 +149,11 @@ export default function CurrentElementFlowV2({
   const activeTry = activeTryId ? triesById[activeTryId] || null : null;
   const answers = useMemo(
     () => draftState?.answers || ({} as Answers),
-    [draftState?.answers]
+    [draftState?.answers],
   );
   const images = useMemo(
     () => draftState?.images || ({} as Base64Images),
-    [draftState?.images]
+    [draftState?.images],
   );
   const cursor = draftState?.cursor || 0;
   const editingFieldName = draftState?.editingFieldName || null;
@@ -171,11 +172,48 @@ export default function CurrentElementFlowV2({
 
   useEffect(() => {
     if (!surveyJson) return;
+    const { ensureConversationForApp, getRunsForTry } =
+      useConversationStore.getState();
+    const userIdStr = userId != null ? String(userId) : undefined;
+    const conversationId = ensureConversationForApp(String(appId), userIdStr);
+    const sessionKey = conversationId;
+
+    // Restore chat display from conversationStore runs for this session
+    const sessionRuns = getRunsForTry(sessionKey);
+    const restoredChatAnswers: Answers = {};
+    appElements.forEach((el, originalIndex) => {
+      if (el.type !== "chat") return;
+      const elRuns = sessionRuns.filter((r) => r.phaseIndex === originalIndex);
+      if (elRuns.length === 0) return;
+      const messages = elRuns.flatMap((run) =>
+        run.messages
+          .filter((m) => m.role === "user" || m.role === "assistant")
+          .map((m) =>
+            m.role === "assistant"
+              ? `ai: ${m.content}|${run.id}`
+              : `user: ${m.content}`,
+          ),
+      );
+      if (messages.length > 0) {
+        restoredChatAnswers[el.name] = { value: messages, otherValue: "" };
+      }
+    });
+
     initRuntimeTry(
-      structuredClone((surveyAnswers as Answers) || {}),
-      structuredClone((surveyImages as Base64Images) || {})
+      {
+        ...structuredClone((surveyAnswers as Answers) || {}),
+        ...restoredChatAnswers,
+      },
+      structuredClone((surveyImages as Base64Images) || {}),
+      sessionKey,
     );
-  }, [surveyJson, initRuntimeTry, surveyAnswers, surveyImages]);
+  }, [
+    surveyJson,
+    initRuntimeTry,
+    surveyAnswers,
+    surveyImages,
+    appElements,
+  ]);
 
   const buildVisibleElements = useCallback(
     (sourceAnswers: Answers): VisibleEntry[] => {
@@ -183,18 +221,18 @@ export default function CurrentElementFlowV2({
         .map((element, originalIndex) => {
           const isVisible = evaluateVisibility(
             (element.conditionalLogic || {}) as ConditionalLogic,
-            sourceAnswers as Answers
+            sourceAnswers as Answers,
           );
           return isVisible ? { element, originalIndex } : null;
         })
         .filter((entry): entry is VisibleEntry => Boolean(entry));
     },
-    [appElements]
+    [appElements],
   );
 
   const visibleElements = useMemo(
     () => buildVisibleElements(answers as Answers),
-    [answers, buildVisibleElements]
+    [answers, buildVisibleElements],
   );
 
   useEffect(() => {
@@ -217,7 +255,7 @@ export default function CurrentElementFlowV2({
         onComplete?.();
       }
     },
-    [cursor, onComplete, setErrors, visibleElements, applyDraftCursor]
+    [cursor, onComplete, setErrors, visibleElements, applyDraftCursor],
   );
 
   useEffect(() => {
@@ -232,11 +270,11 @@ export default function CurrentElementFlowV2({
     const previousOriginalIndex = previousActiveOriginalIndexRef.current;
     if (previousOriginalIndex !== null) {
       const newIndex = visibleElements.findIndex(
-        (entry) => entry.originalIndex === previousOriginalIndex
+        (entry) => entry.originalIndex === previousOriginalIndex,
       );
       if (newIndex === -1) {
         const nextIndex = visibleElements.findIndex(
-          (entry) => entry.originalIndex > previousOriginalIndex
+          (entry) => entry.originalIndex > previousOriginalIndex,
         );
         const targetIndex = nextIndex >= 0 ? nextIndex : visibleElements.length;
         if (targetIndex !== cursor) {
@@ -279,23 +317,27 @@ export default function CurrentElementFlowV2({
   }, [cursor, visibleElements]);
 
   const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined
+    instructions: Element["instructions"] | undefined,
   ) => {
     return (instructions || []).filter((inst) =>
       evaluateVisibility(
         (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers
-      )
+        answers as Answers,
+      ),
     );
   };
 
   const setInputValueWithDraft: setInputValue = useCallback(
     (name, value, otherValue, type) => {
       applyDraftAnswers((prev) =>
-        serializeAnswer(prev, name, value, otherValue, type)
+        serializeAnswer(prev, name, value, otherValue, type),
       );
+      // Chat is prefilled from conversationStore runs
+      if (type !== "chat") {
+        surveySetInputValue(name, value, otherValue, type);
+      }
     },
-    [applyDraftAnswers]
+    [applyDraftAnswers, surveySetInputValue],
   );
 
   const handleInputChangeWithDraft: handleInputChange = useCallback(
@@ -305,52 +347,52 @@ export default function CurrentElementFlowV2({
         e.target instanceof HTMLTextAreaElement ? "textarea" : e.target.type;
       setInputValueWithDraft(name, value, "", inputType);
     },
-    [setInputValueWithDraft]
+    [setInputValueWithDraft],
   );
 
   const setImagesWithDraft = useCallback(
     (updater: (prev: Base64Images) => Base64Images) => {
       applyDraftImages(updater);
     },
-    [applyDraftImages]
+    [applyDraftImages],
   );
 
   const trimFixedStateFromOriginalIndex = useCallback(
     (
       source: Record<string, FixedResponseRuntimeState>,
-      restartOriginalIndex: number
+      restartOriginalIndex: number,
     ) => {
       const removableIds = new Set(
         appElements
           .filter(
             (el, originalIndex) =>
               originalIndex >= restartOriginalIndex &&
-              el.type === "fixedResponse"
+              el.type === "fixedResponse",
           )
-          .map((el) => el.id)
+          .map((el) => el.id),
       );
       return Object.fromEntries(
-        Object.entries(source || {}).filter(([id]) => !removableIds.has(id))
+        Object.entries(source || {}).filter(([id]) => !removableIds.has(id)),
       ) as Record<string, FixedResponseRuntimeState>;
     },
-    [appElements]
+    [appElements],
   );
 
   const trimStopStateFromOriginalIndex = useCallback(
     (
       source: Record<string, StopRuntimeState>,
-      restartOriginalIndex: number
+      restartOriginalIndex: number,
     ) => {
       const removableIds = new Set(
         appElements
           .filter((_, originalIndex) => originalIndex >= restartOriginalIndex)
-          .map((el) => el.id)
+          .map((el) => el.id),
       );
       return Object.fromEntries(
-        Object.entries(source || {}).filter(([id]) => !removableIds.has(id))
+        Object.entries(source || {}).filter(([id]) => !removableIds.has(id)),
       ) as Record<string, StopRuntimeState>;
     },
-    [appElements]
+    [appElements],
   );
 
   const startFixedResponseTypewriter = useCallback(
@@ -398,7 +440,7 @@ export default function CurrentElementFlowV2({
         }));
       })();
     },
-    [applyDraftFixedResponseState]
+    [applyDraftFixedResponseState],
   );
 
   const revealFullFixedResponse = useCallback(
@@ -414,24 +456,24 @@ export default function CurrentElementFlowV2({
         },
       }));
     },
-    [applyDraftFixedResponseState]
+    [applyDraftFixedResponseState],
   );
 
   const getOriginalIndexByFieldName = useCallback(
     (fieldName: string): number | null => {
       const match = appElements.findIndex(
-        (el) => !isStopElement(el) && el.name === fieldName
+        (el) => !isStopElement(el) && el.name === fieldName,
       );
       return match >= 0 ? match : null;
     },
-    [appElements]
+    [appElements],
   );
 
   const runAiStop = useCallback(
     async (
       stop: Element,
       stopOriginalIndex: number,
-      stopVisibleIndex: number
+      stopVisibleIndex: number,
     ) => {
       // Centralized AI-stop runner used by both:
       // 1) normal form submit when the active stop is aiResponse, and
@@ -448,7 +490,7 @@ export default function CurrentElementFlowV2({
           name: `${stop.name}-p-${idx}`,
           type: "prompt",
           text: inst.text || "",
-        })
+        }),
       );
       const res = await sendPrompts(
         prompts,
@@ -460,7 +502,7 @@ export default function CurrentElementFlowV2({
         false,
         false,
         undefined,
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index }
+        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
       );
       // Required scoring gates can return run_passed=false; in that case we keep cursor
       // on the current stop and do not reveal/advance this aiResponse card.
@@ -493,7 +535,7 @@ export default function CurrentElementFlowV2({
       commitDraftToTry,
       advance,
       setSurveyImages,
-    ]
+    ],
   );
 
   const handleRun = async (event: FormEvent) => {
@@ -578,7 +620,7 @@ export default function CurrentElementFlowV2({
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         },
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index }
+        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
       );
       const scoringIsRequired = stop.isRequired !== false;
       const failedRequired = res.run_passed === false && scoringIsRequired;
@@ -604,7 +646,7 @@ export default function CurrentElementFlowV2({
     const changedFieldNames = Object.keys(answers).filter(
       (name) =>
         JSON.stringify(answers[name]) !==
-        JSON.stringify(activeTry.answers[name])
+        JSON.stringify(activeTry.answers[name]),
     );
     if (changedFieldNames.length === 0 && editingFieldName) {
       changedFieldNames.push(editingFieldName);
@@ -625,7 +667,7 @@ export default function CurrentElementFlowV2({
     const restartVisibleStopIndex = visibleAfterEdit.findIndex(
       (entry) =>
         entry.originalIndex >= topEditedOriginalIndex &&
-        isStopElement(entry.element)
+        isStopElement(entry.element),
     );
     const restartCursor =
       restartVisibleStopIndex >= 0
@@ -638,11 +680,11 @@ export default function CurrentElementFlowV2({
 
     const trimmedFixedState = trimFixedStateFromOriginalIndex(
       fixedResponseStateById,
-      restartOriginalIndex
+      restartOriginalIndex,
     );
     const trimmedStopState = trimStopStateFromOriginalIndex(
       stopStateByElementId,
-      restartOriginalIndex
+      restartOriginalIndex,
     );
     applyDraftCursor(restartCursor);
     applyDraftFixedResponseState(() => structuredClone(trimmedFixedState));
@@ -651,14 +693,14 @@ export default function CurrentElementFlowV2({
     const overrides = {
       cursor: restartCursor,
       editedFieldIds: Array.from(
-        new Set([...(activeTry.editedFieldIds || []), ...changedFieldNames])
+        new Set([...(activeTry.editedFieldIds || []), ...changedFieldNames]),
       ),
       firstEditedOriginalIndex:
         activeTry.firstEditedOriginalIndex === null
           ? topEditedOriginalIndex
           : Math.min(
               activeTry.firstEditedOriginalIndex,
-              topEditedOriginalIndex
+              topEditedOriginalIndex,
             ),
     };
 
@@ -680,15 +722,15 @@ export default function CurrentElementFlowV2({
   // Keeping everything up to cursor avoids "disappearing" AI/scoring cards when navigating tries.
   const visibleElementsForRender = visibleElements.slice(
     0,
-    Math.min(renderUntil, visibleElements.length)
+    Math.min(renderUntil, visibleElements.length),
   );
 
   const lastRequiredScoringPassOriginalIndex = useMemo(() => {
     const runsForActiveTry = getRunsForTry(activeTryId ?? undefined).filter(
-      (run) => run.run_passed !== false
+      (run) => run.run_passed !== false,
     );
     const runsById = new Map(
-      getRunsForTry(undefined).map((run) => [run.id, run] as const)
+      getRunsForTry(undefined).map((run) => [run.id, run] as const),
     );
     let maxPass = -1;
 
@@ -755,7 +797,7 @@ export default function CurrentElementFlowV2({
             isEditSupportedElementType(element.type);
           const isEditingThisField = editingFieldName === element.name;
           const showEditedChip = activeTry.editedFieldIds.includes(
-            element.name
+            element.name,
           );
           return (
             <div
@@ -838,7 +880,7 @@ export default function CurrentElementFlowV2({
           : null;
         const latestRunForStop = getLatestRunForStop(
           originalIndex,
-          activeTryId ?? undefined
+          activeTryId ?? undefined,
         );
         // Why: a newly forked try can intentionally inherit already-visible stop cards
         // above the edited field. Those cards may reference a run created in the parent try,
@@ -850,8 +892,8 @@ export default function CurrentElementFlowV2({
           element.type === "scoring" ? element.isRequired !== false : false;
         const scoringFailed = Boolean(
           element.type === "scoring" &&
-            (stopState?.requiredScoreFailed ||
-              (runForThisStop && !passedTheRubricMinScore(runForThisStop)))
+          (stopState?.requiredScoreFailed ||
+            (runForThisStop && !passedTheRubricMinScore(runForThisStop))),
         );
 
         const fixedState = fixedResponseStateById[element.id];
@@ -867,21 +909,21 @@ export default function CurrentElementFlowV2({
                   name: `${element.name}-preview-${pIdx}`,
                   type: "prompt",
                   text: inst?.text || "",
-                })
+                }),
               )
             : [];
 
         const isScoredRun = Boolean(
           runForThisStop?.score_expected ||
-            runForThisStop?.scoreData?.scored_run ||
-            runForThisStop?.run_score
+          runForThisStop?.scoreData?.scored_run ||
+          runForThisStop?.run_score,
         );
         const scoreReady = Boolean(
-          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score
+          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score,
         );
         const explanationRequested = Boolean(
           runForThisStop?.score_explanation ??
-            runForThisStop?.scoreData?.score_explanation
+          runForThisStop?.scoreData?.score_explanation,
         );
         const explanationMode =
           runForThisStop?.score_explanation_mode ||
@@ -898,7 +940,7 @@ export default function CurrentElementFlowV2({
               runForThisStop?.run_passed === true));
         const explanationContent = shouldOfferExplanation
           ? runForThisStop?.messages.findLast(
-              (m) => m.role === "assistant" || m.role === "fixed_response"
+              (m) => m.role === "assistant" || m.role === "fixed_response",
             )?.content || ""
           : "";
 
@@ -970,7 +1012,7 @@ export default function CurrentElementFlowV2({
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) =>
-                              triesById[tryId]?.index === activeTryIndex - 1
+                              triesById[tryId]?.index === activeTryIndex - 1,
                           );
                           if (target) switchTry(target);
                         }}
@@ -990,7 +1032,7 @@ export default function CurrentElementFlowV2({
                         onClick={() => {
                           const target = tryOrder.find(
                             (tryId) =>
-                              triesById[tryId]?.index === activeTryIndex + 1
+                              triesById[tryId]?.index === activeTryIndex + 1,
                           );
                           if (target) switchTry(target);
                         }}
@@ -1023,7 +1065,7 @@ export default function CurrentElementFlowV2({
                           if (fixedState === undefined) {
                             const text = injectValuesIntoPrompt(
                               element.text || "",
-                              answers
+                              answers,
                             );
                             applyDraftFixedResponseState((prev) => ({
                               ...prev,
@@ -1072,7 +1114,7 @@ export default function CurrentElementFlowV2({
                             await runAiStop(
                               nextEntry.element,
                               nextEntry.originalIndex,
-                              idx + 1
+                              idx + 1,
                             );
                             return;
                           }
@@ -1102,7 +1144,7 @@ export default function CurrentElementFlowV2({
               disabled={activeTryIndex <= 1 || promptLoading}
               onClick={() => {
                 const target = tryOrder.find(
-                  (tryId) => triesById[tryId]?.index === activeTryIndex - 1
+                  (tryId) => triesById[tryId]?.index === activeTryIndex - 1,
                 );
                 if (target) switchTry(target);
               }}
@@ -1118,7 +1160,7 @@ export default function CurrentElementFlowV2({
               disabled={activeTryIndex >= tryOrder.length || promptLoading}
               onClick={() => {
                 const target = tryOrder.find(
-                  (tryId) => triesById[tryId]?.index === activeTryIndex + 1
+                  (tryId) => triesById[tryId]?.index === activeTryIndex + 1,
                 );
                 if (target) switchTry(target);
               }}

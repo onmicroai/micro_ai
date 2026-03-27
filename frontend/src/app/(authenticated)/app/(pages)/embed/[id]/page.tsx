@@ -40,26 +40,30 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     images,
     fetchApp,
     softReset: softResetSurveyStore,
+    setCurrentUserId,
   } = useSurveyStore();
+
+  const { currentConversation, conversations, resetAppConversation } =
+    useConversationStore();
+
+  useEffect(() => {
+    setCurrentUserId(userId ? String(userId) : null);
+  }, [userId, setCurrentUserId]);
 
   // Check if there are existing continuation messages for auto-expansion
   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
 
   // Update expansion state when answers change (e.g., on page refresh)
   useEffect(() => {
-    const existingMessages = answers.continuation_chat?.value || [];
+    const elementName = `continuation_chat_${appId}_${userId}`;
+    const existingMessages = answers[elementName]?.value || [];
     const hasExistingMessages =
       Array.isArray(existingMessages) && existingMessages.length > 0;
 
     if (hasExistingMessages && !isContinuationExpanded) {
       setIsContinuationExpanded(true);
     }
-  }, [answers.continuation_chat?.value, isContinuationExpanded]);
-  const {
-    currentConversation,
-    conversations,
-    reset: resetConversations,
-  } = useConversationStore();
+  }, [answers, appId, userId, isContinuationExpanded]);
   const [isOwner, setIsOwner] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -73,21 +77,17 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
         const { isPublic, embedAllowed } = await checkIsPublic(
           hashId,
           signal,
-          embedOrigin
+          embedOrigin,
         );
         // Treat as "public" (no auth) when app is public OR embed is allowed from this origin
         const accessibleWithoutAuth = isPublic || embedAllowed === true;
 
-        const wasAppUpdated = await fetchApp(
+        await fetchApp(
           hashId,
           !accessibleWithoutAuth,
           signal,
-          embedOrigin || undefined
+          embedOrigin || undefined,
         );
-
-        if (wasAppUpdated) {
-          resetConversations();
-        }
       }
     };
 
@@ -96,7 +96,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     return () => {
       controller.abort();
     };
-  }, [hashId, fetchApp, resetConversations]);
+  }, [hashId, fetchApp]);
 
   useEffect(() => {
     if (appFetchError.message !== null) {
@@ -188,7 +188,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
           </p>
         )}
 
-        {appId !== null && (
+        {appId !== null && !loading && (
           <div className="mt-6">
             <CurrentElementFlow
               key={flowKey}
@@ -231,7 +231,11 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
         <div className="mt-4 flex justify-between items-center">
           <button
             onClick={() => {
-              resetConversations();
+              if (appId)
+                resetAppConversation(
+                  String(appId),
+                  userId ? String(userId) : undefined,
+                );
               softResetSurveyStore();
               setShowThankYouMessage(false);
               setIsContinuationExpanded(false);

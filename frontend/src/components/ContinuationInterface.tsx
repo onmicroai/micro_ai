@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import ChatQuestion from "./QuestionTypes/ChatQuestion";
 import { Element, Answers } from "@/app/(authenticated)/app/types";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { useConversationStore } from "@/store/conversationStore";
 
 interface ContinuationInterfaceProps {
   appId: number | null;
@@ -26,11 +27,23 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
   isExpanded,
 }) => {
   const { setInputValue: surveySetInputValue } = useSurveyStore();
+  const conversationId = useConversationStore((s) => {
+    if (!appId) return "";
+    const appIdStr = String(appId);
+    const userIdStr = userId != null ? String(userId) : undefined;
+    const conv = s.conversations.find(
+      (c) => c.metadata?.appId === appIdStr && c.metadata?.userId === userIdStr
+    );
+    return conv?.id ?? s.currentConversation?.id ?? "";
+  });
+
+  const elementName = `continuation_chat_${appId}_${userId}`;
+  const continuationTryId = conversationId || undefined;
 
   // Create a synthetic chat element for continuation
   const continuationElement: Element = {
-    id: "continuation_chat",
-    name: "continuation_chat",
+    id: elementName,
+    name: elementName,
     type: "chat",
     label: "Continue the Conversation",
     description:
@@ -49,12 +62,13 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
   // Create synthetic answers object for the chat, using existing answers if available
   const continuationAnswers: Answers = useMemo(
     () => ({
-      continuation_chat: {
-        value: answers.continuation_chat?.value || [],
-        otherValue: answers.continuation_chat?.otherValue || "",
+      [elementName]: {
+        value: answers[elementName]?.value || [],
+        otherValue: answers[elementName]?.otherValue || "",
       },
     }),
-    [answers.continuation_chat?.value, answers.continuation_chat?.otherValue]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [answers[elementName]?.value, answers[elementName]?.otherValue],
   );
 
   // Create a setInputValue function that persists to the survey store
@@ -62,7 +76,7 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
     name: string,
     value: any,
     otherValue: string,
-    type: string
+    type: string,
   ) => {
     // Persist the chat history to the survey store so it survives page refreshes
     surveySetInputValue(name, value, otherValue, type);
@@ -87,6 +101,8 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
               currentPhaseIndex={-1} // Special index for continuation
               isOwner={isOwner}
               isAdmin={isAdmin}
+              activeTryId={continuationTryId}
+              activeTryIndex={1}
             />
           ) : (
             // Loading state while appId is being loaded

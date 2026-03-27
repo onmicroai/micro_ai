@@ -178,6 +178,9 @@ export const useSurveyStore = create<SurveyStore>()(
       currentPhaseIndex: 0,
       answers: {},
       images: {} as Base64Images,
+      currentUserId: null,
+      answersPerApp: {} as Record<string, Answers>,
+      imagesPerApp: {} as Record<string, Base64Images>,
       responses: [],
       completedPhases: [],
       errors: [],
@@ -223,6 +226,7 @@ export const useSurveyStore = create<SurveyStore>()(
             item.content.trim() === ""
         );
       },
+      setCurrentUserId: (userId: string | null) => set({ currentUserId: userId }),
       /**
        * TODO: refactor this method, split into smaller methods
        *
@@ -270,6 +274,8 @@ export const useSurveyStore = create<SurveyStore>()(
 
           const currentAppId = get().surveyJson?.id;
           const newAppId = parsedData?.id;
+          const userId = get().currentUserId;
+          const newKey = `${newAppId || ""}_${userId ?? ""}`;
           let wasUpdated = false;
 
           if (currentAppId !== newAppId) {
@@ -281,6 +287,8 @@ export const useSurveyStore = create<SurveyStore>()(
             surveyJson: parsedData,
             defaultAiModel,
             loading: false,
+            answers: get().answersPerApp[newKey] || {},
+            images: get().imagesPerApp[newKey] || {},
           });
 
           return wasUpdated;
@@ -381,14 +389,25 @@ export const useSurveyStore = create<SurveyStore>()(
             });
           }
 
-          return { answers: updatedAnswers };
+          const key = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
+          return {
+            answers: updatedAnswers,
+            ...(state.surveyJson?.id ? { answersPerApp: { ...state.answersPerApp, [key]: updatedAnswers } } : {}),
+          };
         }),
       /**
        * Updates the images state using a callback function.
        * @param updater - A function that takes the previous images and returns the new images.
        */
       setImages: (updater) =>
-        set((state) => ({ images: updater(state.images) })),
+        set((state) => {
+          const updatedImages = updater(state.images);
+          const key = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
+          return {
+            images: updatedImages,
+            ...(state.surveyJson?.id ? { imagesPerApp: { ...state.imagesPerApp, [key]: updatedImages } } : {}),
+          };
+        }),
       /**
        * Updates the responses state using a callback function.
        * @param updater - A function that takes the previous responses and returns the new responses.
@@ -440,7 +459,12 @@ export const useSurveyStore = create<SurveyStore>()(
           "",
           type
         );
-        set({ answers: updatedAnswers });
+        const state = get();
+        const key = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
+        set({
+          answers: updatedAnswers,
+          ...(state.surveyJson?.id ? { answersPerApp: { ...state.answersPerApp, [key]: updatedAnswers } } : {}),
+        });
       },
       /**
        * Sets the value for an input field.
@@ -463,7 +487,12 @@ export const useSurveyStore = create<SurveyStore>()(
           otherValue,
           type
         );
-        set({ answers: updatedAnswers });
+        const state = get();
+        const key = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
+        set({
+          answers: updatedAnswers,
+          ...(state.surveyJson?.id ? { answersPerApp: { ...state.answersPerApp, [key]: updatedAnswers } } : {}),
+        });
       },
 
       /**
@@ -568,6 +597,7 @@ export const useSurveyStore = create<SurveyStore>()(
        */
       softReset: () => {
         const state = get();
+        const currentKey = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
         set({
           prompt: null,
           aiInstructions: null,
@@ -600,6 +630,13 @@ export const useSurveyStore = create<SurveyStore>()(
           userRole: state.userRole,
           userRoleLoading: state.userRoleLoading,
           userRoleError: state.userRoleError,
+          // Clear current app's stored answers so restart is clean
+          answersPerApp: state.surveyJson?.id
+            ? { ...state.answersPerApp, [currentKey]: {} }
+            : state.answersPerApp,
+          imagesPerApp: state.surveyJson?.id
+            ? { ...state.imagesPerApp, [currentKey]: {} }
+            : state.imagesPerApp,
         });
       },
       /**
@@ -659,12 +696,12 @@ export const useSurveyStore = create<SurveyStore>()(
       name: "survey-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
-        answers: state.answers,
+        answersPerApp: state.answersPerApp,
+        imagesPerApp: state.imagesPerApp,
         currentPhaseIndex: state.currentPhaseIndex,
         completedPhases: state.completedPhases,
         responses: state.responses,
         promptResponse: state.promptResponse,
-        images: state.images,
         surveyJson: state.surveyJson,
         currentPhase: state.currentPhase,
         elements: state.elements,

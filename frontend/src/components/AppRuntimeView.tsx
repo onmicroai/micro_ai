@@ -26,7 +26,10 @@ type AppRuntimeViewProps = {
   showEditLink?: boolean;
 };
 
-export default function AppRuntimeView({ hashId, showEditLink = true }: AppRuntimeViewProps) {
+export default function AppRuntimeView({
+  hashId,
+  showEditLink = true,
+}: AppRuntimeViewProps) {
   const searchParams = useSearchParams();
   const launchId = searchParams.get("lid");
 
@@ -50,27 +53,35 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
     images,
     fetchApp,
     softReset: softResetSurveyStore,
+    setCurrentUserId,
   } = useSurveyStore();
 
-  const {
-    currentConversation,
-    conversations,
-    reset: resetConversations,
-  } = useConversationStore();
+  const { currentConversation, conversations, resetAppConversation } =
+    useConversationStore();
 
   // Check if there are existing continuation messages for auto-expansion
   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
 
+  useEffect(() => {
+    setCurrentUserId(userId != null ? String(userId) : null);
+  }, [userId, setCurrentUserId]);
+
+  // Collapse continuation when app changes
+  useEffect(() => {
+    setIsContinuationExpanded(false);
+  }, [appId]);
+
   // Update expansion state when answers change (e.g., on page refresh)
   useEffect(() => {
-    const existingMessages = answers.continuation_chat?.value || [];
+    const elementName = `continuation_chat_${appId}_${userId}`;
+    const existingMessages = answers[elementName]?.value || [];
     const hasExistingMessages =
       Array.isArray(existingMessages) && existingMessages.length > 0;
 
     if (hasExistingMessages && !isContinuationExpanded) {
       setIsContinuationExpanded(true);
     }
-  }, [answers.continuation_chat?.value, isContinuationExpanded]);
+  }, [answers, appId, userId, isContinuationExpanded]);
 
   const [roles, setRoles] = useState({
     isOwner: false,
@@ -90,11 +101,7 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
       if (hashId) {
         const { isPublic } = await checkIsPublic(hashId, signal);
 
-        const wasAppUpdated = await fetchApp(hashId, !isPublic, signal);
-
-        if (wasAppUpdated) {
-          resetConversations();
-        }
+        await fetchApp(hashId, !isPublic, signal);
       }
     };
 
@@ -105,7 +112,7 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
         //controller.abort();
       } catch {}
     };
-  }, [hashId, fetchApp, resetConversations]);
+  }, [hashId, fetchApp]);
 
   useEffect(() => {
     if (appFetchError.message !== null) {
@@ -166,7 +173,7 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
         const roleResult = await checkRole(hashId, userId, signal);
         if (!roleResult.error) {
           const lowerRoles = roleResult.roles.map((r: string) =>
-            r.toLowerCase()
+            r.toLowerCase(),
           );
           setRoles({
             isOwner: lowerRoles.includes("owner"),
@@ -175,7 +182,7 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
           setRolesLoaded(true);
         } else {
           console.warn(
-            "Role check returned error; banner suppressed until retry"
+            "Role check returned error; banner suppressed until retry",
           );
         }
       } catch (error) {
@@ -235,7 +242,9 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
     <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
       <div className="max-w-7xl mx-auto px-4 py-6 bg-gray-50 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
-          {((roles.isOwner || roles.isAdmin) && showEditLink) && <EditAppLink hashId={hashId} />}
+          {(roles.isOwner || roles.isAdmin) && showEditLink && (
+            <EditAppLink hashId={hashId} />
+          )}
           {surveyJson?.title && (
             <h1 className="text-xl/loose font-semibold text-gray-900">
               {surveyJson.title}
@@ -257,7 +266,7 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
             </p>
           )}
 
-          {appId !== null && (
+          {appId !== null && !loading && (
             <div className="mt-6">
               <CurrentElementFlow
                 key={flowKey}
@@ -298,7 +307,11 @@ export default function AppRuntimeView({ hashId, showEditLink = true }: AppRunti
             <div className="mt-4 flex justify-between items-center">
               <button
                 onClick={() => {
-                  resetConversations();
+                  if (appId)
+                    resetAppConversation(
+                      String(appId),
+                      userId != null ? String(userId) : undefined,
+                    );
                   softResetSurveyStore();
                   setShowThankYouMessage(false);
                   setIsContinuationExpanded(false);
