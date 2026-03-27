@@ -46,7 +46,7 @@ interface RuntimeTryStore {
   draftState: DraftRuntimeState | null;
 
   reset: () => void;
-  initRuntimeTry: (initialAnswers: Answers, initialImages: Base64Images) => void;
+  initRuntimeTry: (initialAnswers: Answers, initialImages: Base64Images, stableId?: string) => void;
   switchTry: (tryId: string) => void;
 
   applyDraftAnswers: (updater: (prev: Answers) => Answers) => void;
@@ -99,10 +99,10 @@ export const useRuntimeTryStore = create<RuntimeTryStore>((set, get) => ({
       draftState: null,
     }),
 
-  initRuntimeTry: (initialAnswers, initialImages) => {
+  initRuntimeTry: (initialAnswers, initialImages, stableId?) => {
     const current = get();
     if (current.tryOrder.length > 0) return;
-    const tryId = crypto.randomUUID();
+    const tryId = stableId ?? crypto.randomUUID();
     const initialTry: TrySnapshot = {
       id: tryId,
       index: 1,
