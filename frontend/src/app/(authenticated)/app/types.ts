@@ -71,6 +71,9 @@ export interface SurveyStore {
   currentPhaseIndex: number; // The index of the current phase. Starts at 0 for the first phase.
   answers: Answers;
   images: Base64Images;
+  currentUserId: string | null;
+  answersPerApp: Record<string, Answers>;
+  imagesPerApp: Record<string, Base64Images>;
   responses: string[]; // A list of AI responses
   completedPhases: number[];
   errors: ErrorObject[];
@@ -110,6 +113,7 @@ export interface SurveyStore {
   setElements: (elements: Element[] | null) => void;
   setPromptResponse: (response: any) => void;
   setSendPromptError: (error: string | null) => void;
+  setCurrentUserId: (userId: string | null) => void;
   reset: () => void;
   softReset: () => void;
   setProcessedPrompts: (processedPrompts: ProcessedPrompts) => void;

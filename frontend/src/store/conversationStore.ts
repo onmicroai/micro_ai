@@ -52,6 +52,8 @@ export interface Conversation {
     title?: string;
     createdAt: number;
     updatedAt: number;
+    appId?: string;
+    userId?: string;
   };
 }
 
@@ -60,9 +62,9 @@ interface ConversationStore {
   // State
   currentConversation: Conversation | null;
   conversations: Conversation[];
-  
+
   // Actions
-  createConversation: () => string;
+  createConversation: (appId?: string, userId?: string) => string;
   getConversation: (conversationId: string) => Conversation | null;
   addRun: (run: Run) => string;
   updateRun: (runId: string, updates: Partial<Run>) => void;
@@ -80,6 +82,8 @@ interface ConversationStore {
   deleteConversation: (conversationId: string) => void;
   clearCurrentConversation: () => void;
   ensureConversation: () => string;
+  ensureConversationForApp: (appId: string, userId?: string) => string;
+  resetAppConversation: (appId: string, userId?: string) => string;
   reset: () => void;
 }
 
@@ -89,7 +93,7 @@ export const useConversationStore = create<ConversationStore>()(
       currentConversation: null,
       conversations: [],
 
-      createConversation: () => {
+      createConversation: (appId?: string, userId?: string) => {
         const newConversation: Conversation = {
           id: crypto.randomUUID(),
           systemPrompt: '',
@@ -97,6 +101,8 @@ export const useConversationStore = create<ConversationStore>()(
           metadata: {
             createdAt: Date.now(),
             updatedAt: Date.now(),
+            appId,
+            userId,
           },
         };
 
@@ -118,6 +124,27 @@ export const useConversationStore = create<ConversationStore>()(
           return currentConversation.id;
         }
         return get().createConversation();
+      },
+
+      ensureConversationForApp: (appId: string, userId?: string) => {
+        const state = get();
+        const existing = state.conversations.find(
+          (c) => c.metadata?.appId === appId && c.metadata?.userId === userId
+        );
+        if (existing) {
+          set({ currentConversation: existing });
+          return existing.id;
+        }
+        return get().createConversation(appId, userId);
+      },
+
+      resetAppConversation: (appId: string, userId?: string) => {
+        set((s) => ({
+          conversations: s.conversations.filter(
+            (c) => !(c.metadata?.appId === appId && c.metadata?.userId === userId)
+          ),
+        }));
+        return get().createConversation(appId, userId);
       },
 
       addRun: (run: Run) => {
