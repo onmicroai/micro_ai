@@ -228,6 +228,10 @@ export default function CurrentElementFlowV2({
     const els = surveyJson?.elements;
     return Array.isArray(els) ? (els as Element[]) : [];
   }, [surveyJson]);
+  const appElementsSignature = useMemo(
+    () => JSON.stringify(appElements),
+    [appElements]
+  );
 
   const activeTry = activeTryId ? triesById[activeTryId] || null : null;
   const answers = useMemo(
@@ -251,7 +255,8 @@ export default function CurrentElementFlowV2({
   useEffect(() => {
     reset();
     previousActiveOriginalIndexRef.current = null;
-  }, [surveyJson?.id, reset]);
+    seededDefaultsKeyRef.current = null;
+  }, [surveyJson?.id, appElementsSignature, reset]);
 
   useEffect(() => {
     if (!surveyJson) return;
@@ -627,7 +632,11 @@ export default function CurrentElementFlowV2({
       // Fixed response stops are local/runtime-rendered (no API request here).
       // We persist their rendered state in the try snapshot so switching tries
       // or editing earlier fields keeps the revealed card behavior consistent.
-      const text = injectValuesIntoPrompt(stop.text || "", answers, appElements);
+      const text = injectValuesIntoPrompt(
+        stop.text || "",
+        answers,
+        appElements
+      );
       const existing = fixedResponseStateById[stop.id];
       applyDraftFixedResponseState((prev) => ({
         ...prev,
