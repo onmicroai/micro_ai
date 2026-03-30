@@ -37,6 +37,11 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 
 DOMAIN = env("DOMAIN", default="https://onmicro.ai")
 
+# CloudFront base domain for static assets (no protocol).
+CLOUDFRONT_DOMAIN = env(
+    "CLOUDFRONT_DOMAIN", default=""
+).replace("https://", "").replace("http://", "").strip().strip("/")
+
 # Application definition
 
 DJANGO_APPS = [
