@@ -38,9 +38,8 @@ ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
 DOMAIN = env("DOMAIN", default="https://onmicro.ai")
 
 # CloudFront base domain for static assets (no protocol).
-# Frontend uses NEXT_PUBLIC_CLOUDFRONT_DOMAIN; backend mirrors as CLOUDFRONT_DOMAIN.
 CLOUDFRONT_DOMAIN = env(
-    "CLOUDFRONT_DOMAIN", default="d2jqdwayv0rru6.cloudfront.net"
+    "CLOUDFRONT_DOMAIN", default=""
 ).replace("https://", "").replace("http://", "").strip().strip("/")
 
 # Application definition
