@@ -20,6 +20,8 @@ from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
 from django.utils import timezone
 
+MIN_USAGE_DURATION_SECONDS = 5
+
 
 def get_stats_for_app_ids(app_ids):
     """
@@ -35,7 +37,7 @@ def get_stats_for_app_ids(app_ids):
         sessions=Count('session_id', distinct=True),
     ).values('ma_id', 'total_credits', 'unique_users', 'sessions')
 
-    result = {aid: {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0, 'avg_session_seconds': 0} for aid in app_ids}
+    result = {aid: {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0, 'avg_session_seconds': 0, 'min_session_seconds': 0, 'max_session_seconds': 0} for aid in app_ids}
     for row in stats_qs:
         ma_id = row['ma_id']
         sessions = row['sessions'] or 0
@@ -47,16 +49,22 @@ def get_stats_for_app_ids(app_ids):
             'total_credits': total_credits,
             'avg_credits_session': avg_credits_session,
             'avg_session_seconds': 0,
+            'min_session_seconds': 0,
+            'max_session_seconds': 0,
         }
     usage_rows = AppUsageSession.objects.filter(ma_id__in=app_ids).values('ma_id', 'started_at', 'ended_at', 'last_seen_at')
     durations = {}
     for usage in usage_rows:
         end_time = usage['ended_at'] or usage['last_seen_at'] or usage['started_at']
         duration_seconds = max((end_time - usage['started_at']).total_seconds(), 0)
+        if duration_seconds < MIN_USAGE_DURATION_SECONDS:
+            continue
         durations.setdefault(usage['ma_id'], []).append(duration_seconds)
     for ma_id, values in durations.items():
         if ma_id in result and values:
             result[ma_id]['avg_session_seconds'] = round(sum(values) / len(values), 2)
+            result[ma_id]['min_session_seconds'] = round(min(values), 2)
+            result[ma_id]['max_session_seconds'] = round(max(values), 2)
     return result
 
 
@@ -185,11 +193,18 @@ class AppStatistics(APIView):
             durations = []
             for usage in usage_rows:
                 end_time = usage['ended_at'] or usage['last_seen_at'] or usage['started_at']
-                durations.append(max((end_time - usage['started_at']).total_seconds(), 0))
+                duration_seconds = max((end_time - usage['started_at']).total_seconds(), 0)
+                if duration_seconds < MIN_USAGE_DURATION_SECONDS:
+                    continue
+                durations.append(duration_seconds)
             avg_session_seconds = round(sum(durations) / len(durations), 2) if durations else 0
+            min_session_seconds = round(min(durations), 2) if durations else 0
+            max_session_seconds = round(max(durations), 2) if durations else 0
 
             if runs:
                 runs[0]['avg_session_seconds'] = avg_session_seconds
+                runs[0]['min_session_seconds'] = min_session_seconds
+                runs[0]['max_session_seconds'] = max_session_seconds
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
