@@ -1,7 +1,9 @@
 import axios, { AxiosRequestConfig } from "axios";
 
-interface CheckIsPublicResult {
+export interface CheckIsPublicResult {
   isPublic: boolean;
+  /** For embed mode: true when app can be embedded from the given origin (public or restricted with domain match) */
+  embedAllowed?: boolean;
   error: Error | null;
 }
 
@@ -18,10 +20,14 @@ const pendingRequests: Map<string, Promise<CheckIsPublicResult>> = new Map();
  * interceptor recursion with `checkCurrentPagePrivacy` → `checkIsPublic`.
  * When `NEXT_PUBLIC_API_URL` is unset, fall back to a same-origin `/api/...` path.
  */
-function visibilityRequestUrl(hashId: string): string {
+function visibilityRequestUrl(hashId: string, embedOrigin?: string): string {
   const base = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
   const path = `/api/microapps/visibility/${hashId}`;
-  return base ? `${base}${path}` : path;
+  let url = base ? `${base}${path}` : path;
+  if (embedOrigin) {
+    url += `?embed_origin=${encodeURIComponent(embedOrigin)}`;
+  }
+  return url;
 }
 
 /**
@@ -32,7 +38,8 @@ function visibilityRequestUrl(hashId: string): string {
  */
 const makeRequest = async (
   hashId: string,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  embedOrigin?: string
 ): Promise<CheckIsPublicResult> => {
   try {
     const config: AxiosRequestConfig = {
@@ -45,16 +52,21 @@ const makeRequest = async (
       config.signal = signal;
     }
 
-    const response = await axios.get(visibilityRequestUrl(hashId), config);
+    const response = await axios.get(
+      visibilityRequestUrl(hashId, embedOrigin),
+      config
+    );
 
-    // Cache the result
-    const result = {
-      isPublic: response.data.data.isPublic,
+    const data = response.data?.data ?? {};
+    const result: CheckIsPublicResult = {
+      isPublic: data.isPublic ?? false,
+      embedAllowed: data.embedAllowed,
       error: null,
     };
-    lastCheckedHashId = hashId;
-    lastCheckedResult = result;
-
+    if (!embedOrigin) {
+      lastCheckedHashId = hashId;
+      lastCheckedResult = result;
+    }
     return result;
   } catch (error: any) {
     const errorName = error?.name;
@@ -66,68 +78,76 @@ const makeRequest = async (
       console.error("Error checking public status:", error);
     }
 
-    const errorResult = {
+    const errorResult: CheckIsPublicResult = {
       isPublic: false,
+      embedAllowed: false,
       error: error as Error,
     };
 
     // Don't cache error results from aborted requests
-    lastCheckedHashId = hashId;
-    lastCheckedResult = errorResult;
-
+    if (!embedOrigin) {
+      lastCheckedHashId = hashId;
+      lastCheckedResult = errorResult;
+    }
     throw error;
   }
 };
 
 /**
- * Check if the app is public
+ * Check if the app is public and optionally whether embed is allowed from the given origin.
  * @param hashId - The hash ID of the app
  * @param signal - The abort signal for the request
+ * @param embedOrigin - For embed mode: the parent page URL (e.g. document.referrer) to check domain allowlist
  * @returns The result of the check
  */
 export const checkIsPublic = async (
   hashId: string,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  embedOrigin?: string
 ): Promise<CheckIsPublicResult> => {
-  const isSameHashId = hashId === lastCheckedHashId;
+  const cacheKey = `${hashId}:${embedOrigin ?? ""}`;
   const isSameResult = lastCheckedResult !== null;
   const isNotError = lastCheckedResult?.error === null;
+  // Only use cache when no embedOrigin (legacy path) and same hashId
+  const canUseCache =
+    !embedOrigin && hashId === lastCheckedHashId && isSameResult && isNotError;
 
-  if (isSameHashId && isSameResult && isNotError) {
+  if (canUseCache) {
     return lastCheckedResult!;
   }
 
- 
   // For production: reuse pending requests
-  if (pendingRequests.has(hashId)) {
-    return pendingRequests.get(hashId)!.catch(error => {
+  const pendingKey = cacheKey;
+  if (pendingRequests.has(pendingKey)) {
+    return pendingRequests.get(pendingKey)!.catch((error) => {
       // Only handle abort/cancel errors
-      const isAborted = 
-        error?.name === 'AbortError' || 
-        error?.name === 'CanceledError';
-      
+      const isAborted =
+        error?.name === "AbortError" || error?.name === "CanceledError";
+
       if (isAborted) {
-        pendingRequests.delete(hashId);
-        const newRequest = makeRequest(hashId, signal).finally(() => {
-          pendingRequests.delete(hashId);
-        });
-        pendingRequests.set(hashId, newRequest);
+        pendingRequests.delete(pendingKey);
+        const newRequest = makeRequest(hashId, signal, embedOrigin).finally(
+          () => {
+            pendingRequests.delete(pendingKey);
+          }
+        );
+        pendingRequests.set(pendingKey, newRequest);
         return newRequest;
       }
-      
+
       // Rethrow other errors
       throw error;
     });
   }
 
   // Create the actual request and cleanup function
-  const requestPromise = makeRequest(hashId, signal).finally(() => {
-    // Remove this request from the pending requests map once completed
-    pendingRequests.delete(hashId);
-  });
+  const requestPromise = makeRequest(hashId, signal, embedOrigin).finally(
+    () => {
+      pendingRequests.delete(pendingKey);
+    }
+  );
 
-  // Store the promise in the pending requests map
-  pendingRequests.set(hashId, requestPromise);
+  pendingRequests.set(pendingKey, requestPromise);
 
   return requestPromise;
 };

@@ -29,10 +29,7 @@ export interface MicroappAccessResult {
   isPublicApp: boolean;
 }
 
-function rolesAllowAccess(
-  mode: MicroappAccessMode,
-  roles: string[]
-): boolean {
+function rolesAllowAccess(mode: MicroappAccessMode, roles: string[]): boolean {
   if (mode === "owner") {
     return roles.includes("owner");
   }
@@ -66,8 +63,7 @@ export function useMicroappAccess(
    * profile — otherwise we keep them on the shell while getUser() runs and they
    * never match the old layout branches that expected isAuthorized + routing.
    */
-  const shellLoading =
-    authLoading || (isProfilePending && !isPublicApp);
+  const shellLoading = authLoading || (isProfilePending && !isPublicApp);
 
   useEffect(() => {
     const seq = ++seqRef.current;
@@ -117,8 +113,7 @@ export function useMicroappAccess(
             return;
           }
 
-          const allowed =
-            !error && rolesAllowAccess(mode, roles);
+          const allowed = !error && rolesAllowAccess(mode, roles);
           finish({
             authLoading: false,
             isAuthorized: allowed,
@@ -127,20 +122,45 @@ export function useMicroappAccess(
           return;
         }
 
-        const { isPublic, error } = await checkIsPublic(hashId, signal);
+        const embedOrigin =
+          mode === "embed" && typeof window !== "undefined"
+            ? document.referrer || ""
+            : undefined;
+
+        const { isPublic, embedAllowed, error } = await checkIsPublic(
+          hashId,
+          signal,
+          embedOrigin
+        );
         if (seq !== seqRef.current) {
           return;
         }
 
         if (error) {
           const errorName = error.name;
-          if (
-            errorName === "AbortError" ||
-            errorName === "CanceledError"
-          ) {
+          if (errorName === "AbortError" || errorName === "CanceledError") {
             return;
           }
           console.error("Error checking public status:", error);
+          finish({
+            authLoading: false,
+            isAuthorized: false,
+            isPublicApp: false,
+          });
+          return;
+        }
+
+        if (mode === "embed" && embedAllowed === true) {
+          finish({
+            authLoading: false,
+            isAuthorized: true,
+            isPublicApp: true,
+          });
+          return;
+        }
+
+        // For embed mode, deny when embed is not allowed (domain restriction applies to everyone, including owner)
+        if (mode === "embed") {
           finish({
             authLoading: false,
             isAuthorized: false,
@@ -184,8 +204,7 @@ export function useMicroappAccess(
           return;
         }
 
-        const allowed =
-          !roleError && rolesAllowAccess("edit", roles);
+        const allowed = !roleError && rolesAllowAccess("edit", roles);
         finish({
           authLoading: false,
           isAuthorized: allowed,
@@ -206,10 +225,7 @@ export function useMicroappAccess(
         if (seq !== seqRef.current) {
           return;
         }
-        if (
-          errorName === "AbortError" ||
-          errorName === "CanceledError"
-        ) {
+        if (errorName === "AbortError" || errorName === "CanceledError") {
           return;
         }
         finish({

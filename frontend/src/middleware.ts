@@ -4,7 +4,15 @@ export function middleware(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
   const refreshToken = request.cookies.get("refresh_token")?.value;
   const pathname = request.nextUrl.pathname.toLowerCase();
-  
+
+  // Edit URLs are often shared by mistake; guests should see the public app, not login.
+  if (!accessToken && !refreshToken) {
+    const editPathMatch = pathname.match(/^\/app\/edit\/([^/]+)\/?$/);
+    if (editPathMatch) {
+      const id = editPathMatch[1];
+      return NextResponse.redirect(new URL(`/app/${id}`, request.url));
+    }
+  }
 
   // Define protected and public paths
   const protectedPaths = ["dashboard", "app/edit", "settings"];

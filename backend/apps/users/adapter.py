@@ -46,24 +46,28 @@ class EmailAsUsernameAdapter(DefaultAccountAdapter):
     def get_email_confirmation_context(self, request, emailconfirmation):
         ctx = super().get_email_confirmation_context(request, emailconfirmation)
         ctx['domain'] = settings.DOMAIN
+        ctx["cloudfront_domain"] = getattr(settings, "CLOUDFRONT_DOMAIN", "")
         ctx['user_email'] = emailconfirmation.email_address.email
         return ctx
 
     def get_email_confirmation_signup_context(self, request, emailconfirmation):
         ctx = super().get_email_confirmation_signup_context(request, emailconfirmation)
         ctx['domain'] = settings.DOMAIN
+        ctx["cloudfront_domain"] = getattr(settings, "CLOUDFRONT_DOMAIN", "")
         ctx['user_email'] = emailconfirmation.email_address.email
         return ctx
 
     def get_reset_password_context(self, request, user, temp_key):
         ctx = super().get_reset_password_context(request, user, temp_key)
         ctx['domain'] = settings.DOMAIN
+        ctx["cloudfront_domain"] = getattr(settings, "CLOUDFRONT_DOMAIN", "")
         ctx['user_email'] = user.email
         return ctx
 
     def get_login_code_context(self, request, user, code):
         ctx = super().get_login_code_context(request, user, code)
         ctx['domain'] = settings.DOMAIN
+        ctx["cloudfront_domain"] = getattr(settings, "CLOUDFRONT_DOMAIN", "")
         ctx['user_email'] = user.email
         return ctx
 

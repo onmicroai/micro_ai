@@ -1,6 +1,12 @@
 "use client";
 
-import React, { ChangeEvent, useState, useEffect, useCallback } from "react";
+import React, {
+  ChangeEvent,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
 import {
   ErrorObject,
   Element,
@@ -44,9 +50,6 @@ const CheckboxQuestion = ({
   const otherPlaceholder = element.otherPlaceholder || "Other (describe)";
   const otherLabel = element.otherText || "Other";
   const noneText = element.noneText || "None";
-  const [checkboxOptions, setCheckboxOptions] = useState<
-    { value: string; label: string }[]
-  >([]);
 
   /**
    * Extracts the error message for a given question.
@@ -78,13 +81,12 @@ const CheckboxQuestion = ({
    */
   const getCheckboxOptions = useCallback(
     (question: Element) => {
-      const clonedQuestion = structuredClone(question);
       const baseOptions =
-        clonedQuestion.choices?.map((choice) => {
+        question.choices?.map((choice) => {
           if (typeof choice === "string") {
             return { value: choice, label: choice };
           }
-          return { value: choice.text, label: choice.text };
+          return { value: choice.value, label: choice.text };
         }) || [];
 
       if (question.showNoneItem) {
@@ -139,9 +141,10 @@ const CheckboxQuestion = ({
     return selectedAnswers.includes(choiceValue);
   };
 
-  useEffect(() => {
-    setCheckboxOptions(getCheckboxOptions(element));
-  }, [element, getCheckboxOptions]);
+  const checkboxOptions = useMemo(
+    () => getCheckboxOptions(element),
+    [element, getCheckboxOptions]
+  );
 
   useEffect(() => {
     setErrorMessage(getErrorMessage(element.name));
@@ -241,7 +244,8 @@ const CheckboxQuestion = ({
               </div>
               <div
                 className={`text-sm/6 ${
-                  (disabled || element.readOnly) && isCheckboxChecked(choice.value)
+                  (disabled || element.readOnly) &&
+                  isCheckboxChecked(choice.value)
                     ? "text-gray-800"
                     : ""
                 }`}
@@ -250,11 +254,13 @@ const CheckboxQuestion = ({
                   htmlFor={`${element.name}-${index}`}
                   className={`
                            font-medium
-                           ${
-                             "text-gray-900"
-                           }
+                           ${"text-gray-900"}
                            ${hasError ? "text-red-900" : "text-gray-900"}
-                           ${disabled || element.readOnly ? "cursor-default" : "cursor-pointer"}
+                           ${
+                             disabled || element.readOnly
+                               ? "cursor-default"
+                               : "cursor-pointer"
+                           }
                         `}
                 >
                   {choice.label}

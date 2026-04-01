@@ -26,7 +26,7 @@ export default function EmbedLayout({
     return (
       <>
         <ToastContainer />
-        <AccessDenied />
+        <AccessDenied variant="embed" />
       </>
     );
   }

@@ -22,6 +22,10 @@ class EmailVerificationSerializer(serializers.Serializer):
     key = serializers.CharField()
 
 
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
 class CustomPasswordChangeSerializer(serializers.Serializer):
     old_password = serializers.CharField(max_length=128)
     new_password1 = serializers.CharField(max_length=128)

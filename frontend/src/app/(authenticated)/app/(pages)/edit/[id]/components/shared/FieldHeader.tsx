@@ -22,7 +22,9 @@ import {
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
 } from "../../components/ui/select";
 import {
@@ -38,7 +40,8 @@ import {
   Element,
   HiddenHeaderElement,
 } from "@/app/(authenticated)/app/types";
-import { availableSections } from "../FormBuilder";
+import { AVAILABLE_SECTIONS } from "../FormBuilder";
+import { resolveAccent } from "../../components/ui/add-section-popover";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSurveyStore } from "../../store/editSurveyStore";
 import { useTagFocusContext } from "../TagFocusContext";
@@ -210,16 +213,39 @@ export default function FieldHeader({
                       <span className="font-medium text-gray-900">{label}</span>
                     </div>
                   </SelectTrigger>
-                  <SelectContent>
-                    {availableSections.map((type) => {
-                      const TypeIcon = type.icon;
+                  <SelectContent className="max-h-[min(24rem,var(--radix-select-content-available-height))]">
+                    {AVAILABLE_SECTIONS.map((group, idx) => {
+                      const accent = resolveAccent(group);
                       return (
-                        <SelectItem key={type.id} value={type.id}>
-                          <div className="flex items-center gap-2">
-                            <TypeIcon className="h-4 w-4" />
-                            <span>{type.label}</span>
-                          </div>
-                        </SelectItem>
+                        <div key={group.label}>
+                          {idx > 0 ? (
+                            <SelectSeparator className="my-2 bg-gray-200" />
+                          ) : null}
+                          <SelectGroup>
+                            <div
+                              className={`text-[11px] leading-tight font-medium px-2 mx-2 mb-0.5 border-l-4 text-gray-500 ${accent.border}`}
+                            >
+                              {group.label}
+                            </div>
+                            {group.sections.map((section) => {
+                              const TypeIcon = section.icon;
+                              return (
+                                <SelectItem
+                                  key={section.id}
+                                  value={section.id}
+                                  className="py-2 pl-2"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <TypeIcon
+                                      className={`h-4 w-4 flex-shrink-0 ${accent.text}`}
+                                    />
+                                    <span>{section.label}</span>
+                                  </div>
+                                </SelectItem>
+                              );
+                            })}
+                          </SelectGroup>
+                        </div>
                       );
                     })}
                   </SelectContent>

@@ -29,6 +29,7 @@ const initialState = {
   description: "",
   collectionIds: [] as number[],
   privacy: "private",
+  permittedDomains: [] as string[],
   clonable: true,
   completedHtml: "",
   attachedFiles: [] as AttachedFile[],
@@ -111,7 +112,7 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         elements: state.elements,
       };
 
-      const data = {
+      const data: Record<string, unknown> = {
         title: state.title || "Untitled App",
         privacy: state.privacy,
         copy_allowed: state.clonable,
@@ -120,6 +121,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
         explanation: state.description,
         app_json: appJsonData,
       };
+      if (state.privacy === "restricted") {
+        data.permitted_domains = state.permittedDomains ?? [];
+      }
 
       await api.put(`/api/microapps/${appId}`, data, {
         signal: signal,
@@ -331,6 +335,10 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
           await get().saveToServer(signal);
         }
       }
+    },
+
+    setPermittedDomains: (domains: string[]) => {
+      set({ permittedDomains: domains ?? [] });
     },
 
     /**
