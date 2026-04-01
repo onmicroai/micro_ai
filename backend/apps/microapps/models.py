@@ -315,6 +315,34 @@ class AppUsageSession(models.Model):
         return f"usage:{self.ma_id_id}:{self.session_id}"
 
 
+class AppThemeSnapshot(models.Model):
+    """Daily generated AI themes summarizing app conversations."""
+
+    STATUS_CHOICES = [
+        ("success", "success"),
+        ("failed", "failed"),
+    ]
+
+    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE, related_name="theme_snapshots")
+    generated_at = models.DateTimeField(auto_now_add=True)
+    source_window_start = models.DateTimeField(null=True, blank=True)
+    source_window_end = models.DateTimeField(null=True, blank=True)
+    conversation_count_used = models.IntegerField(default=0)
+    themes_json = models.JSONField(default=list, blank=True)
+    model_used = models.CharField(max_length=100, default="gpt-4o-mini")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="success")
+    error_message = models.TextField(blank=True, default="")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["ma_id", "generated_at"], name="theme_ma_generated_idx"),
+            models.Index(fields=["status", "generated_at"], name="theme_status_generated_idx"),
+        ]
+
+    def __str__(self):
+        return f"themes:{self.ma_id_id}:{self.generated_at.isoformat()}"
+
+
 class RubricBuild(models.Model):
     """
     Log for rubric generation via AI.
