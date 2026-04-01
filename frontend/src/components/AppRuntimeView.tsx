@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { MessageCircle, RotateCcw } from "lucide-react";
@@ -39,6 +39,7 @@ export default function AppRuntimeView({
   const [showRemixBanner, setShowRemixBanner] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [appId, setAppId] = useState<number | null>(null);
+  const usageSessionIdRef = useRef<string | null>(null);
 
   const { user } = useUserStore();
   const { isAuthenticated } = useAuth();
@@ -143,6 +144,66 @@ export default function AppRuntimeView({
       setAppId(nextAppId);
     }
   }, [surveyJson]);
+
+  useEffect(() => {
+    // Skip usage tracking inside builder preview mode.
+    if (!hashId || !showEditLink) return;
+
+    const source = "app";
+    const api = axiosInstance();
+    let disposed = false;
+    let intervalId: number | null = null;
+
+    const postUsageEvent = async (
+      event: "heartbeat" | "end",
+      sessionId: string,
+    ) => {
+      try {
+        await api.post(`/api/microapps/stats/usage-session/${event}`, {
+          hash_id: hashId,
+          session_id: sessionId,
+          source,
+        });
+      } catch (error) {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    const startUsageSession = async () => {
+      try {
+        const response = await api.post("/api/microapps/stats/usage-session/start", {
+          hash_id: hashId,
+          source,
+        });
+        const sessionId = response.data?.session_id;
+        if (!sessionId || disposed) {
+          return;
+        }
+        usageSessionIdRef.current = sessionId;
+
+        intervalId = window.setInterval(() => {
+          if (document.visibilityState === "visible" && usageSessionIdRef.current) {
+            void postUsageEvent("heartbeat", usageSessionIdRef.current);
+          }
+        }, 20000);
+      } catch (error) {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    void startUsageSession();
+
+    return () => {
+      disposed = true;
+      if (intervalId !== null) {
+        window.clearInterval(intervalId);
+      }
+      if (usageSessionIdRef.current) {
+        void postUsageEvent("end", usageSessionIdRef.current);
+      }
+      usageSessionIdRef.current = null;
+    };
+  }, [hashId, showEditLink]);
 
   const submitLTIScore = useCallback(async () => {
     if (!launchId) return;
