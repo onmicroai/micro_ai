@@ -19,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
 from django.db import transaction
+from django.utils import timezone
 
 def handle_exception(e):
     log.error(e)
@@ -278,7 +279,41 @@ class Run(models.Model):
 
     def __str__(self):
         return self.ai_model
-    
+
+
+class AppUsageSession(models.Model):
+    """Tracks runtime session duration for a microapp (including no-run sessions)."""
+
+    SOURCE_CHOICES = [
+        ("app", "app"),
+        ("preview", "preview"),
+        ("embed", "embed"),
+    ]
+
+    ma_id = models.ForeignKey(Microapp, on_delete=models.CASCADE, related_name="usage_sessions")
+    user_id = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="app_usage_sessions",
+    )
+    session_id = models.UUIDField(db_index=True)
+    source = models.CharField(max_length=20, choices=SOURCE_CHOICES, default="app")
+    started_at = models.DateTimeField(auto_now_add=True)
+    last_seen_at = models.DateTimeField(default=timezone.now)
+    ended_at = models.DateTimeField(null=True, blank=True)
+    user_ip = models.CharField(max_length=64, blank=True, default="")
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["ma_id", "session_id"], name="usage_ma_session_idx"),
+            models.Index(fields=["ma_id", "started_at"], name="usage_ma_started_idx"),
+        ]
+
+    def __str__(self):
+        return f"usage:{self.ma_id_id}:{self.session_id}"
+
 
 class RubricBuild(models.Model):
     """
