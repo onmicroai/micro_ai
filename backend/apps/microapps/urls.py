@@ -27,6 +27,7 @@ from .views import (
     
     # Analytics views
     AppStatistics,
+    AppThemes,
     AppConversations,
     AppConversationDetails,
     BillingDetails,
@@ -94,6 +95,7 @@ urlpatterns = [
     
     # Analytics & Statistics
     path('stats/run', AppStatistics.as_view(), name="app_stats"),
+    path('stats/themes', AppThemes.as_view(), name="app_themes"),
     path('stats/conversations', AppConversations.as_view(), name="app_conversations"),
     path('stats/conversation-details', AppConversationDetails.as_view(), name="conversation_details"),
     path('stats/usage-session/start', AppUsageSessionStart.as_view(), name="usage_session_start"),

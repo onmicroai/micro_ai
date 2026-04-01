@@ -14,13 +14,24 @@ from django.db.models.functions import Coalesce, Round
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
 from apps.utils.usage_helper import get_user_ip
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession, AppThemeSnapshot
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
 from django.utils import timezone
 
 MIN_USAGE_DURATION_SECONDS = 5
+
+
+def get_latest_themes_for_app(app_id):
+    snapshot = (
+        AppThemeSnapshot.objects.filter(ma_id=app_id, status="success")
+        .order_by("-generated_at")
+        .first()
+    )
+    if not snapshot:
+        return [], None
+    return snapshot.themes_json or [], snapshot.generated_at
 
 
 def get_stats_for_app_ids(app_ids):
@@ -205,9 +216,61 @@ class AppStatistics(APIView):
                 runs[0]['avg_session_seconds'] = avg_session_seconds
                 runs[0]['min_session_seconds'] = min_session_seconds
                 runs[0]['max_session_seconds'] = max_session_seconds
+                themes, generated_at = get_latest_themes_for_app(app_id)
+                runs[0]['themes'] = themes
+                runs[0]['themes_generated_at'] = generated_at
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
+        except Exception as e:
+            return handle_exception(e)
+
+
+class AppThemes(APIView):
+    """Get latest generated themes for a specific app."""
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            user_id = request.user.id
+            app_id = request.GET.get("app_id")
+            hash_id = request.GET.get("hash_id")
+
+            if not app_id and not hash_id:
+                return Response(
+                    {"error": "app_id or hash_id is required", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not app_id:
+                try:
+                    app_id = Microapp.objects.values_list("id", flat=True).get(hash_id=hash_id)
+                except Microapp.DoesNotExist:
+                    return Response(
+                        {"error": "App not found", "status": status.HTTP_404_NOT_FOUND},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            if not MicroAppUserJoin.objects.filter(
+                user_id=user_id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+            ).exists():
+                return Response(
+                    {"error": "You don't have permission to view themes for this app", "status": status.HTTP_403_FORBIDDEN},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            themes, generated_at = get_latest_themes_for_app(app_id)
+            return Response(
+                {
+                    "data": {
+                        "themes": themes,
+                        "generated_at": generated_at,
+                    },
+                    "status": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             return handle_exception(e)
 
