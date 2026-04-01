@@ -32,7 +32,10 @@ from .analytics_views import (
     AppConversations,
     AppConversationDetails,
     BillingDetails,
-    AppQuota
+    AppQuota,
+    AppUsageSessionStart,
+    AppUsageSessionHeartbeat,
+    AppUsageSessionEnd,
 )
 
 from .media_views import (
@@ -81,6 +84,9 @@ __all__ = [
     'AppConversationDetails',
     'BillingDetails',
     'AppQuota',
+    'AppUsageSessionStart',
+    'AppUsageSessionHeartbeat',
+    'AppUsageSessionEnd',
     
     # Media views
     'MicroAppImageUpload',

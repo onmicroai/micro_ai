@@ -2,20 +2,23 @@
 Analytics and statistics views - Reporting and billing information.
 """
 import logging as log
+import uuid
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view
 from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField, OuterRef, Subquery
 from django.db.models.functions import Coalesce, Round
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run
+from apps.utils.usage_helper import get_user_ip
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
+from django.utils import timezone
 
 
 def get_stats_for_app_ids(app_ids):
@@ -32,7 +35,7 @@ def get_stats_for_app_ids(app_ids):
         sessions=Count('session_id', distinct=True),
     ).values('ma_id', 'total_credits', 'unique_users', 'sessions')
 
-    result = {aid: {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0} for aid in app_ids}
+    result = {aid: {'sessions': 0, 'unique_users': 0, 'total_credits': 0, 'avg_credits_session': 0, 'avg_session_seconds': 0} for aid in app_ids}
     for row in stats_qs:
         ma_id = row['ma_id']
         sessions = row['sessions'] or 0
@@ -43,7 +46,17 @@ def get_stats_for_app_ids(app_ids):
             'unique_users': row['unique_users'] or 0,
             'total_credits': total_credits,
             'avg_credits_session': avg_credits_session,
+            'avg_session_seconds': 0,
         }
+    usage_rows = AppUsageSession.objects.filter(ma_id__in=app_ids).values('ma_id', 'started_at', 'ended_at', 'last_seen_at')
+    durations = {}
+    for usage in usage_rows:
+        end_time = usage['ended_at'] or usage['last_seen_at'] or usage['started_at']
+        duration_seconds = max((end_time - usage['started_at']).total_seconds(), 0)
+        durations.setdefault(usage['ma_id'], []).append(duration_seconds)
+    for ma_id, values in durations.items():
+        if ma_id in result and values:
+            result[ma_id]['avg_session_seconds'] = round(sum(values) / len(values), 2)
     return result
 
 
@@ -124,7 +137,7 @@ class AppStatistics(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            runs = Run.objects.filter(ma_id=app_id).values('ma_id').annotate(
+            runs = list(Run.objects.filter(ma_id=app_id).values('ma_id').annotate(
                 total_responses=Count(
                     Case(
                         When(satisfaction__in=[1, -1], then=1)
@@ -166,9 +179,19 @@ class AppStatistics(APIView):
                 'ma_id', 'net_satisfaction_score', 'thumbs_up_count', 'thumbs_down_count',
                 'total_responses', 'total_cost', 'total_credits', 'unique_users', 'sessions',
                 'avg_cost_session', 'avg_credits_session'
-            )
+            ))
 
-            return Response({"data": list(runs), "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+            usage_rows = AppUsageSession.objects.filter(ma_id=app_id).values('started_at', 'ended_at', 'last_seen_at')
+            durations = []
+            for usage in usage_rows:
+                end_time = usage['ended_at'] or usage['last_seen_at'] or usage['started_at']
+                durations.append(max((end_time - usage['started_at']).total_seconds(), 0))
+            avg_session_seconds = round(sum(durations) / len(durations), 2) if durations else 0
+
+            if runs:
+                runs[0]['avg_session_seconds'] = avg_session_seconds
+
+            return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
         except Exception as e:
             return handle_exception(e)
@@ -329,6 +352,85 @@ class AppConversationDetails(APIView):
                 status=status.HTTP_200_OK
             )
 
+        except Exception as e:
+            return handle_exception(e)
+
+
+class AppUsageSessionStart(APIView):
+    """Start or refresh an app usage session."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            hash_id = request.data.get('hash_id')
+            source = request.data.get('source') or "app"
+            if source not in {"app", "preview", "embed"}:
+                source = "app"
+            if not hash_id:
+                return Response({"error": "hash_id is required", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+            app = Microapp.objects.filter(hash_id=hash_id).first()
+            if not app:
+                return Response({"error": "App not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+
+            user = request.user if request.user.is_authenticated else None
+            ip = get_user_ip(request)
+            session_id = str(uuid.uuid4())
+            AppUsageSession.objects.create(
+                ma_id=app,
+                user_id=user,
+                session_id=session_id,
+                source=source,
+                user_ip=ip,
+            )
+            return Response({"session_id": session_id, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+
+
+class AppUsageSessionHeartbeat(APIView):
+    """Keep an app usage session alive while user remains in app."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            hash_id = request.data.get('hash_id')
+            session_id = request.data.get('session_id')
+            if not hash_id or not session_id:
+                return Response({"error": "hash_id and session_id are required", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+            app = Microapp.objects.filter(hash_id=hash_id).first()
+            if not app:
+                return Response({"error": "App not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+
+            usage = AppUsageSession.objects.filter(ma_id=app.id, session_id=session_id, ended_at__isnull=True).order_by('-started_at').first()
+            if usage:
+                usage.last_seen_at = timezone.now()
+                usage.save(update_fields=['last_seen_at'])
+            return Response({"status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return handle_exception(e)
+
+
+class AppUsageSessionEnd(APIView):
+    """End an app usage session."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        try:
+            hash_id = request.data.get('hash_id')
+            session_id = request.data.get('session_id')
+            if not hash_id or not session_id:
+                return Response({"error": "hash_id and session_id are required", "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
+            app = Microapp.objects.filter(hash_id=hash_id).first()
+            if not app:
+                return Response({"error": "App not found", "status": status.HTTP_404_NOT_FOUND}, status=status.HTTP_404_NOT_FOUND)
+
+            usage = AppUsageSession.objects.filter(ma_id=app.id, session_id=session_id, ended_at__isnull=True).order_by('-started_at').first()
+            if usage:
+                now = timezone.now()
+                usage.last_seen_at = now
+                usage.ended_at = now
+                usage.save(update_fields=['last_seen_at', 'ended_at'])
+            return Response({"status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
         except Exception as e:
             return handle_exception(e)
 
