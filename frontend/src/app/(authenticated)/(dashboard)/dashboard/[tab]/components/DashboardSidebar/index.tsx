@@ -1,11 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import {
-  DragDropContext,
-  Droppable,
-  type DropResult,
-} from "@hello-pangea/dnd";
+import { DragDropContext, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import axiosInstance from "@/utils/axiosInstance";
 import { addMicroappToCollection } from "@/app/(authenticated)/app/(pages)/edit/[id]/utils/updateMicroappCollection";
@@ -137,15 +133,12 @@ export default function DashboardSidebar({
 
       try {
         const api = axiosInstance();
-        const res = await api.get(
-          `/api/collection/app/${appId}/collections/`
-        );
+        const res = await api.get(`/api/collection/app/${appId}/collections/`);
         const cols: { id: number }[] = res?.data?.data ?? [];
         if (cols.some((c) => c.id === collectionId)) {
-          toast.info(
-            `“${title}” is already in “${collectionName}”.`,
-            { theme: "colored" }
-          );
+          toast.info(`“${title}” is already in “${collectionName}”.`, {
+            theme: "colored",
+          });
           flashCollectionRow(collectionId);
           return;
         }
@@ -156,14 +149,19 @@ export default function DashboardSidebar({
         });
         flashCollectionRow(collectionId);
       } catch (e: unknown) {
-        const err = e as { response?: { data?: { error?: string; message?: string } } };
+        const err = e as {
+          response?: { data?: { error?: string; message?: string } };
+        };
         const msg =
           err?.response?.data?.error ||
           err?.response?.data?.message ||
           "Could not add app to collection.";
-        toast.error(typeof msg === "string" ? msg : "Could not add app to collection.", {
-          theme: "colored",
-        });
+        toast.error(
+          typeof msg === "string" ? msg : "Could not add app to collection.",
+          {
+            theme: "colored",
+          }
+        );
       }
     },
     [activeTab, collections, flashCollectionRow, reorderDashboardList]
@@ -421,7 +419,9 @@ export default function DashboardSidebar({
                               </Menu>
                             </button>
                           </div>
-                          <div style={{ display: 'none' }}>{dropProvided.placeholder}</div>
+                          <div style={{ display: "none" }}>
+                            {dropProvided.placeholder}
+                          </div>
                         </li>
                       )}
                     </Droppable>
@@ -468,92 +468,92 @@ export default function DashboardSidebar({
 
   return (
     <DragDropContext onDragEnd={handleDragEnd}>
-    <div className="flex min-h-screen flex-col bg-gray-50 dark:bg-gray-950">
-      {/* Mobile sidebar overlay */}
-      <Dialog
-        open={sidebarOpen}
-        onClose={setSidebarOpen}
-        className="relative z-50 lg:hidden"
-      >
-        <DialogBackdrop
-          transition
-          className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
-        />
-        <div className="fixed inset-0 flex">
-          <DialogPanel
+      <div className="flex min-h-screen flex-col bg-secondary-grey-100 dark:bg-gray-950">
+        {/* Mobile sidebar overlay */}
+        <Dialog
+          open={sidebarOpen}
+          onClose={setSidebarOpen}
+          className="relative z-50 lg:hidden"
+        >
+          <DialogBackdrop
             transition
-            className="relative mr-16 flex h-full max-h-full min-h-0 w-full max-w-xs flex-1 flex-col overflow-hidden transform transition duration-300 ease-in-out data-[closed]:-translate-x-full"
-          >
-            <TransitionChild>
-              <div className="absolute left-full top-0 flex w-16 justify-center pt-5 duration-300 ease-in-out data-[closed]:opacity-0">
-                <button
-                  type="button"
-                  onClick={() => setSidebarOpen(false)}
-                  className="-m-2.5 p-2.5"
-                >
-                  <span className="sr-only">Close sidebar</span>
-                  <XMarkIcon
-                    aria-hidden="true"
-                    className="h-6 w-6 text-white"
-                  />
-                </button>
-              </div>
-            </TransitionChild>
-            <SidebarContent dropInstance="mobile" />
-          </DialogPanel>
-        </div>
-      </Dialog>
-
-      {/* Header - full width, above sidebar and content */}
-      <header className="sticky top-0 z-30 flex shrink-0 items-center gap-x-2 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-4 sm:px-6 lg:px-8 dark:border-gray-700 dark:bg-gray-900">
-        <button
-          type="button"
-          onClick={() => setSidebarOpen(true)}
-          className="-m-2.5 shrink-0 p-2.5 text-gray-700 lg:hidden dark:text-gray-400"
-        >
-          <span className="sr-only">Open sidebar</span>
-          <Bars3Icon aria-hidden="true" className="h-6 w-6" />
-        </button>
-        <div className="min-w-0 flex-1">
-          <DashboardHeader
-            activeTab={activeTab}
-            onCreateApp={onCreateApp}
-            isCreatingApp={isCreatingApp}
+            className="fixed inset-0 bg-gray-900/80 transition-opacity duration-300 ease-linear data-[closed]:opacity-0"
           />
+          <div className="fixed inset-0 flex">
+            <DialogPanel
+              transition
+              className="relative mr-16 flex h-full max-h-full min-h-0 w-full max-w-xs flex-1 flex-col overflow-hidden transform transition duration-300 ease-in-out data-[closed]:-translate-x-full"
+            >
+              <TransitionChild>
+                <div className="absolute left-full top-0 flex w-16 justify-center pt-5 duration-300 ease-in-out data-[closed]:opacity-0">
+                  <button
+                    type="button"
+                    onClick={() => setSidebarOpen(false)}
+                    className="-m-2.5 p-2.5"
+                  >
+                    <span className="sr-only">Close sidebar</span>
+                    <XMarkIcon
+                      aria-hidden="true"
+                      className="h-6 w-6 text-white"
+                    />
+                  </button>
+                </div>
+              </TransitionChild>
+              <SidebarContent dropInstance="mobile" />
+            </DialogPanel>
+          </div>
+        </Dialog>
+
+        {/* Header - full width, above sidebar and content */}
+        <header className="sticky top-0 z-30 flex shrink-0 items-center gap-x-2 border-b border-gray-200 bg-white px-4 shadow-sm sm:gap-x-4 sm:px-6 lg:px-8 dark:border-gray-700 dark:bg-gray-900">
+          <button
+            type="button"
+            onClick={() => setSidebarOpen(true)}
+            className="-m-2.5 shrink-0 p-2.5 text-gray-700 lg:hidden dark:text-gray-400"
+          >
+            <span className="sr-only">Open sidebar</span>
+            <Bars3Icon aria-hidden="true" className="h-6 w-6" />
+          </button>
+          <div className="min-w-0 flex-1">
+            <DashboardHeader
+              activeTab={activeTab}
+              onCreateApp={onCreateApp}
+              isCreatingApp={isCreatingApp}
+            />
+          </div>
+        </header>
+
+        {/* Sidebar + content - below header */}
+        <div className="flex min-h-0 flex-1">
+          {/* Desktop sidebar */}
+          <aside
+            className={cn(
+              "hidden w-72 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white lg:flex dark:border-gray-700 dark:bg-gray-900",
+              /* Viewport-height column: collections scroll inside; Account stays at bottom. */
+              "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:max-h-[calc(100vh-4rem)] lg:self-start"
+            )}
+          >
+            <SidebarContent dropInstance="desktop" />
+          </aside>
+
+          {/* Page content */}
+          <main className="min-w-0 flex-1">
+            <div className="px-4 py-6 sm:px-6">{children}</div>
+          </main>
         </div>
-      </header>
 
-      {/* Sidebar + content - below header */}
-      <div className="flex min-h-0 flex-1">
-        {/* Desktop sidebar */}
-        <aside
-          className={cn(
-            "hidden w-72 shrink-0 flex-col overflow-hidden border-r border-gray-200 bg-white lg:flex dark:border-gray-700 dark:bg-gray-900",
-            /* Viewport-height column: collections scroll inside; Account stays at bottom. */
-            "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:max-h-[calc(100vh-4rem)] lg:self-start"
-          )}
-        >
-          <SidebarContent dropInstance="desktop" />
-        </aside>
-
-        {/* Page content */}
-        <main className="min-w-0 flex-1">
-          <div className="px-4 py-6 sm:px-6">{children}</div>
-        </main>
+        {/* Delete collection confirmation modal */}
+        {collectionToDelete && (
+          <Modal
+            isOpen={!!collectionToDelete}
+            onClose={() => setCollectionToDelete(null)}
+            onConfirm={handleConfirmDeleteCollection}
+            title="Delete Collection"
+            message={`Are you sure that you want to delete "${collectionToDelete.name}"? All apps added to this collection will remain and won’t be deleted.`}
+            confirmText="Delete"
+          />
+        )}
       </div>
-
-      {/* Delete collection confirmation modal */}
-      {collectionToDelete && (
-        <Modal
-          isOpen={!!collectionToDelete}
-          onClose={() => setCollectionToDelete(null)}
-          onConfirm={handleConfirmDeleteCollection}
-          title="Delete Collection"
-          message={`Are you sure that you want to delete "${collectionToDelete.name}"? All apps added to this collection will remain and won’t be deleted.`}
-          confirmText="Delete"
-        />
-      )}
-    </div>
     </DragDropContext>
   );
 }

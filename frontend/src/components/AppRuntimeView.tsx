@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "react-toastify";
 import { MessageCircle, RotateCcw } from "lucide-react";
@@ -39,6 +39,9 @@ export default function AppRuntimeView({
   const [showRemixBanner, setShowRemixBanner] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [appId, setAppId] = useState<number | null>(null);
+  const usageSessionIdRef = useRef<string | null>(null);
+  const usageSessionEndedRef = useRef(false);
+  const usageHeartbeatIntervalRef = useRef<number | null>(null);
 
   const { user } = useUserStore();
   const { isAuthenticated } = useAuth();
@@ -174,7 +177,7 @@ export default function AppRuntimeView({
         const roleResult = await checkRole(hashId, userId, signal);
         if (!roleResult.error) {
           const lowerRoles = roleResult.roles.map((r: string) =>
-            r.toLowerCase(),
+            r.toLowerCase()
           );
           setRoles({
             isOwner: lowerRoles.includes("owner"),
@@ -183,7 +186,7 @@ export default function AppRuntimeView({
           setRolesLoaded(true);
         } else {
           console.warn(
-            "Role check returned error; banner suppressed until retry",
+            "Role check returned error; banner suppressed until retry"
           );
         }
       } catch (error) {
@@ -195,6 +198,118 @@ export default function AppRuntimeView({
 
     return () => abortController.abort();
   }, [userId, hashId, isAuthenticated]);
+
+  useEffect(() => {
+    // Skip usage tracking inside builder preview mode.
+    if (!hashId || !showEditLink) return;
+
+    const source = "app";
+    const api = axiosInstance();
+    let disposed = false;
+
+    const clearHeartbeatInterval = () => {
+      if (usageHeartbeatIntervalRef.current !== null) {
+        window.clearInterval(usageHeartbeatIntervalRef.current);
+        usageHeartbeatIntervalRef.current = null;
+      }
+    };
+
+    const postUsageEvent = async (
+      event: "heartbeat" | "end",
+      sessionId: string
+    ) => {
+      try {
+        await api.post(`/api/microapps/stats/usage-session/${event}`, {
+          hash_id: hashId,
+          session_id: sessionId,
+          source,
+        });
+        if (event === "end") {
+          usageSessionEndedRef.current = true;
+        }
+      } catch {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    const sendEndBeacon = (sessionId: string) => {
+      if (usageSessionEndedRef.current || !navigator.sendBeacon) {
+        return;
+      }
+      const payload = new Blob(
+        [
+          JSON.stringify({
+            hash_id: hashId,
+            session_id: sessionId,
+            source,
+          }),
+        ],
+        { type: "application/json" }
+      );
+      const sent = navigator.sendBeacon(
+        "/api/microapps/stats/usage-session/end",
+        payload
+      );
+      if (sent) {
+        usageSessionEndedRef.current = true;
+      }
+    };
+
+    const startUsageSession = async () => {
+      try {
+        const response = await api.post(
+          "/api/microapps/stats/usage-session/start",
+          {
+            hash_id: hashId,
+            source,
+          }
+        );
+        const sessionId = response.data?.session_id;
+        if (!sessionId || disposed) {
+          return;
+        }
+        usageSessionIdRef.current = sessionId;
+
+        clearHeartbeatInterval();
+        usageHeartbeatIntervalRef.current = window.setInterval(() => {
+          if (disposed || !usageSessionIdRef.current) {
+            return;
+          }
+          if (document.visibilityState === "visible") {
+            void postUsageEvent("heartbeat", usageSessionIdRef.current);
+          }
+        }, 20000);
+      } catch {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    void startUsageSession();
+
+    const handlePageHide = () => {
+      const sessionId = usageSessionIdRef.current;
+      if (!sessionId) {
+        return;
+      }
+      clearHeartbeatInterval();
+      sendEndBeacon(sessionId);
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      disposed = true;
+      clearHeartbeatInterval();
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+      if (usageSessionIdRef.current) {
+        void postUsageEvent("end", usageSessionIdRef.current);
+      }
+      usageSessionIdRef.current = null;
+      usageSessionEndedRef.current = false;
+    };
+  }, [hashId, showEditLink]);
 
   /* ------------------------------------------------------------------
    * Decide when the Remix ("Like this app?") banner should be visible.
@@ -311,7 +426,7 @@ export default function AppRuntimeView({
                   if (appId)
                     resetAppConversation(
                       String(appId),
-                      userId != null ? String(userId) : undefined,
+                      userId != null ? String(userId) : undefined
                     );
                   softResetSurveyStore();
                   setShowThankYouMessage(false);

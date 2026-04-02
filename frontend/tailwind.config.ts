@@ -50,6 +50,7 @@ const config: Config = {
           550: "hsl(var(--secondary-550))",
           450: "hsl(var(--secondary-450))",
           350: "hsl(var(--secondary-350))",
+          "grey-100": "var(--secondary-grey-100)",
         },
         muted: {
           DEFAULT: "hsl(var(--muted))",
