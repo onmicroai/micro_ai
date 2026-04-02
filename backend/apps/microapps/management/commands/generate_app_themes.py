@@ -3,12 +3,18 @@ from django.core.management.base import BaseCommand
 from django.db.models import Max, Min, Count
 
 from apps.microapps.models import Run, AppThemeSnapshot, Microapp
-from apps.microapps.theme_service import build_conversation_digest, generate_themes, THEMES_MODEL
+from apps.microapps.theme_service import (
+    build_conversation_digest,
+    generate_themes,
+    generate_themes_incremental,
+    THEMES_MODEL,
+)
 
 log = logging.getLogger(__name__)
 
 MAX_RUNS_PER_APP = 100
 MIN_RUNS_REQUIRED = 3
+MIN_NEW_RUNS_REQUIRED = 1
 
 
 class Command(BaseCommand):
@@ -41,12 +47,22 @@ class Command(BaseCommand):
             if latest_snapshot_end and latest_run <= latest_snapshot_end:
                 continue
 
-            runs_qs = Run.objects.filter(ma_id=app_id).order_by("-timestamp")[:MAX_RUNS_PER_APP]
+            if latest_snapshot_end:
+                runs_qs = (
+                    Run.objects.filter(ma_id=app_id, timestamp__gt=latest_snapshot_end)
+                    .order_by("timestamp")[:MAX_RUNS_PER_APP]
+                )
+            else:
+                runs_qs = Run.objects.filter(ma_id=app_id).order_by("-timestamp")[:MAX_RUNS_PER_APP]
             runs = list(runs_qs)
-            if len(runs) < MIN_RUNS_REQUIRED:
-                continue
+            if latest_snapshot_end:
+                if len(runs) < MIN_NEW_RUNS_REQUIRED:
+                    continue
+            else:
+                if len(runs) < MIN_RUNS_REQUIRED:
+                    continue
+                runs = list(reversed(runs))
 
-            runs = list(reversed(runs))
             source_window_start = runs[0].timestamp
             source_window_end = runs[-1].timestamp
             conversation_count = len({r.session_id for r in runs if r.session_id})
@@ -59,7 +75,13 @@ class Command(BaseCommand):
                 continue
 
             try:
-                themes = generate_themes(digest)
+                if latest_snapshot and latest_snapshot.themes_json:
+                    themes = generate_themes_incremental(
+                        existing_themes=latest_snapshot.themes_json,
+                        new_conversation_digest=digest,
+                    )
+                else:
+                    themes = generate_themes(digest)
                 AppThemeSnapshot.objects.create(
                     ma_id=app,
                     source_window_start=source_window_start,

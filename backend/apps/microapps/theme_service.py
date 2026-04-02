@@ -94,3 +94,56 @@ def generate_themes(conversation_digest: str) -> List[Dict[str, str]]:
     ai_response = response["data"]["ai_response"]
     themes = parse_themes_response(ai_response)
     return themes[:MAX_THEMES]
+
+
+def generate_themes_incremental(
+    existing_themes: List[Dict[str, str]],
+    new_conversation_digest: str,
+) -> List[Dict[str, str]]:
+    normalized_existing = [
+        {
+            "title": str(theme.get("title", "")).strip(),
+            "description": str(theme.get("description", "")).strip(),
+        }
+        for theme in (existing_themes or [])
+        if isinstance(theme, dict)
+    ]
+    existing_json = json.dumps(normalized_existing[:MAX_THEMES], ensure_ascii=False)
+
+    system_message = (
+        "You maintain app conversation themes incrementally.\n"
+        "Return ONLY valid JSON with this exact shape:\n"
+        '{"themes":[{"title":"1-8 word title","description":"One sentence description"}]}\n'
+        f"Rules:\n- Max {MAX_THEMES} themes\n- Merge overlapping themes\n"
+        "- Keep stable themes when still relevant\n"
+        "- Add/remove themes based on NEW conversations only\n"
+        "- Title must be 1 to 8 words\n- Description must be one sentence\n"
+        "- No markdown, no extra keys, no prose outside JSON"
+    )
+    user_message = (
+        "Current themes snapshot:\n"
+        f"{existing_json}\n\n"
+        "New conversations since last snapshot:\n"
+        f"{new_conversation_digest}\n\n"
+        "Update the themes list accordingly."
+    )
+
+    model_config = DynamicModelService.get_model_config(THEMES_MODEL)
+    llm = UnifiedLLMInterface(model_config)
+    api_params = llm.get_default_params(
+        {
+            "messages": [
+                {"role": "system", "content": system_message},
+                {"role": "user", "content": user_message},
+            ],
+            "model": THEMES_MODEL,
+            "temperature": 0.2,
+            "max_tokens": 1000,
+        }
+    )
+    response = llm.get_response(api_params)
+    if not response.get("status"):
+        raise RuntimeError("LLM incremental theme generation failed")
+    ai_response = response["data"]["ai_response"]
+    themes = parse_themes_response(ai_response)
+    return themes[:MAX_THEMES]
