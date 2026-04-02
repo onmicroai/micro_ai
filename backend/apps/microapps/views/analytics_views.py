@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from django.db.models import Min, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField, OuterRef, Subquery
+from django.db.models import Min, Max, Avg, Case, When, Count, F, Sum, Value, FloatField, Q, ExpressionWrapper, IntegerField, OuterRef, Subquery
 from django.db.models.functions import Coalesce, Round
 
 from apps.utils.custom_error_message import ErrorMessages as error
@@ -219,6 +219,50 @@ class AppStatistics(APIView):
                 themes, generated_at = get_latest_themes_for_app(app_id)
                 runs[0]['themes'] = themes
                 runs[0]['themes_generated_at'] = generated_at
+
+                # Tokens per run (input + output), across all runs for this app
+                token_qs = Run.objects.filter(ma_id=app_id).annotate(
+                    total_tokens=ExpressionWrapper(
+                        F('input_tokens') + F('output_tokens'),
+                        output_field=IntegerField(),
+                    )
+                )
+                token_agg = token_qs.aggregate(
+                    avg_tokens=Avg('total_tokens'),
+                    min_tokens=Min('total_tokens'),
+                    max_tokens=Max('total_tokens'),
+                )
+                avg_t = token_agg.get('avg_tokens')
+                runs[0]['avg_tokens_per_run'] = int(round(avg_t)) if avg_t is not None else 0
+                runs[0]['min_tokens_per_run'] = int(token_agg['min_tokens'] or 0)
+                runs[0]['max_tokens_per_run'] = int(token_agg['max_tokens'] or 0)
+
+                # Pass / fail among scored runs only
+                scored_qs = Run.objects.filter(ma_id=app_id, scored_run=True)
+                passed_ct = scored_qs.filter(run_passed=True).count()
+                failed_ct = scored_qs.filter(run_passed=False).count()
+                scored_total = passed_ct + failed_ct
+                if scored_total:
+                    runs[0]['pass_rate_percent'] = round(100.0 * passed_ct / scored_total, 1)
+                    runs[0]['pass_percent'] = round(100.0 * passed_ct / scored_total, 1)
+                    runs[0]['fail_percent'] = round(100.0 * failed_ct / scored_total, 1)
+                else:
+                    runs[0]['pass_rate_percent'] = 0
+                    runs[0]['pass_percent'] = 0
+                    runs[0]['fail_percent'] = 0
+
+                # Satisfaction: thumbs among users who left a rating
+                up = runs[0].get('thumbs_up_count') or 0
+                down = runs[0].get('thumbs_down_count') or 0
+                rated = up + down
+                if rated:
+                    runs[0]['satisfaction_percent'] = round(100.0 * up / rated, 1)
+                    runs[0]['likes_percent'] = round(100.0 * up / rated, 1)
+                    runs[0]['dislikes_percent'] = round(100.0 * down / rated, 1)
+                else:
+                    runs[0]['satisfaction_percent'] = 0
+                    runs[0]['likes_percent'] = 0
+                    runs[0]['dislikes_percent'] = 0
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
