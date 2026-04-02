@@ -90,6 +90,11 @@ def generate_themes(conversation_digest: str) -> List[Dict[str, str]]:
     )
     response = llm.get_response(api_params)
     if not response.get("status"):
+        log.error(
+            "LLM theme generation failed model=%s detail=%s",
+            THEMES_MODEL,
+            response.get("message", response),
+        )
         raise RuntimeError("LLM theme generation failed")
     ai_response = response["data"]["ai_response"]
     themes = parse_themes_response(ai_response)
@@ -143,6 +148,11 @@ def generate_themes_incremental(
     )
     response = llm.get_response(api_params)
     if not response.get("status"):
+        log.error(
+            "LLM incremental theme generation failed model=%s detail=%s",
+            THEMES_MODEL,
+            response.get("message", response),
+        )
         raise RuntimeError("LLM incremental theme generation failed")
     ai_response = response["data"]["ai_response"]
     themes = parse_themes_response(ai_response)
