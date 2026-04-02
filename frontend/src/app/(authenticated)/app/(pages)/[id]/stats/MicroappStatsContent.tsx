@@ -4,14 +4,13 @@ import { useEffect, useRef, useState } from "react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import AccessDenied from "@/components/access-denied";
 import DebugInformation from "@/components/DebugInformation";
-import { Card } from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/card";
-// import { ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import {
   ThumbsUp,
   ThumbsDown,
   Download,
   MessageSquareText,
   ChevronRight,
+  ClipboardList,
 } from "lucide-react";
 import axiosInstance from "@/utils/axiosInstance";
 import * as XLSX from "xlsx";
@@ -28,6 +27,14 @@ export type MicroappStatsContentProps = {
   hashId: string;
   /** When true, tighter spacing for embedding under FormBuilder chrome */
   embedded?: boolean;
+};
+
+const formatDuration = (seconds: number) => {
+  const safeSeconds =
+    Number.isFinite(seconds) && seconds > 0 ? Math.round(seconds) : 0;
+  const minutes = Math.floor(safeSeconds / 60);
+  const remainder = safeSeconds % 60;
+  return `${minutes}:${String(remainder).padStart(2, "0")}`;
 };
 
 export default function MicroappStatsContent({
@@ -95,28 +102,6 @@ export default function MicroappStatsContent({
     return () => abortController.abort();
   }, [hashId, shellLoading, isAuthorized]);
 
-  const calculateSatisfactionData = () => {
-    const stats_data = stats?.data[0];
-    if (!stats_data) return [];
-
-    const total = stats_data.thumbs_up_count + stats_data.thumbs_down_count;
-
-    if (total === 0) {
-      return [{ name: "No Data", value: 100 }];
-    }
-
-    return [
-      {
-        name: "Satisfied",
-        value: (stats_data.thumbs_up_count / total) * 100,
-      },
-      {
-        name: "Unsatisfied",
-        value: (stats_data.thumbs_down_count / total) * 100,
-      },
-    ];
-  };
-
   const exportAllConversations = async () => {
     try {
       const allConversationDetails = await Promise.all(
@@ -178,37 +163,57 @@ export default function MicroappStatsContent({
     return <AccessDenied />;
   }
 
-  const stats_data = stats?.data[0];
-  const total = stats_data
-    ? stats_data.thumbs_up_count + stats_data.thumbs_down_count
-    : 0;
-  const SATISFACTION_COLORS =
-    total === 0 ? ["#9CA3AF"] : ["#22c55e", "#ef4444"];
+  const row = stats?.data?.[0] ?? {};
+
+  const avgSessionSeconds = Number(row.avg_session_seconds || 0);
+  const minSessionSeconds = Number(row.min_session_seconds || 0);
+  const maxSessionSeconds = Number(row.max_session_seconds || 0);
+
+  const avgTokens = Number(row.avg_tokens_per_run || 0);
+  const minTokens = Number(row.min_tokens_per_run || 0);
+  const maxTokens = Number(row.max_tokens_per_run || 0);
+
+  const passRatePct = Number(row.pass_rate_percent ?? 0);
+  const passPct = Number(row.pass_percent ?? 0);
+  const failPct = Number(row.fail_percent ?? 0);
+
+  const satisfactionPct = Number(row.satisfaction_percent ?? 0);
+  const likesPct = Number(row.likes_percent ?? 0);
+  const dislikesPct = Number(row.dislikes_percent ?? 0);
+
+  const themes = Array.isArray(row.themes) ? row.themes.slice(0, 6) : [];
+
+  const formatPct = (n: number) =>
+    Number.isFinite(n) ? `${n % 1 === 0 ? n : n.toFixed(1)}%` : "0%";
 
   const CARDS_ASSETS = [
     {
       title: "Avg time in app",
-      value: stats?.data[0]?.sessions || 0,
+      value: formatDuration(avgSessionSeconds),
       icon: <ClockSquareIcon />,
-      subtitle: "min 00:35 | max: 5:35",
+      subtitle: `min ${formatDuration(
+        minSessionSeconds
+      )} | max ${formatDuration(maxSessionSeconds)}`,
     },
     {
-      title: "Avg Tokens",
-      value: stats?.data[0]?.unique_users || 0,
+      title: "Avg tokens",
+      value: avgTokens.toLocaleString(),
       icon: <CoinsSquareIcon />,
-      subtitle: "min 00:35 | max: 5:35",
+      subtitle: `min ${minTokens.toLocaleString()} | max ${maxTokens.toLocaleString()}`,
     },
     {
-      title: "Pass Rate",
-      value: stats?.data[0]?.total_credits || "0",
+      title: "Pass rate",
+      value: formatPct(passRatePct),
       icon: <StaticSquareIcon />,
-      subtitle: "min 00:35 | max: 5:35",
+      subtitle: `pass ${formatPct(passPct)} | fail ${formatPct(failPct)}`,
     },
     {
-      title: "User Satisfaction",
-      value: stats?.data[0]?.avg_credits_session || "0",
+      title: "User satisfaction",
+      value: formatPct(satisfactionPct),
       icon: <LikeSquareIcon />,
-      subtitle: "min 00:35 | max: 5:35",
+      subtitle: `likes ${formatPct(likesPct)} | dislikes ${formatPct(
+        dislikesPct
+      )}`,
     },
   ];
 
@@ -225,39 +230,12 @@ export default function MicroappStatsContent({
   return (
     <div className="bg-secondary-grey-100 h-full">
       <div className={cn("container mx-auto px-", embedded ? "py-4" : "py-8")}>
-        {/* <h1
-        className={cn(
-          "font-bold",
-          embedded ? "text-2xl mb-4" : "text-3xl mb-8"
-        )}
-      >
-        App Statistics
-      </h1> */}
-
         <div className="flex flex-col gap-5">
           <div className="flex w-full gap-5">
-            {/* <div className="bg-white p-4 rounded-lg flex-1">
-              <p className="text-gray-600 text-sm">Total Usage</p>
-              <p className="text-2xl font-bold">
-                {stats?.data[0]?.sessions || 0}
-              </p>
-            </div> */}
-            {/* <div className="bg-white p-4 rounded-lg flex-1">
-              <p className="text-gray-600 text-sm">Unique Users</p>
-              <p className="text-2xl font-bold">
-                {stats?.data[0]?.unique_users || 0}
-              </p>
-            </div> */}
-            {/* <div className="bg-white p-4 rounded-lg flex-1">
-              <p className="text-gray-600 text-sm">Total Cost (Credits)</p>
-              <p className="text-2xl font-bold">
-                {stats?.data[0]?.total_credits || "0"}
-              </p>
-            </div> */}
             {CARDS_ASSETS.map((card, index) => (
-              <div className="bg-white flex-1 p-4 space-y-5">
+              <div key={index} className="bg-white flex-1 p-4 space-y-5">
                 <div className="flex">
-                  <div key={index} className="w-full space-y-2">
+                  <div className="w-full space-y-2">
                     <p className="text-gray-600 text-sm">{card.title}</p>
                     <p className="text-2xl font-bold">{card.value}</p>
                   </div>
@@ -268,40 +246,35 @@ export default function MicroappStatsContent({
             ))}
           </div>
 
-          {/* <Card className="p-6">
-          <h2 className="text-xl font-semibold mb-4">User Satisfaction</h2>
-          <div className="h-[300px] relative">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={calculateSatisfactionData()}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  startAngle={90}
-                  endAngle={-270}
-                >
-                  {calculateSatisfactionData().map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={
-                        SATISFACTION_COLORS[index % SATISFACTION_COLORS.length]
-                      }
-                    />
-                  ))}
-                </Pie>
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <span className="text-3xl font-bold">
-                {stats?.data[0]?.net_satisfaction_score * 100 || 0}%
-              </span>
+          {themes.length > 0 && (
+            <div className="bg-white p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <ClipboardList className="text-primary" />
+                <h6 className="text-md font-semibold">Themes</h6>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {themes.map(
+                  (
+                    theme: { title: string; description: string },
+                    index: number
+                  ) => (
+                    <div
+                      key={`${theme.title}-${index}`}
+                      className="bg-secondary-grey-100 p-3 space-y-2.5"
+                    >
+                      <p className="font-semibold text-sm text-gray-900">
+                        {theme.title}
+                      </p>
+                      <p className="text-sm text-gray-600">
+                        {theme.description}
+                      </p>
+                    </div>
+                  )
+                )}
+              </div>
             </div>
-          </div>
-        </Card> */}
+          )}
 
           <div className="bg-white p-4">
             <div className="flex justify-between items-center mb-4">
@@ -319,7 +292,7 @@ export default function MicroappStatsContent({
                 className="text-gray-600 hover:text-gray-900 flex items-center gap-2"
               >
                 <Download className="h-5 w-5" />
-                <span>Export All</span>
+                <span className="text-sm">Export All</span>
               </button>
             </div>
             <div className="overflow-x-auto">
@@ -361,7 +334,15 @@ export default function MicroappStatsContent({
                           <ThumbsDown className="h-5 w-5 text-red-500" />
                         )}
                       </td>
-                      <td></td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className="text-green-600">
+                          {Number(conv.passes || 0)} passes
+                        </span>{" "}
+                        /{" "}
+                        <span className="text-red-600">
+                          {Number(conv.fails || 0)} fails
+                        </span>
+                      </td>
                       <td className="px-6 py-4 whitespace-nowrap flex justify-end">
                         <Link
                           href={`/app/${hashId}/stats/${conv.session_id}`}
