@@ -7,7 +7,7 @@ from apps.microapps.theme_service import build_conversation_digest, generate_the
 
 log = logging.getLogger(__name__)
 
-MAX_RUNS_PER_APP = 200
+MAX_RUNS_PER_APP = 100
 MIN_RUNS_REQUIRED = 3
 
 
