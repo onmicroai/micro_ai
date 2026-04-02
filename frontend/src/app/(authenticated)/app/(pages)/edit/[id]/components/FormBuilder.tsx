@@ -2818,9 +2818,7 @@ export default function FormBuilder() {
                   </div>
                 )}
                 {activeTab === "stats" && (
-                  // <div className="pt-2 pb-24 w-full min-w-0">
                   <MicroappStatsContent hashId={hashId} />
-                  // </div>
                 )}
               </div>
             </div>
