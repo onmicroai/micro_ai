@@ -388,6 +388,8 @@ class AppConversations(APIView):
                 total_credits=Sum('credits'),
                 satisfaction=satisfaction_subquery,
                 model=model_subquery,
+                passes=Count(Case(When(scored_run=True, run_passed=True, then=1))),
+                fails=Count(Case(When(scored_run=True, run_passed=False, then=1))),
             ).order_by('-start_time')
 
             # Optional pagination via ?page=1&page_size=50
