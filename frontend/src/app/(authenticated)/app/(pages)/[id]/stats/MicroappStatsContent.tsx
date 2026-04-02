@@ -21,13 +21,30 @@ import ClockSquareIcon from "@/components/icons/ClockSquareIcon";
 import CoinsSquareIcon from "@/components/icons/CoinsSquareIcon";
 import StaticSquareIcon from "@/components/icons/StatisticSquareIcon";
 import LikeSquareIcon from "@/components/icons/LikeSquareIcon";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "../../edit/[id]/components/ui/dialog";
+import { Card } from "../../edit/[id]/components/ui/card";
+import { Button } from "@/components/Button";
 
 export type MicroappStatsContentProps = {
   hashId: string;
   /** When true, tighter spacing for embedding under FormBuilder chrome */
   embedded?: boolean;
+};
+
+type ConversationMessage = {
+  timestamp: string;
+  system_prompt: string;
+  phase_instructions: string;
+  user_prompt: string;
+  response: string;
+  rubric: string;
+  run_score: number | null;
+  run_passed: boolean | null;
 };
 
 const formatDuration = (seconds: number) => {
@@ -42,13 +59,22 @@ export default function MicroappStatsContent({
   hashId,
   embedded = false,
 }: MicroappStatsContentProps) {
-  const router = useRouter();
   const [dataLoading, setDataLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
+  const [conversationDialogOpen, setConversationDialogOpen] = useState(false);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(
+    null
+  );
+  const [conversationDetail, setConversationDetail] = useState<{
+    data: ConversationMessage[];
+  } | null>(null);
+  const [conversationDetailLoading, setConversationDetailLoading] =
+    useState(false);
 
   const { shellLoading, isAuthorized } = useMicroappAccess(hashId, "edit");
   const fetchSeq = useRef(0);
+  const conversationFetchSeq = useRef(0);
 
   useEffect(() => {
     if (shellLoading) {
@@ -103,6 +129,99 @@ export default function MicroappStatsContent({
 
     return () => abortController.abort();
   }, [hashId, shellLoading, isAuthorized]);
+
+  useEffect(() => {
+    if (
+      !conversationDialogOpen ||
+      !selectedSessionId ||
+      shellLoading ||
+      !isAuthorized
+    ) {
+      return;
+    }
+
+    const seq = ++conversationFetchSeq.current;
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
+    const load = async () => {
+      setConversationDetailLoading(true);
+      setConversationDetail(null);
+      try {
+        const response = await axiosInstance().get(
+          `/api/microapps/stats/conversation-details?session_id=${selectedSessionId}`,
+          { signal }
+        );
+        if (seq !== conversationFetchSeq.current) {
+          return;
+        }
+        setConversationDetail(response.data);
+      } catch (error: unknown) {
+        const errorName =
+          error && typeof error === "object" && "name" in error
+            ? String((error as { name?: string }).name)
+            : "";
+        if (
+          errorName &&
+          errorName !== "AbortError" &&
+          errorName !== "CanceledError"
+        ) {
+          console.error("Error:", error);
+        }
+      } finally {
+        if (seq === conversationFetchSeq.current) {
+          setConversationDetailLoading(false);
+        }
+      }
+    };
+
+    void load();
+
+    return () => abortController.abort();
+  }, [conversationDialogOpen, selectedSessionId, shellLoading, isAuthorized]);
+
+  const openConversationDialog = (sessionId: string) => {
+    setSelectedSessionId(sessionId);
+    setConversationDialogOpen(true);
+  };
+
+  const onConversationDialogOpenChange = (open: boolean) => {
+    setConversationDialogOpen(open);
+    if (!open) {
+      setSelectedSessionId(null);
+      setConversationDetail(null);
+    }
+  };
+
+  const formatConversationTimestamp = (timestamp: string) =>
+    format(new Date(timestamp), "MMM d, yyyy HH:mm:ss");
+
+  const exportConversationToExcel = () => {
+    if (!conversationDetail?.data || !selectedSessionId) {
+      return;
+    }
+
+    const exportData = conversationDetail.data.map((message) => ({
+      Timestamp: formatConversationTimestamp(message.timestamp),
+      "System Prompt": message.system_prompt,
+      "Phase Instructions": message.phase_instructions,
+      "User Prompt": message.user_prompt,
+      Response: message.response,
+      Rubric: message.rubric || "",
+      Score: message.run_score ?? "",
+      Passed:
+        message.run_passed === null ? "" : message.run_passed ? "Yes" : "No",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Conversation");
+    const fileName = `conversation_${selectedSessionId}_${format(
+      new Date(),
+      "yyyyMMdd_HHmmss"
+    )}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+  };
 
   const exportAllConversations = async () => {
     try {
@@ -316,9 +435,7 @@ export default function MicroappStatsContent({
                     <tr
                       key={conv.session_id}
                       className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() =>
-                        router.push(`/app/${hashId}/stats/${conv.session_id}`)
-                      }
+                      onClick={() => openConversationDialog(conv.session_id)}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(conv.start_time).toLocaleString()}
@@ -351,14 +468,11 @@ export default function MicroappStatsContent({
                           {Number(conv.fails || 0)} fails
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap flex justify-end">
-                        <Link
-                          href={`/app/${hashId}/stats/${conv.session_id}`}
-                          className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ChevronRight />
-                        </Link>
+                      <td className="px-6 py-4 whitespace-nowrap flex justify-end text-gray-400">
+                        <ChevronRight
+                          className="h-5 w-5 text-primary"
+                          aria-hidden
+                        />
                       </td>
                     </tr>
                   ))}
@@ -367,6 +481,102 @@ export default function MicroappStatsContent({
             </div>
           </div>
         </div>
+
+        <Dialog
+          open={conversationDialogOpen}
+          onOpenChange={onConversationDialogOpenChange}
+        >
+          <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 overflow-hidden p-0 sm:rounded-lg">
+            <DialogHeader className="shrink-0 border-b px-6 py-4 pr-12 text-left">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <DialogTitle className="text-lg font-semibold">
+                  Conversation
+                  {selectedSessionId ? (
+                    <span className="mt-1 block font-mono text-xs font-normal text-muted-foreground">
+                      {selectedSessionId}
+                    </span>
+                  ) : null}
+                </DialogTitle>
+                <Button
+                  type="button"
+                  onClick={exportConversationToExcel}
+                  disabled={
+                    !conversationDetail?.data?.length ||
+                    conversationDetailLoading
+                  }
+                  className="shrink-0 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 w-fit"
+                >
+                  <Download className="h-4 w-4" />
+                  Export to Excel
+                </Button>
+              </div>
+            </DialogHeader>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+              {conversationDetailLoading ? (
+                <div className="flex justify-center py-12">
+                  <SkeletonLoader />
+                </div>
+              ) : conversationDetail?.data?.length ? (
+                <div className="space-y-4">
+                  {conversationDetail.data.map(
+                    (message: ConversationMessage, index: number) => (
+                      <Card key={index} className="p-4 sm:p-6">
+                        <div className="text-sm text-gray-500 mb-4">
+                          {formatConversationTimestamp(message.timestamp)}
+                        </div>
+
+                        {message.phase_instructions ? (
+                          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                            <div className="text-sm font-medium text-gray-700">
+                              Phase Instructions:
+                            </div>
+                            <div className="text-gray-600">
+                              {message.phase_instructions}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="flex flex-col space-y-4">
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
+                              <span className="text-blue-600">U</span>
+                            </div>
+                            <div className="ml-3 bg-blue-50 rounded-lg p-3 flex-grow min-w-0">
+                              <div className="text-sm font-medium text-gray-900">
+                                User
+                              </div>
+                              <div className="text-gray-700 break-words">
+                                {message.user_prompt}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start">
+                            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                              <span className="text-green-600">A</span>
+                            </div>
+                            <div className="ml-3 bg-green-50 rounded-lg p-3 flex-grow min-w-0">
+                              <div className="text-sm font-medium text-gray-900">
+                                Assistant
+                              </div>
+                              <div className="text-gray-700 whitespace-pre-wrap break-words">
+                                {message.response}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    )
+                  )}
+                </div>
+              ) : (
+                <p className="text-center text-sm text-muted-foreground py-12">
+                  No messages in this conversation.
+                </p>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
 
         <DebugInformation
           surveyJson={null}
