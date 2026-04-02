@@ -22,6 +22,7 @@ import CoinsSquareIcon from "@/components/icons/CoinsSquareIcon";
 import StaticSquareIcon from "@/components/icons/StatisticSquareIcon";
 import LikeSquareIcon from "@/components/icons/LikeSquareIcon";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 export type MicroappStatsContentProps = {
   hashId: string;
@@ -41,6 +42,7 @@ export default function MicroappStatsContent({
   hashId,
   embedded = false,
 }: MicroappStatsContentProps) {
+  const router = useRouter();
   const [dataLoading, setDataLoading] = useState(true);
   const [stats, setStats] = useState<any>(null);
   const [conversations, setConversations] = useState<any[]>([]);
@@ -311,7 +313,13 @@ export default function MicroappStatsContent({
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {conversations.map((conv) => (
-                    <tr key={conv.session_id} className="hover:bg-gray-50">
+                    <tr
+                      key={conv.session_id}
+                      className="hover:bg-gray-50 cursor-pointer"
+                      onClick={() =>
+                        router.push(`/app/${hashId}/stats/${conv.session_id}`)
+                      }
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                         {new Date(conv.start_time).toLocaleString()}
                       </td>
@@ -347,6 +355,7 @@ export default function MicroappStatsContent({
                         <Link
                           href={`/app/${hashId}/stats/${conv.session_id}`}
                           className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           <ChevronRight />
                         </Link>
