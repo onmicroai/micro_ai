@@ -86,6 +86,7 @@ jobs:
               cd /docker/volumes/micro_ai_staging
               docker-compose -f docker-compose.prod.yml down litellm
               docker-compose -p backend -f docker-compose.prod.yml down web-staging
+              docker-compose -p backend -f docker-compose.prod.yml down theme-cron
               docker-compose -p frontend -f docker-compose.prod.yml down frontend-staging
             else
               echo "Directory /docker/volumes/micro_ai_staging does not exist. Skipping."
@@ -117,5 +118,5 @@ jobs:
             cd /docker/volumes/micro_ai_staging
             docker-compose -f docker-compose.prod.yml up -d litellm
             docker-compose -p backend -f docker-compose.prod.yml up -d web-staging
+            docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
             docker-compose -p frontend -f docker-compose.prod.yml up -d frontend-staging
-            

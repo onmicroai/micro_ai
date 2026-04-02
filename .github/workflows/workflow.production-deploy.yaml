@@ -26,7 +26,6 @@ jobs:
             if [ -d "/docker/volumes/micro_ai" ]; then
               cd /docker/volumes/micro_ai
               docker-compose -p backend -f docker-compose.prod.yml down web
-              docker-compose -p backend -f docker-compose.prod.yml down theme-cron
               docker-compose -p frontend -f docker-compose.prod.yml down frontend
             else
               echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
@@ -57,7 +56,6 @@ jobs:
           script: |
             cd /docker/volumes/micro_ai
             docker-compose -p backend -f docker-compose.prod.yml up -d web
-            docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
             docker-compose -p frontend -f docker-compose.prod.yml up -d frontend
 
       - name: Clean up disk space
