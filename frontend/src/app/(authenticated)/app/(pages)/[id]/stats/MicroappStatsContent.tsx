@@ -180,8 +180,8 @@ export default function MicroappStatsContent({
     return () => abortController.abort();
   }, [conversationDialogOpen, selectedSessionId, shellLoading, isAuthorized]);
 
-  const openConversationDialog = (sessionId: string) => {
-    setSelectedSessionId(sessionId);
+  const openConversationDialog = (sessionId: string | number) => {
+    setSelectedSessionId(String(sessionId));
     setConversationDialogOpen(true);
   };
 
@@ -431,51 +431,97 @@ export default function MicroappStatsContent({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {conversations.map((conv) => (
-                    <tr
-                      key={conv.session_id}
-                      className="hover:bg-gray-50 cursor-pointer"
-                      onClick={() => openConversationDialog(conv.session_id)}
-                    >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(conv.start_time).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {conv.messages_count}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {conv.total_credits}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        <span className="px-2.5 py-0.5 bg-secondary-grey-100 rounded-md">
-                          {conv.model}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {conv.satisfaction === 1 && (
-                          <ThumbsUp className="h-5 w-5 text-green-500" />
+                  {conversations.map((conv) => {
+                    const rowSessionId = String(conv.session_id ?? "");
+                    const isOpenInDialog =
+                      conversationDialogOpen &&
+                      selectedSessionId === rowSessionId;
+                    const selectedCell = isOpenInDialog
+                      ? "bg-sky-100 hover:bg-sky-200/90"
+                      : "";
+                    return (
+                      <tr
+                        key={rowSessionId}
+                        aria-selected={isOpenInDialog}
+                        className={cn(
+                          "cursor-pointer transition-colors",
+                          !isOpenInDialog && "hover:bg-gray-50"
                         )}
-                        {conv.satisfaction === -1 && (
-                          <ThumbsDown className="h-5 w-5 text-red-500" />
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className="text-green-600">
-                          {Number(conv.passes || 0)} passes
-                        </span>{" "}
-                        /{" "}
-                        <span className="text-red-600">
-                          {Number(conv.fails || 0)} fails
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap flex justify-end text-gray-400">
-                        <ChevronRight
-                          className="h-5 w-5 text-primary"
-                          aria-hidden
-                        />
-                      </td>
-                    </tr>
-                  ))}
+                        onClick={() => openConversationDialog(conv.session_id)}
+                      >
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+                            selectedCell
+                          )}
+                        >
+                          {new Date(conv.start_time).toLocaleString()}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+                            selectedCell
+                          )}
+                        >
+                          {conv.messages_count}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+                            selectedCell
+                          )}
+                        >
+                          {conv.total_credits}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap text-sm text-gray-500",
+                            selectedCell
+                          )}
+                        >
+                          <span className="px-2.5 py-0.5 bg-secondary-grey-100 rounded-md">
+                            {conv.model}
+                          </span>
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap",
+                            selectedCell
+                          )}
+                        >
+                          {conv.satisfaction === 1 && (
+                            <ThumbsUp className="h-5 w-5 text-green-500" />
+                          )}
+                          {conv.satisfaction === -1 && (
+                            <ThumbsDown className="h-5 w-5 text-red-500" />
+                          )}
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap text-sm",
+                            selectedCell
+                          )}
+                        >
+                          <span className="text-green-600">
+                            {Number(conv.passes || 0)} passes
+                          </span>{" "}
+                          /{" "}
+                          <span className="text-red-600">
+                            {Number(conv.fails || 0)} fails
+                          </span>
+                        </td>
+                        <td
+                          className={cn(
+                            "px-6 py-4 whitespace-nowrap flex justify-end",
+                            selectedCell,
+                            isOpenInDialog ? "text-sky-700" : "text-gray-400"
+                          )}
+                        >
+                          <ChevronRight className="h-5 w-5" aria-hidden />
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
