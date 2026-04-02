@@ -41,6 +41,7 @@ export default function AppRuntimeView({
   const [appId, setAppId] = useState<number | null>(null);
   const usageSessionIdRef = useRef<string | null>(null);
   const usageSessionEndedRef = useRef(false);
+  const usageHeartbeatIntervalRef = useRef<number | null>(null);
 
   const { user } = useUserStore();
   const { isAuthenticated } = useAuth();
@@ -146,112 +147,6 @@ export default function AppRuntimeView({
     }
   }, [surveyJson]);
 
-  useEffect(() => {
-    // Skip usage tracking inside builder preview mode.
-    if (!hashId || !showEditLink) return;
-
-    const source = "app";
-    const api = axiosInstance();
-    let disposed = false;
-    let intervalId: number | null = null;
-
-    const postUsageEvent = async (
-      event: "heartbeat" | "end",
-      sessionId: string
-    ) => {
-      try {
-        await api.post(`/api/microapps/stats/usage-session/${event}`, {
-          hash_id: hashId,
-          session_id: sessionId,
-          source,
-        });
-        if (event === "end") {
-          usageSessionEndedRef.current = true;
-        }
-      } catch (error) {
-        // Non-blocking analytics event: ignore failures.
-      }
-    };
-
-    const sendEndBeacon = (sessionId: string) => {
-      if (usageSessionEndedRef.current || !navigator.sendBeacon) {
-        return;
-      }
-      const payload = new Blob(
-        [
-          JSON.stringify({
-            hash_id: hashId,
-            session_id: sessionId,
-            source,
-          }),
-        ],
-        { type: "application/json" }
-      );
-      const sent = navigator.sendBeacon(
-        "/api/microapps/stats/usage-session/end",
-        payload
-      );
-      if (sent) {
-        usageSessionEndedRef.current = true;
-      }
-    };
-
-    const startUsageSession = async () => {
-      try {
-        const response = await api.post(
-          "/api/microapps/stats/usage-session/start",
-          {
-            hash_id: hashId,
-            source,
-          }
-        );
-        const sessionId = response.data?.session_id;
-        if (!sessionId || disposed) {
-          return;
-        }
-        usageSessionIdRef.current = sessionId;
-
-        intervalId = window.setInterval(() => {
-          if (
-            document.visibilityState === "visible" &&
-            usageSessionIdRef.current
-          ) {
-            void postUsageEvent("heartbeat", usageSessionIdRef.current);
-          }
-        }, 20000);
-      } catch (error) {
-        // Non-blocking analytics event: ignore failures.
-      }
-    };
-
-    void startUsageSession();
-
-    const handlePageHide = () => {
-      const sessionId = usageSessionIdRef.current;
-      if (!sessionId) {
-        return;
-      }
-      sendEndBeacon(sessionId);
-    };
-
-    window.addEventListener("pagehide", handlePageHide);
-    window.addEventListener("beforeunload", handlePageHide);
-
-    return () => {
-      disposed = true;
-      if (intervalId !== null) {
-        window.clearInterval(intervalId);
-      }
-      window.removeEventListener("pagehide", handlePageHide);
-      window.removeEventListener("beforeunload", handlePageHide);
-      if (usageSessionIdRef.current) {
-        void postUsageEvent("end", usageSessionIdRef.current);
-      }
-      usageSessionIdRef.current = null;
-      usageSessionEndedRef.current = false;
-    };
-  }, [hashId, showEditLink]);
-
   const submitLTIScore = useCallback(async () => {
     if (!launchId) return;
 
@@ -303,6 +198,118 @@ export default function AppRuntimeView({
 
     return () => abortController.abort();
   }, [userId, hashId, isAuthenticated]);
+
+  useEffect(() => {
+    // Skip usage tracking inside builder preview mode.
+    if (!hashId || !showEditLink) return;
+
+    const source = "app";
+    const api = axiosInstance();
+    let disposed = false;
+
+    const clearHeartbeatInterval = () => {
+      if (usageHeartbeatIntervalRef.current !== null) {
+        window.clearInterval(usageHeartbeatIntervalRef.current);
+        usageHeartbeatIntervalRef.current = null;
+      }
+    };
+
+    const postUsageEvent = async (
+      event: "heartbeat" | "end",
+      sessionId: string
+    ) => {
+      try {
+        await api.post(`/api/microapps/stats/usage-session/${event}`, {
+          hash_id: hashId,
+          session_id: sessionId,
+          source,
+        });
+        if (event === "end") {
+          usageSessionEndedRef.current = true;
+        }
+      } catch {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    const sendEndBeacon = (sessionId: string) => {
+      if (usageSessionEndedRef.current || !navigator.sendBeacon) {
+        return;
+      }
+      const payload = new Blob(
+        [
+          JSON.stringify({
+            hash_id: hashId,
+            session_id: sessionId,
+            source,
+          }),
+        ],
+        { type: "application/json" }
+      );
+      const sent = navigator.sendBeacon(
+        "/api/microapps/stats/usage-session/end",
+        payload
+      );
+      if (sent) {
+        usageSessionEndedRef.current = true;
+      }
+    };
+
+    const startUsageSession = async () => {
+      try {
+        const response = await api.post(
+          "/api/microapps/stats/usage-session/start",
+          {
+            hash_id: hashId,
+            source,
+          }
+        );
+        const sessionId = response.data?.session_id;
+        if (!sessionId || disposed) {
+          return;
+        }
+        usageSessionIdRef.current = sessionId;
+
+        clearHeartbeatInterval();
+        usageHeartbeatIntervalRef.current = window.setInterval(() => {
+          if (disposed || !usageSessionIdRef.current) {
+            return;
+          }
+          if (document.visibilityState === "visible") {
+            void postUsageEvent("heartbeat", usageSessionIdRef.current);
+          }
+        }, 20000);
+      } catch {
+        // Non-blocking analytics event: ignore failures.
+      }
+    };
+
+    void startUsageSession();
+
+    const handlePageHide = () => {
+      const sessionId = usageSessionIdRef.current;
+      if (!sessionId) {
+        return;
+      }
+      clearHeartbeatInterval();
+      sendEndBeacon(sessionId);
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+    window.addEventListener("beforeunload", handlePageHide);
+
+    return () => {
+      disposed = true;
+      clearHeartbeatInterval();
+      window.removeEventListener("pagehide", handlePageHide);
+      window.removeEventListener("beforeunload", handlePageHide);
+      if (usageSessionIdRef.current) {
+        void postUsageEvent("end", usageSessionIdRef.current);
+      }
+      usageSessionIdRef.current = null;
+      usageSessionEndedRef.current = false;
+    };
+  }, [hashId, showEditLink]);
 
   /* ------------------------------------------------------------------
    * Decide when the Remix ("Like this app?") banner should be visible.
