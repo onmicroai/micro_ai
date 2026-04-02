@@ -75,7 +75,8 @@ class Command(BaseCommand):
                 continue
 
             try:
-                if latest_snapshot and latest_snapshot.themes_json:
+                should_full_refresh = len(runs) >= MAX_RUNS_PER_APP
+                if latest_snapshot and latest_snapshot.themes_json and not should_full_refresh:
                     themes = generate_themes_incremental(
                         existing_themes=latest_snapshot.themes_json,
                         new_conversation_digest=digest,
