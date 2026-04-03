@@ -94,6 +94,8 @@ services:
         condition: service_healthy
       litellm:
         condition: service_started
+      web:
+        condition: service_healthy
 
   frontend:
     container_name: frontend

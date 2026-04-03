@@ -117,6 +117,8 @@ services:
         condition: service_healthy
       litellm:
         condition: service_started
+      web:
+        condition: service_healthy
   frontend-staging:
     container_name: frontend-staging
     image: frontend:latest
