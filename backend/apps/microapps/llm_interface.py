@@ -146,16 +146,8 @@ class UnifiedLLMInterface:
                         payload["thinking"] = {"type": "enabled", "budget_tokens": 10000}
                     else:
                         payload["thinking"] = {"type": "disabled"}
-                elif "openai" in model_name_lower or "gpt" in model_name_lower:
-                    if "gpt-5.1" in model_name_lower:
-                        payload["reasoning_effort"] = "none"
-                    else:
-                        payload["reasoning_effort"] = "minimal"
-                elif "google" in model_name_lower or "gemini" in model_name_lower:
-                    if "gemini-2.5-pro" in model_name_lower:
-                        payload["reasoning_effort"] = "low"
-                    else:
-                        payload["reasoning_effort"] = "disable"
+                else:
+                    payload["reasoning_effort"] = "low"
             
             if stream:
                 # For streaming, return a generator
