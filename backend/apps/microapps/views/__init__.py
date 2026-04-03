@@ -29,10 +29,14 @@ from .run_views import (
 
 from .analytics_views import (
     AppStatistics,
+    AppThemes,
     AppConversations,
     AppConversationDetails,
     BillingDetails,
-    AppQuota
+    AppQuota,
+    AppUsageSessionStart,
+    AppUsageSessionHeartbeat,
+    AppUsageSessionEnd,
 )
 
 from .media_views import (
@@ -77,10 +81,14 @@ __all__ = [
     
     # Analytics views
     'AppStatistics',
+    'AppThemes',
     'AppConversations',
     'AppConversationDetails',
     'BillingDetails',
     'AppQuota',
+    'AppUsageSessionStart',
+    'AppUsageSessionHeartbeat',
+    'AppUsageSessionEnd',
     
     # Media views
     'MicroAppImageUpload',

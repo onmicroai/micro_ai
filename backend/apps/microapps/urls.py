@@ -27,10 +27,14 @@ from .views import (
     
     # Analytics views
     AppStatistics,
+    AppThemes,
     AppConversations,
     AppConversationDetails,
     BillingDetails,
     AppQuota,
+    AppUsageSessionStart,
+    AppUsageSessionHeartbeat,
+    AppUsageSessionEnd,
     
     # Media views
     MicroAppImageUpload,
@@ -91,8 +95,12 @@ urlpatterns = [
     
     # Analytics & Statistics
     path('stats/run', AppStatistics.as_view(), name="app_stats"),
+    path('stats/themes', AppThemes.as_view(), name="app_themes"),
     path('stats/conversations', AppConversations.as_view(), name="app_conversations"),
     path('stats/conversation-details', AppConversationDetails.as_view(), name="conversation_details"),
+    path('stats/usage-session/start', AppUsageSessionStart.as_view(), name="usage_session_start"),
+    path('stats/usage-session/heartbeat', AppUsageSessionHeartbeat.as_view(), name="usage_session_heartbeat"),
+    path('stats/usage-session/end', AppUsageSessionEnd.as_view(), name="usage_session_end"),
     path('user/billing', BillingDetails.as_view(), name="usage_details"),
     path('quota/', AppQuota.as_view(), name='app-quota'),
     

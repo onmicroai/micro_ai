@@ -89,6 +89,7 @@ jobs:
             cd /docker/volumes/micro_ai
             docker-compose -f docker-compose.dev.yml down litellm
             docker-compose -p backend -f docker-compose.dev.yml down web
+            docker-compose -p backend -f docker-compose.dev.yml down theme-cron
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
           else
             echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
@@ -120,6 +121,7 @@ jobs:
           cd /docker/volumes/micro_ai
           docker-compose -f docker-compose.dev.yml up -d litellm
           docker compose -p backend -f docker-compose.dev.yml up -d web
+          docker compose -p backend -f docker-compose.dev.yml up -d theme-cron
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
 
   clean:

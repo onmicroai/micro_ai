@@ -92,6 +92,31 @@ services:
       timeout: 5s
       retries: 20
       start_period: 15s
+
+  theme-cron:
+    container_name: theme-cron
+    image: web:latest
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    environment:
+      - DEBUG=1
+    env_file:
+      - ./.env
+    command: >
+      sh -c "while true; do
+      python manage.py generate_app_themes;
+      sleep 86400;
+      done"
+    restart: unless-stopped
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.16
+    depends_on:
+      db:
+        condition: service_healthy
+      litellm:
+        condition: service_started
   frontend-staging:
     container_name: frontend-staging
     image: frontend:latest

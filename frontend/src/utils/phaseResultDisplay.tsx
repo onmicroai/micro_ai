@@ -2,6 +2,9 @@ import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { FaRegCopy, FaCopy, FaThumbsUp, FaThumbsDown } from 'react-icons/fa6';
 import CodeBlock from '@/components/MessageCodeBlock';
 import TableWrapper from '@/components/MessageTableWrapper';
@@ -35,7 +38,8 @@ export const MarkdownResponseDisplay: React.FC<{
       >
          <div className={proseClasses}>
             <ReactMarkdown
-               remarkPlugins={[remarkGfm, remarkBreaks]}
+               remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+               rehypePlugins={[rehypeKatex]}
                components={{
                   code: CodeBlock,
                   table: TableWrapper

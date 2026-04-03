@@ -36,7 +36,8 @@ services:
     networks:
       micronet:
         ipv4_address: 172.25.0.14
-    command: [ "--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000" ]
+    command:
+      ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     init: true
 
   web:
@@ -67,6 +68,33 @@ services:
       retries: 20
       start_period: 15s
 
+  theme-cron:
+    container_name: theme-cron
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.web
+    command: >
+      sh -c "while true; do
+      python manage.py generate_app_themes;
+      sleep 86400;
+      done"
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    environment:
+      - DEBUG=1
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.12
+    depends_on:
+      db:
+        condition: service_healthy
+      litellm:
+        condition: service_started
+
   frontend:
     container_name: frontend
     image: frontend:latest
@@ -82,7 +110,7 @@ services:
     volumes:
       - ./frontend:/frontend
       - /frontend/node_modules
-      - /frontend/.next            
+      - /frontend/.next
     networks:
       micronet:
         ipv4_address: 172.25.0.20

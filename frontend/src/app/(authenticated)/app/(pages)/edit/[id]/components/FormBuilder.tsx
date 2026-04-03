@@ -1881,7 +1881,7 @@ export default function FormBuilder() {
       <DragDropContext onDragEnd={handleDragEnd}>
         <div
           className={`min-h-screen ${
-            backgroundTheme === "gray" ? "bg-gray-100" : "bg-white"
+            backgroundTheme === "gray" ? "bg-secondary-grey-100" : "bg-white"
           }`}
         >
           <div className="bg-white sticky top-0 z-40 h-16">
@@ -2050,7 +2050,13 @@ export default function FormBuilder() {
             </AnimatePresence>
 
             <div className="flex-1 flex justify-center">
-              <div className="flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4">
+              <div
+                className={
+                  activeTab === "stats"
+                    ? "flex-1 min-w-0 w-full max-w-none px-2 sm:px-4"
+                    : "flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4"
+                }
+              >
                 {activeTab === "build" && (
                   <div className="pt-8 pb-24">
                     <>
@@ -2812,9 +2818,7 @@ export default function FormBuilder() {
                   </div>
                 )}
                 {activeTab === "stats" && (
-                  <div className="pt-2 pb-24 w-full min-w-0">
-                    <MicroappStatsContent hashId={hashId} embedded />
-                  </div>
+                  <MicroappStatsContent hashId={hashId} />
                 )}
               </div>
             </div>
