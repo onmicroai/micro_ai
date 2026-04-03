@@ -101,6 +101,37 @@ services:
       retries: 10
       start_period: 20s
 
+  theme-cron:
+    container_name: theme-cron
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    command: >
+      sh -c "while true; do
+      python manage.py generate_app_themes;
+      sleep 86400;
+      done"
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      - microaiNetwork
+    depends_on:
+      db:
+        condition: service_healthy
+      om-litellm:
+        condition: service_started
+      web:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
   nginx:
     image: nginx:alpine
     ports:
