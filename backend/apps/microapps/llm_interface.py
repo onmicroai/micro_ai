@@ -3,7 +3,6 @@ import litellm
 import logging
 from apps.utils.global_variables import UsageVariables
 from .dynamic_model_service import DynamicModelService
-import re
 import tempfile
 import os
 from litellm import speech
@@ -489,25 +488,20 @@ class UnifiedLLMInterface:
             return {"status": False, "message": str(e)}
 
     
-    def extract_score(self, response: str) -> int:
+    def extract_score(self, response: str) -> float:
         """
-        Extract the total score from a JSON-formatted response string.
-        
-        Args:
-            response: The response string containing a JSON object with a 'total' field
-            
-        Returns:
-            The total score as an integer, or 0 if no valid score found
+        Extract the total score from a JSON-formatted response string (or dict).
+
+        Handles prose + fenced JSON from models that narrate before outputting JSON.
         """
         try:
-            pattern = r'"total":\s*"?(\d+)"?'
-            match = re.search(pattern, response)
-            if match:
-                return int(match.group(1))
-            return 0
+            from .score_utils import parse_run_score_total
+
+            v = parse_run_score_total(response)
+            return float(v) if v is not None else 0.0
         except Exception as e:
             log.error(f"Error extracting score: {str(e)}")
-            return 0
+            return 0.0
 
     def build_instruction(self, data: Dict[str, Any], messages: list) -> list:
         """

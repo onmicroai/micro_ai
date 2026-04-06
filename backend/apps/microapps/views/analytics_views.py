@@ -15,6 +15,7 @@ from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
 from apps.utils.usage_helper import get_user_ip
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession, AppThemeSnapshot
+from apps.microapps.score_utils import parse_run_score_total
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
@@ -462,17 +463,29 @@ class AppConversationDetails(APIView):
                 session_id=session_id
             ).values(
                 'timestamp',
+                'user_id',
                 'system_prompt',
                 'phase_instructions',
                 'user_prompt',
                 'response',
+                'credits',
+                'minimum_score',
                 'rubric',
+                'scored_run',
                 'run_score',
                 'run_passed'
             ).order_by('timestamp')
 
+            conversation_list = list(conversation)
+
+            for row in conversation_list:
+                # For scored runs, response typically contains AI score feedback/explanation.
+                row['score_feedback'] = row.get('response') if row.get('scored_run') else ""
+                parsed = parse_run_score_total(row.get('run_score'))
+                row['score_total'] = parsed
+
             return Response(
-                {"data": list(conversation), "status": status.HTTP_200_OK},
+                {"data": conversation_list, "status": status.HTTP_200_OK},
                 status=status.HTTP_200_OK
             )
 
