@@ -87,7 +87,7 @@ jobs:
         script: |
           if [ -d "/docker/volumes/micro_ai" ]; then
             cd /docker/volumes/micro_ai
-            docker-compose -f docker-compose.dev.yml down litellm
+            docker-compose -p backend -f docker-compose.dev.yml down litellm
             docker-compose -p backend -f docker-compose.dev.yml down web
             docker-compose -p backend -f docker-compose.dev.yml down theme-cron
             docker-compose -p frontend -f docker-compose.dev.yml down frontend
@@ -119,10 +119,14 @@ jobs:
         port: 22
         script: |          
           cd /docker/volumes/micro_ai
-          docker-compose -f docker-compose.dev.yml up -d litellm
-          docker compose -p backend -f docker-compose.dev.yml up -d web
-          docker compose -p backend -f docker-compose.dev.yml up -d theme-cron
+          docker compose -p backend -f docker-compose.dev.yml up -d litellm
+          docker compose -p backend -f docker-compose.dev.yml up -d web theme-cron
           docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
+          if [ "$(docker inspect -f '{{.State.Running}}' theme-cron 2>/dev/null)" != "true" ]; then
+            echo "::error::theme-cron failed to start; recent logs:"
+            docker compose -p backend -f docker-compose.dev.yml logs --tail=80 theme-cron || true
+            exit 1
+          fi
 
   clean:
     name: Clean
