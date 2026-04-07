@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Download } from "lucide-react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { Button } from "@/components/Button";
@@ -52,6 +52,11 @@ export function ConversationDetailsDialog({
   onExportExcel,
 }: ConversationDetailsDialogProps) {
   const [systemPromptExpanded, setSystemPromptExpanded] = useState(false);
+  const systemPromptRef = useRef<HTMLParagraphElement | null>(null);
+  const [systemPromptExpandedHeight, setSystemPromptExpandedHeight] =
+    useState<number>(0);
+
+  const sessionSystemPromptText = getSessionSystemPromptText(detail?.data);
 
   useEffect(() => {
     if (!open) {
@@ -59,7 +64,12 @@ export function ConversationDetailsDialog({
     }
   }, [open]);
 
-  const sessionSystemPromptText = getSessionSystemPromptText(detail?.data);
+  useEffect(() => {
+    const el = systemPromptRef.current;
+    if (!el || !sessionSystemPromptText) return;
+    setSystemPromptExpandedHeight(el.scrollHeight);
+  }, [sessionSystemPromptText, systemPromptExpanded]);
+
   const phaseGroups = detail?.data?.length
     ? groupConversationMessagesByPhase(detail.data)
     : [];
@@ -137,17 +147,37 @@ export function ConversationDetailsDialog({
                   <h4 className="text-base leading-5 font-semibold">
                     System prompt
                   </h4>
-                  <p
-                    className={cn(
-                      "mt-4 text-sm leading-[18px] text-gray-600 whitespace-pre-wrap break-words",
-                      !systemPromptExpanded &&
+                  <div
+                    className="mt-4 overflow-hidden transition-[max-height,opacity] duration-300 ease-out"
+                    style={{
+                      maxHeight:
                         sessionSystemPromptText.length >
-                          SYSTEM_PROMPT_COLLAPSE_CHARS &&
-                        "line-clamp-6"
-                    )}
+                        SYSTEM_PROMPT_COLLAPSE_CHARS
+                          ? systemPromptExpanded
+                            ? `${Math.max(systemPromptExpandedHeight, 108)}px`
+                            : "108px"
+                          : undefined,
+                      opacity:
+                        systemPromptExpanded ||
+                        sessionSystemPromptText.length <=
+                          SYSTEM_PROMPT_COLLAPSE_CHARS
+                          ? 1
+                          : 0.96,
+                    }}
                   >
-                    {sessionSystemPromptText}
-                  </p>
+                    <p
+                      ref={systemPromptRef}
+                      className={cn(
+                        "text-sm leading-[18px] text-gray-600 whitespace-pre-wrap break-words",
+                        !systemPromptExpanded &&
+                          sessionSystemPromptText.length >
+                            SYSTEM_PROMPT_COLLAPSE_CHARS &&
+                          "line-clamp-6"
+                      )}
+                    >
+                      {sessionSystemPromptText}
+                    </p>
+                  </div>
                   {sessionSystemPromptText.length >
                   SYSTEM_PROMPT_COLLAPSE_CHARS ? (
                     <button
