@@ -46,6 +46,7 @@ function getScrollParent(el: HTMLElement): HTMLElement | Window {
 }
 
 function smoothScrollToElement(el: HTMLElement, durationMs = 850): () => void {
+  const TOP_OFFSET = 72;
   const container = getScrollParent(el);
   const startY =
     container === window
@@ -53,13 +54,13 @@ function smoothScrollToElement(el: HTMLElement, durationMs = 850): () => void {
       : (container as HTMLElement).scrollTop;
   const targetY =
     container === window
-      ? Math.max(0, window.scrollY + el.getBoundingClientRect().top - 16)
+      ? Math.max(0, window.scrollY + el.getBoundingClientRect().top - TOP_OFFSET)
       : Math.max(
           0,
           (container as HTMLElement).scrollTop +
             (el.getBoundingClientRect().top -
               (container as HTMLElement).getBoundingClientRect().top) -
-            16
+            TOP_OFFSET
         );
   const distance = targetY - startY;
   let rafId = 0;
