@@ -1,5 +1,6 @@
 "use client";
 
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
 import { cn } from "@/utils/cn";
 
 export type ConversationBubbleProps = {
@@ -30,7 +31,7 @@ export function ConversationBubble({ role, text }: ConversationBubbleProps) {
             {isUser ? "User" : "Assistant"}
           </div>
           <div className="mt-2 text-sm leading-[18px] whitespace-pre-wrap break-words">
-            {text || "-"}
+            <ReactMarkdownWrapper>{text || "-"}</ReactMarkdownWrapper>
           </div>
         </div>
       </div>

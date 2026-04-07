@@ -5,6 +5,7 @@ import { formatScoreGateTotal } from "@/utils/parseRunScoreTotal";
 import type { ConversationMessage } from "@/utils/statsConversation";
 import { formatStoredPrompt } from "@/utils/statsConversation";
 import { ConversationBubble } from "./ConversationBubble";
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
 
 export type ConversationTurnBlockProps = {
   message: ConversationMessage;
@@ -71,7 +72,7 @@ function ScoreGateSection({ message }: { message: ConversationMessage }) {
       </div>
       {message.score_feedback ? (
         <div className="mt-4 bg-white p-3 text-sm leading-[18px] text-gray-600 whitespace-pre-wrap break-words">
-          {message.score_feedback}
+          <ReactMarkdownWrapper>{message.score_feedback}</ReactMarkdownWrapper>
         </div>
       ) : null}
     </div>
