@@ -13,9 +13,10 @@ from .token_counter import token_counter
 
 # Import LiteLLM utilities for cost calculation
 try:
-    from litellm import cost_per_token
+    from litellm import cost_per_token, model_cost as litellm_model_cost
 except ImportError:
     cost_per_token = None
+    litellm_model_cost = {}
 
 log = logging.getLogger(__name__)
 
@@ -600,11 +601,14 @@ class UnifiedLLMInterface:
                     usage = response.get("usage", {})
                     seconds = usage.get("seconds")
 
-                    # TODO: Use LiteLLM's cost_per_token equivalent for Whisper if available
                     cost = None
                     if seconds is not None:
-                       cost = (seconds / 60) * 0.006  # Whisper pricing
-                    
+                        model_pricing = litellm_model_cost.get(params["model"], {})
+                        cost_per_second = model_pricing.get("input_cost_per_second")
+                        if cost_per_second is not None:
+                            cost = seconds * cost_per_second
+                        else:
+                            cost = (seconds / 60) * 0.006  # Fallback to known Whisper cost if not available in litellm_model_cost
                     return {
                         "status": True,
                         "data": {
