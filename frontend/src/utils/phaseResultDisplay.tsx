@@ -18,7 +18,7 @@ import {
   getScoreColorByPct,
   smoothScrollToElement,
 } from "@/utils/scoreDisplayUtils";
-import ReactMarkdownWrapper from "@/components/basic/ReactMarkownWrapper";
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
 
 interface AIResponseDisplayProps {
   run: Run | null;

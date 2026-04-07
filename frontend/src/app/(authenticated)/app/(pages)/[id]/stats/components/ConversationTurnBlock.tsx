@@ -5,7 +5,7 @@ import { formatScoreGateTotal } from "@/utils/parseRunScoreTotal";
 import type { ConversationMessage } from "@/utils/statsConversation";
 import { formatStoredPrompt } from "@/utils/statsConversation";
 import { ConversationBubble } from "./ConversationBubble";
-import ReactMarkdownWrapper from "@/components/basic/ReactMarkownWrapper";
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
 
 export type ConversationTurnBlockProps = {
   message: ConversationMessage;

@@ -1,6 +1,6 @@
 "use client";
 
-import ReactMarkdownWrapper from "@/components/basic/ReactMarkownWrapper";
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
 import { cn } from "@/utils/cn";
 
 export type ConversationBubbleProps = {
