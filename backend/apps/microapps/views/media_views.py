@@ -1,6 +1,7 @@
 """
 Media processing views - File uploads, audio transcription, and text-to-speech.
 """
+import base64
 import os
 import re
 import tempfile
@@ -11,22 +12,22 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view
-from django.http import HttpResponse
 import boto3
 from botocore.config import Config
 from django.conf import settings
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import GuestUsage, get_user_ip
+from apps.utils.global_variables import UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
-from apps.microapps.models import Microapp, DocumentChunk, FileSource, AppFileReference
+from apps.microapps.models import Microapp, DocumentChunk, FileSource, AppFileReference, Run, MicroAppUserJoin
 from apps.microapps.document_parser import DocumentProcessor
 from apps.microapps.rag_service import (
     TextChunker, generate_embeddings_batch
 )
 from apps.microapps.serializer import ImageUploadSerializer, FileUploadSerializer, PresignedUrlResponse
 from ..llm_interface import UnifiedLLMInterface
-from .mixins import handle_exception, MicroAppMixin, FileProcessingMixin
+from .mixins import handle_exception, MicroAppMixin, FileProcessingMixin, UsageTrackingMixin
 
 
 class MicroAppImageUpload(APIView, MicroAppMixin):
@@ -426,17 +427,52 @@ class AnonymousAudioTranscription(AudioTranscription):
         summary="Convert text to speech using specified provider"
     )
 )
-class TextToSpeech(APIView):
+class TextToSpeech(APIView, UsageTrackingMixin):
     """Handle text-to-speech conversion."""
     permission_classes = [IsAuthenticated]
 
+    def _charge_tts(self, run_id, text_length, consumer_id):
+        """
+        Calculate TTS cost, update the run record, and deduct owner credits.
+
+        Returns (cost, credits) so the caller can include them in the response.
+        """
+        cost = round(text_length * UsageVariables.OPENAI_TTS_COST_PER_CHARACTER, 6)
+        credits = max(int(cost * UsageVariables.CREDITS_MULTIPLIER), UsageVariables.MINIMUM_CREDITS)
+
+        if not run_id:
+            return cost, credits
+
+        try:
+            run = Run.objects.get(run_uuid=run_id)
+        except Run.DoesNotExist:
+            log.warning(f"TTS charge skipped — run not found: {run_id}")
+            return cost, credits
+
+        try:
+            new_cost = round(float(run.cost or 0) + cost, 6)
+            new_credits = (run.credits or 0) + credits
+            Run.objects.filter(run_uuid=run_id).update(cost=new_cost, credits=new_credits)
+
+            owner_join = MicroAppUserJoin.objects.get(ma_id=run.ma_id, role="owner")
+            self.credits = credits
+            self.update_user_credits(run.id, owner_join.user_id.id, consumer_id)
+
+            # Return the new cumulative totals so the frontend store stays in sync
+            return new_cost, new_credits
+        except Exception as e:
+            log.error(f"TTS credit deduction failed for run {run_id}: {e}")
+
+        return cost, credits
+
     def post(self, request, format=None):
-        """Convert text to speech for authenticated users."""
+        """Convert text to speech and charge the app owner."""
         try:
             text = request.data.get('text')
             provider = request.data.get('provider', 'openai')
             voice = request.data.get('voice', 'alloy')
             instructions = request.data.get('instructions')
+            run_id = request.data.get('run_id')
 
             if not text:
                 return Response(
@@ -454,10 +490,14 @@ class TextToSpeech(APIView):
             audio_data = llm_interface.text_to_speech(text, voice, instructions)
 
             # Return the audio data
-            return HttpResponse(
-                audio_data,
-                content_type='audio/mpeg'
-            )
+            consumer_id = getattr(request.user, 'id', None)
+            cost, credits = self._charge_tts(run_id, len(text), consumer_id)
+
+            return Response({
+                'audio_base64': base64.b64encode(audio_data).decode('utf-8'),
+                'cost': cost,
+                'credits': credits,
+            })
 
         except Exception as e:
             log.error(f"Error in Text to Speech: {str(e)}")

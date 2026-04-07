@@ -65,6 +65,76 @@ class UsageTrackingMixin:
             log.error(f"Error checking user credits: {e}")
             return {"has_credits": False, "message": "Error checking credits"}
 
+    def update_user_credits(self, run_id, app_owner_id, consumer_id):
+        """Deduct credits from the app owner's billing cycle after a run/TTS operation."""
+        import datetime
+        from django.db.models import F
+        from django.utils import timezone
+        from apps.subscriptions.models import BillingCycle, TopUpToSubscription
+        from apps.subscriptions.serializers import UsageEventSerializer
+
+        try:
+            billing_cycle = BillingCycle.objects.filter(
+                user=app_owner_id,
+                status='open',
+                start_date__lte=timezone.now(),
+                end_date__gte=timezone.now()
+            ).first()
+
+            main_available = billing_cycle.credits_remaining
+
+            top_ups = TopUpToSubscription.objects.filter(user=app_owner_id)
+
+            original_credits = self.credits
+            credits_to_deduct = original_credits
+
+            if main_available >= credits_to_deduct:
+                billing_cycle.record_usage(credits_to_deduct)
+                credits_to_deduct = 0
+            else:
+                billing_cycle.record_usage(main_available)
+                credits_to_deduct -= main_available
+
+            top_up = None
+            if credits_to_deduct > 0:
+                top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
+                for top_up in top_ups_to_update:
+                    if credits_to_deduct <= 0:
+                        break
+                    available_in_topup = top_up.remaining_credits
+                    if available_in_topup >= credits_to_deduct:
+                        top_up.record_usage(credits_to_deduct)
+                        credits_to_deduct = 0
+                    else:
+                        top_up.record_usage(available_in_topup)
+                        credits_to_deduct -= available_in_topup
+
+            try:
+                usage_event_data = {
+                    "billing_cycle": billing_cycle.id,
+                    "top_up": top_up.id if top_up else None,
+                    "user": app_owner_id,
+                    "consumer": consumer_id,
+                    "run_id": run_id,
+                    "credits_charged": original_credits,
+                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                }
+                serializer = UsageEventSerializer(data=usage_event_data)
+                if serializer.is_valid():
+                    serializer.save()
+                    return True
+
+                log.error(serializer.errors)
+                return False
+
+            except ValueError as e:
+                log.error(f"Error recording usage: {str(e)}")
+                return False
+
+        except Exception as e:
+            log.error(e)
+            return False
+
 
 class FileProcessingMixin:
     """Common file processing functionality."""
