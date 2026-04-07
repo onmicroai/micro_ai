@@ -190,7 +190,7 @@ export default function MicroappStatsContent({
       Timestamp: formatConversationTimestamp(message.timestamp),
       "System Prompt": formatStoredPrompt(message.system_prompt),
       "Phase Instructions": message.phase_instructions,
-      "User Prompt": message.user_prompt,
+      "User Prompt": formatStoredPrompt(message.user_prompt),
       Response: message.response,
       Rubric: message.rubric || "",
       Score: message.score_total ?? parseRunScoreTotal(message.run_score) ?? "",
@@ -236,7 +236,7 @@ export default function MicroappStatsContent({
           ),
           "System Prompt": formatStoredPrompt(message.system_prompt),
           "Phase Instructions": message.phase_instructions,
-          "User Message": message.user_prompt,
+          "User Message": formatStoredPrompt(message.user_prompt),
           "Assistant Response": message.response,
           Rubric: message.rubric || "",
           Score:
