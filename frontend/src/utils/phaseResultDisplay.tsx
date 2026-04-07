@@ -18,6 +18,7 @@ import {
   getScoreColorByPct,
   smoothScrollToElement,
 } from "@/utils/scoreDisplayUtils";
+import ReactMarkdownWrapper from "@/components/basic/ReactMarkownWrapper";
 
 interface AIResponseDisplayProps {
   run: Run | null;
@@ -30,7 +31,6 @@ interface RunScoreDisplayProps {
   isEvaluating?: boolean;
   explanationContent?: string | null;
 }
-
 
 export const MarkdownResponseDisplay: React.FC<{
   content: string;
@@ -46,16 +46,7 @@ export const MarkdownResponseDisplay: React.FC<{
       }`}
     >
       <div className={proseClasses}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-          rehypePlugins={[rehypeKatex]}
-          components={{
-            code: CodeBlock,
-            table: TableWrapper,
-          }}
-        >
-          {content}
-        </ReactMarkdown>
+        <ReactMarkdownWrapper>{content}</ReactMarkdownWrapper>
       </div>
       {footer ? (
         <div className="mt-4 pt-4 border-t border-gray-100">{footer}</div>
