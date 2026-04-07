@@ -253,5 +253,7 @@ class UsageVariables:
     # E.g. Multiplier of 10000 means 1 credit per $0.0001 of cost.
     # E.g. Multipler of 10000 also means 100 credits per $0.01 of cost.
     CREDITS_MULTIPLIER = 10000
+    # Cost per character for OpenAI TTS (gpt-4o-mini-tts). Server-side only — never exposed to client.
+    OPENAI_TTS_COST_PER_CHARACTER = float(env("OPENAI_TTS_COST_PER_CHARACTER", default="0.000009"))
     # The minimum number of credits to charge for any response.
     MINIMUM_CREDITS = 1
