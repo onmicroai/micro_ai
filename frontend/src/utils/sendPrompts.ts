@@ -411,6 +411,7 @@ export const sendPromptsUtil = async (options: {
   scoreExplanation?: boolean;
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
   defaultAiModel?: string;
+  runSource?: "default" | "chat";
   runtimeMeta?: {
     tryId?: string;
     tryIndex?: number;
@@ -432,6 +433,7 @@ const {
     transcriptionCost,
     scoreExplanation,
     scoreExplanationMode,
+    runSource = "default",
     runtimeMeta
   } = options;
 
@@ -471,6 +473,7 @@ const {
     const attachedFiles = appConfig?.attachedFiles || [];
    const page = appConfig?.phases?.[pageIndex] || null;
    const pageConfig = pageConfigOverride ?? getPageConfig(page);
+   const phaseTitle = page?.title ?? "";
 
    //Create a run with current settings and 'pending' status
    //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
@@ -542,7 +545,9 @@ const {
       run.id,
       scoreExplanation,
       scoreExplanationMode,
-      runtimeMeta?.tryId
+      runtimeMeta?.tryId,
+      phaseTitle,
+      runSource
    );
    requestBody.run_try_id = runtimeMeta?.tryId;
    if (run?.id) {

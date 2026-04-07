@@ -62,6 +62,8 @@ export const buildRequestBody = async (
   scoreExplanation?: boolean,
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never",
   activeTryId?: string,
+  phaseTitle?: string,
+  runSource?: "default" | "chat",
 ) => {
   const store = useConversationStore.getState();
   const scopedRuns = store.getRunsForTry(activeTryId);
@@ -214,6 +216,9 @@ export const buildRequestBody = async (
 
   const conversationId = store.ensureConversation();
   requestBody.session_id = conversationId;
+
+  requestBody.phase_title = (phaseTitle ?? "").slice(0, 255);
+  requestBody.is_chat_run = runSource === "chat";
 
   return requestBody;
 };
