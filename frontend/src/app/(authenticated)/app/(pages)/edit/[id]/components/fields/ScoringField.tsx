@@ -194,13 +194,11 @@ export default function ScoringField({
 
   const handleAddLine = (catIdx: number) => {
     if (isPreview) return;
-    const lastScore =
-      categories[catIdx].lines.length > 0
-        ? Number(
-            categories[catIdx].lines[categories[catIdx].lines.length - 1].score,
-          ) || 0
-        : 0;
-    const newScore = lastScore + 1;
+    const currentScores = categories[catIdx].lines
+      .map((line) => Number(line.score))
+      .filter((n) => Number.isFinite(n));
+    const maxScore = currentScores.length ? Math.max(...currentScores) : -1;
+    const newScore = maxScore + 1;
     const newCategories = categories.map((cat, i) =>
       i === catIdx
         ? {
@@ -219,8 +217,8 @@ export default function ScoringField({
       {
         criteria: `Category ${categories.length + 1}`,
         lines: [
-          { score: 1, description: "" },
           { score: 0, description: "" },
+          { score: 1, description: "" },
         ],
       },
     ];
