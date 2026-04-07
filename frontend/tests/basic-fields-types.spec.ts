@@ -163,20 +163,10 @@ test("Basic fields types app test", async ({ page, request }) => {
   // Click on "Score" to expand/show the score details
   await scoreElement.click();
 
-  // Wait for the JSON score content to appear after clicking
-  await page.waitForFunction(
-    () => {
-      const bodyText = document.body.textContent || "";
-      return /"total"\s*:\s*"3"/i.test(bodyText);
-    },
-    { timeout: 20000 } // 20 seconds for JSON to appear after clicking Score
-  );
-
-  // Expect to see "total": "3" in the JSON
-  const scoreContent = page.locator("*").filter({
-    hasText: /"total"\s*:\s*"3"/i,
+  // Expect human-readable score summary (not raw JSON)
+  await expect(page.getByText(/Overall Score:\s*3\/3/)).toBeVisible({
+    timeout: 20000,
   });
-  await expect(scoreContent.first()).toBeVisible({ timeout: 5000 });
 
   // Expect to see "You've reached the end" text
   const endMessage = page
