@@ -5,21 +5,25 @@ import { ChevronDown, ChevronUp, Download } from "lucide-react";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { Button } from "@/components/Button";
 import { cn } from "@/utils/cn";
-import { formatScoreGateTotal } from "@/utils/parseRunScoreTotal";
 import {
   ConversationMessage,
   SYSTEM_PROMPT_COLLAPSE_CHARS,
   formatConversationHeaderTimestamp,
   formatConversationTimestamp,
   getSessionSystemPromptText,
+  groupConversationMessagesByPhase,
 } from "@/utils/statsConversation";
-import { ConversationBubble } from "./ConversationBubble";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "../../../edit/[id]/components/ui/dialog";
+import { ChatPhaseCard } from "./ChatPhaseCard";
+import {
+  ConversationTurnBlock,
+  isConversationScoreOnly,
+} from "./ConversationTurnBlock";
 
 export type SelectedConversationRow = {
   session_id?: string | number;
@@ -56,21 +60,11 @@ export function ConversationDetailsDialog({
   }, [open]);
 
   const sessionSystemPromptText = getSessionSystemPromptText(detail?.data);
+  const phaseGroups = detail?.data?.length
+    ? groupConversationMessagesByPhase(detail.data)
+    : [];
 
-  const showScoreGate = (message: ConversationMessage) => {
-    return (
-      message.scored_run &&
-      message.run_score &&
-      typeof message.score_feedback === "string" &&
-      message.score_feedback.trim() !== ""
-    );
-  };
-
-  const showUserPrompt = (message: ConversationMessage) => {
-    if (showScoreGate(message) && message.user_prompt === ".") return false;
-
-    return message.user_prompt;
-  };
+  const creditsFallback = Number(selectedConversation?.total_credits || 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -176,89 +170,50 @@ export function ConversationDetailsDialog({
                   ) : null}
                 </div>
               ) : null}
-              {detail.data.map((message, index) => (
-                <>
-                  {!(showScoreGate(message) && !showUserPrompt(message)) && (
-                    <div key={index} className="bg-white p-4">
-                      <div className="space-y-4">
-                        {showUserPrompt(message) && (
-                          <ConversationBubble
-                            role="user"
-                            text={message.user_prompt}
-                          />
-                        )}
-                        {!showScoreGate(message) ? (
-                          <ConversationBubble
-                            role="assistant"
-                            text={message.response}
-                          />
-                        ) : (
-                          <></>
-                        )}
-                      </div>
-                      <div className="mt-5 flex items-center justify-between text-sm text-gray-600">
-                        <span>
-                          {formatConversationTimestamp(message.timestamp)}
-                        </span>
-                        <span>
-                          Credits:{" "}
-                          {Number.isFinite(Number(message.credits))
-                            ? Number(message.credits).toLocaleString()
-                            : Number(selectedConversation?.total_credits || 0)}
-                        </span>
-                      </div>
-                    </div>
-                  )}
 
-                  {showScoreGate(message) ? (
-                    <div className="mt-4 border border-primary bg-[rgba(225,227,255,0.5)] p-4">
-                      <h4 className="text-base font-semibold leading-5">
-                        Score Gate
-                      </h4>
-                      <div className="mt-4 flex flex-wrap gap-10 text-sm">
-                        <div>
-                          <p className="text-gray-600">Score</p>
-                          <p className="mt-2 font-medium">
-                            {formatScoreGateTotal(
-                              message.score_total,
-                              message.run_score
-                            )}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Minimum score</p>
-                          <p className="mt-2 font-medium">
-                            {message.minimum_score ?? "-"}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-gray-600">Run passed</p>
-                          <p
-                            className={cn(
-                              "mt-2 font-medium",
-                              message.run_passed === true
-                                ? "text-[#249953]"
-                                : "text-[#df3f46]"
-                            )}
-                          >
-                            {message.run_passed === null
-                              ? "-"
-                              : message.run_passed
-                              ? "Yes"
-                              : "No"}
-                          </p>
-                        </div>
-                      </div>
+              {phaseGroups.map((group, gi) => {
+                const useChatPhaseLayout = group.messages.some(
+                  (m) => m.is_chat_run
+                );
 
-                      {message.score_feedback ? (
-                        <div className="mt-4 bg-white p-3 text-sm leading-[18px] text-gray-600 whitespace-pre-wrap break-words">
-                          {message.score_feedback}
-                        </div>
-                      ) : null}
+                if (useChatPhaseLayout) {
+                  return (
+                    <ChatPhaseCard
+                      key={`phase-${gi}-${group.mergeKey}`}
+                      phaseTitle={group.phaseTitle}
+                      instructionsSource={group.messages[0]?.phase_instructions}
+                      messages={group.messages}
+                      formatTimestamp={formatConversationTimestamp}
+                      totalCreditsFallback={creditsFallback}
+                    />
+                  );
+                }
+
+                const message = group.messages[0];
+                const scoreOnly = isConversationScoreOnly(message);
+
+                if (scoreOnly) {
+                  return (
+                    <div key={`row-${gi}`} className="mt-0">
+                      <ConversationTurnBlock
+                        message={message}
+                        formatTimestamp={formatConversationTimestamp}
+                        totalCreditsFallback={creditsFallback}
+                      />
                     </div>
-                  ) : null}
-                </>
-              ))}
+                  );
+                }
+
+                return (
+                  <div key={`row-${gi}`} className="bg-white p-4">
+                    <ConversationTurnBlock
+                      message={message}
+                      formatTimestamp={formatConversationTimestamp}
+                      totalCreditsFallback={creditsFallback}
+                    />
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <p className="text-center text-sm text-muted-foreground py-12">
