@@ -147,6 +147,8 @@ class RunList(APIView, UsageTrackingMixin):
                 "user_ip": ip,
                 "system_prompt": data.get("system_prompt", {}),
                 "phase_instructions": data.get("phase_instructions", {}),
+                "phase_title": str(data.get("phase_title", "") or "")[:255],
+                "is_chat_run": bool(data.get("is_chat_run", False)),
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,

@@ -466,6 +466,8 @@ class AppConversationDetails(APIView):
                 'user_id',
                 'system_prompt',
                 'phase_instructions',
+                'phase_title',
+                'is_chat_run',
                 'user_prompt',
                 'response',
                 'credits',
