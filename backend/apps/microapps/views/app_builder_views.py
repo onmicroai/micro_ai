@@ -19,6 +19,128 @@ from apps.microapps.llm_interface import UnifiedLLMInterface
 
 log = logging.getLogger(__name__)
 
+
+def _json_root_object_end_index(s: str, start: int = 0) -> int:
+    """
+    Return the index of the `}` that closes the root JSON object starting at
+    `start`, or -1 if the object is incomplete or `start` is not `{`.
+
+    Respects JSON strings so `{`, `}`, and backticks inside string values do not
+    affect brace depth.
+    """
+    if start >= len(s) or s[start] != "{":
+        return -1
+    depth = 1
+    i = start + 1
+    in_string = False
+    escape = False
+    while i < len(s):
+        c = s[i]
+        if in_string:
+            if escape:
+                escape = False
+            elif c == "\\":
+                escape = True
+            elif c == '"':
+                in_string = False
+            i += 1
+            continue
+        if c == '"':
+            in_string = True
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return i
+        i += 1
+    return -1
+
+
+def _find_root_json_span(text: str) -> tuple[int, int] | None:
+    """
+    If `text` contains a complete root JSON object starting at the first `{`,
+    return (start, end) slice indices with end exclusive. Otherwise None.
+    """
+    ls = text.lstrip()
+    if not ls.startswith("{"):
+        return None
+    lead = len(text) - len(ls)
+    end_rel = _json_root_object_end_index(ls, 0)
+    if end_rel < 0:
+        return None
+    return (lead, lead + end_rel + 1)
+
+
+def _stringify_chat_completion_content(value) -> str:
+    """
+    Normalize `choices[].delta.content` / `message.content` to a string.
+
+    OpenAI-compatible APIs may return a list of parts, e.g.
+    [{"type": "text", "text": "..."}], which is falsy in Python if assigned
+    directly and skipped with `if not content` — yielding an empty accumulator.
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, list):
+        parts: list[str] = []
+        for item in value:
+            if isinstance(item, dict):
+                if item.get("type") == "text" and "text" in item:
+                    parts.append(str(item.get("text") or ""))
+                elif "text" in item:
+                    parts.append(str(item.get("text") or ""))
+            elif isinstance(item, str):
+                parts.append(item)
+        return "".join(parts)
+    return str(value)
+
+
+def _streaming_assistant_text_chunk(chunk: dict) -> str:
+    """Best-effort assistant text from one SSE JSON chunk (delta + optional message)."""
+    choice = (chunk.get("choices") or [{}])[0]
+    delta = choice.get("delta") or {}
+    text = _stringify_chat_completion_content(delta.get("content"))
+    if text:
+        return text
+    message = choice.get("message") or {}
+    return _stringify_chat_completion_content(message.get("content"))
+
+
+# Opening fence: allow spaces (``` json), case-insensitive "json", reject ```jsonl, etc.
+_OPEN_JSON_FENCE_START = re.compile(r"```\s*json(?![a-zA-Z])", re.IGNORECASE)
+# Keep a suffix long enough for a partial ```\s*json at buffer end when streaming.
+_OPEN_JSON_FENCE_LOOKBACK = 24
+
+
+def _consume_outer_json_markdown_close_fence(text: str) -> int | None:
+    """
+    After the root JSON object, the model closes the ```json fence with a line
+    that is only ``` (optional spaces), not ```python etc.
+
+    Returns the number of characters to remove from the front of `text` if a
+    complete closing fence is present. Returns None if `text` may be an
+    incomplete prefix of such a fence (caller should wait for more streamed
+    bytes).
+    """
+    m = re.match(r"^\s*```[ \t]*(?:\r?\n|\Z)", text)
+    if m:
+        return m.end()
+    # Another ```lang block should not appear here; if it does, do not wait forever.
+    if re.match(r"^\s*```[A-Za-z]", text):
+        return 0
+    t = text.lstrip()
+    if not t:
+        return None
+    if re.match(r"^\s*`{1,2}\Z", text):
+        return None
+    if re.match(r"^\s*```[ \t]*\Z", text) and not text.endswith(("\n", "\r")):
+        return None
+    return 0
+
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
@@ -454,7 +576,7 @@ class AppBuilderChatView(APIView):
             ],
             "model": GUARD_MODEL,
             "temperature": 0,
-            "max_tokens": 10,
+            "max_tokens": 1000,
         })
         response = llm.get_response(api_params)
         if not response.get("status"):
@@ -472,9 +594,11 @@ class AppBuilderChatView(APIView):
         Yields ("thinking" | "text", str) for content that should be shown to the user.
         JSON content inside ```json...``` fences is silently appended to json_accumulator
         instead of being yielded, so it never reaches the frontend as raw JSON.
+
+        Nested markdown fences inside JSON strings (e.g. ```python) must not be treated
+        as the end of the outer ```json block; extraction uses matching `{`/`}` outside
+        of JSON strings, then consumes the real closing ``` line.
         """
-        OPEN_FENCE = "```json"
-        CLOSE_FENCE = "```"
 
         url = f"{settings.LITELLM_BASE_URL}/chat/completions"
         headers = {
@@ -497,6 +621,7 @@ class AppBuilderChatView(APIView):
         # Lookahead buffer for text outside JSON fences
         text_buf = ""
         in_json = False
+        json_body_captured = False
 
         for line in resp.iter_lines():
             if not line:
@@ -512,13 +637,14 @@ class AppBuilderChatView(APIView):
             except json.JSONDecodeError:
                 continue
 
-            delta = chunk.get("choices", [{}])[0].get("delta", {})
+            choice = chunk.get("choices", [{}])[0]
+            delta = choice.get("delta") or {}
 
             thinking = delta.get("thinking", "")
             if thinking:
                 yield ("thinking", thinking)
 
-            raw = delta.get("content", "")
+            raw = _streaming_assistant_text_chunk(chunk)
             if not raw:
                 continue
 
@@ -526,54 +652,99 @@ class AppBuilderChatView(APIView):
             text_buf += raw
             while True:
                 if not in_json:
-                    idx = text_buf.find(OPEN_FENCE)
-                    if idx == -1:
+                    m_open = _OPEN_JSON_FENCE_START.search(text_buf)
+                    if not m_open:
                         # No opening fence yet; emit everything except a possible
-                        # partial fence match at the very end of the buffer.
-                        safe_len = max(0, len(text_buf) - len(OPEN_FENCE) + 1)
+                        # partial ```json / ``` json match at the end of the buffer.
+                        safe_len = max(
+                            0, len(text_buf) - _OPEN_JSON_FENCE_LOOKBACK
+                        )
                         if safe_len > 0:
                             yield ("text", text_buf[:safe_len])
                             text_buf = text_buf[safe_len:]
                         break
                     else:
+                        idx = m_open.start()
                         # Emit text before the fence, then enter JSON mode.
                         if idx > 0:
                             yield ("text", text_buf[:idx])
-                        text_buf = text_buf[idx + len(OPEN_FENCE):]
+                        text_buf = text_buf[m_open.end() :]
                         # Skip a single optional newline after ```json
                         if text_buf.startswith("\n"):
                             text_buf = text_buf[1:]
                         in_json = True
+                        json_body_captured = False
                 else:
-                    idx = text_buf.find(CLOSE_FENCE)
-                    if idx == -1:
-                        # Still inside JSON; accumulate safely.
-                        safe_len = max(0, len(text_buf) - len(CLOSE_FENCE) + 1)
-                        if safe_len > 0:
-                            json_accumulator.append(text_buf[:safe_len])
-                            text_buf = text_buf[safe_len:]
+                    if text_buf.lstrip().startswith("{"):
+                        span = _find_root_json_span(text_buf)
+                        if span is None:
+                            break
+                        start, end = span
+                        json_accumulator.append(text_buf[start:end])
+                        text_buf = text_buf[end:]
+                        json_body_captured = True
+                    elif not json_body_captured:
+                        # Waiting for more streamed bytes before the root `{` appears.
                         break
-                    else:
-                        # Found closing fence; exit JSON mode.
-                        json_accumulator.append(text_buf[:idx])
-                        text_buf = text_buf[idx + len(CLOSE_FENCE):]
-                        in_json = False
+
+                    n = _consume_outer_json_markdown_close_fence(text_buf)
+                    if n is None:
+                        break
+                    if n > 0:
+                        text_buf = text_buf[n:]
+                    in_json = False
+                    continue
 
         # Flush whatever remains in the buffer after the stream ends.
         if text_buf.strip() and not in_json:
             yield ("text", text_buf.strip())
         elif text_buf and in_json:
-            # Edge case: stream ended while still inside the JSON block.
-            json_accumulator.append(text_buf)
+            # Stream ended inside the ```json region: keep only a complete root object.
+            if json_body_captured:
+                n = _consume_outer_json_markdown_close_fence(text_buf)
+                if n is not None and n > 0:
+                    text_buf = text_buf[n:]
+                if text_buf.strip():
+                    yield ("text", text_buf.strip())
+            else:
+                span = _find_root_json_span(text_buf)
+                if span:
+                    start, end = span
+                    json_accumulator.append(text_buf[start:end])
+                elif text_buf.strip():
+                    json_accumulator.append(text_buf)
 
     def _extract_and_validate_json(self, raw: str) -> dict:
         """Strip markdown fences if present, parse JSON, and verify basic structure."""
         text = raw.strip()
+        if not text:
+            raise ValueError(
+                "The AI did not return any app JSON to parse (empty response). "
+                "Please try again."
+            )
 
-        # Strip markdown code fences if the model wrapped its output
-        fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
-        if fence_match:
-            text = fence_match.group(1).strip()
+        # Prefer brace-balanced extraction so nested ``` inside JSON strings does not
+        # truncate the payload (same issue as streaming fence detection).
+        json_open = re.search(r"```\s*json(?![a-zA-Z])", text, re.IGNORECASE)
+        if json_open:
+            tail = text[json_open.end() :]
+            span = _find_root_json_span(tail)
+            if span:
+                start, end = span
+                text = tail[start:end]
+            else:
+                text = tail
+        else:
+            fence_match = re.search(r"```(?:json)?\s*([\s\S]*?)```", text)
+            if fence_match:
+                text = fence_match.group(1).strip()
+
+        text = text.strip()
+        if not text:
+            raise ValueError(
+                "The AI did not return parseable app JSON (empty after extracting "
+                "the JSON block). Please try again."
+            )
 
         try:
             data = json.loads(text)
