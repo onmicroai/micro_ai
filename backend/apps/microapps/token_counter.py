@@ -10,154 +10,155 @@ import re
 
 log = logging.getLogger(__name__)
 
+
+def _is_openai_model(model_name: str) -> bool:
+    name = model_name.lower()
+    return name.startswith("openai/") or any(k in name for k in ["gpt-", "o1", "o3"])
+
+
+def _litellm_count_messages(model_name: str, messages: List[Dict]) -> Optional[int]:
+    """Use LiteLLM's provider-aware token counter for a message list."""
+    try:
+        import litellm
+        return litellm.token_counter(model=model_name, messages=messages)
+    except Exception as e:
+        log.debug(f"LiteLLM token_counter failed for {model_name}: {e}")
+        return None
+
+
+def _litellm_count_text(model_name: str, text: str) -> Optional[int]:
+    """Use LiteLLM's provider-aware token counter for plain text."""
+    try:
+        import litellm
+        return litellm.token_counter(model=model_name, text=text)
+    except Exception as e:
+        log.debug(f"LiteLLM token_counter failed for {model_name}: {e}")
+        return None
+
+
 class TokenCounter:
     """
     Token counter for models that don't provide usage data in streaming responses.
-    Uses tiktoken for OpenAI-compatible tokenization as a fallback.
+    Uses LiteLLM for provider-specific tokenization (Anthropic, Google) and
+    tiktoken for OpenAI-compatible models.
     """
-    
+
     def __init__(self):
-        # Initialize encodings for different model families
         self.encodings = {}
         self._init_encodings()
-    
+
     def _init_encodings(self):
-        """Initialize tiktoken encodings for different model families."""
-        try:
-            # Use cl100k_base for most modern models (GPT-4, Claude, etc.)
-            self.encodings['cl100k_base'] = tiktoken.get_encoding("cl100k_base")
-            # Use p50k_base for older models
-            self.encodings['p50k_base'] = tiktoken.get_encoding("p50k_base")
-            # Use r50k_base for GPT-3 models
-            self.encodings['r50k_base'] = tiktoken.get_encoding("r50k_base")
-        except Exception as e:
-            log.error(f"Error initializing tiktoken encodings: {e}")
-    
-    def get_encoding_for_model(self, model_name: str) -> Optional[tiktoken.Encoding]:
-        """
-        Get the appropriate encoding for a model.
-        
-        Args:
-            model_name: The model identifier
-            
-        Returns:
-            tiktoken.Encoding or None if not found
-        """
-        # Default to cl100k_base for most modern models
-        if any(name in model_name.lower() for name in ['gpt-4', 'gpt-5', 'claude', 'gemini']):
-            return self.encodings.get('cl100k_base')
-        elif 'gpt-3' in model_name.lower():
-            return self.encodings.get('r50k_base')
-        else:
-            return self.encodings.get('cl100k_base')
-    
+        """Initialize tiktoken encodings for OpenAI model families."""
+        for enc_name in ("cl100k_base", "o200k_base"):
+            try:
+                self.encodings[enc_name] = tiktoken.get_encoding(enc_name)
+            except Exception as e:
+                log.error(f"Error initializing tiktoken encoding {enc_name}: {e}")
+
+    def _get_tiktoken_encoding(self, model_name: str) -> Optional[tiktoken.Encoding]:
+        """Return the right tiktoken encoding for an OpenAI model."""
+        name = model_name.lower()
+        # gpt-4o, gpt-4o-mini, gpt-5, o1, o3 use the newer o200k_base vocabulary
+        if any(k in name for k in ['gpt-4o', 'gpt-5', 'o1', 'o3']):
+            return self.encodings.get('o200k_base')
+        # gpt-4, gpt-3.5, and everything else defaults to cl100k_base
+        return self.encodings.get('cl100k_base')
+
     def count_tokens(self, text: str, model_name: str = None) -> int:
         """
-        Count tokens in text using tiktoken.
-        
-        Args:
-            text: The text to count tokens for
-            model_name: Optional model name for encoding selection
-            
-        Returns:
-            Number of tokens
+        Count tokens in text.
+
+        Uses LiteLLM for non-OpenAI models (Claude, Gemini) so that
+        provider-specific tokenizers are applied. Falls back to tiktoken
+        for OpenAI models and as a last resort.
         """
         if not text:
             return 0
-            
+
+        mn = model_name or ''
+
+        # For non-OpenAI models prefer LiteLLM's provider-aware counter
+        if mn and not _is_openai_model(mn):
+            result = _litellm_count_text(mn, text)
+            if result is not None:
+                return result
+
+        # OpenAI path (or LiteLLM fallback)
         try:
-            encoding = self.get_encoding_for_model(model_name or '')
-            if not encoding:
-                # Fallback to simple word count estimation
-                return len(text.split())
-            
-            return len(encoding.encode(text))
+            encoding = self._get_tiktoken_encoding(mn)
+            if encoding:
+                return len(encoding.encode(text))
         except Exception as e:
-            log.error(f"Error counting tokens: {e}")
-            # Fallback to word count estimation
-            return len(text.split())
-    
+            log.error(f"Error counting tokens with tiktoken: {e}")
+
+        return len(text.split())
+
     def count_messages_tokens(self, messages: List[Dict[str, str]], model_name: str = None) -> int:
         """
         Count tokens in a list of messages (conversation format).
-        
-        Args:
-            messages: List of message dictionaries with 'role' and 'content'
-            model_name: Optional model name for encoding selection
-            
-        Returns:
-            Total number of tokens in all messages
+
+        Uses LiteLLM for non-OpenAI models so that provider-specific
+        tokenizers are applied. Falls back to tiktoken for OpenAI models.
         """
         if not messages:
             return 0
-            
+
+        mn = model_name or ''
+
+        # For non-OpenAI models prefer LiteLLM's provider-aware counter
+        if mn and not _is_openai_model(mn):
+            result = _litellm_count_messages(mn, messages)
+            if result is not None:
+                return result
+
+        # OpenAI path (or LiteLLM fallback) — tiktoken with per-message overhead
         try:
-            encoding = self.get_encoding_for_model(model_name or '')
+            encoding = self._get_tiktoken_encoding(mn)
             if not encoding:
-                # Fallback to simple word count
-                total_words = 0
-                for message in messages:
-                    content = message.get('content', '')
-                    total_words += len(content.split())
-                return total_words
-            
+                return sum(len(m.get('content', '').split()) for m in messages)
+
             total_tokens = 0
             for message in messages:
-                # Count tokens for role + content
                 role = message.get('role', '')
                 content = message.get('content', '')
-                
-                # Debug logging for multimodal content
+
                 if isinstance(content, list):
-                    log.debug(f"Multimodal content detected: {content}")
-                    # Handle multimodal content (list of content blocks)
-                    content_text = ""
+                    content_text = ''
                     for block in content:
                         if isinstance(block, dict) and block.get('type') == 'text':
                             content_text += block.get('text', '')
                         elif isinstance(block, str):
                             content_text += block
                     content = content_text
-                
-                # Add tokens for role and content
-                role_tokens = len(encoding.encode(role))
-                content_tokens = len(encoding.encode(content))
-                
-                # Add some overhead for message formatting (typically 4 tokens per message)
-                total_tokens += role_tokens + content_tokens + 4
-            
+
+                total_tokens += len(encoding.encode(role)) + len(encoding.encode(content)) + 4
+
             return total_tokens
         except Exception as e:
             log.error(f"Error counting message tokens: {e}")
-            # Fallback to word count with multimodal support
-            total_words = 0
-            for message in messages:
-                content = message.get('content', '')
-                if isinstance(content, list):
-                    # Handle multimodal content (list of content blocks)
-                    for block in content:
-                        if isinstance(block, dict) and block.get('type') == 'text':
-                            total_words += len(block.get('text', '').split())
-                        elif isinstance(block, str):
-                            total_words += len(block.split())
-                elif isinstance(content, str):
-                    total_words += len(content.split())
-            return total_words
-    
-    def estimate_usage_for_streaming(self, 
-                                   messages: List[Dict[str, str]], 
-                                   full_content: str, 
-                                   model_name: str) -> Dict[str, int]:
+
+        # Last-resort word-count fallback
+        total_words = 0
+        for message in messages:
+            content = message.get('content', '')
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get('type') == 'text':
+                        total_words += len(block.get('text', '').split())
+                    elif isinstance(block, str):
+                        total_words += len(block.split())
+            elif isinstance(content, str):
+                total_words += len(content.split())
+        return total_words
+
+    def estimate_usage_for_streaming(self,
+                                     messages: List[Dict[str, str]],
+                                     full_content: str,
+                                     model_name: str) -> Dict[str, int]:
         """
         Estimate usage data for streaming responses when not provided by the model.
-        
-        Args:
-            messages: Original conversation messages
-            full_content: Complete response content from streaming
-            model_name: Model identifier
-            
-        Returns:
-            Dictionary with estimated usage data
+
+        Returns a dict with prompt_tokens, completion_tokens, total_tokens.
         """
         try:
             # Count prompt tokens

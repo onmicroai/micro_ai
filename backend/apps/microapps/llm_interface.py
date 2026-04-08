@@ -3,7 +3,6 @@ import litellm
 import logging
 from apps.utils.global_variables import UsageVariables
 from .dynamic_model_service import DynamicModelService
-import re
 import tempfile
 import os
 from litellm import speech
@@ -14,9 +13,10 @@ from .token_counter import token_counter
 
 # Import LiteLLM utilities for cost calculation
 try:
-    from litellm import cost_per_token
+    from litellm import cost_per_token, model_cost as litellm_model_cost
 except ImportError:
     cost_per_token = None
+    litellm_model_cost = {}
 
 log = logging.getLogger(__name__)
 
@@ -489,25 +489,20 @@ class UnifiedLLMInterface:
             return {"status": False, "message": str(e)}
 
     
-    def extract_score(self, response: str) -> int:
+    def extract_score(self, response: str) -> float:
         """
-        Extract the total score from a JSON-formatted response string.
-        
-        Args:
-            response: The response string containing a JSON object with a 'total' field
-            
-        Returns:
-            The total score as an integer, or 0 if no valid score found
+        Extract the total score from a JSON-formatted response string (or dict).
+
+        Handles prose + fenced JSON from models that narrate before outputting JSON.
         """
         try:
-            pattern = r'"total":\s*"?(\d+)"?'
-            match = re.search(pattern, response)
-            if match:
-                return int(match.group(1))
-            return 0
+            from .score_utils import parse_run_score_total
+
+            v = parse_run_score_total(response)
+            return float(v) if v is not None else 0.0
         except Exception as e:
             log.error(f"Error extracting score: {str(e)}")
-            return 0
+            return 0.0
 
     def build_instruction(self, data: Dict[str, Any], messages: list) -> list:
         """
@@ -606,11 +601,14 @@ class UnifiedLLMInterface:
                     usage = response.get("usage", {})
                     seconds = usage.get("seconds")
 
-                    # TODO: Use LiteLLM's cost_per_token equivalent for Whisper if available
                     cost = None
                     if seconds is not None:
-                       cost = (seconds / 60) * 0.006  # Whisper pricing
-                    
+                        model_pricing = litellm_model_cost.get(params["model"], {})
+                        cost_per_second = model_pricing.get("input_cost_per_second")
+                        if cost_per_second is not None:
+                            cost = seconds * cost_per_second
+                        else:
+                            cost = (seconds / 60) * 0.006  # Fallback to known Whisper cost if not available in litellm_model_cost
                     return {
                         "status": True,
                         "data": {

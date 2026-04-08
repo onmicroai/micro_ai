@@ -985,8 +985,8 @@ export default function FormBuilder() {
           {
             criteria: "Category 1",
             lines: [
-              { score: 1, description: "" },
               { score: 0, description: "" },
+              { score: 1, description: "" },
             ],
           },
         ]),

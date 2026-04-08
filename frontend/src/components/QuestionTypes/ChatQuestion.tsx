@@ -319,6 +319,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         userId: userId,
         requestSkip: false,
         skipScoredRun: true,
+        runSource: "chat",
         transcriptionCost: transcriptionCost,
         defaultAiModel: defaultAiModel,
         set: (state: any) => {

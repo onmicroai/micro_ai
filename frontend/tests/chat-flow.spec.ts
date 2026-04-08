@@ -4,7 +4,7 @@
  * We send a real audio file via the chat's test hook; the real /transcribe request is sent
  * (no mock), so you get real speech-to-text from the backend.
  *
- * Verifies: transcribe request includes audio payload; response has text and cost; /run has transcription_cost; /tts returns audio.
+ * Verifies: transcribe request includes audio payload; response has text and cost; /run has transcription_cost; /tts returns JSON with audio_base64, cost, and credits.
  */
 import { test, expect } from "@playwright/test";
 import path from "path";
@@ -127,14 +127,17 @@ test.describe("Chat audio flow (transcribe → run → tts)", () => {
     expect(typeof runPostData.transcription_cost).toBe("number");
     expect(runPostData.transcription_cost).toBeGreaterThan(0);
 
-    const ttsContentType =
-      ttsResponse.headers()["content-type"] ||
-      ttsResponse.headers()["Content-Type"] ||
-      "";
+    expect(ttsResponse.status()).toBe(200);
+    const ttsBody = await ttsResponse.json();
     expect(
-      ttsContentType.toLowerCase().includes("audio"),
-      `TTS response should be audio. Got content-type: ${ttsContentType}`
+      typeof ttsBody?.audio_base64 === "string" &&
+        ttsBody.audio_base64.length > 0,
+      "TTS response should include non-empty audio_base64"
     ).toBe(true);
+    expect(typeof ttsBody?.cost).toBe("number");
+    expect(ttsBody.cost).toBeGreaterThan(0);
+    expect(typeof ttsBody?.credits).toBe("number");
+    expect(ttsBody.credits).toBeGreaterThan(0);
 
     await verifyRunsPersistedAndCharged(runUuids, request, {
       apiBaseUrl: process.env.TEST_API_BASE_URL || "",

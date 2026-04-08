@@ -185,7 +185,12 @@ class Run(models.Model):
     system_prompt = models.JSONField()
     
     phase_instructions = models.JSONField()
-    
+
+    # Survey phase title at run time (e.g. chat phase label in analytics / conversation details).
+    phase_title = models.CharField(max_length=255, blank=True, default="")
+    # True when this run originates from the chat component.
+    is_chat_run = models.BooleanField(default=False)
+
     user_prompt = models.JSONField()
 
     # The chat response from the AI for the run. Or, a static response if no_submission or skipped_run is true. 

@@ -147,6 +147,8 @@ class RunList(APIView, UsageTrackingMixin):
                 "user_ip": ip,
                 "system_prompt": data.get("system_prompt", {}),
                 "phase_instructions": data.get("phase_instructions", {}),
+                "phase_title": str(data.get("phase_title", "") or "")[:255],
+                "is_chat_run": bool(data.get("is_chat_run", False)),
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
@@ -231,72 +233,6 @@ class RunList(APIView, UsageTrackingMixin):
     def fixed_response_phase(self, fixed_response):
         """Handle fixed response phase."""
         return {"completion_tokens": 0, "prompt_tokens": 0, "total_tokens": 0, "ai_response": fixed_response, "cost": 0, "credits": 0}
-
-    def update_user_credits(self, run_id, app_owner_id, consumer_id):
-        """Update user credits after run completion."""
-        try:
-            billing_cycle = BillingCycle.objects.filter(
-                user=app_owner_id,
-                status='open',
-                start_date__lte=timezone.now(),
-                end_date__gte=timezone.now()
-            ).first()
-
-            main_available = billing_cycle.credits_remaining
-            
-            top_ups = TopUpToSubscription.objects.filter(user=app_owner_id)
-            
-            original_credits = self.credits
-            credits_to_deduct = original_credits
-
-            if main_available >= credits_to_deduct:
-                billing_cycle.record_usage(credits_to_deduct)
-                credits_to_deduct = 0
-            else:
-                billing_cycle.record_usage(main_available)
-                credits_to_deduct -= main_available
-
-            top_up = None
-            if credits_to_deduct > 0:
-                top_ups_to_update = top_ups.filter(allocated_credits__gt=F('used_credits')).order_by('created_at')
-                for top_up in top_ups_to_update:
-                    if credits_to_deduct <= 0:
-                        break
-                    available_in_topup = top_up.remaining_credits
-                    if available_in_topup >= credits_to_deduct:
-                        top_up.record_usage(credits_to_deduct)
-                        credits_to_deduct = 0
-                    else:
-                        top_up.record_usage(available_in_topup)
-                        credits_to_deduct -= available_in_topup
-                
-            try:
-                # Create usage event
-                usage_event_data = {
-                    "billing_cycle": billing_cycle.id,
-                    "top_up": top_up.id if top_up else None,
-                    "user": app_owner_id,
-                    "consumer": consumer_id,
-                    "run_id": run_id,
-                    "credits_charged": original_credits,
-                    "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                }
-                serializer = UsageEventSerializer(data=usage_event_data)
-                if serializer.is_valid():
-                    serializer.save()
-                    
-                    return True
-                
-                log.error(serializer.errors)
-                return False
-                
-            except ValueError as e:
-                log.error(f"Error recording usage: {str(e)}")
-                return False
-                    
-        except Exception as e:
-            log.error(e)
-            return False
 
     def save_streaming_run_data(self, response_data, data, api_params, model, app_owner_id, ip, user_id):
         """Save streaming run data to database after stream completion (sync version)"""
