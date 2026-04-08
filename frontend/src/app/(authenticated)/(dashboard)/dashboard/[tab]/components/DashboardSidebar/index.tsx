@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { DragDropContext, Droppable, type DropResult } from "@hello-pangea/dnd";
 import { toast } from "react-toastify";
 import axiosInstance from "@/utils/axiosInstance";
 import { addMicroappToCollection } from "@/app/(authenticated)/app/(pages)/edit/[id]/utils/updateMicroappCollection";
 import {
+  collectionIdUnderPointer,
   collectionSidebarDroppableId,
+  DASHBOARD_COLLECTION_ID_DATA_ATTR,
   dashboardAppsListDroppableId,
   parseCollectionDropDestination,
 } from "../../dashboardDndConstants";
@@ -93,6 +95,23 @@ export default function DashboardSidebar({
     null
   );
 
+  const lastPointerRef = useRef<{ x: number; y: number } | null>(null);
+  const onPointerMove = useCallback((e: PointerEvent) => {
+    lastPointerRef.current = { x: e.clientX, y: e.clientY };
+  }, []);
+  const stopTrackingPointer = useCallback(() => {
+    window.removeEventListener("pointermove", onPointerMove);
+  }, [onPointerMove]);
+  const onDragStart = useCallback(() => {
+    lastPointerRef.current = null;
+    window.addEventListener("pointermove", onPointerMove, { passive: true });
+  }, [onPointerMove]);
+
+  const collectionIds = useMemo(
+    () => new Set(collections.map((c) => c.id)),
+    [collections]
+  );
+
   const flashCollectionRow = useCallback((collectionId: number) => {
     setFlashCollectionId(collectionId);
     window.setTimeout(() => setFlashCollectionId(null), 2000);
@@ -100,6 +119,7 @@ export default function DashboardSidebar({
 
   const handleDragEnd = useCallback(
     async (result: DropResult) => {
+      stopTrackingPointer();
       const { destination, source, draggableId } = result;
       if (!destination) return;
 
@@ -120,10 +140,23 @@ export default function DashboardSidebar({
         return;
       }
 
-      const collectionId = parseCollectionDropDestination(
+      const fallbackCollectionId = parseCollectionDropDestination(
         destination.droppableId
       );
-      if (collectionId == null) return;
+      if (fallbackCollectionId == null) return;
+
+      let collectionId = fallbackCollectionId;
+      const pointer = lastPointerRef.current;
+      if (pointer) {
+        const hit = collectionIdUnderPointer(
+          pointer.x,
+          pointer.y,
+          collectionIds
+        );
+        if (hit != null) {
+          collectionId = hit;
+        }
+      }
 
       const appId = Number(appMatch[1]);
       const app = useDashboardStore.getState().apps.find((a) => a.id === appId);
@@ -164,7 +197,14 @@ export default function DashboardSidebar({
         );
       }
     },
-    [activeTab, collections, flashCollectionRow, reorderDashboardList]
+    [
+      activeTab,
+      collectionIds,
+      collections,
+      flashCollectionRow,
+      reorderDashboardList,
+      stopTrackingPointer,
+    ]
   );
 
   const setScope = (scope: DashboardListScope) => () => setListScope(scope);
@@ -215,8 +255,11 @@ export default function DashboardSidebar({
 
   const SidebarContent = ({
     dropInstance,
+    isDropEnabled,
   }: {
     dropInstance: "desktop" | "mobile";
+    /** When false, rows ignore drops (e.g. mobile drawer closed — avoids duplicate off-screen droppables). */
+    isDropEnabled: boolean;
   }) => (
     <div
       className={cn(
@@ -313,6 +356,7 @@ export default function DashboardSidebar({
                   return (
                     <Droppable
                       key={collection.id}
+                      isDropDisabled={!isDropEnabled}
                       droppableId={collectionSidebarDroppableId(
                         dropInstance,
                         collection.id
@@ -322,6 +366,9 @@ export default function DashboardSidebar({
                         <li
                           ref={dropProvided.innerRef}
                           {...dropProvided.droppableProps}
+                          {...{
+                            [DASHBOARD_COLLECTION_ID_DATA_ATTR]: collection.id,
+                          }}
                           className={cn(
                             "rounded-md transition-colors",
                             snapshot.isDraggingOver &&
@@ -467,7 +514,7 @@ export default function DashboardSidebar({
   );
 
   return (
-    <DragDropContext onDragEnd={handleDragEnd}>
+    <DragDropContext onDragStart={onDragStart} onDragEnd={handleDragEnd}>
       <div className="flex min-h-screen flex-col bg-secondary-grey-100 dark:bg-gray-950">
         {/* Mobile sidebar overlay */}
         <Dialog
@@ -499,7 +546,10 @@ export default function DashboardSidebar({
                   </button>
                 </div>
               </TransitionChild>
-              <SidebarContent dropInstance="mobile" />
+              <SidebarContent
+                dropInstance="mobile"
+                isDropEnabled={sidebarOpen}
+              />
             </DialogPanel>
           </div>
         </Dialog>
@@ -533,7 +583,7 @@ export default function DashboardSidebar({
               "lg:sticky lg:top-16 lg:h-[calc(100vh-4rem)] lg:max-h-[calc(100vh-4rem)] lg:self-start"
             )}
           >
-            <SidebarContent dropInstance="desktop" />
+            <SidebarContent dropInstance="desktop" isDropEnabled />
           </aside>
 
           {/* Page content */}
