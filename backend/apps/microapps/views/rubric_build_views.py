@@ -2,6 +2,8 @@ import os
 import tempfile
 import logging as log
 import json
+from pathlib import Path
+import environ
 from apps.utils.usage_helper import get_user_ip
 from rest_framework import status
 from rest_framework.response import Response
@@ -12,6 +14,10 @@ from apps.microapps.document_parser import DocumentProcessor
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.llm_interface import UnifiedLLMInterface
 import concurrent.futures
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+env = environ.Env()
+env.read_env(os.path.join(BASE_DIR, ".env"))
 
 class RubricBuildView(APIView):
     """Generate rubric and log usage for microapp rubric build."""
