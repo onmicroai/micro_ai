@@ -176,12 +176,19 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
 }) => {
   const [animateBars, setAnimateBars] = useState(false);
   const breakdown = useMemo(() => buildScoreBreakdown(run), [run]);
+  const hasBreakdown = Boolean(breakdown);
   const scoreSectionRef = useRef<HTMLDivElement | null>(null);
   const lastAnimatedKeyRef = useRef<string>("");
+  const scoreAnimationKey = useMemo(() => {
+    if (!run?.id || !run?.run_score) return "";
+    return `${run.id}:${run.run_score}`;
+  }, [run?.id, run?.run_score]);
 
   useEffect(() => {
-    if (!run || !breakdown || isEvaluating) return;
-    const key = `${run.id}:${run.run_score ?? ""}`;
+    if (!scoreAnimationKey || !hasBreakdown || isEvaluating) return;
+    // Prevent repeated smooth-scroll restarts while the same run keeps streaming.
+    if (lastAnimatedKeyRef.current === scoreAnimationKey) return;
+    lastAnimatedKeyRef.current = scoreAnimationKey;
 
     setAnimateBars(false);
     let cancelled = false;
@@ -201,8 +208,6 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
     const shouldAnimateScroll = !window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    const isNewScore = lastAnimatedKeyRef.current !== key;
-    lastAnimatedKeyRef.current = key;
 
     if (scoreSectionRef.current && shouldAnimateScroll) {
       // Native smooth scroll first (works for many nested scroll containers)
@@ -213,7 +218,7 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
       });
       // Custom eased scroll as fallback/augment for container scrolling.
       stopScroll = smoothScrollToElement(scoreSectionRef.current, 1100);
-      startBarsTimeout = window.setTimeout(kickOffBars, isNewScore ? 650 : 300);
+      startBarsTimeout = window.setTimeout(kickOffBars, 650);
       return () => {
         cancelled = true;
         if (stopScroll) stopScroll();
@@ -225,7 +230,7 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [run, breakdown, isEvaluating]);
+  }, [scoreAnimationKey, hasBreakdown, isEvaluating]);
 
   if (!run) return null;
   if (isEvaluating) {
