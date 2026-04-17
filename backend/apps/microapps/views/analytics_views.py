@@ -221,22 +221,16 @@ class AppStatistics(APIView):
                 runs[0]['themes'] = themes
                 runs[0]['themes_generated_at'] = generated_at
 
-                # Tokens per run (input + output), across all runs for this app
-                token_qs = Run.objects.filter(ma_id=app_id).annotate(
-                    total_tokens=ExpressionWrapper(
-                        F('input_tokens') + F('output_tokens'),
-                        output_field=IntegerField(),
-                    )
+                # Credits per run, across all runs for this app
+                credits_agg = Run.objects.filter(ma_id=app_id).aggregate(
+                    avg_credits=Avg('credits'),
+                    min_credits=Min('credits'),
+                    max_credits=Max('credits'),
                 )
-                token_agg = token_qs.aggregate(
-                    avg_tokens=Avg('total_tokens'),
-                    min_tokens=Min('total_tokens'),
-                    max_tokens=Max('total_tokens'),
-                )
-                avg_t = token_agg.get('avg_tokens')
-                runs[0]['avg_tokens_per_run'] = int(round(avg_t)) if avg_t is not None else 0
-                runs[0]['min_tokens_per_run'] = int(token_agg['min_tokens'] or 0)
-                runs[0]['max_tokens_per_run'] = int(token_agg['max_tokens'] or 0)
+                avg_c = credits_agg.get('avg_credits')
+                runs[0]['avg_credits_per_run'] = int(round(avg_c)) if avg_c is not None else 0
+                runs[0]['min_credits_per_run'] = int(round(credits_agg.get('min_credits') or 0))
+                runs[0]['max_credits_per_run'] = int(round(credits_agg.get('max_credits') or 0))
 
                 # Pass / fail among scored runs only
                 scored_qs = Run.objects.filter(ma_id=app_id, scored_run=True)

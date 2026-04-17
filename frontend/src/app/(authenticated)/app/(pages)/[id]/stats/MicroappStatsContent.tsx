@@ -276,9 +276,15 @@ export default function MicroappStatsContent({
   const minSessionSeconds = Number(row.min_session_seconds || 0);
   const maxSessionSeconds = Number(row.max_session_seconds || 0);
 
-  const avgTokens = Number(row.avg_tokens_per_run || 0);
-  const minTokens = Number(row.min_tokens_per_run || 0);
-  const maxTokens = Number(row.max_tokens_per_run || 0);
+  const avgCreditsPerRun = Number(
+    (row.avg_credits_per_run ?? row.avg_tokens_per_run) || 0
+  );
+  const minCreditsPerRun = Number(
+    (row.min_credits_per_run ?? row.min_tokens_per_run) || 0
+  );
+  const maxCreditsPerRun = Number(
+    (row.max_credits_per_run ?? row.max_tokens_per_run) || 0
+  );
 
   const passRatePct = Number(row.pass_rate_percent ?? 0);
   const passPct = Number(row.pass_percent ?? 0);
@@ -303,10 +309,10 @@ export default function MicroappStatsContent({
       )} | max ${formatDuration(maxSessionSeconds)}`,
     },
     {
-      title: "Avg tokens",
-      value: avgTokens.toLocaleString(),
+      title: "Avg credits",
+      value: avgCreditsPerRun.toLocaleString(),
       icon: <CoinsSquareIcon />,
-      subtitle: `min ${minTokens.toLocaleString()} | max ${maxTokens.toLocaleString()}`,
+      subtitle: `min ${minCreditsPerRun.toLocaleString()} | max ${maxCreditsPerRun.toLocaleString()}`,
     },
     {
       title: "Pass rate",
