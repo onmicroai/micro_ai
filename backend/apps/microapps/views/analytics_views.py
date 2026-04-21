@@ -258,6 +258,36 @@ class AppStatistics(APIView):
                     runs[0]['satisfaction_percent'] = 0
                     runs[0]['likes_percent'] = 0
                     runs[0]['dislikes_percent'] = 0
+            else:
+                # Usage-based time-in-app does not require Run rows; still return one row for the UI.
+                themes, generated_at = get_latest_themes_for_app(app_id)
+                runs = [{
+                    'ma_id': app_id,
+                    'net_satisfaction_score': 0,
+                    'thumbs_up_count': 0,
+                    'thumbs_down_count': 0,
+                    'total_responses': 0,
+                    'total_cost': 0,
+                    'total_credits': 0,
+                    'unique_users': 0,
+                    'sessions': 0,
+                    'avg_cost_session': 0,
+                    'avg_credits_session': 0,
+                    'avg_session_seconds': avg_session_seconds,
+                    'min_session_seconds': min_session_seconds,
+                    'max_session_seconds': max_session_seconds,
+                    'themes': themes,
+                    'themes_generated_at': generated_at,
+                    'avg_credits_per_run': 0,
+                    'min_credits_per_run': 0,
+                    'max_credits_per_run': 0,
+                    'pass_rate_percent': 0,
+                    'pass_percent': 0,
+                    'fail_percent': 0,
+                    'satisfaction_percent': 0,
+                    'likes_percent': 0,
+                    'dislikes_percent': 0,
+                }]
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
 
