@@ -9,7 +9,7 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-from apps.microapps.models import Microapp, RubricBuild
+from apps.microapps.models import Microapp, MicroAppUserJoin, RubricBuild
 from apps.microapps.document_parser import DocumentProcessor
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.llm_interface import UnifiedLLMInterface
@@ -30,6 +30,31 @@ class RubricBuildView(APIView):
             app_hash_id = request.data.get('app_hash_id')
             user_ip = get_user_ip(request)
             user = request.user
+
+            if not app_hash_id:
+                return Response(
+                    {"error": "app_hash_id is required"},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+            microapp = Microapp.objects.filter(hash_id=app_hash_id, is_archived=False).first()
+            if not microapp:
+                return Response(
+                    {"error": "Microapp not found"},
+                    status=status.HTTP_404_NOT_FOUND
+                )
+
+            has_app_access = MicroAppUserJoin.objects.filter(
+                ma_id=microapp,
+                user_id=user,
+                is_archived=False,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+            ).exists()
+            if not has_app_access:
+                return Response(
+                    {"error": "You don't have permission to build rubric for this app"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
 
             if not prompt and not files:
                 return Response({"error": "Either prompt or files must be provided"}, status=status.HTTP_400_BAD_REQUEST)
@@ -122,8 +147,6 @@ Generate a comprehensive rubric based on this information."""
             except Exception:
                return Response({"error": "Failed to parse rubric from AI response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
             credits_spent = response["data"]["credits"]
-
-            microapp = Microapp.objects.filter(hash_id=app_hash_id).first()
 
             files_data = []
             for i, file in enumerate(files):
