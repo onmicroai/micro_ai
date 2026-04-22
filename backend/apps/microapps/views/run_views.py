@@ -1183,8 +1183,6 @@ class LiteLLMModelConfigurations(APIView):
             response = requests.get(litellm_url, headers=headers, timeout=10)
             response.raise_for_status()
             log.info(f"Successfully connected to LiteLLM, received {len(response.json().get('data', []))} models")
-
-            print(response.json())
             
             litellm_data = response.json()
             available_models = litellm_data.get('data', [])
