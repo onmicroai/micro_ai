@@ -152,7 +152,7 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Models used for each pipeline stage — admin-configured, not user-selectable
 GUARD_MODEL = "gemini-3-flash-preview"
-BUILD_MODEL = "claude-sonnet-4-6"
+BUILD_MODEL = "gemini-3-flash-preview"
 BUILD_MAX_TOKENS = 16000
 THINKING_BUDGET_TOKENS = 10000
 
