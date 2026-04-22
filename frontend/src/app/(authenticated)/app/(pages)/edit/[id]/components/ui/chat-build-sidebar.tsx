@@ -80,6 +80,23 @@ function ThinkingBlock({
   );
 }
 
+function StatusBlock({
+  message,
+  isStreaming,
+}: {
+  message: string;
+  isStreaming: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1.5 text-xs text-gray-500 py-1">
+      {isStreaming && (
+        <Loader2 className="h-3 w-3 flex-shrink-0 animate-spin text-indigo-400" />
+      )}
+      <span className="italic">{message}</span>
+    </div>
+  );
+}
+
 const ChatBuildSidebar = forwardRef<
   ChatBuildSidebarHandle,
   ChatBuildSidebarProps
@@ -160,7 +177,12 @@ const ChatBuildSidebar = forwardRef<
         for await (const { event, data: dataRaw } of readSseResponse(
           response
         )) {
-          let data: { chunk?: string; message?: string; app_json?: unknown };
+          let data: {
+            chunk?: string;
+            message?: string;
+            app_json?: unknown;
+            stage?: string;
+          };
           try {
             data = JSON.parse(dataRaw) as typeof data;
           } catch {
@@ -168,6 +190,16 @@ const ChatBuildSidebar = forwardRef<
           }
 
           switch (event) {
+            case "status":
+              useSurveyStore.setState((state) => ({
+                chatBuildMessages: state.chatBuildMessages.map((msg) =>
+                  msg.id === assistantId
+                    ? { ...msg, statusMessage: data.message ?? undefined }
+                    : msg
+                ),
+              }));
+              break;
+
             case "thinking":
               useSurveyStore.setState((state) => ({
                 chatBuildMessages: state.chatBuildMessages.map((msg) =>
@@ -193,7 +225,10 @@ const ChatBuildSidebar = forwardRef<
               break;
 
             case "complete":
-              updateChatBuildMessage(assistantId, { status: "done" });
+              updateChatBuildMessage(assistantId, {
+                status: "done",
+                statusMessage: undefined,
+              });
               if (data.app_json) {
                 pushAppBuilderUndoSnapshot();
                 replaceEntireAppJson(data.app_json as AppJsonV2);
@@ -206,6 +241,7 @@ const ChatBuildSidebar = forwardRef<
                   data.message ?? "I can only help with building microapps.",
                 status: "refused",
                 thinkingContent: undefined,
+                statusMessage: undefined,
               });
               break;
 
@@ -215,6 +251,7 @@ const ChatBuildSidebar = forwardRef<
                   data.message ?? "An error occurred. Please try again.",
                 status: "error",
                 thinkingContent: undefined,
+                statusMessage: undefined,
               });
               break;
             default:
@@ -226,6 +263,7 @@ const ChatBuildSidebar = forwardRef<
           updateChatBuildMessage(assistantId, {
             content: "Something went wrong. Please try again.",
             status: "error",
+            statusMessage: undefined,
           });
         }
       } finally {
@@ -408,19 +446,25 @@ const ChatBuildSidebar = forwardRef<
                           {message.content ? (
                             <>
                               {message.content}
-                              {isThisStreaming && (
+                              {isThisStreaming && !message.statusMessage && (
                                 <span className="inline-flex items-center gap-1.5 ml-2 text-xs text-gray-400">
                                   <Loader2 className="h-3 w-3 animate-spin" />
                                   Generating…
                                 </span>
                               )}
                             </>
-                          ) : (
+                          ) : !message.statusMessage ? (
                             <span className="inline-flex gap-1 items-center h-5">
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
                               <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
                             </span>
+                          ) : null}
+                          {isThisStreaming && message.statusMessage && (
+                            <StatusBlock
+                              message={message.statusMessage}
+                              isStreaming={isThisStreaming}
+                            />
                           )}
                           {message.status === "done" && (
                             <p className="mt-2 flex items-center gap-1.5 text-xs text-green-600 font-medium">

@@ -115,6 +115,11 @@ _OPEN_JSON_FENCE_START = re.compile(r"```\s*json(?![a-zA-Z])", re.IGNORECASE)
 _OPEN_JSON_FENCE_LOOKBACK = 24
 
 
+def _sse_status_event(stage: str, message: str) -> str:
+    """Format an SSE `status` event (stage + user-facing message)."""
+    return f"event: status\ndata: {json.dumps({'stage': stage, 'message': message})}\n\n"
+
+
 def _consume_outer_json_markdown_close_fence(text: str) -> int | None:
     """
     After the root JSON object, the model closes the ```json fence with a line
@@ -725,6 +730,8 @@ class AppBuilderChatView(APIView):
         async def sse_stream():
             loop = asyncio.get_event_loop()
 
+            yield _sse_status_event("classifying", "Reviewing your request...")
+
             # --- Stage 1: Guard (blocking, run in thread) ---
             try:
                 verdict = await loop.run_in_executor(None, self._run_guard, message)
@@ -742,6 +749,8 @@ class AppBuilderChatView(APIView):
                 yield f"event: refused\ndata: {json.dumps({'message': refusal})}\n\n"
                 return
 
+            yield _sse_status_event("planning", "Planning your app...")
+
             # --- Stage 2: Build (stream each chunk via run_in_executor) ---
             json_accumulator = []
             build_gen = self._stream_build(llm_messages, json_accumulator)
@@ -757,10 +766,14 @@ class AppBuilderChatView(APIView):
                         yield f"event: thinking\ndata: {json.dumps({'chunk': chunk})}\n\n"
                     elif event_type == "text":
                         yield f"event: content\ndata: {json.dumps({'chunk': chunk})}\n\n"
+                    elif event_type == "status":
+                        yield f"event: status\ndata: {chunk}\n\n"
             except Exception as e:
                 log.error(f"App builder build stage error: {e}")
                 yield f"event: error\ndata: {json.dumps({'message': 'An error occurred while generating the app. Please try again.'})}\n\n"
                 return
+
+            yield _sse_status_event("validating", "Applying changes...")
 
             # --- Stage 3: Validate ---
             raw_json = "".join(json_accumulator)
@@ -805,7 +818,11 @@ class AppBuilderChatView(APIView):
         """
         Stream the build stage directly against the LiteLLM proxy with thinking enabled.
 
-        Yields ("thinking" | "text", str) for content that should be shown to the user.
+        Yields:
+        - ("thinking", str) — extended thinking tokens
+        - ("text", str) — assistant text (PLAN / SUMMARY) outside the JSON fence
+        - ("status", str) — full JSON string for SSE: {"stage": ..., "message": ...}
+
         JSON content inside ```json...``` fences is silently appended to json_accumulator
         instead of being yielded, so it never reaches the frontend as raw JSON.
 
@@ -836,6 +853,10 @@ class AppBuilderChatView(APIView):
         text_buf = ""
         in_json = False
         json_body_captured = False
+        json_heartbeat_n = 0
+        _building_status = json.dumps(
+            {"stage": "building", "message": "Building app structure..."}
+        )
 
         for line in resp.iter_lines():
             if not line:
@@ -861,6 +882,11 @@ class AppBuilderChatView(APIView):
             raw = _streaming_assistant_text_chunk(chunk)
             if not raw:
                 continue
+
+            if in_json:
+                json_heartbeat_n += 1
+                if json_heartbeat_n > 1 and json_heartbeat_n % 50 == 0:
+                    yield ("status", _building_status)
 
             # Feed into the lookahead buffer and process
             text_buf += raw
@@ -888,6 +914,8 @@ class AppBuilderChatView(APIView):
                             text_buf = text_buf[1:]
                         in_json = True
                         json_body_captured = False
+                        json_heartbeat_n = 0
+                        yield ("status", _building_status)
                 else:
                     if text_buf.lstrip().startswith("{"):
                         span = _find_root_json_span(text_buf)
@@ -907,6 +935,7 @@ class AppBuilderChatView(APIView):
                     if n > 0:
                         text_buf = text_buf[n:]
                     in_json = False
+                    json_heartbeat_n = 0
                     continue
 
         # Flush whatever remains in the buffer after the stream ends.
