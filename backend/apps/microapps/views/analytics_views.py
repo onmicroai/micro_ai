@@ -43,7 +43,7 @@ def get_stats_for_app_ids(app_ids):
     if not app_ids:
         return {}
     app_ids = list(app_ids)
-    stats_qs = Run.objects.filter(ma_id__in=app_ids).values('ma_id').annotate(
+    stats_qs = Run.objects.filter(ma_id__in=app_ids, is_preview=False).values('ma_id').annotate(
         total_credits=Coalesce(Sum('credits'), 0),
         unique_users=Count('user_ip', distinct=True),
         sessions=Count('session_id', distinct=True),
@@ -157,7 +157,7 @@ class AppStatistics(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            runs = list(Run.objects.filter(ma_id=app_id).values('ma_id').annotate(
+            runs = list(Run.objects.filter(ma_id=app_id, is_preview=False).values('ma_id').annotate(
                 total_responses=Count(
                     Case(
                         When(satisfaction__in=[1, -1], then=1)
@@ -222,7 +222,7 @@ class AppStatistics(APIView):
                 runs[0]['themes_generated_at'] = generated_at
 
                 # Credits per run, across all runs for this app
-                credits_agg = Run.objects.filter(ma_id=app_id).aggregate(
+                credits_agg = Run.objects.filter(ma_id=app_id, is_preview=False).aggregate(
                     avg_credits=Avg('credits'),
                     min_credits=Min('credits'),
                     max_credits=Max('credits'),
@@ -233,7 +233,7 @@ class AppStatistics(APIView):
                 runs[0]['max_credits_per_run'] = int(round(credits_agg.get('max_credits') or 0))
 
                 # Pass / fail among scored runs only
-                scored_qs = Run.objects.filter(ma_id=app_id, scored_run=True)
+                scored_qs = Run.objects.filter(ma_id=app_id, is_preview=False, scored_run=True)
                 passed_ct = scored_qs.filter(run_passed=True).count()
                 failed_ct = scored_qs.filter(run_passed=False).count()
                 scored_total = passed_ct + failed_ct
@@ -388,6 +388,7 @@ class AppConversations(APIView):
                 Run.objects.filter(
                     ma_id=app_id,
                     session_id=OuterRef('session_id'),
+                    is_preview=False,
                     satisfaction__isnull=False,
                     satisfaction__in=[1, -1]
                 ).values('satisfaction')
@@ -399,14 +400,15 @@ class AppConversations(APIView):
             model_subquery = Subquery(
                 Run.objects.filter(
                     ma_id=app_id,
-                    session_id=OuterRef('session_id')
+                    session_id=OuterRef('session_id'),
+                    is_preview=False,
                 ).values('ai_model')
                 .annotate(count=Count('ai_model'))
                 .order_by('-count', 'ai_model')
                 .values('ai_model')[:1]
             )
 
-            conversations = Run.objects.filter(ma_id=app_id).values('session_id').annotate(
+            conversations = Run.objects.filter(ma_id=app_id, is_preview=False).values('session_id').annotate(
                 start_time=Min('timestamp'),
                 total_cost=Sum('cost'),
                 messages_count=Count('id'),
@@ -459,9 +461,10 @@ class AppConversationDetails(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Resolve session_id to a stable numeric app_id
+            # Resolve session_id to a stable numeric app_id (non-preview runs only)
             app_id = Run.objects.filter(
-                session_id=session_id
+                session_id=session_id,
+                is_preview=False,
             ).values_list('ma_id', flat=True).first()
 
             if app_id is None:
@@ -484,7 +487,8 @@ class AppConversationDetails(APIView):
             # Include ma_id in the filter so the composite (ma_id, session_id) index is used
             conversation = Run.objects.filter(
                 ma_id=app_id,
-                session_id=session_id
+                session_id=session_id,
+                is_preview=False,
             ).values(
                 'timestamp',
                 'user_id',

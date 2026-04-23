@@ -179,6 +179,8 @@ export const useSurveyStore = create<SurveyStore>()(
       answers: {},
       images: {} as Base64Images,
       currentUserId: null,
+      isPreviewRuntime: false,
+      setIsPreviewRuntime: (isPreview: boolean) => set({ isPreviewRuntime: isPreview }),
       answersPerApp: {} as Record<string, Answers>,
       imagesPerApp: {} as Record<string, Base64Images>,
       responses: [],
@@ -552,6 +554,7 @@ export const useSurveyStore = create<SurveyStore>()(
           noSubmit,
           pageConfigOverride,
           defaultAiModel: get().defaultAiModel,
+          isPreview: get().isPreviewRuntime,
           runtimeMeta,
         });
       },
@@ -589,6 +592,7 @@ export const useSurveyStore = create<SurveyStore>()(
           userRole: null,
           userRoleLoading: false,
           userRoleError: null,
+          isPreviewRuntime: false,
         });
       },
       /**
@@ -630,6 +634,7 @@ export const useSurveyStore = create<SurveyStore>()(
           userRole: state.userRole,
           userRoleLoading: state.userRoleLoading,
           userRoleError: state.userRoleError,
+          isPreviewRuntime: state.isPreviewRuntime,
           // Clear current app's stored answers so restart is clean
           answersPerApp: state.surveyJson?.id
             ? { ...state.answersPerApp, [currentKey]: {} }

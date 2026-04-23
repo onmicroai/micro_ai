@@ -38,7 +38,24 @@ class AssetsMicroappSerializer(serializers.ModelSerializer):
 class RunPostSerializer(serializers.ModelSerializer):
     class Meta:
         model = Run
-        fields = ['ma_id', 'user_id', 'session_id', 'ai_model', 'no_submission', 'request_skip', 'scored_run', 'minimum_score', 'rubric', 'temperature', 'max_tokens', 'satisfaction', 'response', 'run_uuid', 'litellm_response_id']
+        fields = [
+            "ma_id",
+            "user_id",
+            "session_id",
+            "ai_model",
+            "no_submission",
+            "request_skip",
+            "scored_run",
+            "minimum_score",
+            "rubric",
+            "temperature",
+            "max_tokens",
+            "satisfaction",
+            "response",
+            "run_uuid",
+            "litellm_response_id",
+            "is_preview",
+        ]
 
 class RunGetSerializer(serializers.ModelSerializer):
     cost = serializers.DecimalField(max_digits=20, decimal_places=6, coerce_to_string=False)

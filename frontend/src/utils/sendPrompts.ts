@@ -412,6 +412,8 @@ export const sendPromptsUtil = async (options: {
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
   defaultAiModel?: string;
   runSource?: "default" | "chat";
+  /** Builder Preview tab: marks runs for exclusion from owner statistics. */
+  isPreview?: boolean;
   runtimeMeta?: {
     tryId?: string;
     tryIndex?: number;
@@ -434,6 +436,7 @@ const {
     scoreExplanation,
     scoreExplanationMode,
     runSource = "default",
+    isPreview = false,
     runtimeMeta
   } = options;
 
@@ -547,7 +550,8 @@ const {
       scoreExplanationMode,
       runtimeMeta?.tryId,
       phaseTitle,
-      runSource
+      runSource,
+      isPreview
    );
    requestBody.run_try_id = runtimeMeta?.tryId;
    if (run?.id) {

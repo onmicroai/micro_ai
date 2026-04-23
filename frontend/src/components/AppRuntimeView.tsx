@@ -58,6 +58,7 @@ export default function AppRuntimeView({
     fetchApp,
     softReset: softResetSurveyStore,
     setCurrentUserId,
+    setIsPreviewRuntime,
   } = useSurveyStore();
 
   const { currentConversation, conversations, resetAppConversation } =
@@ -69,6 +70,20 @@ export default function AppRuntimeView({
   useEffect(() => {
     setCurrentUserId(userId != null ? String(userId) : null);
   }, [userId, setCurrentUserId]);
+
+  console.log("showEditLink: ", showEditLink);
+
+  // Set immediately during render, before any child runs. Relying on useEffect
+  // is too late: child effects and user actions can post to /run while isPreviewRuntime is still false.
+  const isBuilderPreviewShell = !showEditLink;
+  if (useSurveyStore.getState().isPreviewRuntime !== isBuilderPreviewShell) {
+    useSurveyStore.setState({ isPreviewRuntime: isBuilderPreviewShell });
+  }
+
+  // Clear preview flag when this shell unmounts (e.g. leave builder Preview tab).
+  useEffect(() => {
+    return () => useSurveyStore.setState({ isPreviewRuntime: false });
+  }, [showEditLink, setIsPreviewRuntime]);
 
   // Collapse continuation when app changes
   useEffect(() => {

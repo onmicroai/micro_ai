@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, QueryDict
 from asgiref.sync import sync_to_async
 
 from apps.utils.custom_error_message import ErrorMessages as error
@@ -64,6 +64,43 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 class RunList(APIView, UsageTrackingMixin):
     permission_classes = [AllowAny]
     ai_score = ""
+
+    @staticmethod
+    def _copy_and_set_is_preview(request):
+        """Build a mutable request body with a server-validated is_preview flag."""
+        raw = request.data
+        if isinstance(raw, QueryDict):
+            data = raw.dict()
+        elif isinstance(raw, dict):
+            data = {**raw}
+        else:
+            data = {k: raw[k] for k in raw}
+        data["is_preview"] = RunList._resolve_is_preview(request, data)
+        return data
+
+    @staticmethod
+    def _resolve_is_preview(request, data):
+        """
+        Client may set is_preview; only allow True when the caller is an owner
+        or admin of the microapp (e.g. builder Preview tab). Public/student runs cannot opt out of stats this way.
+        """
+        if not data.get("is_preview"):
+            return False
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        ma_id = data.get("ma_id")
+        if ma_id is None:
+            return False
+        try:
+            ma_id = int(ma_id)
+        except (TypeError, ValueError):
+            return False
+        return MicroAppUserJoin.objects.filter(
+            ma_id=ma_id,
+            user_id=user.id,
+            role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+        ).exists()
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -149,6 +186,7 @@ class RunList(APIView, UsageTrackingMixin):
                 "phase_instructions": data.get("phase_instructions", {}),
                 "phase_title": str(data.get("phase_title", "") or "")[:255],
                 "is_chat_run": bool(data.get("is_chat_run", False)),
+                "is_preview": bool(data.get("is_preview", False)),
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
@@ -263,7 +301,7 @@ class RunList(APIView, UsageTrackingMixin):
     def post(self, request, format=None):
         """Execute AI model run."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
@@ -587,7 +625,7 @@ class RunList(APIView, UsageTrackingMixin):
         try:
             if not data.get("id"):
                 return False
-            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id"]
+            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id", "is_preview"]
             for field in immutable_fields:
                 if data.get(field):
                     return False
@@ -633,7 +671,7 @@ class ScoreRunList(RunList):
     def post(self, request, format=None):
         """Score a run and stream a user-friendly explanation."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
@@ -973,7 +1011,7 @@ class AnonymousRunList(RunList):
     def post(self, request, format=None):
         """Execute anonymous AI model run."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))

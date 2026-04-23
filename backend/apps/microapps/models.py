@@ -191,6 +191,9 @@ class Run(models.Model):
     # True when this run originates from the chat component.
     is_chat_run = models.BooleanField(default=False)
 
+    # True when the run is from builder "Preview" (owner/admin test); excluded from stats aggregates.
+    is_preview = models.BooleanField(default=False)
+
     user_prompt = models.JSONField()
 
     # The chat response from the AI for the run. Or, a static response if no_submission or skipped_run is true. 

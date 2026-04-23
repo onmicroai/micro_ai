@@ -64,6 +64,7 @@ export const buildRequestBody = async (
   activeTryId?: string,
   phaseTitle?: string,
   runSource?: "default" | "chat",
+  isPreview?: boolean,
 ) => {
   const store = useConversationStore.getState();
   const scopedRuns = store.getRunsForTry(activeTryId);
@@ -219,6 +220,7 @@ export const buildRequestBody = async (
 
   requestBody.phase_title = (phaseTitle ?? "").slice(0, 255);
   requestBody.is_chat_run = runSource === "chat";
+  requestBody.is_preview = Boolean(isPreview);
 
   return requestBody;
 };

@@ -320,6 +320,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         requestSkip: false,
         skipScoredRun: true,
         runSource: "chat",
+        isPreview: useSurveyStore.getState().isPreviewRuntime,
         transcriptionCost: transcriptionCost,
         defaultAiModel: defaultAiModel,
         set: (state: any) => {
