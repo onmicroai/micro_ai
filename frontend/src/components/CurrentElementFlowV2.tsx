@@ -1091,6 +1091,7 @@ export default function CurrentElementFlowV2({
                   </>
                 )}
                 <RunScoreDisplay
+                  key={runForThisStop?.id ?? "no-scored-run"}
                   run={runForThisStop}
                   isEvaluating={isScoredRun && !scoreReady}
                   explanationContent={explanationContent}
