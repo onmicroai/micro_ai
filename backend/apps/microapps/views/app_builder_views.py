@@ -115,6 +115,11 @@ _OPEN_JSON_FENCE_START = re.compile(r"```\s*json(?![a-zA-Z])", re.IGNORECASE)
 _OPEN_JSON_FENCE_LOOKBACK = 24
 
 
+def _sse_status_event(stage: str, message: str) -> str:
+    """Format an SSE `status` event (stage + user-facing message)."""
+    return f"event: status\ndata: {json.dumps({'stage': stage, 'message': message})}\n\n"
+
+
 def _consume_outer_json_markdown_close_fence(text: str) -> int | None:
     """
     After the root JSON object, the model closes the ```json fence with a line
@@ -147,7 +152,7 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 
 # Models used for each pipeline stage — admin-configured, not user-selectable
 GUARD_MODEL = "gemini-3-flash-preview"
-BUILD_MODEL = "claude-sonnet-4-6"
+BUILD_MODEL = "gemini-3-flash-preview"
 BUILD_MAX_TOKENS = 16000
 THINKING_BUDGET_TOKENS = 10000
 
@@ -183,7 +188,7 @@ This document gives an AI everything it needs to generate syntactically correct 
   "clonable": true,
   "completedHtml": "You've reached the end",
   "aiConfig": {
-    "aiModel": "gpt-4o-mini",
+    "aiModel": "claude-haiku-4-5-20251001",
     "temperature": 0.7,
     "maxResponseTokens": null,
     "systemPrompt": ""
@@ -204,7 +209,7 @@ This document gives an AI everything it needs to generate syntactically correct 
 
 ### AIConfig Object
 {
-  "aiModel": "gpt-4o-mini",
+  "aiModel": "claude-haiku-4-5-20251001",
   "temperature": 0.7,
   "maxResponseTokens": null,
   "systemPrompt": ""
@@ -325,17 +330,64 @@ Note: When used in conditionalLogic, use true or false (boolean, not string) as 
 }
 
 ### chat — Chatbot interface
+
+The chat element supports two distinct modes. Choose based on the use case.
+
+**Mode A: Simple / informational chatbot** — A free-form assistant the learner converses with. Used for Q&A against a document, a study assistant, a help bot, or any open-ended support scenario. chatbotInstructions is a plain system prompt with no special structure required.
+
 {
   "id": "chat-1700000000010",
-  "name": "chat_session",
+  "name": "study_chat",
   "type": "chat",
-  "label": "Chat with the AI tutor:",
+  "label": "Ask a question about the reading:",
   "isRequired": false,
-  "initialMessage": "Hello! What would you like to learn today?",
-  "chatbotInstructions": "You are a friendly tutor.",
+  "initialMessage": "Hi! I'm here to help you with Chapter 3. What questions do you have?",
+  "chatbotInstructions": "You are a helpful study assistant for this course. Answer questions about the assigned reading clearly and concisely. If a question is outside the scope of the material, say so and redirect the learner.",
   "maxMessages": 10,
   "avatarUrl": ""
 }
+
+**Mode B: Character simulation** — The AI plays a specific character in a defined scenario. The learner practices a real-world skill through open-ended dialogue (interviewing, negotiating, counseling, pitching, etc.). chatbotInstructions uses ## markdown headers.
+
+{
+  "id": "chat-1700000000010",
+  "name": "simulation1",
+  "type": "chat",
+  "label": "Chat with Margaret:",
+  "isRequired": false,
+  "initialMessage": "Hi… sorry, I'm a little nervous. I've never really liked waiting rooms.",
+  "chatbotInstructions": "## Character\\nMargaret, a 58-year-old retired teacher. Guarded, warm beneath the surface, speaks in short sentences.\\n\\n## Character Instructions\\nGoal: get reassurance. Withhold the severity of symptoms until asked directly twice. Soften if the learner shows empathy.\\n\\n## Scenario Context\\nA clinic waiting room. Margaret has had a persistent cough for three weeks and is worried but reluctant to say so.\\n\\n## Learner Role\\nYou are a second-year medical student conducting an initial patient intake interview.\\n\\n## Voice Instructions\\nSpeak with nervous energy. Use incomplete sentences and self-corrections. Avoid medical terminology.",
+  "maxMessages": 10,
+  "avatarUrl": ""
+}
+
+chatbotInstructions structure for simulations — use ## markdown headers in this exact order:
+
+## Character
+[Specific name — never a generic label like "a patient". 2–4 personality traits, speaking style, relevant background.]
+
+## Character Instructions
+[Goals, strategy, what to reveal vs. withhold, how the character escalates or softens based on learner behavior.]
+
+## Scenario Context
+[Scene-setting: where, when, what happened immediately before the conversation starts.]
+
+## Learner Role
+[Who the learner is playing and what they are expected to accomplish in this conversation.]
+
+## Voice Instructions
+[Concrete, specific tone/delivery — e.g. "speaks in short sentences and self-corrects", "warm but businesslike". Never vague like "sound realistic".]
+
+## Response Guidance (optional)
+[Conditional rules for predictable branches: "If the learner asks about X, respond with Y. Do not reveal Z unless asked directly."]
+
+## End Conversation (optional)
+[Trigger condition; when met the character wraps up naturally and appends [END SIMULATION] on a new line.]
+
+Field notes:
+- initialMessage: 1–4 sentences. For simulations, written in character (not as narrator). For simple chatbots, a friendly prompt inviting the first question.
+- maxMessages: Default 10. Increase only if the scenario clearly requires more turns.
+- isRequired: Always false.
 
 ## Structural / Output Element Types
 
@@ -381,6 +433,13 @@ instructions[] item fields:
 - conditionalLogic (ConditionalLogic, optional): Only include this instruction if condition is met.
 All passing instructions are concatenated into a single prompt sent to the AI.
 
+Instruction ordering — always follow this sequence:
+1. Role / persona ("You are an expert writing coach...")
+2. Task statement ("Review the following essay and provide feedback...")
+3. Context, criteria, or learning goals
+4. Conditional context (instructions with conditionalLogic on optional fields)
+5. User content — always last ("Here is the learner's work:\\n\\n{field_name}")
+
 ### fixedResponse — Static (non-AI) text display
 {
   "id": "fixedResponse-1700000000013",
@@ -391,18 +450,47 @@ All passing instructions are concatenated into a single prompt sent to the AI.
   "text": "Welcome, {student_name}! Let's begin your session."
 }
 
-### scoring — AI-scored assessment
+### scoring — AI-scored assessment / gate
+
+The rubric field is a JSON array serialized as a single escaped string (JSON.stringify format — all inner
+quotes escaped with backslash). Each criterion object has "criteria" (name) and "lines" (scored levels,
+listed highest-to-lowest, always include score 0).
+
+Rubric array structure (before serialization):
+[
+  {
+    "criteria": "Criterion Name",
+    "lines": [
+      { "score": 5, "description": "Objective description of what earns full marks." },
+      { "score": 3, "description": "Objective description of partial credit." },
+      { "score": 0, "description": "Objective description of no credit." }
+    ]
+  }
+]
+
+Criteria must be objective and AI-scorable:
+- Good: "Contains at least two specific examples", "Claim is stated in the opening paragraph"
+- Bad: "Is the writing engaging?", "Quality of reasoning" — rewrite as observable, measurable behaviors
+
+Full element example (rubric as serialized escaped string):
 {
   "id": "scoring-1700000000014",
   "name": "scoring1",
   "type": "scoring",
   "label": "",
   "isRequired": true,
-  "rubric": "Clarity\\n2 points – The argument is clearly stated.\\n0 points – The argument is unclear.\\n\\nEvidence\\n3 points – At least two specific pieces of evidence are cited.\\n0 points – No specific evidence is cited.",
+  "rubric": "[{\\"criteria\\":\\"Claim\\",\\"lines\\":[{\\"score\\":3,\\"description\\":\\"A clear, specific claim is stated in the opening paragraph.\\"},{\\"score\\":1,\\"description\\":\\"A claim is present but vague or buried later in the response.\\"},{\\"score\\":0,\\"description\\":\\"No identifiable claim.\\"}]},{\\"criteria\\":\\"Evidence\\",\\"lines\\":[{\\"score\\":3,\\"description\\":\\"At least two specific pieces of evidence are cited with source or context.\\"},{\\"score\\":1,\\"description\\":\\"Only one example, or examples lack specificity.\\"},{\\"score\\":0,\\"description\\":\\"No evidence provided.\\"}]}]",
   "minScore": 4,
   "scoreFeedbackEnabled": false,
   "scoreFeedbackInstructions": ""
 }
+
+Scoring element rules:
+- isRequired: Always true — scoring gates block progression
+- minScore: ~70–80% of max points for standard pass; 90%+ for mastery gates
+- scoreFeedbackEnabled: true if the learner should see an explanation of their score
+- Place immediately after the input element(s) being scored
+- Split into multiple scoring elements if: criteria span >2 thematic domains, OR total points >15
 
 ## Conditional Logic
 "conditionalLogic": {
@@ -427,7 +515,9 @@ Examples: "Please write {num_questions} questions about {topic}."
 3. aiResponse instructions are concatenated in order; put context first and user content last.
 4. conditionalLogic.sourceFieldId must reference the id of an element that appears BEFORE it.
 5. For boolean conditional values, use JSON true/false, not "true"/"false" strings.
-6. scoring elements require a rubric string describing each criterion and its point values."""
+6. scoring isRequired is always true; scoring gates block progression.
+7. scoring rubric is a JSON array serialized as an escaped string; each criterion has "criteria" and "lines" (descending scores, always include 0).
+8. chat chatbotInstructions uses ## markdown headers: Character, Character Instructions, Scenario Context, Learner Role, Voice Instructions (plus optional Response Guidance and End Conversation)."""
 
 BUILD_SYSTEM_PROMPT = """You are an expert microapp builder AI. Your job is to create or modify microapp JSON based on user instructions.
 
@@ -438,6 +528,135 @@ BUILD_SYSTEM_PROMPT = """You are an expert microapp builder AI. Your job is to c
 === CURRENT APP JSON ===
 {current_app_json}
 === END CURRENT APP JSON ===
+
+=== APP DESIGN GUIDANCE ===
+
+## Understanding the App Goals
+
+Apps are rarely a single "type" — they commonly combine capabilities (e.g., an assessment that ends with a simulation, an accelerator with conditional branching, a multi-step sequence that mixes scoring and chat). Do not try to categorize the app into one type. Instead:
+
+1. **Understand what the app needs to accomplish** — Read the brief and identify every distinct goal: What does the learner produce? What gets evaluated? What feedback do they receive? Is there a practice component? Does it generate reusable output?
+2. **Identify which element capabilities are required** — Map each goal to the element type(s) that deliver it (see below).
+3. **Design the element sequence** — Arrange elements in the order that serves the learner's journey.
+
+### Element Capabilities — Match Goals to Elements
+
+**Collect structured input** → text, textarea, radio, checkbox, dropdown, slider, boolean, imageUpload
+Use these when the learner needs to provide information, make a choice, or upload content.
+
+**Display instructions, context, or a passage** → richText (static HTML), title (section heading), fixedResponse (static text with variable injection)
+Use richText or title to orient the learner before an action. Use fixedResponse to echo back user values in a confirmation or summary.
+
+**Generate AI output** → aiResponse
+Use for any AI-generated content: feedback, summaries, generated resources, personalized responses, or debriefs. The instructions array is the prompt — build it thoughtfully (see aiResponse Prompt Construction below).
+
+**Assess and gate on quality** → scoring
+Use when the app needs to evaluate a learner's input against criteria, assign a score, and optionally block progression until a minimum threshold is met.
+
+**Enable free-form conversation** → chat (Mode A: simple chatbot)
+Use when the learner needs a free-form assistant: Q&A against a document, a study helper, a support bot, or any scenario where the AI answers questions rather than plays a role. chatbotInstructions is a plain system prompt.
+
+**Practice through dialogue** → chat (Mode B: character simulation)
+Use when the learner practices an interpersonal skill through open-ended dialogue with a character (clinical intake, sales pitch, job interview, negotiation, difficult conversation). Requires a fully designed character in chatbotInstructions.
+
+**Repeat a task with different inputs** → aiResponse with 1–5 input elements (accelerator pattern)
+Use when the goal is a repeatable, prompt-wrapper tool that takes structured inputs and produces consistent output. Every input must earn its place.
+
+**Adapt based on earlier answers** → conditionalLogic on any element or aiResponse instruction
+Use to show/hide elements or include/exclude prompt snippets based on a learner's earlier responses.
+
+---
+
+## Element Sequencing Rules
+
+- When scoring and feedback elements are both present, they go in the order of feedback first, then scoring.
+- chat elements go where the conversation belongs in the learner flow
+- conditionalLogic.sourceFieldId must reference an element that appears BEFORE the current one
+- Place title elements before each major section to orient the learner
+- When building an accelerator-style output, aiResponse is the final element
+
+---
+
+## Scoring Gate Design
+
+Use a scoring element for any assessment, evaluation, or pass/fail logic.
+
+Rubric criteria must be objective and AI-scorable:
+- Good: "Contains at least two specific examples", "Claim is stated in the opening paragraph"
+- Bad: "Is the writing engaging?", "Quality of reasoning" — rewrite as observable, measurable behaviors
+
+Split into multiple scoring elements if:
+- Criteria span more than 2 distinct thematic domains
+- Total possible points exceed 15
+- Any single criterion would itself require a rubric to evaluate
+
+Set minScore to ~70–80% of max points for a standard pass. Use 90%+ for mastery gates.
+Set scoreFeedbackEnabled to true if the learner should see an explanation of their score inline.
+
+---
+
+## Chat Element Design
+
+The chat element has two modes — choose the right one based on the use case.
+
+**Mode A: Simple / informational chatbot** — Use when the learner needs a free-form assistant: Q&A against a document, a study helper, a support bot, or any scenario where the AI answers questions rather than plays a role. chatbotInstructions is a plain system prompt (no ## headers needed). Example: "You are a helpful study assistant. Answer questions about the assigned reading clearly and concisely. If a question is outside the scope of the material, say so."
+
+**Mode B: Character simulation** — Use when the learner practices a real-world interpersonal skill through dialogue (interviewing a patient, pitching to an investor, navigating a difficult conversation). The AI plays a specific character. chatbotInstructions uses ## markdown headers.
+
+For simulation chatbotInstructions, use ## headers in this order: Character, Character Instructions, Scenario Context, Learner Role, Voice Instructions, and optionally Response Guidance and End Conversation.
+
+Key simulation design rules:
+- Give the character a specific name (not a generic label like "a patient" — use "Margaret, a 58-year-old retired teacher")
+- Character Instructions must include: goals, strategy, what to reveal vs. withhold, and how the character escalates or softens based on learner behavior
+- Voice Instructions must be specific and concrete ("speaks in short sentences and self-corrects") — never vague ("sound realistic")
+- initialMessage: written in character, not as narrator; 1–4 sentences; establishes personality and gives the learner a clear cue
+- Default maxMessages is 10; increase only if the scenario clearly requires more turns
+- If the simulation has a natural conclusion, use an End Conversation section: the character wraps up and appends [END SIMULATION] on a new line when the trigger condition is met
+
+---
+
+## Feedback (aiResponse) Design
+
+For qualitative, formative feedback — never a score or grade. Build aiResponse instructions in this order:
+
+1. Persona — "You are an experienced instructional coach providing constructive feedback to a learner."
+2. Task — "Review the learner's work below and provide constructive, formative feedback. Do not assign a score or grade."
+3. Learning goals — List 2–4 goals explicitly; these become the organizing sections of the feedback
+4. Structure — "Start with a brief overall impression (2–3 sentences), then address each learning goal: one strength, one development area, one concrete suggestion. End with one actionable priority for next time."
+5. Format — "Format in markdown. Use bold text for key points, bullet points within each section, and emoji: ✅ strengths, 🔧 development areas, 💡 suggestions, 🎯 priority action. No lengthy paragraphs. No scores."
+6. Conciseness — "3–5 bullets per section maximum. No filler opening lines like 'Great job!'. Go directly to the feedback."
+7. User content — Always last; inject each relevant field with a clear label: "Here is the learner's work:\\n\\n{{field_name}}"
+
+When paired with a scoring gate, align the feedback's learning goals to the rubric's criterion dimensions — reframe them as growth-oriented goals, not scores.
+
+---
+
+## Accelerator-Style Prompt Engineering
+
+When the app's goal is a repeatable prompt-wrapper tool (generating content, mapping objectives, building a rubric, etc.), build the aiResponse instructions in this order:
+
+1. Role + task — specific persona and exactly what to produce: "You are an expert instructional designer. Your task is to generate {{num_questions}} multiple choice questions about {{topic}} suitable for {{level}} learners."
+2. Rules and constraints — directive, not suggestive: "Each question must have exactly 4 options. Only one option is correct. Distractors must be plausible, not obviously wrong."
+3. Conditional snippets — for each boolean toggle, add an instruction with conditionalLogic (operator: equals, value: true) that fires only when the toggle is on
+4. Output format — specify markdown structure, headers, bullet points, emoji color symbols explicitly
+5. Output example — always include a concrete example: "Here is an example of the output format to follow exactly: ..." — the AI treats this as a formatting contract
+6. User content — always last; inject user inputs with clear labels
+
+Always include in accelerator prompts: "Do not add preamble or summary. Go directly to the output."
+Use emoji color symbols for scannability where appropriate (✅ 🔴 🟡 🟢 📝 ⚠️).
+
+---
+
+## General aiResponse Prompt Construction
+
+For all aiResponse elements, always order instructions:
+1. Role / persona
+2. Task statement
+3. Context, criteria, or learning goals
+4. Conditional context (instructions with conditionalLogic on optional fields)
+5. User content — always last
+
+=== END DESIGN GUIDANCE ===
 
 You MUST follow this exact response format — no exceptions:
 
@@ -511,6 +730,8 @@ class AppBuilderChatView(APIView):
         async def sse_stream():
             loop = asyncio.get_event_loop()
 
+            yield _sse_status_event("classifying", "Reviewing your request...")
+
             # --- Stage 1: Guard (blocking, run in thread) ---
             try:
                 verdict = await loop.run_in_executor(None, self._run_guard, message)
@@ -528,6 +749,8 @@ class AppBuilderChatView(APIView):
                 yield f"event: refused\ndata: {json.dumps({'message': refusal})}\n\n"
                 return
 
+            yield _sse_status_event("planning", "Planning your app...")
+
             # --- Stage 2: Build (stream each chunk via run_in_executor) ---
             json_accumulator = []
             build_gen = self._stream_build(llm_messages, json_accumulator)
@@ -543,10 +766,14 @@ class AppBuilderChatView(APIView):
                         yield f"event: thinking\ndata: {json.dumps({'chunk': chunk})}\n\n"
                     elif event_type == "text":
                         yield f"event: content\ndata: {json.dumps({'chunk': chunk})}\n\n"
+                    elif event_type == "status":
+                        yield f"event: status\ndata: {chunk}\n\n"
             except Exception as e:
                 log.error(f"App builder build stage error: {e}")
                 yield f"event: error\ndata: {json.dumps({'message': 'An error occurred while generating the app. Please try again.'})}\n\n"
                 return
+
+            yield _sse_status_event("validating", "Applying changes...")
 
             # --- Stage 3: Validate ---
             raw_json = "".join(json_accumulator)
@@ -591,7 +818,11 @@ class AppBuilderChatView(APIView):
         """
         Stream the build stage directly against the LiteLLM proxy with thinking enabled.
 
-        Yields ("thinking" | "text", str) for content that should be shown to the user.
+        Yields:
+        - ("thinking", str) — extended thinking tokens
+        - ("text", str) — assistant text (PLAN / SUMMARY) outside the JSON fence
+        - ("status", str) — full JSON string for SSE: {"stage": ..., "message": ...}
+
         JSON content inside ```json...``` fences is silently appended to json_accumulator
         instead of being yielded, so it never reaches the frontend as raw JSON.
 
@@ -622,6 +853,10 @@ class AppBuilderChatView(APIView):
         text_buf = ""
         in_json = False
         json_body_captured = False
+        json_heartbeat_n = 0
+        _building_status = json.dumps(
+            {"stage": "building", "message": "Building app structure..."}
+        )
 
         for line in resp.iter_lines():
             if not line:
@@ -647,6 +882,11 @@ class AppBuilderChatView(APIView):
             raw = _streaming_assistant_text_chunk(chunk)
             if not raw:
                 continue
+
+            if in_json:
+                json_heartbeat_n += 1
+                if json_heartbeat_n > 1 and json_heartbeat_n % 50 == 0:
+                    yield ("status", _building_status)
 
             # Feed into the lookahead buffer and process
             text_buf += raw
@@ -674,6 +914,8 @@ class AppBuilderChatView(APIView):
                             text_buf = text_buf[1:]
                         in_json = True
                         json_body_captured = False
+                        json_heartbeat_n = 0
+                        yield ("status", _building_status)
                 else:
                     if text_buf.lstrip().startswith("{"):
                         span = _find_root_json_span(text_buf)
@@ -693,6 +935,7 @@ class AppBuilderChatView(APIView):
                     if n > 0:
                         text_buf = text_buf[n:]
                     in_json = False
+                    json_heartbeat_n = 0
                     continue
 
         # Flush whatever remains in the buffer after the stream ends.

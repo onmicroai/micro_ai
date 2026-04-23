@@ -566,6 +566,8 @@ export interface ChatBuildMessage {
   role: "user" | "assistant";
   content: string;
   thinkingContent?: string;
+  /** Breadcrumb from SSE `status` while the build is in progress. */
+  statusMessage?: string;
   status: ChatBuildMessageStatus;
 }
 
