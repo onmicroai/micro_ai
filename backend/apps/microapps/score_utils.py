@@ -96,3 +96,60 @@ def parse_run_score_total(run_score: Any) -> Optional[float]:
             pass
 
     return None
+
+
+def _dict_from_string_best_effort(text: str) -> dict[str, Any] | None:
+    """
+    Extract a single JSON object from a raw grader string (prose, fences, or trailing {…}).
+    Used for per-criterion analytics; mirrors the extraction strategy of parse_run_score_total.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    try:
+        obj = json.loads(text)
+        if isinstance(obj, dict):
+            return obj
+    except json.JSONDecodeError:
+        pass
+    for m in _FENCED_JSON_RE.finditer(text):
+        chunk = m.group(1).strip()
+        try:
+            obj = json.loads(chunk)
+            if isinstance(obj, dict):
+                return obj
+        except json.JSONDecodeError:
+            continue
+    brace_start = text.rfind("{")
+    if brace_start != -1:
+        tail = text[brace_start:]
+        for end in range(len(tail), 0, -1):
+            snippet = tail[:end]
+            try:
+                obj = json.loads(snippet)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict):
+                return obj
+    return None
+
+
+def coerce_run_score_to_dict(run_score: Any) -> dict[str, Any]:
+    """
+    Best-effort dict for analytics (per-criterion keys + total), matching how the UI
+    can show a breakdown. Handles JSONField dict, a bare number, or the raw grader
+    string (often prose + ```json { … } ```), which json.loads on the full string
+    cannot parse.
+    """
+    if run_score is None:
+        return {}
+    if isinstance(run_score, bool):
+        return {}
+    if isinstance(run_score, dict):
+        return run_score
+    if isinstance(run_score, (int, float)):
+        return {"total": float(run_score)}
+    if not isinstance(run_score, str):
+        return {}
+    d = _dict_from_string_best_effort(run_score)
+    return d if d is not None else {}
