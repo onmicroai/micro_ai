@@ -28,6 +28,8 @@ import CoinsSquareIcon from "@/components/icons/CoinsSquareIcon";
 import StaticSquareIcon from "@/components/icons/StatisticSquareIcon";
 import LikeSquareIcon from "@/components/icons/LikeSquareIcon";
 import { ConversationDetailsDialog } from "./components/ConversationDetailsDialog";
+import { ScoreAnalysisSection } from "./components/ScoreAnalysisSection";
+import { Badge } from "../../edit/[id]/components/ui/badge";
 
 export type MicroappStatsContentProps = {
   hashId: string;
@@ -392,6 +394,11 @@ export default function MicroappStatsContent({
             </div>
           )}
 
+          <ScoreAnalysisSection
+            hashId={hashId}
+            canLoad={isAuthorized && !dataLoading}
+          />
+
           <div className="bg-white p-4">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
@@ -474,9 +481,13 @@ export default function MicroappStatsContent({
                             selectedCell
                           )}
                         >
-                          <span className="px-2.5 py-0.5 bg-secondary-grey-100 rounded-md">
+                          <Badge
+                            variant="neutral"
+                            size="md"
+                            className="rounded-none"
+                          >
                             {conv.model}
-                          </span>
+                          </Badge>
                         </td>
                         <td
                           className={cn(
