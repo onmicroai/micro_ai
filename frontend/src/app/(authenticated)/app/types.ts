@@ -438,6 +438,8 @@ export interface SurveyState {
   setSaveState: (saveState: Partial<SaveState>) => void;
   setAppId: (id: number | null) => void;
   saveToServer: (signal?: AbortSignal) => Promise<void>;
+  /** Cancel debounced save and PUT the latest editor state now (e.g. before critical navigation). */
+  saveToServerImmediate: (signal?: AbortSignal) => Promise<void>;
   isInitialLoad: boolean;
   setIsInitialLoad: (isInitialLoad: boolean) => void;
   collections: { value: number; text: string }[];
