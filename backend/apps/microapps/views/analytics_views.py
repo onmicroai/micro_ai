@@ -14,7 +14,19 @@ from django.db.models.functions import Coalesce, Round
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
 from apps.utils.usage_helper import get_user_ip
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession, AppThemeSnapshot
+from apps.microapps.models import (
+    Microapp,
+    MicroAppUserJoin,
+    Run,
+    AppUsageSession,
+    AppThemeSnapshot,
+    RubricVersion,
+)
+from apps.microapps.score_analysis_service import (
+    get_cached_score_analysis_payload,
+    list_versions_for_app,
+)
+from apps.microapps.rubric_publish import live_rubric_matches_snapshot
 from apps.microapps.score_utils import parse_run_score_total
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
@@ -648,5 +660,107 @@ class AppQuota(APIView):
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
             
+        except Exception as e:
+            return handle_exception(e)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Score analysis by rubric version (owner/admin)",
+    )
+)
+class AppScoreAnalysis(APIView):
+    """Gates + category aggregates for a microapp, filtered by rubric version."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            app_id = request.GET.get("app_id")
+            hash_id = request.GET.get("hash_id")
+            if not app_id and not hash_id:
+                return Response(
+                    {"error": "app_id or hash_id is required", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not app_id:
+                try:
+                    app_id = Microapp.objects.values_list("id", flat=True).get(hash_id=hash_id)
+                except Microapp.DoesNotExist:
+                    return Response(
+                        {"error": "App not found", "status": status.HTTP_404_NOT_FOUND},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            user_id = request.user.id
+            if not MicroAppUserJoin.objects.filter(
+                user_id=user_id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+            ).exists():
+                return Response(
+                    {
+                        "error": "You don't have permission to view score analysis for this app",
+                        "status": status.HTTP_403_FORBIDDEN,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            app = Microapp.objects.get(id=app_id)
+            v_param = request.GET.get("rubric_version_id")
+            active = app.active_rubric_version
+            version = None
+            if v_param:
+                try:
+                    v_id = int(v_param)
+                except (TypeError, ValueError):
+                    v_id = None
+                if v_id is not None:
+                    version = RubricVersion.objects.filter(
+                        ma_id=app_id, id=v_id
+                    ).first()
+            else:
+                version = active
+
+            if not version:
+                return Response(
+                    {
+                        "data": {
+                            "active_rubric_version_id": None,
+                            "selected_rubric_version_id": None,
+                            "selected_version": None,
+                            "versions": list_versions_for_app(app_id),
+                            "analysis": None,
+                            "live_rubric_matches_selected_version": None,
+                        },
+                        "status": status.HTTP_200_OK,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            analysis = get_cached_score_analysis_payload(
+                app_id=app_id, version=version
+            )
+            versions = list_versions_for_app(app_id)
+            live_matches = live_rubric_matches_snapshot(app, version)
+
+            return Response(
+                {
+                    "data": {
+                        "active_rubric_version_id": active.id if active else None,
+                        "selected_rubric_version_id": version.id,
+                        "selected_version": {
+                            "id": version.id,
+                            "version_number": version.version_number,
+                            "label": version.label,
+                        },
+                        "versions": versions,
+                        "analysis": analysis,
+                        "live_rubric_matches_selected_version": live_matches,
+                    },
+                    "status": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             return handle_exception(e)
