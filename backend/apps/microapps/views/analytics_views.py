@@ -169,6 +169,12 @@ class AppStatistics(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
+            active_rv_id = (
+                Microapp.objects.filter(pk=app_id)
+                .values_list("active_rubric_version_id", flat=True)
+                .first()
+            )
+
             runs = list(Run.objects.filter(ma_id=app_id, is_preview=False).values('ma_id').annotate(
                 total_responses=Count(
                     Case(
@@ -270,6 +276,7 @@ class AppStatistics(APIView):
                     runs[0]['satisfaction_percent'] = 0
                     runs[0]['likes_percent'] = 0
                     runs[0]['dislikes_percent'] = 0
+                runs[0]["active_rubric_version_id"] = active_rv_id
             else:
                 # Usage-based time-in-app does not require Run rows; still return one row for the UI.
                 themes, generated_at = get_latest_themes_for_app(app_id)
@@ -299,6 +306,7 @@ class AppStatistics(APIView):
                     'satisfaction_percent': 0,
                     'likes_percent': 0,
                     'dislikes_percent': 0,
+                    'active_rubric_version_id': active_rv_id,
                 }]
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)

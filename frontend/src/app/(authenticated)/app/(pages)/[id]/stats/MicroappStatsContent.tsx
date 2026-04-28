@@ -274,6 +274,10 @@ export default function MicroappStatsContent({
 
   const row = stats?.data?.[0] ?? {};
 
+  const hasActiveRubricVersion =
+    typeof row.active_rubric_version_id === "number" &&
+    Number.isFinite(row.active_rubric_version_id);
+
   const avgSessionSeconds = Number(row.avg_session_seconds || 0);
   const minSessionSeconds = Number(row.min_session_seconds || 0);
   const maxSessionSeconds = Number(row.max_session_seconds || 0);
@@ -394,10 +398,12 @@ export default function MicroappStatsContent({
             </div>
           )}
 
-          <ScoreAnalysisSection
-            hashId={hashId}
-            canLoad={isAuthorized && !dataLoading}
-          />
+          {hasActiveRubricVersion && (
+            <ScoreAnalysisSection
+              hashId={hashId}
+              canLoad={isAuthorized && !dataLoading}
+            />
+          )}
 
           <div className="bg-white p-4">
             <div className="flex justify-between items-center mb-4">
