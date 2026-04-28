@@ -8,6 +8,13 @@ import {
   Badge,
   type BadgeVariant,
 } from "../../../edit/[id]/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/select";
 
 type VersionOption = {
   id: number;
@@ -158,26 +165,30 @@ export function ScoreAnalysisSection({ hashId, canLoad }: ScoreAnalysisProps) {
         </div>
         {showVersionPicker && (
           <div className="flex items-center gap-2 text-sm">
-            <span className="text-gray-600">Rubric version</span>
-            <select
-              className="border border-gray-200 rounded-md px-2 py-1.5 bg-white"
-              value={versionId}
-              onChange={(e) => {
-                const v = e.target.value;
+            <span className="text-gray-600 shrink-0">Rubric version</span>
+            <Select
+              value={versionId || undefined}
+              onValueChange={(v) => {
                 setVersionId(v);
                 void load(v);
               }}
             >
-              {data?.versions.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.label}
-                  {v.id === data?.active_rubric_version_id
-                    ? " (active)"
-                    : ""} — {v.scored_run_count} run
-                  {v.scored_run_count === 1 ? "" : "s"}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger className="h-9 w-full sm:w-[min(100%,20rem)] border-gray-200">
+                <SelectValue placeholder="Select version" />
+              </SelectTrigger>
+              <SelectContent align="end">
+                {data?.versions.map((v) => (
+                  <SelectItem key={v.id} value={String(v.id)}>
+                    {v.label}
+                    {v.id === data?.active_rubric_version_id
+                      ? " (active)"
+                      : ""}{" "}
+                    — {v.scored_run_count} run
+                    {v.scored_run_count === 1 ? "" : "s"}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
       </div>
