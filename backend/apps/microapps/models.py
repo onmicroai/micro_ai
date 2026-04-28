@@ -77,6 +77,15 @@ class Microapp(models.Model):
     # This field can get quite large with large and complex apps, or apps that include objects that are converted to long base64 strings.   
     app_json = models.JSONField()
 
+    # Published rubric snapshot for analytics (new runs can point here via Run.rubric_version)
+    active_rubric_version = models.ForeignKey(
+        "RubricVersion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="apps_as_active",
+    )
+
     # Add this new field
     is_archived = models.BooleanField(default=False)
     
@@ -107,6 +116,44 @@ class Microapp(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class RubricVersion(models.Model):
+    """Immutable rubric + scoring layout snapshot; runs link here for version-aware score analysis."""
+
+    ma_id = models.ForeignKey(
+        Microapp, on_delete=models.CASCADE, related_name="rubric_versions"
+    )
+    version_number = models.PositiveIntegerField()
+    label = models.CharField(max_length=200, blank=True, default="")
+    definition_json = models.JSONField(default=dict)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = [("ma_id", "version_number")]
+
+    def __str__(self):
+        return f"RubricVersion(ma={self.ma_id_id}, v={self.version_number})"
+
+
+class ScoreAnalysisSnapshot(models.Model):
+    """
+    Cached output of build_score_analysis_payload for a rubric version.
+    Invalidated when matching scored runs change or insight LLM settings change.
+    """
+
+    rubric_version = models.OneToOneField(
+        RubricVersion,
+        on_delete=models.CASCADE,
+        related_name="score_analysis_snapshot",
+    )
+    source_fingerprint = models.CharField(max_length=512)
+    payload_json = models.JSONField()
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"ScoreAnalysisSnapshot(rv={self.rubric_version_id})"
+
 
 class MicroAppUserJoin(models.Model):
     ADMIN = 'admin'
@@ -193,6 +240,14 @@ class Run(models.Model):
 
     # True when the run is from builder "Preview" (owner/admin test); excluded from stats aggregates.
     is_preview = models.BooleanField(default=False)
+
+    rubric_version = models.ForeignKey(
+        "RubricVersion",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="runs",
+    )
 
     user_prompt = models.JSONField()
 
@@ -283,6 +338,10 @@ class Run(models.Model):
     class Meta:
         indexes = [
             models.Index(fields=['ma_id', 'session_id'], name='run_ma_session_idx'),
+            models.Index(
+                fields=['ma_id', 'rubric_version', 'is_preview', 'scored_run'],
+                name='run_ma_rv_preview_scored_idx',
+            ),
         ]
 
     def __str__(self):
