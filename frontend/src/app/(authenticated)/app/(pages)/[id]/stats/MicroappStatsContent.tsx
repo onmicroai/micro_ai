@@ -277,6 +277,13 @@ export default function MicroappStatsContent({
   const hasActiveRubricVersion =
     typeof row.active_rubric_version_id === "number" &&
     Number.isFinite(row.active_rubric_version_id);
+  const rubricVersionCount =
+    typeof row.rubric_version_count === "number" &&
+    Number.isFinite(row.rubric_version_count)
+      ? row.rubric_version_count
+      : 0;
+  const showScoreAnalysisSection =
+    hasActiveRubricVersion || rubricVersionCount > 0;
 
   const avgSessionSeconds = Number(row.avg_session_seconds || 0);
   const minSessionSeconds = Number(row.min_session_seconds || 0);
@@ -398,7 +405,7 @@ export default function MicroappStatsContent({
             </div>
           )}
 
-          {hasActiveRubricVersion && (
+          {showScoreAnalysisSection && (
             <ScoreAnalysisSection
               hashId={hashId}
               canLoad={isAuthorized && !dataLoading}

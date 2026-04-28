@@ -27,6 +27,28 @@ def _definitions_equivalent(a: dict, b: dict) -> bool:
     )
 
 
+def _no_gates_rubric_result(app: Microapp) -> dict[str, Any]:
+    """
+    Live app_json has no scoring gates: there is nothing to publish as "active".
+    Clear active_rubric_version if it was set (e.g. author removed all gates).
+    """
+    had_active = app.active_rubric_version_id is not None
+    if had_active:
+        Microapp.objects.filter(pk=app.pk).update(active_rubric_version_id=None)
+    return {
+        "created": False,
+        "rubric_version_id": None,
+        "version_number": None,
+        "label": None,
+        "gates_count": 0,
+        "message": (
+            "No scoring gates in app; cleared active rubric version."
+            if had_active
+            else "No scoring gates in app; no rubric version to assign."
+        ),
+    }
+
+
 def _apply_rubric_publish_if_needed(
     app: Microapp,
     *,
@@ -44,23 +66,7 @@ def _apply_rubric_publish_if_needed(
     active = app.active_rubric_version
     gates = new_def.get("gates") or []
     if not gates:
-        if active:
-            return {
-                "created": False,
-                "rubric_version_id": active.id,
-                "version_number": active.version_number,
-                "label": active.label,
-                "gates_count": 0,
-                "message": "No scoring gates in app; keeping the current rubric version.",
-            }
-        return {
-            "created": False,
-            "rubric_version_id": None,
-            "version_number": None,
-            "label": None,
-            "gates_count": 0,
-            "message": "No scoring gates in app; no rubric version to assign.",
-        }
+        return _no_gates_rubric_result(app)
 
     if active and _definitions_equivalent(active.definition_json, new_def):
         return {
@@ -93,6 +99,27 @@ def _apply_rubric_publish_if_needed(
         "gates_count": len(new_def.get("gates") or []),
         "message": "Published a new rubric version. New runs will use it for score analytics.",
     }
+
+
+def reconcile_active_rubric_pointer_after_app_json_save(microapp_id: int) -> None:
+    """
+    After the editor persists app_json: if there are no scoring gates, clear
+    active_rubric_version. Does not create versions (that stays on scored runs).
+    """
+    try:
+        with transaction.atomic():
+            app = (
+                Microapp.objects.select_for_update(of=("self",))
+                .select_related("active_rubric_version")
+                .get(pk=microapp_id)
+            )
+            stored = app_json_to_dict(app.app_json)
+            new_def = build_definition_for_snapshot(stored)
+            if new_def.get("gates") or []:
+                return
+            _no_gates_rubric_result(app)
+    except Microapp.DoesNotExist:
+        return
 
 
 def live_rubric_matches_snapshot(app: Microapp, version: RubricVersion) -> bool:

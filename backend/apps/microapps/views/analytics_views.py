@@ -174,6 +174,7 @@ class AppStatistics(APIView):
                 .values_list("active_rubric_version_id", flat=True)
                 .first()
             )
+            rubric_version_count = RubricVersion.objects.filter(ma_id=app_id).count()
 
             runs = list(Run.objects.filter(ma_id=app_id, is_preview=False).values('ma_id').annotate(
                 total_responses=Count(
@@ -277,6 +278,7 @@ class AppStatistics(APIView):
                     runs[0]['likes_percent'] = 0
                     runs[0]['dislikes_percent'] = 0
                 runs[0]["active_rubric_version_id"] = active_rv_id
+                runs[0]["rubric_version_count"] = rubric_version_count
             else:
                 # Usage-based time-in-app does not require Run rows; still return one row for the UI.
                 themes, generated_at = get_latest_themes_for_app(app_id)
@@ -307,6 +309,7 @@ class AppStatistics(APIView):
                     'likes_percent': 0,
                     'dislikes_percent': 0,
                     'active_rubric_version_id': active_rv_id,
+                    'rubric_version_count': rubric_version_count,
                 }]
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
@@ -717,7 +720,9 @@ class AppScoreAnalysis(APIView):
             app = Microapp.objects.get(id=app_id)
             v_param = request.GET.get("rubric_version_id")
             active = app.active_rubric_version
+            versions = list_versions_for_app(app_id)
             version = None
+
             if v_param:
                 try:
                     v_id = int(v_param)
@@ -727,17 +732,21 @@ class AppScoreAnalysis(APIView):
                     version = RubricVersion.objects.filter(
                         ma_id=app_id, id=v_id
                     ).first()
-            else:
+            elif active:
                 version = active
+            elif versions:
+                version = RubricVersion.objects.filter(
+                    ma_id=app_id, id=versions[-1]["id"]
+                ).first()
 
             if not version:
                 return Response(
                     {
                         "data": {
-                            "active_rubric_version_id": None,
+                            "active_rubric_version_id": active.id if active else None,
                             "selected_rubric_version_id": None,
                             "selected_version": None,
-                            "versions": list_versions_for_app(app_id),
+                            "versions": versions,
                             "analysis": None,
                             "live_rubric_matches_selected_version": None,
                         },
@@ -749,7 +758,6 @@ class AppScoreAnalysis(APIView):
             analysis = get_cached_score_analysis_payload(
                 app_id=app_id, version=version
             )
-            versions = list_versions_for_app(app_id)
             live_matches = live_rubric_matches_snapshot(app, version)
 
             return Response(

@@ -1,12 +1,21 @@
 from rest_framework import serializers
 from .models import Microapp, MicroAppUserJoin, Asset, AssetsMaJoin, Run
 from decimal import Decimal
+from apps.microapps.rubric_publish import reconcile_active_rubric_pointer_after_app_json_save
+
 
 class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
         model = Microapp
         fields = '__all__'
         extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
+
+    def update(self, instance, validated_data):
+        instance = super().update(instance, validated_data)
+        if "app_json" in validated_data:
+            reconcile_active_rubric_pointer_after_app_json_save(instance.pk)
+            instance.refresh_from_db()
+        return instance
 
 class MicroAppSwaggerPostSerializer(serializers.ModelSerializer):
     collection_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)
