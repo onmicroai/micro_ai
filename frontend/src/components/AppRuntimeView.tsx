@@ -13,6 +13,7 @@ import EditAppLink from "@/components/EditAppLink";
 import DebugInformation from "@/components/DebugInformation";
 
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { RuntimePreviewProvider } from "@/context/RuntimePreviewContext";
 import { useConversationStore } from "@/store/conversationStore";
 import { useUserStore } from "@/store/userStore";
 import { useAuth } from "@/context/AuthContext";
@@ -355,7 +356,8 @@ export default function AppRuntimeView({
   ]);
 
   return (
-    <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
+    <RuntimePreviewProvider value={!showEditLink}>
+      <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
       <div className="max-w-7xl mx-auto px-4 py-6 bg-gray-50 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
           {(roles.isOwner || roles.isAdmin) && showEditLink && (
@@ -475,6 +477,7 @@ export default function AppRuntimeView({
           copyAllowed={!!surveyJson?.copyAllowed}
         />
       )}
-    </div>
+      </div>
+    </RuntimePreviewProvider>
   );
 }

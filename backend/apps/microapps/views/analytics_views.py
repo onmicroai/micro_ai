@@ -14,7 +14,19 @@ from django.db.models.functions import Coalesce, Round
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import MicroAppUsage
 from apps.utils.usage_helper import get_user_ip
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, AppUsageSession, AppThemeSnapshot
+from apps.microapps.models import (
+    Microapp,
+    MicroAppUserJoin,
+    Run,
+    AppUsageSession,
+    AppThemeSnapshot,
+    RubricVersion,
+)
+from apps.microapps.score_analysis_service import (
+    get_cached_score_analysis_payload,
+    list_versions_for_app,
+)
+from apps.microapps.rubric_publish import live_rubric_matches_snapshot
 from apps.microapps.score_utils import parse_run_score_total
 from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
@@ -43,7 +55,7 @@ def get_stats_for_app_ids(app_ids):
     if not app_ids:
         return {}
     app_ids = list(app_ids)
-    stats_qs = Run.objects.filter(ma_id__in=app_ids).values('ma_id').annotate(
+    stats_qs = Run.objects.filter(ma_id__in=app_ids, is_preview=False).values('ma_id').annotate(
         total_credits=Coalesce(Sum('credits'), 0),
         unique_users=Count('user_ip', distinct=True),
         sessions=Count('session_id', distinct=True),
@@ -157,7 +169,14 @@ class AppStatistics(APIView):
                     status=status.HTTP_403_FORBIDDEN
                 )
 
-            runs = list(Run.objects.filter(ma_id=app_id).values('ma_id').annotate(
+            active_rv_id = (
+                Microapp.objects.filter(pk=app_id)
+                .values_list("active_rubric_version_id", flat=True)
+                .first()
+            )
+            rubric_version_count = RubricVersion.objects.filter(ma_id=app_id).count()
+
+            runs = list(Run.objects.filter(ma_id=app_id, is_preview=False).values('ma_id').annotate(
                 total_responses=Count(
                     Case(
                         When(satisfaction__in=[1, -1], then=1)
@@ -222,7 +241,7 @@ class AppStatistics(APIView):
                 runs[0]['themes_generated_at'] = generated_at
 
                 # Credits per run, across all runs for this app
-                credits_agg = Run.objects.filter(ma_id=app_id).aggregate(
+                credits_agg = Run.objects.filter(ma_id=app_id, is_preview=False).aggregate(
                     avg_credits=Avg('credits'),
                     min_credits=Min('credits'),
                     max_credits=Max('credits'),
@@ -233,7 +252,7 @@ class AppStatistics(APIView):
                 runs[0]['max_credits_per_run'] = int(round(credits_agg.get('max_credits') or 0))
 
                 # Pass / fail among scored runs only
-                scored_qs = Run.objects.filter(ma_id=app_id, scored_run=True)
+                scored_qs = Run.objects.filter(ma_id=app_id, is_preview=False, scored_run=True)
                 passed_ct = scored_qs.filter(run_passed=True).count()
                 failed_ct = scored_qs.filter(run_passed=False).count()
                 scored_total = passed_ct + failed_ct
@@ -258,6 +277,8 @@ class AppStatistics(APIView):
                     runs[0]['satisfaction_percent'] = 0
                     runs[0]['likes_percent'] = 0
                     runs[0]['dislikes_percent'] = 0
+                runs[0]["active_rubric_version_id"] = active_rv_id
+                runs[0]["rubric_version_count"] = rubric_version_count
             else:
                 # Usage-based time-in-app does not require Run rows; still return one row for the UI.
                 themes, generated_at = get_latest_themes_for_app(app_id)
@@ -287,6 +308,8 @@ class AppStatistics(APIView):
                     'satisfaction_percent': 0,
                     'likes_percent': 0,
                     'dislikes_percent': 0,
+                    'active_rubric_version_id': active_rv_id,
+                    'rubric_version_count': rubric_version_count,
                 }]
 
             return Response({"data": runs, "status": status.HTTP_200_OK}, status=status.HTTP_200_OK)
@@ -388,6 +411,7 @@ class AppConversations(APIView):
                 Run.objects.filter(
                     ma_id=app_id,
                     session_id=OuterRef('session_id'),
+                    is_preview=False,
                     satisfaction__isnull=False,
                     satisfaction__in=[1, -1]
                 ).values('satisfaction')
@@ -399,14 +423,15 @@ class AppConversations(APIView):
             model_subquery = Subquery(
                 Run.objects.filter(
                     ma_id=app_id,
-                    session_id=OuterRef('session_id')
+                    session_id=OuterRef('session_id'),
+                    is_preview=False,
                 ).values('ai_model')
                 .annotate(count=Count('ai_model'))
                 .order_by('-count', 'ai_model')
                 .values('ai_model')[:1]
             )
 
-            conversations = Run.objects.filter(ma_id=app_id).values('session_id').annotate(
+            conversations = Run.objects.filter(ma_id=app_id, is_preview=False).values('session_id').annotate(
                 start_time=Min('timestamp'),
                 total_cost=Sum('cost'),
                 messages_count=Count('id'),
@@ -459,9 +484,10 @@ class AppConversationDetails(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
 
-            # Resolve session_id to a stable numeric app_id
+            # Resolve session_id to a stable numeric app_id (non-preview runs only)
             app_id = Run.objects.filter(
-                session_id=session_id
+                session_id=session_id,
+                is_preview=False,
             ).values_list('ma_id', flat=True).first()
 
             if app_id is None:
@@ -484,7 +510,8 @@ class AppConversationDetails(APIView):
             # Include ma_id in the filter so the composite (ma_id, session_id) index is used
             conversation = Run.objects.filter(
                 ma_id=app_id,
-                session_id=session_id
+                session_id=session_id,
+                is_preview=False,
             ).values(
                 'timestamp',
                 'user_id',
@@ -644,5 +671,112 @@ class AppQuota(APIView):
                 "status": status.HTTP_200_OK
             }, status=status.HTTP_200_OK)
             
+        except Exception as e:
+            return handle_exception(e)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        summary="Score analysis by rubric version (owner/admin)",
+    )
+)
+class AppScoreAnalysis(APIView):
+    """Gates + category aggregates for a microapp, filtered by rubric version."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        try:
+            app_id = request.GET.get("app_id")
+            hash_id = request.GET.get("hash_id")
+            if not app_id and not hash_id:
+                return Response(
+                    {"error": "app_id or hash_id is required", "status": status.HTTP_400_BAD_REQUEST},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if not app_id:
+                try:
+                    app_id = Microapp.objects.values_list("id", flat=True).get(hash_id=hash_id)
+                except Microapp.DoesNotExist:
+                    return Response(
+                        {"error": "App not found", "status": status.HTTP_404_NOT_FOUND},
+                        status=status.HTTP_404_NOT_FOUND,
+                    )
+
+            user_id = request.user.id
+            if not MicroAppUserJoin.objects.filter(
+                user_id=user_id,
+                ma_id=app_id,
+                role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+            ).exists():
+                return Response(
+                    {
+                        "error": "You don't have permission to view score analysis for this app",
+                        "status": status.HTTP_403_FORBIDDEN,
+                    },
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+
+            app = Microapp.objects.get(id=app_id)
+            v_param = request.GET.get("rubric_version_id")
+            active = app.active_rubric_version
+            versions = list_versions_for_app(app_id)
+            version = None
+
+            if v_param:
+                try:
+                    v_id = int(v_param)
+                except (TypeError, ValueError):
+                    v_id = None
+                if v_id is not None:
+                    version = RubricVersion.objects.filter(
+                        ma_id=app_id, id=v_id
+                    ).first()
+            elif active:
+                version = active
+            elif versions:
+                version = RubricVersion.objects.filter(
+                    ma_id=app_id, id=versions[-1]["id"]
+                ).first()
+
+            if not version:
+                return Response(
+                    {
+                        "data": {
+                            "active_rubric_version_id": active.id if active else None,
+                            "selected_rubric_version_id": None,
+                            "selected_version": None,
+                            "versions": versions,
+                            "analysis": None,
+                            "live_rubric_matches_selected_version": None,
+                        },
+                        "status": status.HTTP_200_OK,
+                    },
+                    status=status.HTTP_200_OK,
+                )
+
+            analysis = get_cached_score_analysis_payload(
+                app_id=app_id, version=version
+            )
+            live_matches = live_rubric_matches_snapshot(app, version)
+
+            return Response(
+                {
+                    "data": {
+                        "active_rubric_version_id": active.id if active else None,
+                        "selected_rubric_version_id": version.id,
+                        "selected_version": {
+                            "id": version.id,
+                            "version_number": version.version_number,
+                            "label": version.label,
+                        },
+                        "versions": versions,
+                        "analysis": analysis,
+                        "live_rubric_matches_selected_version": live_matches,
+                    },
+                    "status": status.HTTP_200_OK,
+                },
+                status=status.HTTP_200_OK,
+            )
         except Exception as e:
             return handle_exception(e)

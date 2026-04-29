@@ -28,6 +28,8 @@ import CoinsSquareIcon from "@/components/icons/CoinsSquareIcon";
 import StaticSquareIcon from "@/components/icons/StatisticSquareIcon";
 import LikeSquareIcon from "@/components/icons/LikeSquareIcon";
 import { ConversationDetailsDialog } from "./components/ConversationDetailsDialog";
+import { ScoreAnalysisSection } from "./components/ScoreAnalysisSection";
+import { Badge } from "../../edit/[id]/components/ui/badge";
 
 export type MicroappStatsContentProps = {
   hashId: string;
@@ -272,6 +274,17 @@ export default function MicroappStatsContent({
 
   const row = stats?.data?.[0] ?? {};
 
+  const hasActiveRubricVersion =
+    typeof row.active_rubric_version_id === "number" &&
+    Number.isFinite(row.active_rubric_version_id);
+  const rubricVersionCount =
+    typeof row.rubric_version_count === "number" &&
+    Number.isFinite(row.rubric_version_count)
+      ? row.rubric_version_count
+      : 0;
+  const showScoreAnalysisSection =
+    hasActiveRubricVersion || rubricVersionCount > 0;
+
   const avgSessionSeconds = Number(row.avg_session_seconds || 0);
   const minSessionSeconds = Number(row.min_session_seconds || 0);
   const maxSessionSeconds = Number(row.max_session_seconds || 0);
@@ -392,6 +405,13 @@ export default function MicroappStatsContent({
             </div>
           )}
 
+          {showScoreAnalysisSection && (
+            <ScoreAnalysisSection
+              hashId={hashId}
+              canLoad={isAuthorized && !dataLoading}
+            />
+          )}
+
           <div className="bg-white p-4">
             <div className="flex justify-between items-center mb-4">
               <div className="flex items-center gap-2">
@@ -474,9 +494,13 @@ export default function MicroappStatsContent({
                             selectedCell
                           )}
                         >
-                          <span className="px-2.5 py-0.5 bg-secondary-grey-100 rounded-md">
+                          <Badge
+                            variant="neutral"
+                            size="md"
+                            className="rounded-none"
+                          >
                             {conv.model}
-                          </span>
+                          </Badge>
                         </td>
                         <td
                           className={cn(

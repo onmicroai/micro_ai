@@ -65,73 +65,72 @@ const initialState = {
 
 export const useSurveyStore = create<SurveyState>((set, get) => {
   /**
-   * Debounced function to save the survey to the server, prevents multiple saves in a short period of time
-   * @param signal - The AbortSignal to cancel the request
+   * Persists current editor state to the server (single flight; skips during initial load).
    */
-  const debouncedSaveToServer = debounce(async (signal?: AbortSignal) => {
+  const runSaveToServer = async (signal?: AbortSignal) => {
     const state = get();
     const { appId, saveState, isInitialLoad } = state;
 
     if (!appId || saveState.isSaving) {
       if (saveState.isDebouncing) {
-        set((state) => ({
-          saveState: { ...state.saveState, isDebouncing: false },
+        set((s) => ({
+          saveState: { ...s.saveState, isDebouncing: false },
         }));
       }
       return;
     }
 
-    // If it's the initial load, set the flag to false and return
     if (isInitialLoad === true) {
-      set((state) => ({
+      set((s) => ({
         isInitialLoad: false,
-        saveState: { ...state.saveState, isDebouncing: false },
+        saveState: { ...s.saveState, isDebouncing: false },
       }));
       return;
     }
 
     try {
-      set((state) => ({
+      set((s) => ({
         saveState: {
-          ...state.saveState,
+          ...s.saveState,
           isSaving: true,
           isDebouncing: false,
           error: null,
         },
       }));
 
-      const api = axiosInstance();
-      const appJsonData: any = {
-        title: state.title,
-        description: state.description,
-        privacySettings: state.privacy,
-        clonable: state.clonable,
-        completedHtml: state.completedHtml,
-        aiConfig: state.aiConfig,
-        attachedFiles: state.attachedFiles,
-        elements: state.elements,
+      const cur = get();
+      const appJsonData: Record<string, unknown> = {
+        title: cur.title,
+        description: cur.description,
+        privacySettings: cur.privacy,
+        clonable: cur.clonable,
+        completedHtml: cur.completedHtml,
+        aiConfig: cur.aiConfig,
+        attachedFiles: cur.attachedFiles,
+        elements: cur.elements,
       };
 
       const data: Record<string, unknown> = {
-        title: state.title || "Untitled App",
-        privacy: state.privacy,
-        copy_allowed: state.clonable,
-        ai_model: state.aiConfig.aiModel,
-        temperature: state.aiConfig.temperature,
-        explanation: state.description,
+        title: cur.title || "Untitled App",
+        privacy: cur.privacy,
+        copy_allowed: cur.clonable,
+        ai_model: cur.aiConfig.aiModel,
+        temperature: cur.aiConfig.temperature,
+        explanation: cur.description,
         app_json: appJsonData,
       };
-      if (state.privacy === "restricted") {
-        data.permitted_domains = state.permittedDomains ?? [];
+      if (cur.privacy === "restricted") {
+        data.permitted_domains = cur.permittedDomains ?? [];
       }
 
+      const api = axiosInstance();
       await api.put(`/api/microapps/${appId}`, data, {
         signal: signal,
       });
 
-      set((state) => ({
+      set((s) => ({
         saveState: {
-          ...state.saveState,
+          ...s.saveState,
           isSaving: false,
           isDebouncing: false,
           lastSaved: new Date(),
@@ -141,9 +140,9 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Failed to save";
-      set((state) => ({
+      set((s) => ({
         saveState: {
-          ...state.saveState,
+          ...s.saveState,
           isSaving: false,
           isDebouncing: false,
           error: errorMessage,
@@ -152,6 +151,10 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
 
       toast.error(`Failed to save: ${errorMessage}`);
     }
+  };
+
+  const debouncedSaveToServer = debounce((signal?: AbortSignal) => {
+    void runSaveToServer(signal);
   }, 1000);
 
   const persist_app_builder_session = () => {

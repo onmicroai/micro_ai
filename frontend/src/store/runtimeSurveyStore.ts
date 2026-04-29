@@ -531,6 +531,7 @@ export const useSurveyStore = create<SurveyStore>()(
         runtimeMeta?: {
           tryId?: string;
           tryIndex?: number;
+          isPreview?: boolean;
         }
       ): Promise<SendPromptResponse> => {
         set({
@@ -552,6 +553,7 @@ export const useSurveyStore = create<SurveyStore>()(
           noSubmit,
           pageConfigOverride,
           defaultAiModel: get().defaultAiModel,
+          isPreview: Boolean(runtimeMeta?.isPreview),
           runtimeMeta,
         });
       },

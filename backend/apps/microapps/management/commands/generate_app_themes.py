@@ -22,7 +22,8 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         app_stats = (
-            Run.objects.values("ma_id")
+            Run.objects.filter(is_preview=False)
+            .values("ma_id")
             .annotate(
                 latest_run=Max("timestamp"),
                 earliest_run=Min("timestamp"),
@@ -49,11 +50,18 @@ class Command(BaseCommand):
 
             if latest_snapshot_end:
                 runs_qs = (
-                    Run.objects.filter(ma_id=app_id, timestamp__gt=latest_snapshot_end)
+                    Run.objects.filter(
+                        ma_id=app_id,
+                        is_preview=False,
+                        timestamp__gt=latest_snapshot_end,
+                    )
                     .order_by("timestamp")[:MAX_RUNS_PER_APP]
                 )
             else:
-                runs_qs = Run.objects.filter(ma_id=app_id).order_by("-timestamp")[:MAX_RUNS_PER_APP]
+                runs_qs = (
+                    Run.objects.filter(ma_id=app_id, is_preview=False)
+                    .order_by("-timestamp")[:MAX_RUNS_PER_APP]
+                )
             runs = list(runs_qs)
             if latest_snapshot_end:
                 if len(runs) < MIN_NEW_RUNS_REQUIRED:

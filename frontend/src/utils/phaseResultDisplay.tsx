@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { useState, useEffect, useLayoutEffect, useMemo, useRef } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkBreaks from "remark-breaks";
@@ -179,14 +179,24 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
   const hasBreakdown = Boolean(breakdown);
   const scoreSectionRef = useRef<HTMLDivElement | null>(null);
   const lastAnimatedKeyRef = useRef<string>("");
+  // Include updatedAt so a new evaluation (or any score re-write) re-triggers
+  // the bar width transition even if run_score JSON is identical to the last time.
   const scoreAnimationKey = useMemo(() => {
     if (!run?.id || !run?.run_score) return "";
-    return `${run.id}:${run.run_score}`;
-  }, [run?.id, run?.run_score]);
+    return `${run.id}:${run.run_score}:${run.updatedAt ?? 0}`;
+  }, [run?.id, run?.run_score, run?.updatedAt]);
+
+  // New scored run: reset the dedupe ref so a prior evaluation cannot block bar animation
+  // (refs persist across the same mount when only `run` content swaps in the store).
+  useLayoutEffect(() => {
+    if (!run?.id) return;
+    lastAnimatedKeyRef.current = "";
+    setAnimateBars(false);
+  }, [run?.id]);
 
   useEffect(() => {
     if (!scoreAnimationKey || !hasBreakdown || isEvaluating) return;
-    // Prevent repeated smooth-scroll restarts while the same run keeps streaming.
+    // Prevent repeated smooth-scroll restarts for an identical key (e.g. strict mode / duplicate paint).
     if (lastAnimatedKeyRef.current === scoreAnimationKey) return;
     lastAnimatedKeyRef.current = scoreAnimationKey;
 

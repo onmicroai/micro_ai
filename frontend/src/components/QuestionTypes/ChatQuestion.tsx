@@ -23,6 +23,7 @@ import { transcribeAudio } from "@/utils/audioTranscriptionService";
 import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
 import { useConversationStore } from "@/store/conversationStore";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { useRuntimePreview } from "@/context/RuntimePreviewContext";
 import ReactMarkdown from "react-markdown";
 import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
@@ -71,6 +72,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   activeTryIndex,
 }) => {
   const defaultAiModel = useSurveyStore((s) => s.defaultAiModel);
+  const isPreview = useRuntimePreview();
   const MESSAGE_LIMIT = element.maxMessages || 10;
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
@@ -320,6 +322,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         requestSkip: false,
         skipScoredRun: true,
         runSource: "chat",
+        isPreview,
         transcriptionCost: transcriptionCost,
         defaultAiModel: defaultAiModel,
         set: (state: any) => {

@@ -17,6 +17,10 @@ import {
 } from "@/app/(authenticated)/(dashboard)/types";
 import { cn } from "@/utils/cn";
 import {
+  Badge,
+  BadgeVariant,
+} from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/badge";
+import {
   ChartLine,
   Copy,
   GripVertical,
@@ -144,21 +148,15 @@ const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
     collectionOrderForId
   );
 
-  const getPrivacyBadge = (privacy: string) => {
-    const privacyLower = privacy.toLowerCase();
-    const baseClasses =
-      "inline-flex items-center px-3 py-1 text-sm rounded-full";
-    const colorClasses = {
-      public:
-        "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-      private: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
-      restricted:
-        "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
-    };
-    return `${baseClasses} ${
-      colorClasses[privacyLower as keyof typeof colorClasses] ||
-      colorClasses.private
-    }`;
+  const getPrivacyVariant = (privacy: string): BadgeVariant => {
+    switch (privacy?.toLowerCase()) {
+      case "public":
+        return "success";
+      case "restricted":
+        return "warning";
+      default:
+        return "muted";
+    }
   };
 
   const getPrivacyName = (privacy?: string) => {
@@ -458,9 +456,12 @@ const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
 
                       <div className="flex shrink-0 flex-col items-end gap-2">
                         <div className="flex items-center gap-1">
-                          <span className={getPrivacyBadge(app.privacy)}>
+                          <Badge
+                            variant={getPrivacyVariant(app.privacy)}
+                            size="md"
+                          >
                             {getPrivacyName(app.privacy)}
-                          </span>
+                          </Badge>
                           <div className="flex md:hidden">
                             <Menu as="div" className="relative border-none">
                               <MenuButton className="inline-flex items-center gap-x-1 rounded-md px-2 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/10">
