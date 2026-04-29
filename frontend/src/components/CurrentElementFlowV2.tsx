@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef } from "react";
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { validateForm } from "@/utils/validateForms";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { useRuntimePreview } from "@/context/RuntimePreviewContext";
 import { useConversationStore } from "@/store/conversationStore";
 import {
   FixedResponseRuntimeState,
@@ -188,6 +189,7 @@ export default function CurrentElementFlowV2({
   isAdmin = false,
   onComplete,
 }: Props) {
+  const isPreview = useRuntimePreview();
   const {
     surveyJson,
     answers: surveyAnswers,
@@ -607,7 +609,11 @@ export default function CurrentElementFlowV2({
         false,
         false,
         undefined,
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry.index,
+          isPreview,
+        },
       );
       // Required scoring gates can return run_passed=false; in that case we keep cursor
       // on the current stop and do not reveal/advance this aiResponse card.
@@ -640,6 +646,7 @@ export default function CurrentElementFlowV2({
       commitDraftToTry,
       advance,
       setSurveyImages,
+      isPreview,
     ],
   );
 
@@ -729,7 +736,11 @@ export default function CurrentElementFlowV2({
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         },
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry.index,
+          isPreview,
+        },
       );
       const scoringIsRequired = stop.isRequired !== false;
       const failedRequired = res.run_passed === false && scoringIsRequired;

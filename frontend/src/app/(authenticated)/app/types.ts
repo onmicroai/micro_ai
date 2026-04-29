@@ -64,6 +64,8 @@ export type sendPrompts = (
   runtimeMeta?: {
     tryId?: string;
     tryIndex?: number;
+    /** Builder preview shell → `is_preview` on /run. Omit or false for real app / embed. */
+    isPreview?: boolean;
   }
 ) => Promise<SendPromptResponse>;
 
@@ -76,9 +78,6 @@ export interface SurveyStore {
   answers: Answers;
   images: Base64Images;
   currentUserId: string | null;
-  /** When true, runs are from the editor Preview iframe (excluded from stats on the server). */
-  isPreviewRuntime: boolean;
-  setIsPreviewRuntime: (isPreview: boolean) => void;
   answersPerApp: Record<string, Answers>;
   imagesPerApp: Record<string, Base64Images>;
   responses: string[]; // A list of AI responses

@@ -13,6 +13,7 @@ import EditAppLink from "@/components/EditAppLink";
 import DebugInformation from "@/components/DebugInformation";
 
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { RuntimePreviewProvider } from "@/context/RuntimePreviewContext";
 import { useConversationStore } from "@/store/conversationStore";
 import { useUserStore } from "@/store/userStore";
 import { useAuth } from "@/context/AuthContext";
@@ -58,7 +59,6 @@ export default function AppRuntimeView({
     fetchApp,
     softReset: softResetSurveyStore,
     setCurrentUserId,
-    setIsPreviewRuntime,
   } = useSurveyStore();
 
   const { currentConversation, conversations, resetAppConversation } =
@@ -70,18 +70,6 @@ export default function AppRuntimeView({
   useEffect(() => {
     setCurrentUserId(userId != null ? String(userId) : null);
   }, [userId, setCurrentUserId]);
-
-  // Set immediately during render, before any child runs. Relying on useEffect
-  // is too late: child effects and user actions can post to /run while isPreviewRuntime is still false.
-  const isBuilderPreviewShell = !showEditLink;
-  if (useSurveyStore.getState().isPreviewRuntime !== isBuilderPreviewShell) {
-    useSurveyStore.setState({ isPreviewRuntime: isBuilderPreviewShell });
-  }
-
-  // Clear preview flag when this shell unmounts (e.g. leave builder Preview tab).
-  useEffect(() => {
-    return () => useSurveyStore.setState({ isPreviewRuntime: false });
-  }, [showEditLink, setIsPreviewRuntime]);
 
   // Collapse continuation when app changes
   useEffect(() => {
@@ -368,7 +356,8 @@ export default function AppRuntimeView({
   ]);
 
   return (
-    <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
+    <RuntimePreviewProvider value={!showEditLink}>
+      <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
       <div className="max-w-7xl mx-auto px-4 py-6 bg-gray-50 sm:px-6 lg:px-8">
         <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-md overflow-hidden p-6">
           {(roles.isOwner || roles.isAdmin) && showEditLink && (
@@ -488,6 +477,7 @@ export default function AppRuntimeView({
           copyAllowed={!!surveyJson?.copyAllowed}
         />
       )}
-    </div>
+      </div>
+    </RuntimePreviewProvider>
   );
 }

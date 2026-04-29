@@ -11,6 +11,7 @@ import {
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { validateForm } from "@/utils/validateForms";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { useRuntimePreview } from "@/context/RuntimePreviewContext";
 import { useConversationStore } from "@/store/conversationStore";
 import RenderQuestion from "./RenderQuestion";
 import RenderPrompt from "./RenderPrompt";
@@ -87,6 +88,7 @@ export default function CurrentElementFlow({
   isAdmin = false,
   onComplete,
 }: Props) {
+  const isPreview = useRuntimePreview();
   const {
     surveyJson,
     answers,
@@ -432,6 +434,7 @@ export default function CurrentElementFlow({
         {
           tryId: activeTryId || undefined,
           tryIndex: activeTry?.index,
+          isPreview,
         },
       );
       if (res.run_passed === false) return;
@@ -487,6 +490,7 @@ export default function CurrentElementFlow({
         {
           tryId: activeTryId || undefined,
           tryIndex: activeTry?.index,
+          isPreview,
         },
       );
       const scoringIsRequired = stop.isRequired !== false;
