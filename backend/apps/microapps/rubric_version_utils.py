@@ -100,13 +100,16 @@ def find_gate_for_run_rubric(
 ) -> dict | None:
     """
     Map a run's stored `Run.rubric` to one gate in the version definition.
+
+    Returns the matching gate dict, or None when the run's rubric text does not
+    match any gate (normalized comparison). Callers should omit such runs from
+    gate-level aggregates rather than guessing a gate.
     """
     if not run_rubric_text or not run_rubric_text.strip():
         return None
     norm_run = _normalize_rubric_to_str(run_rubric_text)
     if not norm_run and run_rubric_text:
         norm_run = run_rubric_text.strip()
-    best: dict | None = None
     for gate in definition.get("gates") or []:
         gtxt = (gate or {}).get("rubric_text") or ""
         if not gtxt:
@@ -114,9 +117,4 @@ def find_gate_for_run_rubric(
         n = _normalize_rubric_to_str(gtxt)
         if n == norm_run or gtxt.strip() == run_rubric_text.strip():
             return gate
-    gates = [g for g in (definition.get("gates") or []) if g]
-    if len(gates) == 1:
-        return gates[0]
-    if gates:
-        return gates[0]
-    return best
+    return None

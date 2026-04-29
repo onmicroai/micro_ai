@@ -401,7 +401,9 @@ def build_score_analysis_payload(
         if not score_map:
             continue
         gate = find_gate_for_run_rubric(definition, str(run.rubric or ""))
-        gname = (gate or {}).get("name") or "scoring"
+        if gate is None:
+            continue
+        gname = gate.get("name") or "scoring"
         if gname not in by_gate:
             by_gate[gname] = []
         by_gate[gname].append(run)
