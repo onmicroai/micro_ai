@@ -24,7 +24,11 @@ export interface SendPromptResponse {
   run_uuid?: string; // Changed from runId to run_uuid to match API response
 }
 
-export type ScoreExplanationMode = "always" | "failed_only" | "passed_only" | "never";
+export type ScoreExplanationMode =
+  | "always"
+  | "failed_only"
+  | "passed_only"
+  | "never";
 
 export type setInputValue = (
   name: string,
@@ -413,7 +417,11 @@ export interface SurveyState {
     skipServerUpdate?: boolean,
     signal?: AbortSignal
   ) => void;
-  setCollectionIds: (ids: number[], skipServerUpdate?: boolean, signal?: AbortSignal) => void;
+  setCollectionIds: (
+    ids: number[],
+    skipServerUpdate?: boolean,
+    signal?: AbortSignal
+  ) => void;
   addCollection: (id: number, signal?: AbortSignal) => Promise<void>;
   removeCollection: (id: number, signal?: AbortSignal) => Promise<void>;
   setPrivacy: (
@@ -438,8 +446,6 @@ export interface SurveyState {
   setSaveState: (saveState: Partial<SaveState>) => void;
   setAppId: (id: number | null) => void;
   saveToServer: (signal?: AbortSignal) => Promise<void>;
-  /** Cancel debounced save and PUT the latest editor state now (e.g. before critical navigation). */
-  saveToServerImmediate: (signal?: AbortSignal) => Promise<void>;
   isInitialLoad: boolean;
   setIsInitialLoad: (isInitialLoad: boolean) => void;
   collections: { value: number; text: string }[];
@@ -487,7 +493,10 @@ export interface SurveyState {
   /** Snapshots of app_json before each successful App Builder apply (for undo). */
   appBuilderUndoStack: AppJsonV2[];
   addChatBuildMessage: (message: ChatBuildMessage) => void;
-  updateChatBuildMessage: (id: string, patch: Partial<ChatBuildMessage>) => void;
+  updateChatBuildMessage: (
+    id: string,
+    patch: Partial<ChatBuildMessage>
+  ) => void;
   /** Current editor state as V2 app_json (for snapshots). */
   getAppJsonSnapshot: () => AppJsonV2;
   /** Push current app_json onto undo stack (call immediately before applying AI output). */

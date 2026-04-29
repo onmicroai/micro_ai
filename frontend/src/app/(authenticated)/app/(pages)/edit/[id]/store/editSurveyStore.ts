@@ -442,15 +442,6 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
       return Promise.resolve(debouncedSaveToServer(signal));
     },
 
-    saveToServerImmediate: async (signal?: AbortSignal) => {
-      debouncedSaveToServer.cancel();
-      const deadline = Date.now() + 20_000;
-      while (get().saveState.isSaving && Date.now() < deadline) {
-        await new Promise((r) => setTimeout(r, 80));
-      }
-      await runSaveToServer(signal);
-    },
-
     /**
      * Sets the initial load of the survey
      * @param isInitialLoad - The initial load of the survey
