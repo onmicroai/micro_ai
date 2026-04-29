@@ -71,8 +71,6 @@ export default function AppRuntimeView({
     setCurrentUserId(userId != null ? String(userId) : null);
   }, [userId, setCurrentUserId]);
 
-  console.log("showEditLink: ", showEditLink);
-
   // Set immediately during render, before any child runs. Relying on useEffect
   // is too late: child effects and user actions can post to /run while isPreviewRuntime is still false.
   const isBuilderPreviewShell = !showEditLink;
