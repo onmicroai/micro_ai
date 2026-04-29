@@ -75,7 +75,16 @@ def backfill_baseline(apps, schema_editor):
     Microapp = apps.get_model("microapps", "Microapp")
     RubricVersion = apps.get_model("microapps", "RubricVersion")
     Run = apps.get_model("microapps", "Run")
-    for app in Microapp.objects.all():
+
+    # Stream rows in chunks so the queryset is not fully materialized in memory.
+    chunk_size = 500
+    qs = (
+        Microapp.objects.order_by("pk")
+        .only("id", "app_json", "active_rubric_version_id")
+        .iterator(chunk_size=chunk_size)
+    )
+
+    for app in qs:
         raw = app.app_json
         if isinstance(raw, str) and raw.strip():
             try:
