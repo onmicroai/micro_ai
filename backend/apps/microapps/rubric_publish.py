@@ -115,7 +115,7 @@ def reconcile_active_rubric_pointer_after_app_json_save(microapp_id: int) -> Non
             )
             stored = app_json_to_dict(app.app_json)
             new_def = build_definition_for_snapshot(stored)
-            if new_def.get("gates") or []:
+            if new_def.get("gates"):
                 return
             _no_gates_rubric_result(app)
     except Microapp.DoesNotExist:
