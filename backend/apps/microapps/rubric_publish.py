@@ -17,7 +17,11 @@ def app_json_to_dict(app_json: Any) -> dict:
     if isinstance(app_json, str):
         if not (app_json or "").strip():
             return {}
-        return json.loads(app_json)
+        try:
+            parsed = json.loads(app_json)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
     return app_json if isinstance(app_json, dict) else {}
 
 
