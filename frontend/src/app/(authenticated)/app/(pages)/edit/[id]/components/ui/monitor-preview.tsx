@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Copy, Check, User, Menu } from "lucide-react";
-import Image from "next/image";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import { Copy, Check} from "lucide-react";
 
 interface MonitorPreviewProps {
   children: React.ReactNode;

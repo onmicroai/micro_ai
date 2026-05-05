@@ -249,7 +249,10 @@ export default function CurrentElementFlowV2({
   const cursor = draftState?.cursor || 0;
   const editingFieldName = draftState?.editingFieldName || null;
   const fixedResponseStateById = draftState?.fixedResponseStateById || {};
-  const stopStateByElementId = draftState?.stopStateByElementId || {};
+  const stopStateByElementId = useMemo(
+    () => draftState?.stopStateByElementId || {},
+    [draftState?.stopStateByElementId],
+  );
   const activeTryIndex = activeTry?.index || 1;
 
   useEffect(() => {
@@ -299,7 +302,15 @@ export default function CurrentElementFlowV2({
       structuredClone((surveyImages as Base64Images) || {}),
       sessionKey,
     );
-  }, [surveyJson, initRuntimeTry, surveyAnswers, surveyImages, appElements]);
+  }, [
+    surveyJson,
+    initRuntimeTry,
+    surveyAnswers,
+    surveyImages,
+    appElements,
+    appId,
+    userId,
+  ]);
 
   // Seed default values once per (app, try) to ensure defaults render in preview/runtime.
   // Important: applyDraftAnswers always writes new state, so we must guard to avoid loops.
@@ -423,16 +434,17 @@ export default function CurrentElementFlowV2({
     return { stopIndex: stopIdx, stopElement: stopEl, visibleUntil: until };
   }, [cursor, visibleElements]);
 
-  const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined,
-  ) => {
-    return (instructions || []).filter((inst) =>
-      evaluateVisibility(
-        (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers,
-      ),
-    );
-  };
+  const getVisibleInstructions = useCallback(
+    (instructions: Element["instructions"] | undefined) => {
+      return (instructions || []).filter((inst) =>
+        evaluateVisibility(
+          (inst?.conditionalLogic || {}) as ConditionalLogic,
+          answers as Answers,
+        ),
+      );
+    },
+    [answers],
+  );
 
   const setInputValueWithDraft: setInputValue = useCallback(
     (name, value, otherValue, type) => {
