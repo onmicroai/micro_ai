@@ -148,6 +148,17 @@ export async function checkCurrentPagePrivacy(
 
   if (!path.includes("/app/")) return false;
 
+  const barePath = path.split("?")[0] ?? path;
+  // Logged-in surfaces: never treat as "public viewer" for JWT purposes. A public
+  // app still uses IsAuthenticated APIs here; omitting the Bearer causes 401, and
+  // authorizedFetch skips 401 retry when isPublic is true (unlike axios).
+  if (/\/app\/edit\//i.test(barePath)) {
+    return false;
+  }
+  if (/\/app\/[^/]+\/stats(?:\/|$)/i.test(barePath)) {
+    return false;
+  }
+
   const appId = extractMicroappHashFromPath(path);
   if (!appId) return false;
 
