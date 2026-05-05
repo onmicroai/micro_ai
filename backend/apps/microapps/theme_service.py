@@ -69,6 +69,7 @@ def generate_themes(conversation_digest: str) -> List[Dict[str, str]]:
         "(3) where interactions look aligned with what the app was built for; "
         "(4) where users diverge from that intended use (workarounds, novel uses, misuse).\n"
         "Each theme must clearly tie to observed user behavior in the excerpts.\n"
+        "Start exactly one theme title with 'Users typically' and another with 'Users struggle'."
         "Return ONLY valid JSON with this exact shape:\n"
         '{"themes":[{"title":"1-8 word title","description":"One sentence description"}]}\n'
         f"Rules:\n- Max {MAX_THEMES} themes\n- Merge overlapping themes\n"
@@ -126,6 +127,7 @@ def generate_themes_incremental(
         "You maintain themes about how users interact with the app, updating from new chats.\n"
         "Themes should reflect: typical usage across users; struggle (confusion, frustration, "
         "avoidance, retries); alignment with intended app purpose; divergence or workarounds.\n"
+        "Start exactly one theme title with 'Users typically' and another with 'Users struggle'."
         "Return ONLY valid JSON with this exact shape:\n"
         '{"themes":[{"title":"1-8 word title","description":"One sentence description"}]}\n'
         f"Rules:\n- Max {MAX_THEMES} themes\n- Merge overlapping themes\n"
