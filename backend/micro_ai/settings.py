@@ -453,6 +453,11 @@ DEFAULT_PORTAL_CONFIGURATION_ID=env("DEFAULT_PORTAL_CONFIGURATION_ID")
 LITELLM_BASE_URL = env("LITELLM_BASE_URL", default="http://om-litellm:4000")
 LITELLM_API_KEY = env("LITELLM_MASTER_KEY", default="")
 
+# Score Analysis: "Why students get points off" — optional LLM (LiteLLM)
+SCORE_ANALYSIS_INSIGHT_LLM_ENABLED = env.bool("SCORE_ANALYSIS_INSIGHT_LLM_ENABLED", default=True)
+# Model name must exist in UsageVariables / LiteLLM (e.g. gpt-4o-mini)
+SCORE_ANALYSIS_INSIGHT_MODEL = env("SCORE_ANALYSIS_INSIGHT_MODEL", default="gpt-4o-mini")
+
 SILENCED_SYSTEM_CHECKS = [
 ]
 

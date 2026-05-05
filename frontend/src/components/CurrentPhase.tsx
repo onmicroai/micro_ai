@@ -6,6 +6,7 @@ import RenderPrompt from "./RenderPrompt";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import injectValuesIntoPrompt from "@/utils//injectValuesIntoPrompt";
 import { useSurveyStore } from "../store/runtimeSurveyStore";
+import { useRuntimePreview } from "@/context/RuntimePreviewContext";
 import { validateForm } from "@/utils//validateForms";
 import {
   Answers,
@@ -36,6 +37,7 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
   isOwner = false,
   isAdmin = false,
 }) => {
+  const isPreview = useRuntimePreview();
   const [formAction, setFormAction] = useState<"submit" | "skip" | "noSubmit">(
     "submit"
   );
@@ -184,7 +186,10 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
         surveyJson,
         currentPhaseIndex,
         userId,
-        false
+        false,
+        undefined,
+        undefined,
+        { isPreview },
       );
     }
 
@@ -196,7 +201,10 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
         surveyJson,
         currentPhaseIndex,
         userId,
-        true
+        true,
+        undefined,
+        undefined,
+        { isPreview },
       );
     }
 
@@ -209,7 +217,9 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
         currentPhaseIndex,
         userId,
         false,
-        true
+        true,
+        undefined,
+        { isPreview },
       );
     }
 

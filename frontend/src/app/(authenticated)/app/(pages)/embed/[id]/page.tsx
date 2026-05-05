@@ -16,6 +16,9 @@ import ContinuationInterface from "@/components/ContinuationInterface";
 import { RotateCcw, MessageCircle } from "lucide-react";
 import { getContinuationChatKey } from "@/utils/continuationChatKey";
 
+/** Parent frames may post `{ type: EMBED_RESTART_MESSAGE_TYPE }` to restart the embed (any origin). */
+const EMBED_RESTART_MESSAGE_TYPE = "microai-embed-restart";
+
 type PageParams = {
   params: {
     id: string;
@@ -28,7 +31,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
   const [showThankYouMessage, setShowThankYouMessage] = useState(false);
   const [flowKey, setFlowKey] = useState(0);
   const { user } = useUserStore();
-  const userId = Number(user?.id);
+  const userId = user?.id ?? null;
   const hashId = params.id?.toString() || "";
   const [appId, setAppId] = useState<number | null>(null);
   const {
@@ -48,7 +51,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     useConversationStore();
 
   useEffect(() => {
-    setCurrentUserId(userId ? String(userId) : null);
+    setCurrentUserId(userId != null ? String(userId) : null);
   }, [userId, setCurrentUserId]);
 
   // Check if there are existing continuation messages for auto-expansion
@@ -148,13 +151,26 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     const signal = abortController.signal;
 
     const checkRoles = async () => {
-      if (userId && hashId) {
+      if (userId == null || !hashId) {
+        return;
+      }
+
+      try {
         const [ownerResult, adminResult] = await Promise.all([
           checkIsOwner(hashId, userId, signal),
           checkIsAdmin(hashId, userId, signal),
         ]);
         setIsOwner(ownerResult.isOwner);
         setIsAdmin(adminResult.isAdmin);
+      } catch (error: unknown) {
+        const name =
+          error && typeof error === "object" && "name" in error
+            ? String((error as { name?: string }).name)
+            : "";
+        if (name === "AbortError" || name === "CanceledError") {
+          return;
+        }
+        console.error("Error checking roles:", error);
       }
     };
 
@@ -162,6 +178,38 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
     return () => abortController.abort();
   }, [userId, hashId]);
+
+  const restartEmbeddedApp = useCallback(() => {
+    if (appId) {
+      resetAppConversation(
+        String(appId),
+        userId != null ? String(userId) : undefined,
+      );
+    }
+    softResetSurveyStore();
+    setShowThankYouMessage(false);
+    setIsContinuationExpanded(false);
+    setFlowKey((k) => k + 1);
+    toast.success("App restarted successfully");
+  }, [appId, userId, resetAppConversation, softResetSurveyStore]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (data == null || typeof data !== "object" || Array.isArray(data)) {
+        return;
+      }
+      if (
+        (data as { type?: unknown }).type !== EMBED_RESTART_MESSAGE_TYPE
+      ) {
+        return;
+      }
+      restartEmbeddedApp();
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [restartEmbeddedApp]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -231,18 +279,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
         <div className="mt-4 flex justify-between items-center">
           <button
-            onClick={() => {
-              if (appId)
-                resetAppConversation(
-                  String(appId),
-                  userId ? String(userId) : undefined,
-                );
-              softResetSurveyStore();
-              setShowThankYouMessage(false);
-              setIsContinuationExpanded(false);
-              setFlowKey((k) => k + 1);
-              toast.success("App restarted successfully");
-            }}
+            onClick={restartEmbeddedApp}
             className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />

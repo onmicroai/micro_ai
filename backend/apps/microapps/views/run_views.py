@@ -13,7 +13,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from drf_spectacular.utils import extend_schema, extend_schema_view, OpenApiParameter
-from django.http import StreamingHttpResponse
+from django.http import StreamingHttpResponse, QueryDict
 from asgiref.sync import sync_to_async
 
 from apps.utils.custom_error_message import ErrorMessages as error
@@ -21,6 +21,7 @@ from apps.utils.usage_helper import RunUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import MicroappVariables, UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, DocumentChunk, AppFileReference
+from apps.microapps.rubric_publish import ensure_rubric_version_for_scored_run
 from apps.microapps.rag_service import retrieve_relevant_chunks_multi_file
 from apps.microapps.serializer import (
     MicroAppSerializer,
@@ -64,6 +65,43 @@ env.read_env(os.path.join(BASE_DIR, ".env"))
 class RunList(APIView, UsageTrackingMixin):
     permission_classes = [AllowAny]
     ai_score = ""
+
+    @staticmethod
+    def _copy_and_set_is_preview(request):
+        """Build a mutable request body with a server-validated is_preview flag."""
+        raw = request.data
+        if isinstance(raw, QueryDict):
+            data = raw.dict()
+        elif isinstance(raw, dict):
+            data = {**raw}
+        else:
+            data = {k: raw[k] for k in raw}
+        data["is_preview"] = RunList._resolve_is_preview(request, data)
+        return data
+
+    @staticmethod
+    def _resolve_is_preview(request, data):
+        """
+        Client may set is_preview; only allow True when the caller is an owner
+        or admin of the microapp (e.g. builder Preview tab). Public/student runs cannot opt out of stats this way.
+        """
+        if not data.get("is_preview"):
+            return False
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        ma_id = data.get("ma_id")
+        if ma_id is None:
+            return False
+        try:
+            ma_id = int(ma_id)
+        except (TypeError, ValueError):
+            return False
+        return MicroAppUserJoin.objects.filter(
+            ma_id=ma_id,
+            user_id=user.id,
+            role__in=[MicroAppUserJoin.OWNER, MicroAppUserJoin.ADMIN],
+        ).exists()
 
     def get_permissions(self):
         if self.request.method == "GET":
@@ -120,6 +158,29 @@ class RunList(APIView, UsageTrackingMixin):
             max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
             app_hash_id = self.app_hash_id or data.get("app_hash_id", '')
 
+            # Use `rubric_version` (model FK name). `rubric_version_id` is ignored by
+            # RunGetSerializer, so the DB column was never set and stayed NULL.
+            # Real scored runs auto-publish a new RubricVersion when app_json gates
+            # differ from the active snapshot (preview runs use current active only).
+            active_rv_pk = None
+            mid = data.get("ma_id")
+            if mid is not None:
+                try:
+                    mid_int = int(mid)
+                except (TypeError, ValueError):
+                    mid_int = None
+                if (
+                    mid_int is not None
+                    and data.get("scored_run")
+                    and not data.get("is_preview")
+                ):
+                    active_rv_pk = ensure_rubric_version_for_scored_run(mid_int)
+                if active_rv_pk is None:
+                    pk_lookup = mid_int if mid_int is not None else mid
+                    active_rv_pk = Microapp.objects.filter(pk=pk_lookup).values_list(
+                        "active_rubric_version_id", flat=True
+                    ).first()
+
             run_data = {
                 "ma_id": int(data.get("ma_id")),
                 "user_id": data.get("user_id"),
@@ -149,6 +210,8 @@ class RunList(APIView, UsageTrackingMixin):
                 "phase_instructions": data.get("phase_instructions", {}),
                 "phase_title": str(data.get("phase_title", "") or "")[:255],
                 "is_chat_run": bool(data.get("is_chat_run", False)),
+                "is_preview": bool(data.get("is_preview", False)),
+                "rubric_version": active_rv_pk,
                 "user_prompt": data.get("user_prompt", {}),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
@@ -159,6 +222,7 @@ class RunList(APIView, UsageTrackingMixin):
         except Exception as e:
             log.error(e)
             log.error(f"Response data: {response}")
+            raise
 
     def _inject_rag_context(self, messages: list, ma_data, user_prompt: str) -> list:
         """
@@ -263,7 +327,7 @@ class RunList(APIView, UsageTrackingMixin):
     def post(self, request, format=None):
         """Execute AI model run."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
@@ -422,7 +486,7 @@ class RunList(APIView, UsageTrackingMixin):
                     response.update({
                         "credits": response["credits"] + score_response["credits"],
                     })
-                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+                    self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
             # Handle basic feedback phase
             else:
                 # Check if model supports streaming
@@ -587,7 +651,7 @@ class RunList(APIView, UsageTrackingMixin):
         try:
             if not data.get("id"):
                 return False
-            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id"]
+            immutable_fields = ["ma_id", "user_id", "user_ip", "owner_id", "app_hash_id", "is_preview"]
             for field in immutable_fields:
                 if data.get(field):
                     return False
@@ -633,7 +697,7 @@ class ScoreRunList(RunList):
     def post(self, request, format=None):
         """Score a run and stream a user-friendly explanation."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))
@@ -973,7 +1037,7 @@ class AnonymousRunList(RunList):
     def post(self, request, format=None):
         """Execute anonymous AI model run."""
         try:
-            data = request.data
+            data = self._copy_and_set_is_preview(request)
             # Convert numeric fields to appropriate types
             if data.get("temperature"):
                 data["temperature"] = float(data.get("temperature"))

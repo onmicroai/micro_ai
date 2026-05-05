@@ -1,46 +1,46 @@
-import { create } from 'zustand';
-import { persist, createJSONStorage } from 'zustand/middleware';
+import { create } from "zustand";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 // Define the structure of a message
 export interface Message {
-  role: 'user' | 'assistant' | 'instruction'| 'fixed_response';
+  role: "user" | "assistant" | "instruction" | "fixed_response";
   content: string;
   timestamp: number;
 }
 
 export interface Run {
-    id: string;
-    aiModel: string;
-    cost: number;
-    credits: number;
-    status: 'pending' | 'running' | 'completed' | 'failed';
-    createdAt: number;
-    updatedAt: number;
-    messages: Message[];
-    run_passed?: boolean;
-    run_score?: string;
-    no_submission?: boolean;
-    satisfaction?: 1 | -1 | null;
-    phaseIndex: number;
-    tryId?: string;
-    tryIndex?: number;
-    session_id: string;
-    score_expected?: boolean;
+  id: string;
+  aiModel: string;
+  cost: number;
+  credits: number;
+  status: "pending" | "running" | "completed" | "failed";
+  createdAt: number;
+  updatedAt: number;
+  messages: Message[];
+  run_passed?: boolean;
+  run_score?: string;
+  no_submission?: boolean;
+  satisfaction?: 1 | -1 | null;
+  phaseIndex: number;
+  tryId?: string;
+  tryIndex?: number;
+  session_id: string;
+  score_expected?: boolean;
+  score_explanation?: boolean;
+  score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
+  score_feedback_enabled?: boolean;
+  score_feedback_instructions?: string;
+  scoreData?: {
+    run_score: string;
+    run_passed: boolean;
+    minimum_score: number;
+    rubric: string;
+    scored_run: boolean;
     score_explanation?: boolean;
     score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
     score_feedback_enabled?: boolean;
     score_feedback_instructions?: string;
-    scoreData?: {
-        run_score: string;
-        run_passed: boolean;
-        minimum_score: number;
-        rubric: string;
-        scored_run: boolean;
-        score_explanation?: boolean;
-        score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
-        score_feedback_enabled?: boolean;
-        score_feedback_instructions?: string;
-    };
+  };
 }
 
 // Define the conversation structure
@@ -72,7 +72,7 @@ interface ConversationStore {
   getRunsForTry: (tryId?: string) => Run[];
   getLatestRunForStop: (phaseIndex: number, tryId?: string) => Run | null;
   addMessage: (
-    role: Message['role'],
+    role: Message["role"],
     content: string,
     runId?: string,
     tryId?: string
@@ -96,7 +96,7 @@ export const useConversationStore = create<ConversationStore>()(
       createConversation: (appId?: string, userId?: string) => {
         const newConversation: Conversation = {
           id: crypto.randomUUID(),
-          systemPrompt: '',
+          systemPrompt: "",
           runs: [],
           metadata: {
             createdAt: Date.now(),
@@ -115,7 +115,9 @@ export const useConversationStore = create<ConversationStore>()(
       },
 
       getConversation: (conversationId: string) => {
-        return get().conversations.find((conv) => conv.id === conversationId) || null;
+        return (
+          get().conversations.find((conv) => conv.id === conversationId) || null
+        );
       },
 
       ensureConversation: () => {
@@ -141,7 +143,8 @@ export const useConversationStore = create<ConversationStore>()(
       resetAppConversation: (appId: string, userId?: string) => {
         set((s) => ({
           conversations: s.conversations.filter(
-            (c) => !(c.metadata?.appId === appId && c.metadata?.userId === userId)
+            (c) =>
+              !(c.metadata?.appId === appId && c.metadata?.userId === userId)
           ),
         }));
         return get().createConversation(appId, userId);
@@ -149,22 +152,26 @@ export const useConversationStore = create<ConversationStore>()(
 
       addRun: (run: Run) => {
         const conversationId = get().ensureConversation();
-        
+
         // Ensure all optional fields are properly initialized
+        const now = Date.now();
         const runWithDefaults: Run = {
           ...run,
-          run_passed: run.run_passed ?? true,  // Default to true if not specified
+          run_passed: run.run_passed ?? true, // Default to true if not specified
           run_score: run.run_score ?? undefined,
           no_submission: run.no_submission ?? false,
           satisfaction: run.satisfaction ?? null,
           phaseIndex: run.phaseIndex ?? 0,
           tryId: run.tryId ?? undefined,
           tryIndex: run.tryIndex ?? undefined,
-          session_id: run.session_id ?? ''
+          session_id: run.session_id ?? "",
+          updatedAt: run.updatedAt ?? run.createdAt ?? now,
         };
 
         set((state) => {
-          const targetConversation = state.conversations.find(conv => conv.id === conversationId);
+          const targetConversation = state.conversations.find(
+            (conv) => conv.id === conversationId
+          );
           if (!targetConversation) return state;
 
           const updatedConversation: Conversation = {
@@ -193,9 +200,19 @@ export const useConversationStore = create<ConversationStore>()(
         set((state) => {
           if (!state.currentConversation) return state;
 
-          const updatedRuns = state.currentConversation.runs.map((run) =>
-            run.id === runId ? { ...run, ...updates } : run
-          );
+          const shouldBumpTime =
+            updates.run_score !== undefined ||
+            updates.scoreData !== undefined ||
+            updates.run_passed !== undefined;
+
+          const updatedRuns = state.currentConversation.runs.map((run) => {
+            if (run.id !== runId) return run;
+            const merged = { ...run, ...updates } as Run;
+            if (shouldBumpTime) {
+              merged.updatedAt = Date.now();
+            }
+            return merged;
+          });
 
           const updatedConversation: Conversation = {
             ...state.currentConversation,
@@ -256,14 +273,14 @@ export const useConversationStore = create<ConversationStore>()(
         const scoped = conversation.runs
           .filter(
             (run) =>
-              run.phaseIndex === phaseIndex && (tryId ? run.tryId === tryId : true),
+              run.phaseIndex === phaseIndex &&
+              (tryId ? run.tryId === tryId : true)
           )
           .sort((a, b) => b.createdAt - a.createdAt);
         return scoped[0] || null;
       },
 
       addMessage: (role, content, runId, tryId) => {
-        
         set((state) => {
           if (!state.currentConversation) return state;
 
@@ -272,9 +289,11 @@ export const useConversationStore = create<ConversationStore>()(
               ? state.currentConversation.runs.find(
                   (run) =>
                     (runId ? run.id === runId : true) &&
-                    (tryId ? run.tryId === tryId : true),
+                    (tryId ? run.tryId === tryId : true)
                 ) || null
-              : state.currentConversation.runs[state.currentConversation.runs.length - 1];
+              : state.currentConversation.runs[
+                  state.currentConversation.runs.length - 1
+                ];
           if (!currentRun) return state;
 
           const newMessage: Message = {
@@ -285,12 +304,12 @@ export const useConversationStore = create<ConversationStore>()(
 
           const updatedRun = {
             ...currentRun,
-            messages: [...currentRun.messages, newMessage]
+            messages: [...currentRun.messages, newMessage],
           };
 
           const updatedConversation = {
             ...state.currentConversation,
-            runs: state.currentConversation.runs.map((run) => 
+            runs: state.currentConversation.runs.map((run) =>
               run.id === currentRun.id ? updatedRun : run
             ),
             metadata: {
@@ -311,7 +330,9 @@ export const useConversationStore = create<ConversationStore>()(
 
       setCurrentConversation: (conversationId) => {
         set((state) => ({
-          currentConversation: state.conversations.find((conv) => conv.id === conversationId) || null,
+          currentConversation:
+            state.conversations.find((conv) => conv.id === conversationId) ||
+            null,
         }));
       },
 
@@ -341,7 +362,9 @@ export const useConversationStore = create<ConversationStore>()(
 
       deleteConversation: (conversationId) => {
         set((state) => ({
-          conversations: state.conversations.filter((conv) => conv.id !== conversationId),
+          conversations: state.conversations.filter(
+            (conv) => conv.id !== conversationId
+          ),
           currentConversation:
             state.currentConversation?.id === conversationId
               ? null
@@ -353,13 +376,14 @@ export const useConversationStore = create<ConversationStore>()(
         set({ currentConversation: null });
       },
 
-      reset: () => set({
-        currentConversation: null,
-        conversations: [],
-      }),
+      reset: () =>
+        set({
+          currentConversation: null,
+          conversations: [],
+        }),
     }),
     {
-      name: 'conversation-storage',
+      name: "conversation-storage",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         currentConversation: state.currentConversation,

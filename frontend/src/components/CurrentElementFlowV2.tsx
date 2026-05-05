@@ -4,6 +4,7 @@ import { FormEvent, useCallback, useEffect, useMemo, useRef } from "react";
 import evaluateVisibility from "@/utils/evaluateVisibility";
 import { validateForm } from "@/utils/validateForms";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
+import { useRuntimePreview } from "@/context/RuntimePreviewContext";
 import { useConversationStore } from "@/store/conversationStore";
 import {
   FixedResponseRuntimeState,
@@ -188,6 +189,7 @@ export default function CurrentElementFlowV2({
   isAdmin = false,
   onComplete,
 }: Props) {
+  const isPreview = useRuntimePreview();
   const {
     surveyJson,
     answers: surveyAnswers,
@@ -247,7 +249,10 @@ export default function CurrentElementFlowV2({
   const cursor = draftState?.cursor || 0;
   const editingFieldName = draftState?.editingFieldName || null;
   const fixedResponseStateById = draftState?.fixedResponseStateById || {};
-  const stopStateByElementId = draftState?.stopStateByElementId || {};
+  const stopStateByElementId = useMemo(
+    () => draftState?.stopStateByElementId || {},
+    [draftState?.stopStateByElementId],
+  );
   const activeTryIndex = activeTry?.index || 1;
 
   useEffect(() => {
@@ -297,7 +302,15 @@ export default function CurrentElementFlowV2({
       structuredClone((surveyImages as Base64Images) || {}),
       sessionKey,
     );
-  }, [surveyJson, initRuntimeTry, surveyAnswers, surveyImages, appElements]);
+  }, [
+    surveyJson,
+    initRuntimeTry,
+    surveyAnswers,
+    surveyImages,
+    appElements,
+    appId,
+    userId,
+  ]);
 
   // Seed default values once per (app, try) to ensure defaults render in preview/runtime.
   // Important: applyDraftAnswers always writes new state, so we must guard to avoid loops.
@@ -421,16 +434,17 @@ export default function CurrentElementFlowV2({
     return { stopIndex: stopIdx, stopElement: stopEl, visibleUntil: until };
   }, [cursor, visibleElements]);
 
-  const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined,
-  ) => {
-    return (instructions || []).filter((inst) =>
-      evaluateVisibility(
-        (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers,
-      ),
-    );
-  };
+  const getVisibleInstructions = useCallback(
+    (instructions: Element["instructions"] | undefined) => {
+      return (instructions || []).filter((inst) =>
+        evaluateVisibility(
+          (inst?.conditionalLogic || {}) as ConditionalLogic,
+          answers as Answers,
+        ),
+      );
+    },
+    [answers],
+  );
 
   const setInputValueWithDraft: setInputValue = useCallback(
     (name, value, otherValue, type) => {
@@ -607,7 +621,11 @@ export default function CurrentElementFlowV2({
         false,
         false,
         undefined,
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry.index,
+          isPreview,
+        },
       );
       // Required scoring gates can return run_passed=false; in that case we keep cursor
       // on the current stop and do not reveal/advance this aiResponse card.
@@ -640,6 +658,7 @@ export default function CurrentElementFlowV2({
       commitDraftToTry,
       advance,
       setSurveyImages,
+      isPreview,
     ],
   );
 
@@ -729,7 +748,11 @@ export default function CurrentElementFlowV2({
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         },
-        { tryId: activeTryId || undefined, tryIndex: activeTry.index },
+        {
+          tryId: activeTryId || undefined,
+          tryIndex: activeTry.index,
+          isPreview,
+        },
       );
       const scoringIsRequired = stop.isRequired !== false;
       const failedRequired = res.run_passed === false && scoringIsRequired;
@@ -1091,6 +1114,7 @@ export default function CurrentElementFlowV2({
                   </>
                 )}
                 <RunScoreDisplay
+                  key={runForThisStop?.id ?? "no-scored-run"}
                   run={runForThisStop}
                   isEvaluating={isScoredRun && !scoreReady}
                   explanationContent={explanationContent}
