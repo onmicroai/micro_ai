@@ -16,6 +16,9 @@ import ContinuationInterface from "@/components/ContinuationInterface";
 import { RotateCcw, MessageCircle } from "lucide-react";
 import { getContinuationChatKey } from "@/utils/continuationChatKey";
 
+/** Parent frames may post `{ type: EMBED_RESTART_MESSAGE_TYPE }` to restart the embed (any origin). */
+const EMBED_RESTART_MESSAGE_TYPE = "microai-embed-restart";
+
 type PageParams = {
   params: {
     id: string;
@@ -176,6 +179,38 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     return () => abortController.abort();
   }, [userId, hashId]);
 
+  const restartEmbeddedApp = useCallback(() => {
+    if (appId) {
+      resetAppConversation(
+        String(appId),
+        userId != null ? String(userId) : undefined,
+      );
+    }
+    softResetSurveyStore();
+    setShowThankYouMessage(false);
+    setIsContinuationExpanded(false);
+    setFlowKey((k) => k + 1);
+    toast.success("App restarted successfully");
+  }, [appId, userId, resetAppConversation, softResetSurveyStore]);
+
+  useEffect(() => {
+    const onMessage = (event: MessageEvent) => {
+      const data = event.data;
+      if (data == null || typeof data !== "object" || Array.isArray(data)) {
+        return;
+      }
+      if (
+        (data as { type?: unknown }).type !== EMBED_RESTART_MESSAGE_TYPE
+      ) {
+        return;
+      }
+      restartEmbeddedApp();
+    };
+
+    window.addEventListener("message", onMessage);
+    return () => window.removeEventListener("message", onMessage);
+  }, [restartEmbeddedApp]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-4">
@@ -244,18 +279,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
         <div className="mt-4 flex justify-between items-center">
           <button
-            onClick={() => {
-              if (appId)
-                resetAppConversation(
-                  String(appId),
-                  userId != null ? String(userId) : undefined,
-                );
-              softResetSurveyStore();
-              setShowThankYouMessage(false);
-              setIsContinuationExpanded(false);
-              setFlowKey((k) => k + 1);
-              toast.success("App restarted successfully");
-            }}
+            onClick={restartEmbeddedApp}
             className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
           >
             <RotateCcw className="w-4 h-4" />
