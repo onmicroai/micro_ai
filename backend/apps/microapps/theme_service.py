@@ -62,7 +62,13 @@ def parse_themes_response(raw_response: str) -> List[Dict[str, str]]:
 
 def generate_themes(conversation_digest: str) -> List[Dict[str, str]]:
     system_message = (
-        "You extract themes from app conversations.\n"
+        "You extract themes about how users interact with the app from chat transcripts.\n"
+        "Prioritize: (1) how most users typically use the app (dominant paths and behaviors); "
+        "(2) where users struggle—confusion, frustration, hesitation, abandonments, repeated "
+        "questions, or circumvention; "
+        "(3) where interactions look aligned with what the app was built for; "
+        "(4) where users diverge from that intended use (workarounds, novel uses, misuse).\n"
+        "Each theme must clearly tie to observed user behavior in the excerpts.\n"
         "Return ONLY valid JSON with this exact shape:\n"
         '{"themes":[{"title":"1-8 word title","description":"One sentence description"}]}\n'
         f"Rules:\n- Max {MAX_THEMES} themes\n- Merge overlapping themes\n"
@@ -71,7 +77,8 @@ def generate_themes(conversation_digest: str) -> List[Dict[str, str]]:
     )
 
     user_message = (
-        "Analyze the following app conversation excerpts and produce themes:\n\n"
+        "From the excerpts below, produce themes focused on interaction patterns: typical use, "
+        "struggle signals, fit with intended purpose, and deviation from it.\n\n"
         f"{conversation_digest}"
     )
 
@@ -116,21 +123,24 @@ def generate_themes_incremental(
     existing_json = json.dumps(normalized_existing[:MAX_THEMES], ensure_ascii=False)
 
     system_message = (
-        "You maintain app conversation themes incrementally.\n"
+        "You maintain themes about how users interact with the app, updating from new chats.\n"
+        "Themes should reflect: typical usage across users; struggle (confusion, frustration, "
+        "avoidance, retries); alignment with intended app purpose; divergence or workarounds.\n"
         "Return ONLY valid JSON with this exact shape:\n"
         '{"themes":[{"title":"1-8 word title","description":"One sentence description"}]}\n'
         f"Rules:\n- Max {MAX_THEMES} themes\n- Merge overlapping themes\n"
-        "- Keep stable themes when still relevant\n"
-        "- Add/remove themes based on NEW conversations only\n"
+        "- Keep or refine themes when still supported by evidence\n"
+        "- Add or drop themes based primarily on NEW conversations; reconcile with the snapshot\n"
         "- Title must be 1 to 8 words\n- Description must be one sentence\n"
         "- No markdown, no extra keys, no prose outside JSON"
     )
     user_message = (
-        "Current themes snapshot:\n"
+        "Current themes snapshot (interaction-focused):\n"
         f"{existing_json}\n\n"
         "New conversations since last snapshot:\n"
         f"{new_conversation_digest}\n\n"
-        "Update the themes list accordingly."
+        "Update the list so it still captures dominant use, user struggles, fit with intended use, "
+        "and deviations—grounded in the new excerpts."
     )
 
     model_config = DynamicModelService.get_model_config(THEMES_MODEL)
