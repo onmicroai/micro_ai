@@ -28,7 +28,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
   const [showThankYouMessage, setShowThankYouMessage] = useState(false);
   const [flowKey, setFlowKey] = useState(0);
   const { user } = useUserStore();
-  const userId = Number(user?.id);
+  const userId = user?.id ?? null;
   const hashId = params.id?.toString() || "";
   const [appId, setAppId] = useState<number | null>(null);
   const {
@@ -48,7 +48,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     useConversationStore();
 
   useEffect(() => {
-    setCurrentUserId(userId ? String(userId) : null);
+    setCurrentUserId(userId != null ? String(userId) : null);
   }, [userId, setCurrentUserId]);
 
   // Check if there are existing continuation messages for auto-expansion
@@ -148,13 +148,26 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     const signal = abortController.signal;
 
     const checkRoles = async () => {
-      if (userId && hashId) {
+      if (userId == null || !hashId) {
+        return;
+      }
+
+      try {
         const [ownerResult, adminResult] = await Promise.all([
           checkIsOwner(hashId, userId, signal),
           checkIsAdmin(hashId, userId, signal),
         ]);
         setIsOwner(ownerResult.isOwner);
         setIsAdmin(adminResult.isAdmin);
+      } catch (error: unknown) {
+        const name =
+          error && typeof error === "object" && "name" in error
+            ? String((error as { name?: string }).name)
+            : "";
+        if (name === "AbortError" || name === "CanceledError") {
+          return;
+        }
+        console.error("Error checking roles:", error);
       }
     };
 
@@ -235,7 +248,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
               if (appId)
                 resetAppConversation(
                   String(appId),
-                  userId ? String(userId) : undefined,
+                  userId != null ? String(userId) : undefined,
                 );
               softResetSurveyStore();
               setShowThankYouMessage(false);
