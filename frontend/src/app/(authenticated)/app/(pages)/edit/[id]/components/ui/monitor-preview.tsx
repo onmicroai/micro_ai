@@ -51,27 +51,6 @@ export default function MonitorPreview({
           </div>
         </div>
 
-        <div className="bg-white border-b border-gray-200 h-16">
-          <div className="flex items-center h-full px-5 max-w-[1400px] mx-auto">
-            <Menu className="h-6 w-6 text-gray-500 mr-4" />
-            <div className="flex items-center h-full cursor-default">
-              <Image
-                src={Logo}
-                alt="Micro AI"
-                width={175}
-                height={56}
-                className="w-[175px] h-[56px] object-contain"
-                priority
-              />
-            </div>
-            <div className="ml-auto flex items-center gap-6">
-              <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center cursor-default">
-                <User className="h-5 w-5 text-gray-400" />
-              </div>
-            </div>
-          </div>
-        </div>
-
         <div className="min-h-[600px]">{children}</div>
       </div>
     </div>
