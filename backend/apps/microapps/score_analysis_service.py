@@ -448,6 +448,7 @@ def build_score_analysis_payload(
             avg = sum(values) / n if n else 0.0
             med = float(statistics.median(values)) if n else 0.0
             possible = max_pt
+            avg_vs_possible_pct = (100.0 * avg / possible) if possible else 0.0
 
             cat_out.append(
                 {
@@ -457,7 +458,7 @@ def build_score_analysis_payload(
                     "perfect_score_percent": round(perfect_pct, 1),
                     "average_score": round(avg, 2),
                     "median_score": round(med, 2),
-                    "difficulty": _difficulty(perfect_pct),
+                    "difficulty": _difficulty(avg_vs_possible_pct),
                     "_max_pt": max_pt,
                     "_values": values,
                 }
@@ -528,6 +529,9 @@ def build_score_analysis_payload(
         g_perfect = (100.0 * gate_perfects / g_n) if g_n else 0.0
         g_avg = sum(gate_avg_totals) / g_n if g_n else 0.0
         g_median = float(statistics.median(gate_avg_totals)) if g_n else 0.0
+        g_avg_vs_possible_pct = (
+            (100.0 * g_avg / total_possible) if total_possible else 0.0
+        )
 
         out_gates.append(
             {
@@ -537,7 +541,7 @@ def build_score_analysis_payload(
                 "perfect_score_percent": round(g_perfect, 1),
                 "average_score": round(g_avg, 2),
                 "median_score": round(g_median, 2),
-                "difficulty": _difficulty(g_perfect),
+                "difficulty": _difficulty(g_avg_vs_possible_pct),
                 "categories": cat_out,
             }
         )
