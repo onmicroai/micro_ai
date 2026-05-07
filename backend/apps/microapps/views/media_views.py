@@ -3,7 +3,6 @@ Media processing views - File uploads, audio transcription, and text-to-speech.
 """
 import base64
 import os
-import re
 import tempfile
 import threading
 import time
@@ -20,6 +19,10 @@ from botocore.config import Config
 from django.conf import settings
 
 
+def _image_key(microapp_id, filename: str) -> str:
+    return f'microapps/{microapp_id}/images/{filename}'
+
+
 def _get_s3_client():
     return boto3.client(
         "s3",
@@ -28,12 +31,6 @@ def _get_s3_client():
         aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
         aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
     )
-
-
-def _build_image_url(key: str) -> str:
-    if settings.CLOUDFRONT_DOMAIN:
-        return f"https://{settings.CLOUDFRONT_DOMAIN}/{key}"
-    return f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{key}"
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import GuestUsage, get_user_ip
@@ -49,7 +46,7 @@ from ..llm_interface import UnifiedLLMInterface
 from .mixins import handle_exception, MicroAppMixin, FileProcessingMixin, UsageTrackingMixin
 
 
-class MicroAppImageUpload(APIView, MicroAppMixin):
+class MicroAppImageUpload(APIView, MicroAppMixin, FileProcessingMixin):
     """Handle image uploads for microapps."""
     permission_classes = [IsAuthenticated]
 
@@ -85,8 +82,8 @@ class MicroAppImageUpload(APIView, MicroAppMixin):
             return Response({'error': 'No image file provided'}, status=status.HTTP_400_BAD_REQUEST)
 
         base, ext = os.path.splitext(file.name)
-        filename = re.sub(r'[^a-zA-Z0-9._-]', '', f"{base}_{int(time.time() * 1000)}{ext}")
-        file_key = f'microapps/{microapp.id}/images/{filename}'
+        filename = self.sanitize_filename(f"{base}_{int(time.time() * 1000)}{ext}")
+        file_key = _image_key(microapp.id, filename)
 
         try:
             if default_storage.exists(file_key):
@@ -102,9 +99,9 @@ class MicroAppImageUpload(APIView, MicroAppMixin):
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
+        filename = self.sanitize_filename(serializer.validated_data['filename'])
         content_type = serializer.validated_data['content_type']
-        file_key = f'microapps/{microapp.id}/images/{filename}'
+        file_key = _image_key(microapp.id, filename)
 
         try:
             response = _get_s3_client().generate_presigned_post(
@@ -113,7 +110,7 @@ class MicroAppImageUpload(APIView, MicroAppMixin):
                 Fields={'Content-Type': content_type},
                 Conditions=[
                     {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
-                    ['starts-with', '$key', f'microapps/{microapp.id}/images/'],
+                    ['starts-with', '$key', _image_key(microapp.id, '')],
                     {'Content-Type': content_type},
                 ],
                 ExpiresIn=300
