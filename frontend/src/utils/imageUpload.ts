@@ -44,7 +44,7 @@ export class FileUploadService {
     const documentFilename = file.name.replace(/[^a-zA-Z0-9._-]/g, '');
 
     if (this.endpoint === 'upload-image') {
-      const isS3 = Boolean(process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN);
+      const isS3 = Boolean(process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN?.trim());
 
       if (isS3) {
         // Original S3 presigned URL flow
