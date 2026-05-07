@@ -6,7 +6,10 @@ import os
 import re
 import tempfile
 import threading
+import time
 import logging as log
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -15,6 +18,22 @@ from drf_spectacular.utils import extend_schema, extend_schema_view
 import boto3
 from botocore.config import Config
 from django.conf import settings
+
+
+def _get_s3_client():
+    return boto3.client(
+        "s3",
+        config=Config(signature_version="s3v4"),
+        region_name=settings.AWS_S3_REGION_NAME,
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+    )
+
+
+def _build_image_url(key: str) -> str:
+    if settings.CLOUDFRONT_DOMAIN:
+        return f"https://{settings.CLOUDFRONT_DOMAIN}/{key}"
+    return f"https://{settings.AWS_STORAGE_BUCKET_NAME}.s3.{settings.AWS_S3_REGION_NAME}.amazonaws.com/{key}"
 
 from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import GuestUsage, get_user_ip
@@ -56,57 +75,53 @@ class MicroAppImageUpload(APIView, MicroAppMixin):
                 status=status.HTTP_404_NOT_FOUND
             )
 
+        if settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:
+            return self._handle_s3_upload(request, microapp)
+        return self._handle_local_upload(request, microapp)
+
+    def _handle_local_upload(self, request, microapp):
+        file = request.FILES.get('image')
+        if not file:
+            return Response({'error': 'No image file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        base, ext = os.path.splitext(file.name)
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', f"{base}_{int(time.time() * 1000)}{ext}")
+        file_key = f'microapps/{microapp.id}/images/{filename}'
+
+        try:
+            if default_storage.exists(file_key):
+                default_storage.delete(file_key)
+            default_storage.save(file_key, ContentFile(file.read()))
+            return Response({'data': {'image_url': default_storage.url(file_key)}})
+        except Exception as e:
+            log.error(f"Local image upload error: {str(e)}")
+            return handle_exception(e)
+
+    def _handle_s3_upload(self, request, microapp):
         serializer = ImageUploadSerializer(data=request.data)
         if not serializer.is_valid():
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-        filename = serializer.validated_data['filename']
+        filename = re.sub(r'[^a-zA-Z0-9._-]', '', serializer.validated_data['filename'])
         content_type = serializer.validated_data['content_type']
+        file_key = f'microapps/{microapp.id}/images/{filename}'
 
-        # Sanitize filename to remove any potentially problematic characters
-        filename = re.sub(r'[^a-zA-Z0-9._-]', '', filename)
-        
         try:
-            s3_client = boto3.client(
-                's3',
-                config=Config(signature_version='s3v4'),
-                region_name=settings.AWS_S3_REGION_NAME,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
-            )
-
-            # Use the validated microapp ID in the file path
-            file_key = f'microapps/{microapp.id}/images/{filename}'
-
-            conditions = [
-                {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
-                ['starts-with', '$key', f'microapps/{microapp.id}/images/'],
-                {'Content-Type': content_type}
-            ]
-
-            response = s3_client.generate_presigned_post(
+            response = _get_s3_client().generate_presigned_post(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
                 Key=file_key,
-                Fields={
-                    'Content-Type': content_type
-                },
-                Conditions=conditions,
+                Fields={'Content-Type': content_type},
+                Conditions=[
+                    {'bucket': settings.AWS_STORAGE_BUCKET_NAME},
+                    ['starts-with', '$key', f'microapps/{microapp.id}/images/'],
+                    {'Content-Type': content_type},
+                ],
                 ExpiresIn=300
             )
-
-            # Return the complete presigned POST response
-            formatted_response = {
-                'data': {
-                    'url': response['url'],
-                    'fields': {
-                        **response['fields'],
-                        'key': file_key,
-                        'filename': filename
-                    }
-                }
-            }
-
-            return Response(formatted_response)
+            return Response({'data': {
+                'url': response['url'],
+                'fields': {**response['fields'], 'key': file_key, 'filename': filename},
+            }})
         except Exception as e:
             log.error(f"S3 presigned URL generation error: {str(e)}")
             return handle_exception(e)
@@ -117,17 +132,9 @@ class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
     permission_classes = [IsAuthenticated]
 
     def upload_to_s3(self, file_key, file_content, content_type):
-        """Helper method to upload content to S3"""
+        """Upload content to S3-compatible storage."""
         try:
-            s3_client = boto3.client(
-                's3',
-                config=Config(signature_version='s3v4'),
-                region_name=settings.AWS_S3_REGION_NAME,
-                aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
-                aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY
-            )
-
-            s3_client.put_object(
+            _get_s3_client().put_object(
                 Bucket=settings.AWS_STORAGE_BUCKET_NAME,
                 Key=file_key,
                 Body=file_content,
@@ -135,7 +142,7 @@ class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
             )
             return True
         except Exception as e:
-            log.error(f"S3 upload error: {str(e)}")
+            log.error(f"Storage upload error: {str(e)}")
             return False
 
     def _process_file_background(self, file_source_id, temp_path):
