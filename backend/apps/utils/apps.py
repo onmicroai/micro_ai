@@ -5,10 +5,8 @@ class UtilsConfig(AppConfig):
     verbose_name = 'Utilities'
 
     def ready(self):
-        """
-        Update site domain when Django starts
-        """
-        # Only run this in application code, not in migrations or tests
+        from . import checks  # noqa: F401 — registers system checks
+
         import sys
         if 'migrate' not in sys.argv and 'makemigrations' not in sys.argv:
             try:

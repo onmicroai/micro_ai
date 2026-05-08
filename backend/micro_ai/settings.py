@@ -382,7 +382,8 @@ REST_FRAMEWORK = {
     },
 }
 
-is_production = os.getenv('PRODUCTION', 'False') == 'True'
+PRODUCTION = env.bool('PRODUCTION', default=False)
+is_production = PRODUCTION
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
 # SameSite cookie configuration for production vs development
@@ -460,28 +461,24 @@ ADMINS = [("Yibrahim", "yibrahim@knysys.com"), ("John", "john@curricu.me")]
 GOOGLE_ANALYTICS_ID = env("GOOGLE_ANALYTICS_ID", default="")
 
 
-# Stripe config
-# modeled to be the same as https://github.com/dj-stripe/dj-stripe
-# Note: don"t edit these values here - edit them in your .env file or environment variables!
-# The defaults are provided to prevent crashes if your keys don"t match the expected format.
-STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="pk_live_***")
-STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="sk_live_***")
-STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="pk_test_***")
-STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="sk_test_***")
-STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="whsec_***")
-# STRIPE_PRICING_TABLE_ID = env("STRIPE_PRICING_TABLE_ID", default="***")
-# Change to True in production
+# Stripe config — all optional. Leave empty to run without Stripe (free plan only).
+STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="")
+STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="")
+STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="")
+STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="")
 STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
+STRIPE_ENABLED = bool(STRIPE_LIVE_SECRET_KEY if STRIPE_LIVE_MODE else STRIPE_TEST_SECRET_KEY)
 
-##################
+PRO_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID", default="")
+ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID", default="")
+TOP_UP_CREDITS_PLAN_ID = env("TOP_UP_CREDITS_PLAN_ID", default="")
+TOP_UP_CREDITS = env.int("TOP_UP_CREDITS", default=200000)
+DEFAULT_PORTAL_CONFIGURATION_ID = env("DEFAULT_PORTAL_CONFIGURATION_ID", default="")
 
-PRO_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID")
-ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID")
-
-TOP_UP_CREDITS_PLAN_ID=env("TOP_UP_CREDITS_PLAN_ID")
-TOP_UP_CREDITS=env.int("TOP_UP_CREDITS", default=200000)
-
-DEFAULT_PORTAL_CONFIGURATION_ID=env("DEFAULT_PORTAL_CONFIGURATION_ID")
+# Monthly credit limit for all users when Stripe is not configured.
+# billing cycle auto-renews on expiry.
+MONTHLY_CREDIT_LIMIT = env.int("MONTHLY_CREDIT_LIMIT", default=10_000)
 
 # LiteLLM Configuration
 LITELLM_BASE_URL = env("LITELLM_BASE_URL", default="http://om-litellm:4000")
