@@ -2,6 +2,8 @@ import stripe
 from django.conf import settings
 
 def get_stripe_module():
-    stripe_secret_key = getattr(settings, "STRIPE_TEST_SECRET_KEY", None)
-    stripe.api_key = stripe_secret_key
+    if settings.STRIPE_LIVE_MODE:
+        stripe.api_key = settings.STRIPE_LIVE_SECRET_KEY
+    else:
+        stripe.api_key = settings.STRIPE_TEST_SECRET_KEY
     return stripe

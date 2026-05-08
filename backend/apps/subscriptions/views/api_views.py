@@ -30,6 +30,10 @@ from apps.subscriptions.services import CouponActionService
 
 log = logging.getLogger("micro_ai.subscription")
 
+def _stripe_disabled():
+    log.warning("Stripe endpoint called but STRIPE_ENABLED=False - set STRIPE_TEST_SECRET_KEY or STRIPE_LIVE_SECRET_KEY to enable.")
+    return Response({"detail": "Stripe is not configured on this deployment."}, status=501)
+
 # Serializer for products and their default price
 class ProductWithPriceSerializer(rest_framework.serializers.Serializer):
     id = rest_framework.serializers.CharField()
@@ -58,6 +62,8 @@ class ProductsListAPI(APIView):
 
     @extend_schema(responses={200: ProductWithPriceSerializer(many=True)})
     def get(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication credentials were not provided."}, status=401)
         stripe = get_stripe_module()
@@ -91,6 +97,8 @@ class CreateCheckoutSession(APIView):
         responses={200: OpenApiTypes.URI},
     )
     def post(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         user = request.user
         plan = request.data.get("plan")
 
@@ -128,6 +136,8 @@ class CreatePortalSession(APIView):
         responses={200: OpenApiTypes.URI},
     )
     def post(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         user = request.user
         stripe_customer = StripeCustomer.objects.filter(user=user).first()
         if not stripe_customer:
@@ -162,9 +172,11 @@ class ReportUsageAPI(APIView):
         responses={200: None},
     )
     def post(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required"}, status=401)
-        
+
         subscription = request.user.subscriptions.first()
         if not subscription:
             return Response({"detail": "No active subscription found"}, status=404)
@@ -208,9 +220,11 @@ class ListUsageRecordsAPI(APIView):
     permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
 
     def get(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         if not request.user.is_authenticated:
             return Response({"detail": "Authentication required"}, status=401)
-        
+
         subscription = request.user.subscriptions.first()
         if not subscription:
             return Response({"detail": "No active subscription found"}, status=404)
@@ -251,6 +265,8 @@ class UpdateSubscription(APIView):
         responses={200: OpenApiTypes.OBJECT},
     )
     def post(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         stripe_module = get_stripe_module()
         plan = request.data.get("plan")
         if not plan:
@@ -326,6 +342,8 @@ class CancelDowngrade(APIView):
     permission_classes = (IsAuthenticatedOrHasUserAPIKey,)
 
     def post(self, request):
+        if not settings.STRIPE_ENABLED:
+            return _stripe_disabled()
         user = request.user
         subscription = user.subscriptions.first()
         if not subscription:

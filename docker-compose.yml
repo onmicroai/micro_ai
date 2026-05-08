@@ -85,6 +85,8 @@ services:
     environment:
       - NODE_ENV=development
       - WATCHPACK_POLLING=true
+      - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${STRIPE_TEST_PUBLIC_KEY}
+      - NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID=${NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID}
     logging:
       driver: json-file
       options:
