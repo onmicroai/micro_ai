@@ -312,20 +312,54 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 FORMS_URLFIELD_ASSUME_HTTPS = True
 
 # Email setup
+# ------------------------------------------------------------------------------
+# Default (no external SMTP credentials): Django SMTP to a local MTA / Postfix-style relay —
+# plain SMTP, port 25, no STARTTLS, no SMTP AUTH (Open edX–style).
+#
+# Docker Compose sets EMAIL_HOST=host.docker.internal when unset so containers reach Postfix on the
+# host (Linux: extra_hosts host-gateway). Bare-metal dev: omit EMAIL_HOST → localhost.
+#
+# External relay (e.g. AWS SES SMTP): set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD. If EMAIL_HOST is
+# still empty or host.docker.internal (Compose default), settings use SES SMTP endpoint defaults.
 
-# use in development
-# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+_explicit_email_backend = env("EMAIL_BACKEND", default="").strip()
+_smtp_backend = "django.core.mail.backends.smtp.EmailBackend"
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
-EMAIL_PORT = 587  # or 25, 2587
-EMAIL_USE_TLS = True  # STARTTLS
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+if _explicit_email_backend:
+    EMAIL_BACKEND = _explicit_email_backend
+else:
+    EMAIL_BACKEND = _smtp_backend
 
-# use in production
-# see https://github.com/anymail/django-anymail for more details/examples
+_email_user = env("EMAIL_HOST_USER", default="").strip()
+_email_password = env("EMAIL_HOST_PASSWORD", default="").strip()
+_has_smtp_auth = bool(_email_user and _email_password)
+
+if EMAIL_BACKEND == _smtp_backend and _has_smtp_auth:
+    _smtp_host = env("EMAIL_HOST", default="").strip()
+    _compose_local_relay = _smtp_host in ("", "host.docker.internal")
+    if _compose_local_relay:
+        EMAIL_HOST = "email-smtp.us-east-1.amazonaws.com"
+        EMAIL_PORT = 587
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+    else:
+        EMAIL_HOST = _smtp_host
+        EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+        EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+        EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+    EMAIL_HOST_USER = _email_user
+    EMAIL_HOST_PASSWORD = _email_password
+else:
+    EMAIL_HOST = env("EMAIL_HOST", default="localhost").strip() or "localhost"
+    EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+    EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+    EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost") or "webmaster@localhost"
+
+# use in production with Mailgun etc.: https://github.com/anymail/django-anymail
 # EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
 
 EMAIL_SUBJECT_PREFIX = "[OnMicro.AI] "

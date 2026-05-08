@@ -50,8 +50,12 @@ services:
       - media_data:/code/media
     expose:
       - "8000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DEBUG=1
+      - EMAIL_HOST=${EMAIL_HOST:-host.docker.internal}
+      - EMAIL_PORT=${EMAIL_PORT:-25}
     env_file:
       - ./.env
     restart: unless-stopped
@@ -81,8 +85,12 @@ services:
     volumes:
       - ./backend:/code
       - media_data:/code/media
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - DEBUG=1
+      - EMAIL_HOST=${EMAIL_HOST:-host.docker.internal}
+      - EMAIL_PORT=${EMAIL_PORT:-25}
     env_file:
       - ./.env
     restart: unless-stopped
