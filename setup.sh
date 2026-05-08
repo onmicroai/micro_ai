@@ -20,46 +20,60 @@ fi
 
 # Helpers
 gen_key() {
-    python3 -c "import secrets, string; chars = string.ascii_letters + string.digits; print(''.join(secrets.choice(chars) for _ in range($1)))"
+    openssl rand -base64 $(( $1 * 2 )) 2>/dev/null | tr -dc 'a-zA-Z0-9' | head -c "$1"
+    echo
+}
+
+PLACEHOLDERS="your_secret_key change_me changeme change_me_to_secure_key_in_prod django-insecure- your_access_key your_bucket_name your_region sk_live sk_test pk_live pk_test ***"
+
+_is_placeholder() {
+    local val="${1,,}"
+    val="${val//\'/}"
+    val="${val//\"/}"
+    [[ -z "$val" ]] && return 0
+    for p in $PLACEHOLDERS; do
+        [[ "$val" == *"$p"* ]] && return 0
+    done
+    return 1
 }
 
 # Replace a key in .env only if its current value matches a known insecure placeholder.
-# Uses Python to avoid sed portability issues (macOS vs Linux) and special-char escaping.
 set_if_placeholder() {
-    local key=$1
-    local new_value=$2
-    python3 - "$key" "$new_value" <<'PYEOF'
-import sys, re
+    local key="$1"
+    local new_value="$2"
+    local tmpfile replaced=false
+    tmpfile=$(mktemp)
 
-key, new_value = sys.argv[1], sys.argv[2]
-PLACEHOLDERS = [
-    'your_secret_key', 'change_me', 'changeme',
-    'change_me_to_secure_key_in_prod', 'django-insecure-',
-    'your_access_key', 'your_bucket_name', 'your_region',
-    'sk_live_***', 'sk_test_***', 'pk_live_***', 'pk_test_***',
-    '***', "'your_secret_key'",
-]
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^${key}[[:space:]]*=(.*)$ ]]; then
+            local current="${BASH_REMATCH[1]}"
+            current="${current#\'}" current="${current%\'}"
+            current="${current#\"}" current="${current%\"}"
+            if _is_placeholder "$current"; then
+                printf '%s=%s\n' "$key" "$new_value"
+                replaced=true
+                continue
+            fi
+        fi
+        printf '%s\n' "$line"
+    done < .env > "$tmpfile"
 
-with open('.env', 'r') as f:
-    lines = f.readlines()
+    mv "$tmpfile" .env
+    [[ "$replaced" == "true" ]] && echo "  Generated $key" || true
+}
 
-new_lines = []
-replaced = False
-for line in lines:
-    m = re.match(rf'^{re.escape(key)}\s*=\s*(.*)', line.rstrip())
-    if m:
-        current = m.group(1).strip("'\"")
-        if not current or any(p.lower() in current.lower() for p in PLACEHOLDERS):
-            new_lines.append(f'{key}={new_value}\n')
-            replaced = True
-            continue
-    new_lines.append(line)
-
-if replaced:
-    with open('.env', 'w') as f:
-        f.writelines(new_lines)
-    print(f'  Generated {key}')
-PYEOF
+_update_env_key() {
+    local key="$1" new_value="$2" tmpfile
+    tmpfile=$(mktemp)
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$line" =~ ^${key}[[:space:]]*= ]]; then
+            printf '%s=%s\n' "$key" "$new_value"
+        else
+            printf '%s\n' "$line"
+        fi
+    done < .env > "$tmpfile"
+    mv "$tmpfile" .env
+    echo "  Set ${key}=${new_value}"
 }
 
 # Auto-generate secrets
@@ -72,7 +86,7 @@ set_if_placeholder "LITELLM_MASTER_KEY"      "$(gen_key 32)"
 set_if_placeholder "LITELLM_DB_PASSWORD"     "$(gen_key 24)"
 set_if_placeholder "DATABASE_PASSWORD"       "$(gen_key 24)"
 
-# AI API key 
+# AI API key
 echo ""
 echo -e "${BOLD}AI Provider${NC}"
 echo "At least one AI API key is required."
@@ -113,29 +127,10 @@ if [[ "$is_prod" =~ ^[Yy]$ ]]; then
     echo -n "Domain (e.g. yourdomain.com): "
     read domain
     if [ -n "$domain" ]; then
-        python3 - "DOMAIN" "https://$domain" <<'PYEOF'
-import sys, re
-key, new_value = sys.argv[1], sys.argv[2]
-with open('.env', 'r') as f:
-    lines = f.readlines()
-new_lines = [f'{key}={new_value}\n' if re.match(rf'^{re.escape(key)}\s*=', line) else line for line in lines]
-with open('.env', 'w') as f:
-    f.writelines(new_lines)
-print(f'  Set {key}={new_value}')
-PYEOF
+        _update_env_key "DOMAIN" "https://$domain"
     fi
-
-    # Flip PRODUCTION and DEBUG
-    python3 - <<'PYEOF'
-import re
-with open('.env', 'r') as f:
-    content = f.read()
-content = re.sub(r'^PRODUCTION\s*=.*', 'PRODUCTION=True', content, flags=re.MULTILINE)
-content = re.sub(r'^DEBUG\s*=.*', 'DEBUG=False', content, flags=re.MULTILINE)
-with open('.env', 'w') as f:
-    f.write(content)
-print('  Set PRODUCTION=True, DEBUG=False')
-PYEOF
+    _update_env_key "PRODUCTION" "True"
+    _update_env_key "DEBUG" "False"
 fi
 
 # Done
