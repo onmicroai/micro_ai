@@ -83,6 +83,7 @@ set_if_placeholder "SECRET_KEY"              "'$(gen_key 50)'"
 set_if_placeholder "SIMPLE_JWT_SIGNING_KEY"  "'$(gen_key 50)'"
 set_if_placeholder "LITELLM_SALT_KEY"        "$(gen_key 32)"
 set_if_placeholder "LITELLM_MASTER_KEY"      "$(gen_key 32)"
+set_if_placeholder "LITELLM_DB_USER"         "postgres"
 set_if_placeholder "LITELLM_DB_PASSWORD"     "$(gen_key 24)"
 set_if_placeholder "DATABASE_PASSWORD"       "$(gen_key 24)"
 
