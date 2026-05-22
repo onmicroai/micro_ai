@@ -95,7 +95,7 @@ export const useConversationStore = create<ConversationStore>()(
 
       createConversation: (appId?: string, userId?: string) => {
         const newConversation: Conversation = {
-          id: crypto.randomUUID(),
+          id: crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           systemPrompt: "",
           runs: [],
           metadata: {
