@@ -96,6 +96,17 @@ _sync_db_url() {
 }
 _sync_db_url
 
+# Build LITELLM_DATABASE_URL from its parts (env_file: doesn't expand ${VAR} syntax)
+_sync_litellm_db_url() {
+    local user pass name port
+    user=$(grep -E '^LITELLM_DB_USER[[:space:]]*='     .env | cut -d= -f2- | tr -d "'\"\r\n ")
+    pass=$(grep -E '^LITELLM_DB_PASSWORD[[:space:]]*=' .env | cut -d= -f2- | tr -d "'\"\r\n ")
+    name=$(grep -E '^LITELLM_DB_NAME[[:space:]]*='     .env | cut -d= -f2- | tr -d "'\"\r\n ")
+    port=$(grep -E '^LITELLM_DB_PORT[[:space:]]*='     .env | cut -d= -f2- | tr -d "'\"\r\n ")
+    _update_env_key "LITELLM_DATABASE_URL" "postgresql://${user}:${pass}@host.docker.internal:${port}/${name}"
+}
+_sync_litellm_db_url
+
 # AI API key
 echo ""
 echo -e "${BOLD}AI Provider${NC}"
