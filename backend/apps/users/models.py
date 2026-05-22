@@ -40,7 +40,8 @@ class CustomUser(AbstractUser):
     @property
     def avatar_url(self) -> str:
         if self.avatar and default_storage.exists(self.avatar.name):
-            return f"{settings.DOMAIN}{self.avatar.url}/"
+            url = self.avatar.url
+            return url if url.startswith("http") else f"{settings.DOMAIN}{url}"
         return f"{settings.STATIC_URL}images/web/default_avatar.jpg"
 
     @property
