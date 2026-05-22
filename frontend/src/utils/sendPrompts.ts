@@ -1,319 +1,385 @@
-import { SurveyJson, Answers, Prompt, SendPromptResponse, Base64Images, PageConfigOverride } from '@/app/(authenticated)/app/types';
+import {
+  SurveyJson,
+  Answers,
+  Prompt,
+  SendPromptResponse,
+  Base64Images,
+  PageConfigOverride,
+} from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
 import evaluateVisibility from "@/utils//evaluateVisibility";
 import { ConditionalLogic } from "@/app/(authenticated)/app/types";
 import groupPromptsByType from "@/utils//groupPromptsByType";
 import injectValuesIntoPrompt from "@/utils//injectValuesIntoPrompt";
-import { useConversationStore } from '@/store/conversationStore';
+import { useConversationStore } from "@/store/conversationStore";
 import delay from "./delay";
-import { buildRequestBody, getPageConfig } from '@/utils/buildRequestBody';
+import { buildRequestBody, getPageConfig } from "@/utils/buildRequestBody";
 import { streamRun } from "@/utils/streamRun";
 
 const handleAIResponse = async (
-   requestBody: any,
-   userId: number | null,
-   setState: (state: any) => void,
-   runId?: string,
+  requestBody: any,
+  userId: number | null,
+  setState: (state: any) => void,
+  runId?: string,
 ): Promise<SendPromptResponse> => {
-   const store = useConversationStore.getState();
+  const store = useConversationStore.getState();
 
-      // Always try unified endpoint first - backend decides streaming based on model
-   try {
-      let accumulated = "";
-      // mark current run as running (was pending)
-      if (runId) {
-         store.updateRun(runId, { status: "running" });
-      }
+  // Always try unified endpoint first - backend decides streaming based on model
+  try {
+    let accumulated = "";
+    // mark current run as running (was pending)
+    if (runId) {
+      store.updateRun(runId, { status: "running" });
+    }
 
-      // In streaming mode, streamRun may return before the stream finishes.
-      // We must only resolve this function when onDone/onError fires.
-      let streamCompleted = false;
-      let streamResult: SendPromptResponse | null = null;
-      let streamError: string | null = null;
-      let resolveDone: (() => void) | null = null;
-      const donePromise = new Promise<void>((resolve) => {
-         resolveDone = resolve;
-      });
+    // In streaming mode, streamRun may return before the stream finishes.
+    // We must only resolve this function when onDone/onError fires.
+    let streamCompleted = false;
+    let streamResult: SendPromptResponse | null = null;
+    let streamError: string | null = null;
+    let resolveDone: (() => void) | null = null;
+    const donePromise = new Promise<void>((resolve) => {
+      resolveDone = resolve;
+    });
 
-      const response = await streamRun(
-            requestBody,
-            userId,
-            {
-               onChunk: (chunk) => {
-                  accumulated += chunk;
+    const response = await streamRun(
+      requestBody,
+      userId,
+      {
+        onChunk: (chunk) => {
+          accumulated += chunk;
 
-                  // Update run message incrementally
-                  if (runId) {
-                     const run = useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId);
-                     if (run) {
-                        const msgs = [...run.messages];
-                        const idx = msgs.findIndex(m => m.role === 'assistant');
-                        if (idx === -1) {
-                           msgs.push({ role: 'assistant', content: chunk, timestamp: Date.now() } as any);
-                        } else {
-                           msgs[idx] = { ...msgs[idx], content: msgs[idx].content + chunk, timestamp: Date.now() } as any;
-                        }
-                        store.updateRun(runId, { messages: msgs });
-                     }
-                  }
-
-                  // Update UI state incrementally
-                  setState({
-                     promptResponse: accumulated,
-                  });
-               },
-               onScore: (scoreData) => {
-                  setState((state: any) => ({
-                     ...state,
-                     scoreData: scoreData,
-                     showScoreResults: true,
-                  }));
-
-                  if (runId) {
-                     const store = useConversationStore.getState();
-                     const updates: any = { 
-                        scoreData: scoreData,
-                        run_passed: scoreData.run_passed,
-                        run_score: scoreData.run_score
-                     };
-                     if (typeof scoreData.score_explanation === 'boolean') updates.score_explanation = scoreData.score_explanation;
-                     if (typeof scoreData.score_explanation_mode === 'string') updates.score_explanation_mode = scoreData.score_explanation_mode;
-                     if (typeof scoreData.score_feedback_enabled === 'boolean') updates.score_feedback_enabled = scoreData.score_feedback_enabled;
-                     if (typeof scoreData.score_feedback_instructions === 'string') updates.score_feedback_instructions = scoreData.score_feedback_instructions;
-                     if (typeof scoreData.credits === 'number') updates.credits = scoreData.credits;
-                     if (typeof scoreData.cost === 'number') updates.cost = scoreData.cost;
-                     store.updateRun(runId, updates);
-                  }
-               },
-               onDone: (meta?: unknown) => {
-                  if (streamCompleted) return;
-                  // Finalize run
-                  if (runId) {
-                     store.updateRun(runId, { status: "completed" });
-                  }
-                  if (runId && meta && typeof meta === "object") {
-                     const updates: any = {};
-                     const metaObj = meta as Record<string, unknown>;
-                     if (typeof metaObj.cost === "number") updates.cost = metaObj.cost;
-                     if (typeof metaObj.credits === "number") updates.credits = metaObj.credits;
-                     if (typeof metaObj.run_passed === "boolean") updates.run_passed = metaObj.run_passed;
-                     if (typeof metaObj.run_score === "string") updates.run_score = metaObj.run_score;
-                     if (typeof metaObj.score_explanation === "boolean") updates.score_explanation = metaObj.score_explanation;
-                     if (typeof metaObj.score_explanation_mode === "string") updates.score_explanation_mode = metaObj.score_explanation_mode;
-                     if (typeof metaObj.score_feedback_enabled === "boolean") updates.score_feedback_enabled = metaObj.score_feedback_enabled;
-                     if (typeof metaObj.score_feedback_instructions === "string") updates.score_feedback_instructions = metaObj.score_feedback_instructions;
-                     if (Object.keys(updates).length > 0) {
-                        store.updateRun(runId, updates);
-                     }
-                  }
-                  setState((state: any) => ({
-                     ...state,
-                     promptResponse: accumulated,
-                     promptLoading: false,
-                  }));
-                  streamCompleted = true;
-                  const latestRun = runId
-                     ? useConversationStore.getState().currentConversation?.runs.find(r => r.id === runId)
-                     : undefined;
-                  streamResult = {
-                     success: true,
-                     response: accumulated,
-                     run_passed: latestRun?.run_passed,
-                     run_uuid: runId
-                  };
-                  resolveDone?.();
-               },
-               onError: (err) => {
-                  console.error(err);
-                  if (runId) {
-                     store.updateRun(runId, { status: "failed" });
-                  }
-                  setState((state: any) => ({
-                     ...state,
-                     sendPromptError: String(err),
-                     promptLoading: false,
-                  }));
-                  streamCompleted = true;
-                  streamError = String(err);
-                  resolveDone?.();
-               },
-            },
-            {
-               endpoint: requestBody?.scored_run ? "/api/microapps/score" : undefined
+          // Update run message incrementally
+          if (runId) {
+            const run = useConversationStore
+              .getState()
+              .currentConversation?.runs.find((r) => r.id === runId);
+            if (run) {
+              const msgs = [...run.messages];
+              const idx = msgs.findIndex((m) => m.role === "assistant");
+              if (idx === -1) {
+                msgs.push({
+                  role: "assistant",
+                  content: chunk,
+                  timestamp: Date.now(),
+                } as any);
+              } else {
+                msgs[idx] = {
+                  ...msgs[idx],
+                  content: msgs[idx].content + chunk,
+                  timestamp: Date.now(),
+                } as any;
+              }
+              store.updateRun(runId, { messages: msgs });
             }
-         );
+          }
 
-         // If response is not null, it means backend returned JSON (non-streaming)
-         if (response) {
-            const data = await response.json();
-            const responseData = data.data;
-            const promptResponse = responseData.response;
+          // Update UI state incrementally
+          setState({
+            promptResponse: accumulated,
+          });
+        },
+        onScore: (scoreData) => {
+          setState((state: any) => ({
+            ...state,
+            scoreData: scoreData,
+            showScoreResults: true,
+          }));
 
-            // Update the current run with all response data
-            if (runId) {
-               store.updateRun(runId, {
-                  status: 'completed',
-                  run_passed: responseData.run_passed,
-                  run_score: responseData.run_score,
-                  no_submission: responseData.no_submission,
-                  cost: responseData.cost,
-                  credits: responseData.credits,
-                  session_id: responseData.session_id
-               });
-            }
-
-            // Add the response message
-            if (promptResponse?.trim()) {
-               store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
-            }
-            
-            await delay(1000);
-            
-            setState((state: any) => ({
-               ...state,
-               promptResponse,
-               promptLoading: false,
-               responses: [...(state.responses || []), promptResponse],
-            }));
-
-            return { 
-               success: true, 
-               response: promptResponse, 
-               run_passed: responseData.run_passed,
-               run_uuid: responseData.run_uuid
+          if (runId) {
+            const store = useConversationStore.getState();
+            const updates: any = {
+              scoreData: scoreData,
+              run_passed: scoreData.run_passed,
+              run_score: scoreData.run_score,
             };
-         }
-
-      // Streaming path (response is undefined): wait for onDone/onError.
-      if (!streamCompleted) {
-         await donePromise;
-      }
-      if (streamError) {
-         return { success: false, error: streamError, run_passed: false, run_uuid: runId };
-      }
-      return (streamResult || { success: true, response: accumulated, run_passed: true, run_uuid: runId }) as SendPromptResponse;
-   } catch (streamError: any) {
-      console.log("Streaming attempt failed, falling back to standard request:", streamError);
-   }
-
-   // Fallback to non-streaming request (for anonymous users or if streaming failed)
-   try {
-      const endpoint = requestBody?.scored_run
-         ? '/api/microapps/score'
-         : (!userId ? '/api/microapps/run/anonymous' : '/api/microapps/run');
-      
-      let responseData;
-      
-      if (!userId) {
-         const response = await fetch(endpoint, {
-            method: 'POST',
-            headers: {
-               'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(requestBody)
-         });
-         
-         if (!response.ok) {
-            let errorMessage;
-            try {
-               // Try to parse as JSON first
-               const errorData = await response.json();
-               errorMessage = typeof errorData === 'object' ? 
-                  JSON.stringify(errorData) : 
-                  String(errorData);
-            } catch {
-               // If parsing fails, use text response
-               errorMessage = await response.text();
+            if (typeof scoreData.score_explanation === "boolean")
+              updates.score_explanation = scoreData.score_explanation;
+            if (typeof scoreData.score_explanation_mode === "string")
+              updates.score_explanation_mode = scoreData.score_explanation_mode;
+            if (typeof scoreData.score_feedback_enabled === "boolean")
+              updates.score_feedback_enabled = scoreData.score_feedback_enabled;
+            if (typeof scoreData.score_feedback_instructions === "string")
+              updates.score_feedback_instructions =
+                scoreData.score_feedback_instructions;
+            if (typeof scoreData.credits === "number")
+              updates.credits = scoreData.credits;
+            if (typeof scoreData.cost === "number")
+              updates.cost = scoreData.cost;
+            store.updateRun(runId, updates);
+          }
+        },
+        onDone: (meta?: unknown) => {
+          if (streamCompleted) return;
+          // Finalize run
+          if (runId) {
+            store.updateRun(runId, { status: "completed" });
+          }
+          if (runId && meta && typeof meta === "object") {
+            const updates: any = {};
+            const metaObj = meta as Record<string, unknown>;
+            if (typeof metaObj.cost === "number") updates.cost = metaObj.cost;
+            if (typeof metaObj.credits === "number")
+              updates.credits = metaObj.credits;
+            if (typeof metaObj.run_passed === "boolean")
+              updates.run_passed = metaObj.run_passed;
+            if (typeof metaObj.run_score === "string")
+              updates.run_score = metaObj.run_score;
+            if (typeof metaObj.score_explanation === "boolean")
+              updates.score_explanation = metaObj.score_explanation;
+            if (typeof metaObj.score_explanation_mode === "string")
+              updates.score_explanation_mode = metaObj.score_explanation_mode;
+            if (typeof metaObj.score_feedback_enabled === "boolean")
+              updates.score_feedback_enabled = metaObj.score_feedback_enabled;
+            if (typeof metaObj.score_feedback_instructions === "string")
+              updates.score_feedback_instructions =
+                metaObj.score_feedback_instructions;
+            if (Object.keys(updates).length > 0) {
+              store.updateRun(runId, updates);
             }
-            throw new Error(errorMessage || `HTTP error! Status: ${response.status}`);
-         }
-         
-         const data = await response.json();
-         responseData = data.data;
-      } else {
-         const api = axiosInstance()
-         const response = await api.post(endpoint, requestBody);
-         responseData = response.data.data;
-      }
-      
+          }
+          setState((state: any) => ({
+            ...state,
+            promptResponse: accumulated,
+            promptLoading: false,
+          }));
+          streamCompleted = true;
+          const latestRun = runId
+            ? useConversationStore
+                .getState()
+                .currentConversation?.runs.find((r) => r.id === runId)
+            : undefined;
+          streamResult = {
+            success: true,
+            response: accumulated,
+            run_passed: latestRun?.run_passed,
+            run_uuid: runId,
+          };
+          resolveDone?.();
+        },
+        onError: (err) => {
+          console.error(err);
+          if (runId) {
+            store.updateRun(runId, { status: "failed" });
+          }
+          setState((state: any) => ({
+            ...state,
+            sendPromptError: String(err),
+            promptLoading: false,
+          }));
+          streamCompleted = true;
+          streamError = String(err);
+          resolveDone?.();
+        },
+      },
+      {
+        endpoint: requestBody?.scored_run ? "/api/microapps/score" : undefined,
+      },
+    );
+
+    // If response is not null, it means backend returned JSON (non-streaming)
+    if (response) {
+      const data = await response.json();
+      const responseData = data.data;
       const promptResponse = responseData.response;
 
       // Update the current run with all response data
       if (runId) {
-         store.updateRun(runId, {
-            status: 'completed',
-            run_passed: responseData.run_passed,
-            run_score: responseData.run_score,
-            no_submission: responseData.no_submission,
-            cost: responseData.cost,
-            credits: responseData.credits,
-            session_id: responseData.session_id
-         });
+        store.updateRun(runId, {
+          status: "completed",
+          run_passed: responseData.run_passed,
+          run_score: responseData.run_score,
+          no_submission: responseData.no_submission,
+          cost: responseData.cost,
+          credits: responseData.credits,
+          session_id: responseData.session_id,
+        });
       }
 
       // Add the response message
       if (promptResponse?.trim()) {
-         store.addMessage('assistant', promptResponse, runId, requestBody?.run_try_id);
+        store.addMessage(
+          "assistant",
+          promptResponse,
+          runId,
+          requestBody?.run_try_id,
+        );
       }
-      
+
       await delay(1000);
-      
+
       setState((state: any) => ({
-         ...state,
-         promptResponse,
-         promptLoading: false,
-         responses: [...(state.responses || []), promptResponse],
+        ...state,
+        promptResponse,
+        promptLoading: false,
+        responses: [...(state.responses || []), promptResponse],
       }));
-      
-      return { 
-         success: true, 
-         response: promptResponse, 
-         run_passed: responseData.run_passed,
-         run_uuid: responseData.run_uuid
+
+      return {
+        success: true,
+        response: promptResponse,
+        run_passed: responseData.run_passed,
+        run_uuid: responseData.run_uuid,
       };
-   } catch (error: any) {
-      let errorResponse;
-      
-      // Handle the case where error.message contains the JSON string from our throw
-      if (error instanceof Error && error.message) {
-         try {
-            // Try to parse the error message as JSON
-            errorResponse = JSON.parse(error.message);
-            if (errorResponse.error !== undefined) {
-               errorResponse = errorResponse.error;
-            }
-         } catch {
-            // If it's not valid JSON, use the message directly
-            errorResponse = error.message;
-         }
-      } else {
-         // Fall back to the original error handling
-         errorResponse = structuredClone(error?.response?.data || {});
-         errorResponse = Array.isArray(errorResponse) ? errorResponse[0] : errorResponse;
-         errorResponse = typeof errorResponse === "object" ? errorResponse.error : errorResponse;
-      }
-      
-      const errorMessage = typeof errorResponse === 'object' ? 
-         JSON.stringify(errorResponse) : 
-         String(errorResponse || 'Unknown error');
-      
-      setState((state: any) => ({
-         ...state,
-         sendPromptError: errorMessage,
-         promptLoading: false
-      }));
+    }
 
-      // Update run status to failed on error
-      if (runId) {
-         store.updateRun(runId, { 
-            status: 'failed',
-            run_passed: false
-         });
+    // Streaming path (response is undefined): wait for onDone/onError.
+    if (!streamCompleted) {
+      await donePromise;
+    }
+    if (streamError) {
+      return {
+        success: false,
+        error: streamError,
+        run_passed: false,
+        run_uuid: runId,
+      };
+    }
+    return (streamResult || {
+      success: true,
+      response: accumulated,
+      run_passed: true,
+      run_uuid: runId,
+    }) as SendPromptResponse;
+  } catch (streamError: any) {
+    console.log(
+      "Streaming attempt failed, falling back to standard request:",
+      streamError,
+    );
+  }
+
+  // Fallback to non-streaming request (for anonymous users or if streaming failed)
+  try {
+    const endpoint = requestBody?.scored_run
+      ? "/api/microapps/score"
+      : !userId
+        ? "/api/microapps/run/anonymous"
+        : "/api/microapps/run";
+
+    let responseData;
+
+    if (!userId) {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          // Try to parse as JSON first
+          const errorData = await response.json();
+          errorMessage =
+            typeof errorData === "object"
+              ? JSON.stringify(errorData)
+              : String(errorData);
+        } catch {
+          // If parsing fails, use text response
+          errorMessage = await response.text();
+        }
+        throw new Error(
+          errorMessage || `HTTP error! Status: ${response.status}`,
+        );
       }
 
-      return { success: false, error: errorMessage };
-   }
+      const data = await response.json();
+      responseData = data.data;
+    } else {
+      const api = axiosInstance();
+      const response = await api.post(endpoint, requestBody);
+      responseData = response.data.data;
+    }
+
+    const promptResponse = responseData.response;
+
+    // Update the current run with all response data
+    if (runId) {
+      store.updateRun(runId, {
+        status: "completed",
+        run_passed: responseData.run_passed,
+        run_score: responseData.run_score,
+        no_submission: responseData.no_submission,
+        cost: responseData.cost,
+        credits: responseData.credits,
+        session_id: responseData.session_id,
+      });
+    }
+
+    // Add the response message
+    if (promptResponse?.trim()) {
+      store.addMessage(
+        "assistant",
+        promptResponse,
+        runId,
+        requestBody?.run_try_id,
+      );
+    }
+
+    await delay(1000);
+
+    setState((state: any) => ({
+      ...state,
+      promptResponse,
+      promptLoading: false,
+      responses: [...(state.responses || []), promptResponse],
+    }));
+
+    return {
+      success: true,
+      response: promptResponse,
+      run_passed: responseData.run_passed,
+      run_uuid: responseData.run_uuid,
+    };
+  } catch (error: any) {
+    let errorResponse;
+
+    // Handle the case where error.message contains the JSON string from our throw
+    if (error instanceof Error && error.message) {
+      try {
+        // Try to parse the error message as JSON
+        errorResponse = JSON.parse(error.message);
+        if (errorResponse.error !== undefined) {
+          errorResponse = errorResponse.error;
+        }
+      } catch {
+        // If it's not valid JSON, use the message directly
+        errorResponse = error.message;
+      }
+    } else {
+      // Fall back to the original error handling
+      errorResponse = structuredClone(error?.response?.data || {});
+      errorResponse = Array.isArray(errorResponse)
+        ? errorResponse[0]
+        : errorResponse;
+      errorResponse =
+        typeof errorResponse === "object" ? errorResponse.error : errorResponse;
+    }
+
+    const errorMessage =
+      typeof errorResponse === "object"
+        ? JSON.stringify(errorResponse)
+        : String(errorResponse || "Unknown error");
+
+    setState((state: any) => ({
+      ...state,
+      sendPromptError: errorMessage,
+      promptLoading: false,
+    }));
+
+    // Update run status to failed on error
+    if (runId) {
+      store.updateRun(runId, {
+        status: "failed",
+        run_passed: false,
+      });
+    }
+
+    return { success: false, error: errorMessage };
+  }
 };
 
 /**
@@ -325,71 +391,79 @@ const handleAIResponse = async (
  * @returns A promise that resolves to the updated run data
  */
 export const updateRunUtil = async (
-   runId: string,
-   updateData: Record<string, any>,
-   userId: number | null
+  runId: string,
+  updateData: Record<string, any>,
+  userId: number | null,
 ): Promise<{ success: boolean; data?: any; error?: string }> => {
-   const store = useConversationStore.getState();
-   
-   try {
-      // Prepare the request payload
-      const requestBody = {
-         id: runId,  // Use the same runId for backend lookup
-         ...updateData
-      };
-      
-      let responseData;
-      
-      // Handle anonymous vs authenticated requests
-      if (!userId) {
-         const endpoint = '/api/microapps/run/anonymous';
-         const response = await fetch(endpoint, {
-            method: 'PATCH',
-            headers: {
-               'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-            body: JSON.stringify(requestBody)
-         });
-         
-         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`HTTP error! Status: ${response.status}, Response: ${errorText}`);
-         }
-         
-         responseData = await response.json();
-      } else {
-         const api = axiosInstance();
-         const response = await api.patch('/api/microapps/run', requestBody);
-         responseData = response.data;
+  const store = useConversationStore.getState();
+
+  try {
+    // Prepare the request payload
+    const requestBody = {
+      id: runId, // Use the same runId for backend lookup
+      ...updateData,
+    };
+
+    let responseData;
+
+    // Handle anonymous vs authenticated requests
+    if (!userId) {
+      const endpoint = "/api/microapps/run/anonymous";
+      const response = await fetch(endpoint, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify(requestBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(
+          `HTTP error! Status: ${response.status}, Response: ${errorText}`,
+        );
       }
-      
-      // Update the run in the local store using the same runId
-      // Extract only the frontend-relevant fields from the backend response
-      const backendData = responseData.data || responseData;
-      const relevantUpdates = {
-         ...updateData,  // Original updates we sent
-         updatedAt: Date.now(),
-         // Include calculated fields from backend response
-         ...(backendData.cost !== undefined && { cost: backendData.cost }),
-         ...(backendData.credits !== undefined && { credits: backendData.credits }),
-      };
-      
-      store.updateRun(runId, relevantUpdates);
-      
-      return { 
-         success: true, 
-         data: responseData 
-      };
-   } catch (error: any) {
-      let errorResponse = structuredClone(error?.response?.data || {});
-      errorResponse = Array.isArray(errorResponse) ? errorResponse[0] : errorResponse;
-      errorResponse = typeof errorResponse === "object" ? errorResponse.error : errorResponse;
-      
-      const errorMessage = "Failed to update run: " + JSON.stringify(errorResponse);
-      
-      return { success: false, error: errorMessage };
-   }
+
+      responseData = await response.json();
+    } else {
+      const api = axiosInstance();
+      const response = await api.patch("/api/microapps/run", requestBody);
+      responseData = response.data;
+    }
+
+    // Update the run in the local store using the same runId
+    // Extract only the frontend-relevant fields from the backend response
+    const backendData = responseData.data || responseData;
+    const relevantUpdates = {
+      ...updateData, // Original updates we sent
+      updatedAt: Date.now(),
+      // Include calculated fields from backend response
+      ...(backendData.cost !== undefined && { cost: backendData.cost }),
+      ...(backendData.credits !== undefined && {
+        credits: backendData.credits,
+      }),
+    };
+
+    store.updateRun(runId, relevantUpdates);
+
+    return {
+      success: true,
+      data: responseData,
+    };
+  } catch (error: any) {
+    let errorResponse = structuredClone(error?.response?.data || {});
+    errorResponse = Array.isArray(errorResponse)
+      ? errorResponse[0]
+      : errorResponse;
+    errorResponse =
+      typeof errorResponse === "object" ? errorResponse.error : errorResponse;
+
+    const errorMessage =
+      "Failed to update run: " + JSON.stringify(errorResponse);
+
+    return { success: false, error: errorMessage };
+  }
 };
 
 export const sendPromptsUtil = async (options: {
@@ -419,7 +493,7 @@ export const sendPromptsUtil = async (options: {
     tryIndex?: number;
   };
 }): Promise<SendPromptResponse> => {
-const {
+  const {
     prompts = null,
     answers = {},
     images = {},
@@ -437,133 +511,161 @@ const {
     scoreExplanationMode,
     runSource = "default",
     isPreview = false,
-    runtimeMeta
+    runtimeMeta,
   } = options;
 
-  let {
-    hasFixedResponse = false,
-    fixedResponseText = ""
-  } = options;
+  let { hasFixedResponse = false, fixedResponseText = "" } = options;
 
   const store = useConversationStore.getState();
 
-    // Step 1: Filter prompts based on visibility conditions
-    const visiblePrompts = (prompts || []).filter(prompt => 
-       evaluateVisibility(prompt.conditionalLogic || {} as ConditionalLogic, answers)
-    );
-    
-    // Step 2: Group visible prompts by their type (prompt, aiInstructions, fixedResponse)
-    const groupedPrompts = groupPromptsByType(visiblePrompts);
-    
-    // Step 3: Inject values into all prompt groups at once
-    const elementsForMapping = (appConfig?.elements || []) as any;
-    const finalPrompts = {
-        finalAiInstructions: groupedPrompts['aiInstructions'] ? 
-            injectValuesIntoPrompt(groupedPrompts['aiInstructions'], answers, elementsForMapping) as Prompt[] : [],
-        finalPrompt: groupedPrompts['prompt'] ? 
-            injectValuesIntoPrompt(groupedPrompts['prompt'], answers, elementsForMapping) as Prompt[] : [],
-        finalFixedResponses: groupedPrompts['fixedResponse'] ? 
-            injectValuesIntoPrompt(groupedPrompts['fixedResponse'], answers, elementsForMapping) as Prompt[] : []
-    };
-    
-    const aiConfig = {
-      aiModel: appConfig?.aiConfig.aiModel || options.defaultAiModel || "",
-      temperature: appConfig?.aiConfig.temperature || 0.9,
-      maxResponseTokens: appConfig?.aiConfig.maxResponseTokens || null,
-      systemPrompt: appConfig?.aiConfig.systemPrompt || ""
-    };
+  // Step 1: Filter prompts based on visibility conditions
+  const visiblePrompts = (prompts || []).filter((prompt) =>
+    evaluateVisibility(
+      prompt.conditionalLogic || ({} as ConditionalLogic),
+      answers,
+    ),
+  );
 
-    const attachedFiles = appConfig?.attachedFiles || [];
-   const page = appConfig?.phases?.[pageIndex] || null;
-   const pageConfig = pageConfigOverride ?? getPageConfig(page);
-   const phaseTitle = page?.title ?? "";
+  // Step 2: Group visible prompts by their type (prompt, aiInstructions, fixedResponse)
+  const groupedPrompts = groupPromptsByType(visiblePrompts);
 
-   //Create a run with current settings and 'pending' status
-   //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
-   const run = {
-      id: crypto.randomUUID(),
-      aiModel: aiConfig.aiModel,
-      cost: 0,
-      credits: 0,
-      status: 'pending' as const,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      messages: [],
-      phaseIndex: pageIndex,  // Add the phase index to track which phase this run belongs to
-      tryId: runtimeMeta?.tryId,
-      tryIndex: runtimeMeta?.tryIndex,
-      session_id: ''  // Add default empty session_id
-   };
-   store.addRun(run);
+  // Step 3: Inject values into all prompt groups at once
+  const elementsForMapping = (appConfig?.elements || []) as any;
+  const finalPrompts = {
+    finalAiInstructions: groupedPrompts["aiInstructions"]
+      ? (injectValuesIntoPrompt(
+          groupedPrompts["aiInstructions"],
+          answers,
+          elementsForMapping,
+        ) as Prompt[])
+      : [],
+    finalPrompt: groupedPrompts["prompt"]
+      ? (injectValuesIntoPrompt(
+          groupedPrompts["prompt"],
+          answers,
+          elementsForMapping,
+        ) as Prompt[])
+      : [],
+    finalFixedResponses: groupedPrompts["fixedResponse"]
+      ? (injectValuesIntoPrompt(
+          groupedPrompts["fixedResponse"],
+          answers,
+          elementsForMapping,
+        ) as Prompt[])
+      : [],
+  };
 
-   const combinedAiInstructions = finalPrompts.finalAiInstructions
-      .map(p => p.text)
-      .filter(Boolean)
-      .join('\n');
+  const aiConfig = {
+    aiModel: appConfig?.aiConfig.aiModel || options.defaultAiModel || "",
+    temperature: appConfig?.aiConfig.temperature || 0.9,
+    maxResponseTokens: appConfig?.aiConfig.maxResponseTokens || null,
+    systemPrompt: appConfig?.aiConfig.systemPrompt || "",
+  };
 
-   const appHashId = appConfig?.hashId;
+  const attachedFiles = appConfig?.attachedFiles || [];
+  const page = appConfig?.phases?.[pageIndex] || null;
+  const pageConfig = pageConfigOverride ?? getPageConfig(page);
+  const phaseTitle = page?.title ?? "";
 
-   // Add AI instructions as a message to the run
-   if (combinedAiInstructions) {
-      store.addMessage('instruction', combinedAiInstructions, run.id, runtimeMeta?.tryId);
-   }
+  //Create a run with current settings and 'pending' status
+  //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
+  const run = {
+    id:
+      crypto.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+    aiModel: aiConfig.aiModel,
+    cost: 0,
+    credits: 0,
+    status: "pending" as const,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    messages: [],
+    phaseIndex: pageIndex, // Add the phase index to track which phase this run belongs to
+    tryId: runtimeMeta?.tryId,
+    tryIndex: runtimeMeta?.tryIndex,
+    session_id: "", // Add default empty session_id
+  };
+  store.addRun(run);
 
-   const combinedPrompt = finalPrompts.finalPrompt
-      .map(p => p.text)
-      .filter(Boolean)
-      .join('\n');
+  const combinedAiInstructions = finalPrompts.finalAiInstructions
+    .map((p) => p.text)
+    .filter(Boolean)
+    .join("\n");
 
-   // Add user prompt as a message to the run
-   if (combinedPrompt) {
-      store.addMessage('user', combinedPrompt, run.id, runtimeMeta?.tryId);
-   }
+  const appHashId = appConfig?.hashId;
 
-   //If there are fixed responses, return the fixed response and exit.
-   if (finalPrompts.finalFixedResponses.length > 0) {
-     const combinedText = finalPrompts.finalFixedResponses
-        .map(p => p.text)
-        .filter(Boolean)
-        .join('\n');
-      store.addMessage('fixed_response', combinedText, run.id, runtimeMeta?.tryId);
-      hasFixedResponse = true;
-      fixedResponseText = combinedText;
-   }
-
-   const requestBody = await buildRequestBody(
-      combinedPrompt,
+  // Add AI instructions as a message to the run
+  if (combinedAiInstructions) {
+    store.addMessage(
+      "instruction",
       combinedAiInstructions,
-      appId,
-      requestSkip,
-      userId,
-      aiConfig,
-      pageConfig,
-      images,
-      appHashId,
-      attachedFiles,
-      skipScoredRun,
-      hasFixedResponse,
-      fixedResponseText,
-      noSubmit,
-      transcriptionCost,
       run.id,
-      scoreExplanation,
-      scoreExplanationMode,
       runtimeMeta?.tryId,
-      phaseTitle,
-      runSource,
-      isPreview
-   );
-   requestBody.run_try_id = runtimeMeta?.tryId;
-   if (run?.id) {
-      const isScoredRun = Boolean(requestBody?.scored_run);
-      store.updateRun(run.id, {
-         score_expected: isScoredRun,
-         score_explanation: requestBody?.score_explanation ?? undefined,
-         score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
-         score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,
-         score_feedback_instructions: requestBody?.score_feedback_instructions ?? undefined,
-      });
-   }
-   const result = await handleAIResponse(requestBody, userId, set, run.id);
-   return { ...result, run_uuid: run.id };
+    );
+  }
+
+  const combinedPrompt = finalPrompts.finalPrompt
+    .map((p) => p.text)
+    .filter(Boolean)
+    .join("\n");
+
+  // Add user prompt as a message to the run
+  if (combinedPrompt) {
+    store.addMessage("user", combinedPrompt, run.id, runtimeMeta?.tryId);
+  }
+
+  //If there are fixed responses, return the fixed response and exit.
+  if (finalPrompts.finalFixedResponses.length > 0) {
+    const combinedText = finalPrompts.finalFixedResponses
+      .map((p) => p.text)
+      .filter(Boolean)
+      .join("\n");
+    store.addMessage(
+      "fixed_response",
+      combinedText,
+      run.id,
+      runtimeMeta?.tryId,
+    );
+    hasFixedResponse = true;
+    fixedResponseText = combinedText;
+  }
+
+  const requestBody = await buildRequestBody(
+    combinedPrompt,
+    combinedAiInstructions,
+    appId,
+    requestSkip,
+    userId,
+    aiConfig,
+    pageConfig,
+    images,
+    appHashId,
+    attachedFiles,
+    skipScoredRun,
+    hasFixedResponse,
+    fixedResponseText,
+    noSubmit,
+    transcriptionCost,
+    run.id,
+    scoreExplanation,
+    scoreExplanationMode,
+    runtimeMeta?.tryId,
+    phaseTitle,
+    runSource,
+    isPreview,
+  );
+  requestBody.run_try_id = runtimeMeta?.tryId;
+  if (run?.id) {
+    const isScoredRun = Boolean(requestBody?.scored_run);
+    store.updateRun(run.id, {
+      score_expected: isScoredRun,
+      score_explanation: requestBody?.score_explanation ?? undefined,
+      score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
+      score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,
+      score_feedback_instructions:
+        requestBody?.score_feedback_instructions ?? undefined,
+    });
+  }
+  const result = await handleAIResponse(requestBody, userId, set, run.id);
+  return { ...result, run_uuid: run.id };
 };
