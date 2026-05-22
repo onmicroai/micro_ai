@@ -86,6 +86,16 @@ set_if_placeholder "LITELLM_MASTER_KEY"      "$(gen_key 32)"
 set_if_placeholder "LITELLM_DB_PASSWORD"     "$(gen_key 24)"
 set_if_placeholder "DATABASE_PASSWORD"       "$(gen_key 24)"
 
+# Keep DATABASE_URL in sync with DATABASE_PASSWORD (they must match)
+_sync_db_url() {
+    local pass url new_url
+    pass=$(grep -E '^DATABASE_PASSWORD[[:space:]]*=' .env | cut -d= -f2- | tr -d "'\"\r\n ")
+    url=$(grep -E  '^DATABASE_URL[[:space:]]*='      .env | cut -d= -f2- | tr -d "'\"\r\n")
+    new_url=$(echo "$url" | sed -E "s|://([^:]+):[^@]+@|://\1:${pass}@|")
+    _update_env_key "DATABASE_URL" "'${new_url}'"
+}
+_sync_db_url
+
 # AI API key
 echo ""
 echo -e "${BOLD}AI Provider${NC}"
