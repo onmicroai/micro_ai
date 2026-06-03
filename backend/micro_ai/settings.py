@@ -274,11 +274,11 @@ STATICFILES_DIRS = [
 ]
 
 # AWS Configuration
-AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID")
-AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY")
-AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME")
-AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME")
-AWS_ACCOUNT_ID = env("AWS_ACCOUNT_ID")
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
+AWS_STORAGE_BUCKET_NAME = env("AWS_STORAGE_BUCKET_NAME", default="")
+AWS_S3_REGION_NAME = env("AWS_S3_REGION_NAME", default="")
+AWS_ACCOUNT_ID = env("AWS_ACCOUNT_ID", default="")
 AWS_S3_SIGNATURE_VERSION = "s3v4"
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
@@ -312,20 +312,54 @@ DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 FORMS_URLFIELD_ASSUME_HTTPS = True
 
 # Email setup
+# ------------------------------------------------------------------------------
+# Default (no external SMTP credentials): Django SMTP to a local MTA / Postfix-style relay —
+# plain SMTP, port 25, no STARTTLS, no SMTP AUTH (Open edX–style).
+#
+# Docker Compose sets EMAIL_HOST=host.docker.internal when unset so containers reach Postfix on the
+# host (Linux: extra_hosts host-gateway). Bare-metal dev: omit EMAIL_HOST → localhost.
+#
+# External relay (e.g. AWS SES SMTP): set EMAIL_HOST_USER and EMAIL_HOST_PASSWORD. If EMAIL_HOST is
+# still empty or host.docker.internal (Compose default), settings use SES SMTP endpoint defaults.
 
-# use in development
-# EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+_explicit_email_backend = env("EMAIL_BACKEND", default="").strip()
+_smtp_backend = "django.core.mail.backends.smtp.EmailBackend"
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'email-smtp.us-east-1.amazonaws.com'
-EMAIL_PORT = 587  # or 25, 2587
-EMAIL_USE_TLS = True  # STARTTLS
-EMAIL_HOST_USER = env("EMAIL_HOST_USER")
-EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
-DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
+if _explicit_email_backend:
+    EMAIL_BACKEND = _explicit_email_backend
+else:
+    EMAIL_BACKEND = _smtp_backend
 
-# use in production
-# see https://github.com/anymail/django-anymail for more details/examples
+_email_user = env("EMAIL_HOST_USER", default="").strip()
+_email_password = env("EMAIL_HOST_PASSWORD", default="").strip()
+_has_smtp_auth = bool(_email_user and _email_password)
+
+if EMAIL_BACKEND == _smtp_backend and _has_smtp_auth:
+    _smtp_host = env("EMAIL_HOST", default="").strip()
+    _compose_local_relay = _smtp_host in ("", "host.docker.internal")
+    if _compose_local_relay:
+        EMAIL_HOST = "email-smtp.us-east-1.amazonaws.com"
+        EMAIL_PORT = 587
+        EMAIL_USE_TLS = True
+        EMAIL_USE_SSL = False
+    else:
+        EMAIL_HOST = _smtp_host
+        EMAIL_PORT = env.int("EMAIL_PORT", default=587)
+        EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=True)
+        EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+    EMAIL_HOST_USER = _email_user
+    EMAIL_HOST_PASSWORD = _email_password
+else:
+    EMAIL_HOST = env("EMAIL_HOST", default="localhost").strip() or "localhost"
+    EMAIL_PORT = env.int("EMAIL_PORT", default=25)
+    EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS", default=False)
+    EMAIL_USE_SSL = env.bool("EMAIL_USE_SSL", default=False)
+    EMAIL_HOST_USER = ""
+    EMAIL_HOST_PASSWORD = ""
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL", default="webmaster@localhost") or "webmaster@localhost"
+
+# use in production with Mailgun etc.: https://github.com/anymail/django-anymail
 # EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"
 
 EMAIL_SUBJECT_PREFIX = "[OnMicro.AI] "
@@ -348,7 +382,8 @@ REST_FRAMEWORK = {
     },
 }
 
-is_production = os.getenv('PRODUCTION', 'False') == 'True'
+PRODUCTION = env.bool('PRODUCTION', default=False)
+is_production = PRODUCTION
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
 # SameSite cookie configuration for production vs development
@@ -426,28 +461,24 @@ ADMINS = [("Yibrahim", "yibrahim@knysys.com"), ("John", "john@curricu.me")]
 GOOGLE_ANALYTICS_ID = env("GOOGLE_ANALYTICS_ID", default="")
 
 
-# Stripe config
-# modeled to be the same as https://github.com/dj-stripe/dj-stripe
-# Note: don"t edit these values here - edit them in your .env file or environment variables!
-# The defaults are provided to prevent crashes if your keys don"t match the expected format.
-STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="pk_live_***")
-STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="sk_live_***")
-STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="pk_test_***")
-STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="sk_test_***")
-STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="whsec_***")
-# STRIPE_PRICING_TABLE_ID = env("STRIPE_PRICING_TABLE_ID", default="***")
-# Change to True in production
+# Stripe config — all optional. Leave empty to run without Stripe (free plan only).
+STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="")
+STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="")
+STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="")
+STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="")
+STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="")
 STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
+STRIPE_ENABLED = bool(STRIPE_LIVE_SECRET_KEY if STRIPE_LIVE_MODE else STRIPE_TEST_SECRET_KEY)
 
-##################
+PRO_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID", default="")
+ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID", default="")
+TOP_UP_CREDITS_PLAN_ID = env("TOP_UP_CREDITS_PLAN_ID", default="")
+TOP_UP_CREDITS = env.int("TOP_UP_CREDITS", default=200000)
+DEFAULT_PORTAL_CONFIGURATION_ID = env("DEFAULT_PORTAL_CONFIGURATION_ID", default="")
 
-PRO_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID")
-ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID")
-
-TOP_UP_CREDITS_PLAN_ID=env("TOP_UP_CREDITS_PLAN_ID")
-TOP_UP_CREDITS=env.int("TOP_UP_CREDITS", default=200000)
-
-DEFAULT_PORTAL_CONFIGURATION_ID=env("DEFAULT_PORTAL_CONFIGURATION_ID")
+# Monthly credit limit for all users when Stripe is not configured.
+# billing cycle auto-renews on expiry.
+MONTHLY_CREDIT_LIMIT = env.int("MONTHLY_CREDIT_LIMIT", default=10_000)
 
 # LiteLLM Configuration
 LITELLM_BASE_URL = env("LITELLM_BASE_URL", default="http://om-litellm:4000")

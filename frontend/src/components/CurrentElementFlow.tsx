@@ -48,7 +48,12 @@ function isEditSupportedElementType(type: Element["type"]): boolean {
 
 /** Types where the hover Edit button is positioned above the control to avoid overlapping. */
 function isEditButtonAboveType(type: Element["type"]): boolean {
-  return type === "textarea" || type === "dropdown" || type === "text" || type === "slider";
+  return (
+    type === "textarea" ||
+    type === "dropdown" ||
+    type === "text" ||
+    type === "slider"
+  );
 }
 
 type VisibleEntry = { element: Element; originalIndex: number };
@@ -107,9 +112,9 @@ export default function CurrentElementFlow({
   const { getRunsForTry, getLatestRunForStop } = useConversationStore();
 
   const [cursor, setCursor] = useState(0);
-  const [fixedResponsesById, setFixedResponsesById] = useState<Record<string, string>>(
-    {},
-  );
+  const [fixedResponsesById, setFixedResponsesById] = useState<
+    Record<string, string>
+  >({});
   const [fixedResponseDisplayedById, setFixedResponseDisplayedById] = useState<
     Record<string, string>
   >({});
@@ -120,9 +125,10 @@ export default function CurrentElementFlow({
   const [activeTryId, setActiveTryId] = useState<string | null>(null);
   const [editingFieldName, setEditingFieldName] = useState<string | null>(null);
   const [editBaseAnswers, setEditBaseAnswers] = useState<Answers | null>(null);
-  const [editBaseImages, setEditBaseImages] = useState<
-    Record<string, Record<string, string>> | null
-  >(null);
+  const [editBaseImages, setEditBaseImages] = useState<Record<
+    string,
+    Record<string, string>
+  > | null>(null);
   const hydratingTryRef = useRef(false);
   const lastHydratedTryIdRef = useRef<string | null>(null);
   const fixedResponseRunTokenRef = useRef<Record<string, number>>({});
@@ -140,13 +146,13 @@ export default function CurrentElementFlow({
   const buildVisibleElements = useCallback(
     (sourceAnswers: Answers): VisibleEntry[] => {
       return appElements
-      .map((element, originalIndex) => {
-        const isVisible = evaluateVisibility(
-          (element.conditionalLogic || {}) as ConditionalLogic,
+        .map((element, originalIndex) => {
+          const isVisible = evaluateVisibility(
+            (element.conditionalLogic || {}) as ConditionalLogic,
             sourceAnswers as Answers,
-        );
-        return isVisible ? { element, originalIndex } : null;
-      })
+          );
+          return isVisible ? { element, originalIndex } : null;
+        })
         .filter((entry): entry is VisibleEntry => Boolean(entry));
     },
     [appElements],
@@ -165,7 +171,9 @@ export default function CurrentElementFlow({
   useEffect(() => {
     if (!surveyJson || tries.length > 0) return;
     const initialTry: TryState = {
-      id: crypto.randomUUID(),
+      id:
+        crypto.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`,
       index: 1,
       parentTryId: null,
       createdAt: Date.now(),
@@ -199,7 +207,7 @@ export default function CurrentElementFlow({
         onComplete?.();
       }
     },
-    [cursor, onComplete, setErrors, visibleElements]
+    [cursor, onComplete, setErrors, visibleElements],
   );
 
   useEffect(() => {
@@ -212,7 +220,9 @@ export default function CurrentElementFlow({
     setFixedResponsesById(structuredClone(activeTry.fixedResponsesById || {}));
     setFixedResponseDisplayedById(
       structuredClone(
-        activeTry.fixedResponseDisplayedById || activeTry.fixedResponsesById || {},
+        activeTry.fixedResponseDisplayedById ||
+          activeTry.fixedResponsesById ||
+          {},
       ),
     );
     setFixedResponseAnimatingById({});
@@ -264,15 +274,14 @@ export default function CurrentElementFlow({
     const previousOriginalIndex = previousActiveOriginalIndexRef.current;
     if (previousOriginalIndex !== null) {
       const newIndex = visibleElements.findIndex(
-        (entry) => entry.originalIndex === previousOriginalIndex
+        (entry) => entry.originalIndex === previousOriginalIndex,
       );
 
       if (newIndex === -1) {
         const nextIndex = visibleElements.findIndex(
-          (entry) => entry.originalIndex > previousOriginalIndex
+          (entry) => entry.originalIndex > previousOriginalIndex,
         );
-        const targetIndex =
-          nextIndex >= 0 ? nextIndex : visibleElements.length;
+        const targetIndex = nextIndex >= 0 ? nextIndex : visibleElements.length;
         if (targetIndex !== cursor) {
           advance(targetIndex);
           previousActiveOriginalIndexRef.current =
@@ -298,7 +307,10 @@ export default function CurrentElementFlow({
 
   const { stopIndex, stopElement, visibleUntil } = useMemo(() => {
     let i = cursor;
-    while (i < visibleElements.length && !isStopElement(visibleElements[i].element)) {
+    while (
+      i < visibleElements.length &&
+      !isStopElement(visibleElements[i].element)
+    ) {
       i += 1;
     }
     const hasStop =
@@ -310,58 +322,64 @@ export default function CurrentElementFlow({
   }, [cursor, visibleElements]);
 
   const getVisibleInstructions = (
-    instructions: Element["instructions"] | undefined
+    instructions: Element["instructions"] | undefined,
   ) => {
     return (instructions || []).filter((inst) =>
       evaluateVisibility(
         (inst?.conditionalLogic || {}) as ConditionalLogic,
-        answers as Answers
-      )
+        answers as Answers,
+      ),
     );
   };
 
-  const startFixedResponseTypewriter = useCallback((id: string, fullText: string) => {
-    const nextToken = (fixedResponseRunTokenRef.current[id] || 0) + 1;
-    fixedResponseRunTokenRef.current[id] = nextToken;
+  const startFixedResponseTypewriter = useCallback(
+    (id: string, fullText: string) => {
+      const nextToken = (fixedResponseRunTokenRef.current[id] || 0) + 1;
+      fixedResponseRunTokenRef.current[id] = nextToken;
 
-    setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: true }));
-    setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: "" }));
+      setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: true }));
+      setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: "" }));
 
-    (async () => {
-      let i = 0;
-      const minDelayMs = 12;
-      const maxDelayMs = 28;
+      (async () => {
+        let i = 0;
+        const minDelayMs = 12;
+        const maxDelayMs = 28;
 
-      while (
-        i < fullText.length &&
-        fixedResponseRunTokenRef.current[id] === nextToken
-      ) {
-        const remaining = fullText.length - i;
-        const chunkSize =
-          remaining <= 2 ? remaining : Math.random() < 0.85 ? 1 : 2;
-        i += chunkSize;
-        setFixedResponseDisplayedById((prev) => ({
-          ...prev,
-          [id]: fullText.slice(0, i),
-        }));
-        const delayMs =
-          minDelayMs +
-          Math.floor(Math.random() * (maxDelayMs - minDelayMs + 1));
-        await new Promise((r) => setTimeout(r, delayMs));
-      }
+        while (
+          i < fullText.length &&
+          fixedResponseRunTokenRef.current[id] === nextToken
+        ) {
+          const remaining = fullText.length - i;
+          const chunkSize =
+            remaining <= 2 ? remaining : Math.random() < 0.85 ? 1 : 2;
+          i += chunkSize;
+          setFixedResponseDisplayedById((prev) => ({
+            ...prev,
+            [id]: fullText.slice(0, i),
+          }));
+          const delayMs =
+            minDelayMs +
+            Math.floor(Math.random() * (maxDelayMs - minDelayMs + 1));
+          await new Promise((r) => setTimeout(r, delayMs));
+        }
 
-      if (fixedResponseRunTokenRef.current[id] !== nextToken) return;
+        if (fixedResponseRunTokenRef.current[id] !== nextToken) return;
+        setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
+        setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
+      })();
+    },
+    [],
+  );
+
+  const revealFullFixedResponse = useCallback(
+    (id: string, fullText: string) => {
+      fixedResponseRunTokenRef.current[id] =
+        (fixedResponseRunTokenRef.current[id] || 0) + 1;
       setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
       setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
-    })();
-  }, []);
-
-  const revealFullFixedResponse = useCallback((id: string, fullText: string) => {
-    fixedResponseRunTokenRef.current[id] =
-      (fixedResponseRunTokenRef.current[id] || 0) + 1;
-    setFixedResponseAnimatingById((prev) => ({ ...prev, [id]: false }));
-    setFixedResponseDisplayedById((prev) => ({ ...prev, [id]: fullText }));
-  }, []);
+    },
+    [],
+  );
 
   const handleRun = async (event: FormEvent) => {
     event.preventDefault();
@@ -482,8 +500,7 @@ export default function CurrentElementFlow({
         {
           scoredPhase: true,
           rubric: stop.rubric || "",
-          minScore:
-            typeof stop.minScore === "number" ? stop.minScore : 0,
+          minScore: typeof stop.minScore === "number" ? stop.minScore : 0,
           scoreFeedbackEnabled: stop.scoreFeedbackEnabled ?? true,
           scoreFeedbackInstructions: stop.scoreFeedbackInstructions || "",
         },
@@ -539,7 +556,9 @@ export default function CurrentElementFlow({
     }
 
     // Inherited stop cards can reference parent-try runs via stored runId.
-    for (const stopState of Object.values(activeTry?.stopStateByElementId || {})) {
+    for (const stopState of Object.values(
+      activeTry?.stopStateByElementId || {},
+    )) {
       const runId = stopState?.runId;
       if (!runId) continue;
       const run = runsById.get(runId);
@@ -551,7 +570,12 @@ export default function CurrentElementFlow({
     }
 
     return maxPass;
-  }, [getRunsForTry, activeTryId, appElements, activeTry?.stopStateByElementId]);
+  }, [
+    getRunsForTry,
+    activeTryId,
+    appElements,
+    activeTry?.stopStateByElementId,
+  ]);
 
   const canEditFieldByOriginalIndex = useCallback(
     (originalIndex: number) => {
@@ -591,7 +615,8 @@ export default function CurrentElementFlow({
         appElements
           .filter(
             (el, originalIndex) =>
-              originalIndex >= restartOriginalIndex && el.type === "fixedResponse",
+              originalIndex >= restartOriginalIndex &&
+              el.type === "fixedResponse",
           )
           .map((el) => el.id),
       );
@@ -643,14 +668,19 @@ export default function CurrentElementFlow({
       .map((name) => getOriginalIndexByFieldName(name))
       .filter((idx): idx is number => idx !== null);
     const topEditedOriginalIndex =
-      changedOriginalIndexes.length > 0 ? Math.min(...changedOriginalIndexes) : 0;
+      changedOriginalIndexes.length > 0
+        ? Math.min(...changedOriginalIndexes)
+        : 0;
     const visibleAfterEdit = buildVisibleElements(currentAnswers);
     const restartVisibleStopIndex = visibleAfterEdit.findIndex(
       (entry) =>
-        entry.originalIndex >= topEditedOriginalIndex && isStopElement(entry.element),
+        entry.originalIndex >= topEditedOriginalIndex &&
+        isStopElement(entry.element),
     );
     const restartCursor =
-      restartVisibleStopIndex >= 0 ? restartVisibleStopIndex : visibleAfterEdit.length;
+      restartVisibleStopIndex >= 0
+        ? restartVisibleStopIndex
+        : visibleAfterEdit.length;
     const restartOriginalIndex =
       restartVisibleStopIndex >= 0
         ? visibleAfterEdit[restartVisibleStopIndex].originalIndex
@@ -690,7 +720,10 @@ export default function CurrentElementFlow({
                 firstEditedOriginalIndex:
                   t.firstEditedOriginalIndex === null
                     ? topEditedOriginalIndex
-                    : Math.min(t.firstEditedOriginalIndex, topEditedOriginalIndex),
+                    : Math.min(
+                        t.firstEditedOriginalIndex,
+                        topEditedOriginalIndex,
+                      ),
               },
         ),
       );
@@ -699,7 +732,9 @@ export default function CurrentElementFlow({
       setFixedResponsesById(trimmedFixedResponses);
       setFixedResponseDisplayedById(trimmedDisplayedResponses);
     } else {
-      const newTryId = crypto.randomUUID();
+      const newTryId =
+        crypto.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const newTry: TryState = {
         id: newTryId,
         index: tries.length + 1,
@@ -719,7 +754,10 @@ export default function CurrentElementFlow({
         firstEditedOriginalIndex:
           activeTry.firstEditedOriginalIndex === null
             ? topEditedOriginalIndex
-            : Math.min(activeTry.firstEditedOriginalIndex, topEditedOriginalIndex),
+            : Math.min(
+                activeTry.firstEditedOriginalIndex,
+                topEditedOriginalIndex,
+              ),
       };
       setTries((prev) => [...prev, newTry]);
       setActiveTryId(newTry.id);
@@ -739,7 +777,7 @@ export default function CurrentElementFlow({
     ? visibleElements
     : visibleElements.slice(
         0,
-        Math.min(visibleUntil + 1, visibleElements.length)
+        Math.min(visibleUntil + 1, visibleElements.length),
       );
 
   if (!surveyJson) return null;
@@ -780,7 +818,9 @@ export default function CurrentElementFlow({
             canEditFieldByOriginalIndex(originalIndex) &&
             isEditSupportedElementType(element.type);
           const isEditingThisField = editingFieldName === element.name;
-          const showEditedChip = activeTry?.editedFieldIds?.includes(element.name);
+          const showEditedChip = activeTry?.editedFieldIds?.includes(
+            element.name,
+          );
           return (
             <div
               className={`mb-6 relative group rounded-md ${
@@ -866,8 +906,9 @@ export default function CurrentElementFlow({
           element.type === "scoring" ? element.isRequired !== false : false;
         const scoringFailed = Boolean(
           element.type === "scoring" &&
-            (stopState?.requiredScoreFailed ||
-              (latestRunForThisStop && !passedTheRubricMinScore(latestRunForThisStop))),
+          (stopState?.requiredScoreFailed ||
+            (latestRunForThisStop &&
+              !passedTheRubricMinScore(latestRunForThisStop))),
         );
 
         const revealedFixed =
@@ -884,8 +925,8 @@ export default function CurrentElementFlow({
           element.type === "fixedResponse"
             ? fixedResponseAnimatingById[element.id] === true
             : false;
-                          const isBareFixedReveal =
-                          element.type === "fixedResponse" && isActiveStop && !hasRevealedFixed;
+        const isBareFixedReveal =
+          element.type === "fixedResponse" && isActiveStop && !hasRevealedFixed;
         const isFixedResponseCard =
           element.type === "fixedResponse" && hasRevealedFixed;
 
@@ -897,7 +938,7 @@ export default function CurrentElementFlow({
                   name: `${element.name}-preview-${pIdx}`,
                   type: "prompt",
                   text: inst?.text || "",
-                })
+                }),
               )
             : [];
 
@@ -911,13 +952,14 @@ export default function CurrentElementFlow({
         const isScoredRun = Boolean(
           runForThisStop?.score_expected ||
           runForThisStop?.scoreData?.scored_run ||
-          runForThisStop?.run_score
+          runForThisStop?.run_score,
         );
         const scoreReady = Boolean(
-          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score
+          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score,
         );
         const explanationRequested = Boolean(
-          runForThisStop?.score_explanation ?? runForThisStop?.scoreData?.score_explanation
+          runForThisStop?.score_explanation ??
+          runForThisStop?.scoreData?.score_explanation,
         );
         const explanationMode =
           runForThisStop?.score_explanation_mode ||
@@ -928,12 +970,14 @@ export default function CurrentElementFlow({
           scoreReady &&
           explanationRequested &&
           (explanationMode === "always" ||
-            (explanationMode === "failed_only" && runForThisStop?.run_passed === false) ||
-            (explanationMode === "passed_only" && runForThisStop?.run_passed === true));
+            (explanationMode === "failed_only" &&
+              runForThisStop?.run_passed === false) ||
+            (explanationMode === "passed_only" &&
+              runForThisStop?.run_passed === true));
         const isEvaluatingScore = isScoredRun && !scoreReady;
         const explanationContent = shouldOfferExplanation
           ? runForThisStop?.messages.findLast(
-              (m) => m.role === "assistant" || m.role === "fixed_response"
+              (m) => m.role === "assistant" || m.role === "fixed_response",
             )?.content || ""
           : "";
 
@@ -964,18 +1008,23 @@ export default function CurrentElementFlow({
               <>
                 {!isScoredRun && (
                   <>
-                    <AIResponseDisplay run={runForThisStop} isOwner={isOwner} isAdmin={isAdmin} />
-                    {element.type === "aiResponse" && aiPromptPreviewPrompts.length > 0 && (
-                      <div className="mt-3">
-                        <RenderPrompt
-                          prompts={aiPromptPreviewPrompts}
-                          answers={answers as any}
-                          disabled={false}
-                          isOwner={isOwner}
-                          isAdmin={isAdmin}
-                        />
-                      </div>
-                    )}
+                    <AIResponseDisplay
+                      run={runForThisStop}
+                      isOwner={isOwner}
+                      isAdmin={isAdmin}
+                    />
+                    {element.type === "aiResponse" &&
+                      aiPromptPreviewPrompts.length > 0 && (
+                        <div className="mt-3">
+                          <RenderPrompt
+                            prompts={aiPromptPreviewPrompts}
+                            answers={answers as any}
+                            disabled={false}
+                            isOwner={isOwner}
+                            isAdmin={isAdmin}
+                          />
+                        </div>
+                      )}
                   </>
                 )}
                 <RunScoreDisplay
@@ -1002,10 +1051,15 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) <= 1 || isAwaitingResponseOrScore}
+                        disabled={
+                          (activeTry?.index || 1) <= 1 ||
+                          isAwaitingResponseOrScore
+                        }
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) - 1;
-                          const target = tries.find((t) => t.index === targetIndex);
+                          const target = tries.find(
+                            (t) => t.index === targetIndex,
+                          );
                           if (target) setActiveTryId(target.id);
                         }}
                       >
@@ -1017,10 +1071,15 @@ export default function CurrentElementFlow({
                       <button
                         type="button"
                         className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                        disabled={(activeTry?.index || 1) >= tries.length || isAwaitingResponseOrScore}
+                        disabled={
+                          (activeTry?.index || 1) >= tries.length ||
+                          isAwaitingResponseOrScore
+                        }
                         onClick={() => {
                           const targetIndex = (activeTry?.index || 1) + 1;
-                          const target = tries.find((t) => t.index === targetIndex);
+                          const target = tries.find(
+                            (t) => t.index === targetIndex,
+                          );
                           if (target) setActiveTryId(target.id);
                         }}
                       >
@@ -1035,30 +1094,55 @@ export default function CurrentElementFlow({
                   </div>
                 ) : (
                   <div className="mt-4 flex justify-end">
-                    {!(element.type === "scoring" && scoringIsRequired && scoringFailed) && (
+                    {!(
+                      element.type === "scoring" &&
+                      scoringIsRequired &&
+                      scoringFailed
+                    ) && (
                       <button
-                        type={element.type === "fixedResponse" ? "button" : "submit"}
+                        type={
+                          element.type === "fixedResponse" ? "button" : "submit"
+                        }
                         className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                         onClick={(e) => {
                           if (element.type !== "fixedResponse") return;
                           // Initialize fixed-response state on first click without relying on form submit timing.
                           if (!hasRevealedFixed) {
-                            const text = injectValuesIntoPrompt(element.text || "", answers);
-                            setFixedResponsesById((prev) => ({ ...prev, [element.id]: text }));
-                            const alreadyDisplayed = fixedResponseDisplayedById[element.id];
-                            const isAnimating = fixedResponseAnimatingById[element.id];
-                            if (alreadyDisplayed === undefined && !isAnimating) {
+                            const text = injectValuesIntoPrompt(
+                              element.text || "",
+                              answers,
+                            );
+                            setFixedResponsesById((prev) => ({
+                              ...prev,
+                              [element.id]: text,
+                            }));
+                            const alreadyDisplayed =
+                              fixedResponseDisplayedById[element.id];
+                            const isAnimating =
+                              fixedResponseAnimatingById[element.id];
+                            if (
+                              alreadyDisplayed === undefined &&
+                              !isAnimating
+                            ) {
                               startFixedResponseTypewriter(element.id, text);
                             }
                             commitActiveTry({
-                              answersSnapshot: structuredClone((answers as Answers) || {}),
+                              answersSnapshot: structuredClone(
+                                (answers as Answers) || {},
+                              ),
                               imagesSnapshot: structuredClone(images || {}),
                               cursor,
-                              fixedResponsesById: { ...fixedResponsesById, [element.id]: text },
+                              fixedResponsesById: {
+                                ...fixedResponsesById,
+                                [element.id]: text,
+                              },
                               fixedResponseDisplayedById:
                                 alreadyDisplayed === undefined && !isAnimating
                                   ? fixedResponseDisplayedById
-                                  : { ...fixedResponseDisplayedById, [element.id]: text },
+                                  : {
+                                      ...fixedResponseDisplayedById,
+                                      [element.id]: text,
+                                    },
                               stopStateByElementId: {
                                 ...(activeTry?.stopStateByElementId || {}),
                                 [element.id]: {
@@ -1101,10 +1185,10 @@ export default function CurrentElementFlow({
                         {element.type === "aiResponse"
                           ? "Continue"
                           : element.type === "scoring"
-                          ? scoringIsRequired
-                            ? "Evaluate"
-                            : "Continue"
-                          : "Continue"}
+                            ? scoringIsRequired
+                              ? "Evaluate"
+                              : "Continue"
+                            : "Continue"}
                       </button>
                     )}
                   </div>
@@ -1139,7 +1223,9 @@ export default function CurrentElementFlow({
                 <button
                   type="button"
                   className="p-1 rounded border border-gray-200 disabled:opacity-50"
-                  disabled={(activeTry?.index || 1) >= tries.length || promptLoading}
+                  disabled={
+                    (activeTry?.index || 1) >= tries.length || promptLoading
+                  }
                   onClick={() => {
                     const targetIndex = (activeTry?.index || 1) + 1;
                     const target = tries.find((t) => t.index === targetIndex);

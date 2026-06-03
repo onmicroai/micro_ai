@@ -46,7 +46,11 @@ interface RuntimeTryStore {
   draftState: DraftRuntimeState | null;
 
   reset: () => void;
-  initRuntimeTry: (initialAnswers: Answers, initialImages: Base64Images, stableId?: string) => void;
+  initRuntimeTry: (
+    initialAnswers: Answers,
+    initialImages: Base64Images,
+    stableId?: string,
+  ) => void;
   switchTry: (tryId: string) => void;
 
   applyDraftAnswers: (updater: (prev: Answers) => Answers) => void;
@@ -55,12 +59,12 @@ interface RuntimeTryStore {
   applyDraftFixedResponseState: (
     updater: (
       prev: Record<string, FixedResponseRuntimeState>,
-    ) => Record<string, FixedResponseRuntimeState>
+    ) => Record<string, FixedResponseRuntimeState>,
   ) => void;
   applyDraftStopState: (
     updater: (
       prev: Record<string, StopRuntimeState>,
-    ) => Record<string, StopRuntimeState>
+    ) => Record<string, StopRuntimeState>,
   ) => void;
   setEditingFieldName: (fieldName: string | null) => void;
   beginFieldEdit: (fieldName: string) => void;
@@ -70,7 +74,8 @@ interface RuntimeTryStore {
   forkTryFromDraft: (overrides?: Partial<TrySnapshot>) => void;
 }
 
-const cloneAnswers = (answers: Answers): Answers => structuredClone(answers || {});
+const cloneAnswers = (answers: Answers): Answers =>
+  structuredClone(answers || {});
 const cloneImages = (images: Base64Images): Base64Images =>
   structuredClone(images || {});
 
@@ -102,7 +107,10 @@ export const useRuntimeTryStore = create<RuntimeTryStore>((set, get) => ({
   initRuntimeTry: (initialAnswers, initialImages, stableId?) => {
     const current = get();
     if (current.tryOrder.length > 0) return;
-    const tryId = stableId ?? crypto.randomUUID();
+    const tryId =
+      stableId ??
+      crypto.randomUUID?.() ??
+      `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     const initialTry: TrySnapshot = {
       id: tryId,
       index: 1,
@@ -214,7 +222,10 @@ export const useRuntimeTryStore = create<RuntimeTryStore>((set, get) => ({
   cancelDraftEdits: () =>
     set((state) => {
       if (!state.draftState) return state;
-      if (!state.draftState.editBaseAnswers || !state.draftState.editBaseImages) {
+      if (
+        !state.draftState.editBaseAnswers ||
+        !state.draftState.editBaseImages
+      ) {
         return {
           draftState: {
             ...state.draftState,
@@ -282,7 +293,9 @@ export const useRuntimeTryStore = create<RuntimeTryStore>((set, get) => ({
         stopStateByElementId: _ignoredStopState,
         ...safeOverrides
       } = overrides || {};
-      const newTryId = crypto.randomUUID();
+      const newTryId =
+        crypto.randomUUID?.() ??
+        `${Date.now()}-${Math.random().toString(36).slice(2)}`;
       const nextIndex = state.tryOrder.length + 1;
       // Why: a new fork must inherit the exact draft stop/fixed maps to preserve
       // what the user just saw before branching, independent from parent snapshots.
@@ -316,4 +329,3 @@ export const useRuntimeTryStore = create<RuntimeTryStore>((set, get) => ({
       };
     }),
 }));
-
