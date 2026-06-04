@@ -28,7 +28,7 @@ from apps.subscriptions.services import CouponActionService
 log = logging.getLogger("micro_ai.subscription")
 
 def _stripe_disabled():
-    log.warning("Stripe endpoint called but STRIPE_ENABLED=False - set STRIPE_TEST_SECRET_KEY or STRIPE_LIVE_SECRET_KEY to enable.")
+    log.warning("Stripe endpoint called but STRIPE_ENABLED=False - set STRIPE_SECRET_KEY to enable.")
     return Response({"detail": "Stripe is not configured on this deployment."}, status=501)
 
 def require_stripe(func):

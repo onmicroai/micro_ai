@@ -462,13 +462,11 @@ GOOGLE_ANALYTICS_ID = env("GOOGLE_ANALYTICS_ID", default="")
 
 
 # Stripe config — all optional. Leave empty to run without Stripe (free plan only).
-STRIPE_LIVE_PUBLIC_KEY = env("STRIPE_LIVE_PUBLIC_KEY", default="")
-STRIPE_LIVE_SECRET_KEY = env("STRIPE_LIVE_SECRET_KEY", default="")
-STRIPE_TEST_PUBLIC_KEY = env("STRIPE_TEST_PUBLIC_KEY", default="")
-STRIPE_TEST_SECRET_KEY = env("STRIPE_TEST_SECRET_KEY", default="")
+# Use test keys in dev/staging and live keys in production (one pair per environment).
+STRIPE_PUBLIC_KEY = env("STRIPE_PUBLIC_KEY", default="")
+STRIPE_SECRET_KEY = env("STRIPE_SECRET_KEY", default="")
 STRIPE_WEBHOOK_SECRET = env("STRIPE_WEBHOOK_SECRET_KEY", default="")
-STRIPE_LIVE_MODE = env.bool("STRIPE_LIVE_MODE", False)
-STRIPE_ENABLED = bool(STRIPE_LIVE_SECRET_KEY if STRIPE_LIVE_MODE else STRIPE_TEST_SECRET_KEY)
+STRIPE_ENABLED = bool(STRIPE_SECRET_KEY)
 
 PRO_PLAN_PRICE_ID = env("INDIVIDUAL_PLAN_PRICE_ID", default="")
 ENTERPRISE_PLAN_PRICE_ID = env("ENTERPRISE_PLAN_PRICE_ID", default="")
