@@ -11,10 +11,38 @@ import evaluateVisibility from "@/utils//evaluateVisibility";
 import { ConditionalLogic } from "@/app/(authenticated)/app/types";
 import groupPromptsByType from "@/utils//groupPromptsByType";
 import injectValuesIntoPrompt from "@/utils//injectValuesIntoPrompt";
-import { useConversationStore } from "@/store/conversationStore";
+import {
+  useConversationStore,
+  type ApiMessage,
+  type Run,
+} from "@/store/conversationStore";
 import delay from "./delay";
 import { buildRequestBody, getPageConfig } from "@/utils/buildRequestBody";
 import { streamRun } from "@/utils/streamRun";
+import { formatApiErrorPayload, mapKnownErrorText } from "@/utils/apiErrorMessage";
+
+function serverMetaToRunUpdates(
+  source: Record<string, unknown>,
+): Partial<Run> {
+  const updates: Partial<Run> = {};
+  if (typeof source.cost === "number") updates.cost = source.cost;
+  if (typeof source.credits === "number") updates.credits = source.credits;
+  if (typeof source.run_passed === "boolean") updates.run_passed = source.run_passed;
+  if (typeof source.run_score === "string") updates.run_score = source.run_score;
+  if (typeof source.score_explanation === "boolean")
+    updates.score_explanation = source.score_explanation;
+  if (typeof source.score_explanation_mode === "string")
+    updates.score_explanation_mode = source.score_explanation_mode as Run["score_explanation_mode"];
+  if (typeof source.score_feedback_enabled === "boolean")
+    updates.score_feedback_enabled = source.score_feedback_enabled;
+  if (typeof source.score_feedback_instructions === "string")
+    updates.score_feedback_instructions = source.score_feedback_instructions;
+  const apiMessages = source.api_messages ?? source.apiMessages;
+  if (Array.isArray(apiMessages)) {
+    updates.apiMessages = apiMessages as ApiMessage[];
+  }
+  return updates;
+}
 
 const handleAIResponse = async (
   requestBody: any,
@@ -88,25 +116,14 @@ const handleAIResponse = async (
 
           if (runId) {
             const store = useConversationStore.getState();
-            const updates: any = {
+            store.updateRun(runId, {
               scoreData: scoreData,
               run_passed: scoreData.run_passed,
               run_score: scoreData.run_score,
-            };
-            if (typeof scoreData.score_explanation === "boolean")
-              updates.score_explanation = scoreData.score_explanation;
-            if (typeof scoreData.score_explanation_mode === "string")
-              updates.score_explanation_mode = scoreData.score_explanation_mode;
-            if (typeof scoreData.score_feedback_enabled === "boolean")
-              updates.score_feedback_enabled = scoreData.score_feedback_enabled;
-            if (typeof scoreData.score_feedback_instructions === "string")
-              updates.score_feedback_instructions =
-                scoreData.score_feedback_instructions;
-            if (typeof scoreData.credits === "number")
-              updates.credits = scoreData.credits;
-            if (typeof scoreData.cost === "number")
-              updates.cost = scoreData.cost;
-            store.updateRun(runId, updates);
+              ...serverMetaToRunUpdates(
+                scoreData as unknown as Record<string, unknown>,
+              ),
+            });
           }
         },
         onDone: (meta?: unknown) => {
@@ -116,26 +133,11 @@ const handleAIResponse = async (
             store.updateRun(runId, { status: "completed" });
           }
           if (runId && meta && typeof meta === "object") {
-            const updates: any = {};
-            const metaObj = meta as Record<string, unknown>;
-            if (typeof metaObj.cost === "number") updates.cost = metaObj.cost;
-            if (typeof metaObj.credits === "number")
-              updates.credits = metaObj.credits;
-            if (typeof metaObj.run_passed === "boolean")
-              updates.run_passed = metaObj.run_passed;
-            if (typeof metaObj.run_score === "string")
-              updates.run_score = metaObj.run_score;
-            if (typeof metaObj.score_explanation === "boolean")
-              updates.score_explanation = metaObj.score_explanation;
-            if (typeof metaObj.score_explanation_mode === "string")
-              updates.score_explanation_mode = metaObj.score_explanation_mode;
-            if (typeof metaObj.score_feedback_enabled === "boolean")
-              updates.score_feedback_enabled = metaObj.score_feedback_enabled;
-            if (typeof metaObj.score_feedback_instructions === "string")
-              updates.score_feedback_instructions =
-                metaObj.score_feedback_instructions;
-            if (Object.keys(updates).length > 0) {
-              store.updateRun(runId, updates);
+            const metaUpdates = serverMetaToRunUpdates(
+              meta as Record<string, unknown>,
+            );
+            if (Object.keys(metaUpdates).length > 0) {
+              store.updateRun(runId, metaUpdates);
             }
           }
           setState((state: any) => ({
@@ -164,7 +166,7 @@ const handleAIResponse = async (
           }
           setState((state: any) => ({
             ...state,
-            sendPromptError: String(err),
+            sendPromptError: mapKnownErrorText(String(err)),
             promptLoading: false,
           }));
           streamCompleted = true;
@@ -193,6 +195,7 @@ const handleAIResponse = async (
           cost: responseData.cost,
           credits: responseData.credits,
           session_id: responseData.session_id,
+          ...serverMetaToRunUpdates(responseData as Record<string, unknown>),
         });
       }
 
@@ -271,19 +274,12 @@ const handleAIResponse = async (
       if (!response.ok) {
         let errorMessage;
         try {
-          // Try to parse as JSON first
           const errorData = await response.json();
-          errorMessage =
-            typeof errorData === "object"
-              ? JSON.stringify(errorData)
-              : String(errorData);
+          errorMessage = formatApiErrorPayload(errorData, response.status);
         } catch {
-          // If parsing fails, use text response
-          errorMessage = await response.text();
+          errorMessage = formatApiErrorPayload(null, response.status);
         }
-        throw new Error(
-          errorMessage || `HTTP error! Status: ${response.status}`,
-        );
+        throw new Error(errorMessage);
       }
 
       const data = await response.json();
@@ -306,6 +302,7 @@ const handleAIResponse = async (
         cost: responseData.cost,
         credits: responseData.credits,
         session_id: responseData.session_id,
+        ...serverMetaToRunUpdates(responseData as Record<string, unknown>),
       });
     }
 
@@ -359,10 +356,11 @@ const handleAIResponse = async (
         typeof errorResponse === "object" ? errorResponse.error : errorResponse;
     }
 
-    const errorMessage =
+    const errorMessage = formatApiErrorPayload(
       typeof errorResponse === "object"
-        ? JSON.stringify(errorResponse)
-        : String(errorResponse || "Unknown error");
+        ? errorResponse
+        : { error: String(errorResponse || "Unknown error") },
+    );
 
     setState((state: any) => ({
       ...state,
@@ -664,6 +662,9 @@ export const sendPromptsUtil = async (options: {
       score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,
       score_feedback_instructions:
         requestBody?.score_feedback_instructions ?? undefined,
+      apiMessages: Array.isArray(requestBody.messages)
+        ? (requestBody.messages as ApiMessage[])
+        : undefined,
     });
   }
   const result = await handleAIResponse(requestBody, userId, set, run.id);

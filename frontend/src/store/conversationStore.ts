@@ -8,6 +8,11 @@ export interface Message {
   timestamp: number;
 }
 
+export type ApiMessage = {
+  role: string;
+  content: unknown;
+};
+
 export interface Run {
   id: string;
   aiModel: string;
@@ -17,6 +22,8 @@ export interface Run {
   createdAt: number;
   updatedAt: number;
   messages: Message[];
+  /** Exact messages sent to the LLM (server authoritative when present). */
+  apiMessages?: ApiMessage[];
   run_passed?: boolean;
   run_score?: string;
   no_submission?: boolean;

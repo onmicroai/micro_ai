@@ -251,6 +251,9 @@ class Run(models.Model):
 
     user_prompt = models.JSONField()
 
+    # Exact messages array sent to the LLM (after model formatting and RAG injection).
+    api_messages = models.JSONField(default=list, blank=True)
+
     # The chat response from the AI for the run. Or, a static response if no_submission or skipped_run is true. 
     response = models.TextField(blank=True)
 
