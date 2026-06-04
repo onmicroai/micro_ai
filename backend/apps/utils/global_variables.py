@@ -240,8 +240,8 @@ class AIModelConstants:
         return config.get("plans", [])
 
 class UsageVariables:
-    # Credits per billing cycle. Overridden by MONTHLY_CREDIT_LIMIT env var when Stripe is off.
-    FREE_PLAN_CREDIT_LIMIT = int(env("MONTHLY_CREDIT_LIMIT", default="10000"))
+    # Credits per billing cycle. Overridden by FREE_PLAN_CREDIT_LIMIT env var when Stripe is off.
+    FREE_PLAN_CREDIT_LIMIT = int(env("FREE_PLAN_CREDIT_LIMIT", default="10000"))
     PRO_PLAN_CREDIT_LIMIT = 100000
     ENTERPRISE_PLAN_CREDIT_LIMIT = 400000
 

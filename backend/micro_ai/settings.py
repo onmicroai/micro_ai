@@ -476,7 +476,7 @@ DEFAULT_PORTAL_CONFIGURATION_ID = env("DEFAULT_PORTAL_CONFIGURATION_ID", default
 
 # Monthly credit limit for all users when Stripe is not configured.
 # billing cycle auto-renews on expiry.
-MONTHLY_CREDIT_LIMIT = env.int("MONTHLY_CREDIT_LIMIT", default=10_000)
+FREE_PLAN_CREDIT_LIMIT = env.int("FREE_PLAN_CREDIT_LIMIT", default=10_000)
 
 # LiteLLM Configuration
 LITELLM_BASE_URL = env("LITELLM_BASE_URL", default="http://om-litellm:4000")
