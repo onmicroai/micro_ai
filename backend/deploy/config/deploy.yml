@@ -15,7 +15,6 @@ env:
     - STRIPE_LIVE_SECRET_KEY
     - STRIPE_TEST_PUBLIC_KEY
     - STRIPE_TEST_SECRET_KEY
-    - DJSTRIPE_WEBHOOK_SECRET
 
 # https://kamal-deploy.org/docs/configuration#using-different-roles-for-servers
 servers:

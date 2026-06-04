@@ -7,7 +7,9 @@ from django.conf import settings
 from django.core.mail import mail_admins
 
 from apps.subscriptions.helpers import upsert_subscription
-from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription, TopUpToSubscription
+from apps.subscriptions.constants import tier_for_price
+from apps.subscriptions.credits import grant_subscription_credits, grant_topup_credits
+from apps.subscriptions.models import StripeCustomer, Subscription
 from apps.users.models import CustomUser
 
 log = logging.getLogger("micro_ai.subscription")
@@ -38,8 +40,8 @@ def stripe_webhook(request):
             handle_subscription_created_or_updated(event)
         elif event["type"] == "customer.subscription.deleted":
             handle_subscription_deleted(event)
-        elif event["type"] == "payment_method.attached":
-            handle_payment_method_attachment(event)
+        elif event["type"] == "invoice.paid":
+            handle_invoice_paid(event)
         elif event["type"] == "customer.deleted":
             handle_customer_deleted(event)
         elif event["type"] == "checkout.session.completed":
@@ -79,10 +81,7 @@ def handle_checkout_session_completed(event):
         log.error(f"checkout.session.completed: user with email {customer_email} not found in the database")
         return
 
-    TopUpToSubscription.objects.create(
-        user=user,
-        allocated_credits=settings.TOP_UP_CREDITS
-    )
+    grant_topup_credits(user, settings.TOP_UP_CREDITS, reason="topup")
 
     log.info(f"Added {settings.TOP_UP_CREDITS} credits to user {user.email} (price_id: {received_price_id})")
 
@@ -112,46 +111,46 @@ def handle_customer_created(event):
     except Exception as e:
         log.error(f"Error creating customer record for {customer_id}: {e}")
 
-def handle_payment_method_attachment(event):
-    payment_method = event["data"]["object"]
+def handle_invoice_paid(event):
+    """
+    Handles invoice.paid. On a recurring renewal (billing_reason ==
+    "subscription_cycle") this is the monthly reset: subscription credits are
+    refilled to the current tier's allotment. Top-up credits are untouched.
 
-    if not payment_method.get("customer"):
-        log.info("Payment method has no associated customer, skipping.")
+    The first invoice (subscription_create) and plan changes are handled by the
+    subscription.created/updated events via upsert_subscription, so they are
+    skipped here to avoid a double grant.
+    """
+    invoice = event["data"]["object"]
+
+    if invoice.get("billing_reason") != "subscription_cycle":
+        log.info(
+            "invoice.paid: skipping reset for billing_reason=%s",
+            invoice.get("billing_reason"),
+        )
         return
 
-    customer_id = payment_method["customer"]
-
-    try:
-        # Update customer's default payment method
-        stripe.Customer.modify(
-            customer_id,
-            invoice_settings={"default_payment_method": payment_method["id"]}
-        )
-        log.info(f"Updated default payment method for customer {customer_id}")
-    except stripe.error.StripeError as e:
-        log.error(f"Error updating customer {customer_id}: {e}")
+    customer_id = invoice.get("customer")
+    stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id).first()
+    if not stripe_customer:
+        log.warning(f"invoice.paid: no StripeCustomer for {customer_id}")
         return
 
-    try:
-        # Retrieve active subscriptions for the customer
-        subscriptions = stripe.Subscription.list(customer=customer_id, limit=10)
-        active_subscription = next(
-            (sub for sub in subscriptions.auto_paging_iter() if sub["status"] != "canceled"),
-            None
-        )
+    subscription = Subscription.objects.filter(customer=stripe_customer).first()
+    price_id = subscription.price_id if subscription else None
+    tier = tier_for_price(price_id)
 
-        if not active_subscription:
-            log.info(f"No active subscription found for customer {customer_id}.")
-            return
+    # Pull the new period end from the invoice line items, if present.
+    period_end = None
+    lines = invoice.get("lines", {}).get("data", [])
+    if lines:
+        period_end = lines[-1].get("period", {}).get("end")
 
-        # Update subscription's default payment method
-        stripe.Subscription.modify(
-            active_subscription["id"],
-            default_payment_method=payment_method["id"]
-        )
-        log.info(f"Updated default payment method for subscription {active_subscription['id']}")
-    except stripe.error.StripeError as e:
-        log.error(f"Error updating subscription for customer {customer_id}: {e}")
+    grant_subscription_credits(stripe_customer.user, tier, period_end)
+    log.info(
+        "invoice.paid: reset %s to %d %s credits",
+        stripe_customer.user.email, tier.monthly_credits, tier.name,
+    )
 
 def handle_customer_deleted(event):
     """
@@ -162,9 +161,9 @@ def handle_customer_deleted(event):
     customer_id = customer["id"]
 
     try:
-        billing_cycles = BillingCycle.objects.filter(subscription__customer_id=customer_id)
-        deleted_billing_cycles, _ = billing_cycles.delete()
-        log.info(f"Deleted {deleted_billing_cycles} billing cycles for customer {customer_id}")
+        # Capture the owning user before deleting records so we can reset their wallet.
+        existing_customer = StripeCustomer.objects.filter(customer_id=customer_id).first()
+        owner = existing_customer.user if existing_customer else None
 
         subscriptions = Subscription.objects.filter(customer_id=customer_id)
         deleted_subscriptions, _ = subscriptions.delete()
@@ -173,6 +172,10 @@ def handle_customer_deleted(event):
         stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id)
         deleted_customers, _ = stripe_customer.delete()
         log.info(f"Deleted Stripe customer {customer_id}")
+
+        # Revert the user to the Free tier allotment now that they have no subscription.
+        if owner:
+            grant_subscription_credits(owner, tier_for_price(None))
 
     except Exception as e:
         log.error(f"Error deleting data for customer {customer_id}: {e}")

@@ -1,6 +1,7 @@
 """
 AI model execution views - Run models and handle AI interactions.
 """
+import copy
 import datetime
 import uuid
 import os
@@ -32,8 +33,6 @@ from apps.microapps.serializer import (
 )
 from apps.users.models import CustomUser
 from apps.users.serializers import UserSerializer
-from apps.subscriptions.models import BillingCycle, TopUpToSubscription
-from apps.subscriptions.serializers import UsageEventSerializer
 from django.utils import timezone
 from django.db.models import F
 from django.conf import settings
@@ -46,6 +45,32 @@ from .mixins import handle_exception, UsageTrackingMixin
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
+
+
+def enforce_owner_credits_for_run(view_self, app_owner_id, request, ip):
+    """
+    Block runs when guest limits are exceeded or the app owner has no credits.
+    Returns a DRF Response to return early, or None if the run may proceed.
+    """
+    if not request.user.id:
+        if not GuestUsage.check_usage_limit(view_self, ip):
+            return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
+        audience = "public"
+    else:
+        audience = "owner"
+
+    credits_check = RunUsage.check_for_available_credits(
+        view_self, app_owner_id, None, audience=audience
+    )
+    if not credits_check.get("has_credits"):
+        return Response(
+            {
+                "error": credits_check["message"],
+                "status": credits_check.get("status"),
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    return None
 
 
 @extend_schema_view(
@@ -111,6 +136,18 @@ class RunList(APIView, UsageTrackingMixin):
     app_hash_id = ""
     response_type = ""
     credits = 0
+    _final_api_messages = None
+
+    def _snapshot_final_api_messages(self, api_params: dict) -> None:
+        """Store the exact messages payload sent to the LLM (pre-scoring mutations)."""
+        messages = api_params.get("messages") or []
+        self._final_api_messages = copy.deepcopy(messages)
+
+    def _api_messages_for_response(self) -> list:
+        return self._final_api_messages if self._final_api_messages is not None else []
+
+    def _done_payload_extras(self) -> dict:
+        return {"api_messages": self._api_messages_for_response()}
 
     def check_payload(self, data, request):
         """Validate request payload based on authentication status."""
@@ -188,7 +225,7 @@ class RunList(APIView, UsageTrackingMixin):
                 "updated_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
                 "session_id": str(session_id),
                 "satisfaction": 0,
-                "prompt": api_params.get("messages", []),
+                "api_messages": self._api_messages_for_response(),
                 "no_submission": data.get("no_submission", False),
                 "ai_model": api_params.get("model", ""),
                 "temperature": float(api_params.get("temperature")) if api_params.get("temperature") is not None else None,
@@ -316,6 +353,7 @@ class RunList(APIView, UsageTrackingMixin):
                     "cost": float(run_data.get("cost", 0)),
                     "run_score": self.ai_score,
                     "run_passed": self.score_result,
+                    "api_messages": run_data.get("api_messages", []),
                 }
             else:
                log.error(f"Streaming run serialization failed: {serializer.errors}")
@@ -356,23 +394,10 @@ class RunList(APIView, UsageTrackingMixin):
             ma_data = Microapp.objects.get(id=data.get("ma_id"))
             self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
             
-            # Handle guest users usage
-            if not request.user.id:
-                if not GuestUsage.check_usage_limit(self, ip):
-                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
-            # Handle logged-in users usage
-            else:
-                # Get owner details
-                users = CustomUser.objects.get(id=app_owner_id)
-                user_date_joined = UserSerializer(users).data["date_joined"]
-                # Check if the owner has any credits available
-                credits_check = RunUsage.check_for_available_credits(self, app_owner_id, user_date_joined)
-                if not credits_check["has_credits"]:
-                    return Response(
-                        {"error": credits_check["message"]},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-                
+            blocked = enforce_owner_credits_for_run(self, app_owner_id, request, ip)
+            if blocked:
+                return blocked
+
             # Return model instance based on AI-model name
             requested_model = data.get("model", env("DEFAULT_AI_MODEL"))
             model_router = AIModelRoute().get_ai_model(requested_model)
@@ -402,6 +427,7 @@ class RunList(APIView, UsageTrackingMixin):
                 ma_data=ma_data,
                 user_prompt=data.get("user_prompt", ""),
             )
+            self._snapshot_final_api_messages(api_params)
 
             # Add transcription cost to api_params before get_response
             api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
@@ -453,7 +479,8 @@ class RunList(APIView, UsageTrackingMixin):
                                 "rubric": data.get("rubric"),
                                 "scored_run": True,
                                 "cost": float(combined_data["cost"]),
-                                "credits": combined_data["credits"]
+                                "credits": combined_data["credits"],
+                                **self._done_payload_extras(),
                             }
                         except Exception as e:
                             log.error(f"Error in streaming scored run callback: {e}")
@@ -733,22 +760,9 @@ class ScoreRunList(RunList):
             ma_data = Microapp.objects.get(id=data.get("ma_id"))
             self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
 
-            # Handle guest users usage
-            if not request.user.id:
-                if not GuestUsage.check_usage_limit(self, ip):
-                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
-            # Handle logged-in users usage
-            else:
-                # Get owner details
-                users = CustomUser.objects.get(id=app_owner_id)
-                user_date_joined = UserSerializer(users).data["date_joined"]
-                # Check if the owner has any credits available
-                credits_check = RunUsage.check_for_available_credits(self, app_owner_id, user_date_joined)
-                if not credits_check["has_credits"]:
-                    return Response(
-                        {"error": credits_check["message"]},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
+            blocked = enforce_owner_credits_for_run(self, app_owner_id, request, ip)
+            if blocked:
+                return blocked
 
             # Return model instance based on AI-model name
             requested_model = data.get("model", env("DEFAULT_AI_MODEL"))
@@ -773,6 +787,13 @@ class ScoreRunList(RunList):
 
             # Format model specific message content
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            api_params["messages"] = self._inject_rag_context(
+                messages=api_params["messages"],
+                ma_data=ma_data,
+                user_prompt=data.get("user_prompt", ""),
+            )
+            self._snapshot_final_api_messages(api_params)
 
             # Add transcription cost to api_params before get_response
             api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
@@ -866,7 +887,12 @@ class ScoreRunList(RunList):
                                 "score_explanation_mode": explanation_mode,
                                 "score_feedback_enabled": feedback_enabled,
                                 "score_feedback_instructions": feedback_instructions,
+                                **self._done_payload_extras(),
                             }
+                            if save_result and isinstance(save_result, dict):
+                                done_payload["api_messages"] = save_result.get(
+                                    "api_messages", done_payload.get("api_messages", [])
+                                )
                             yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
                             return
 
@@ -933,7 +959,12 @@ class ScoreRunList(RunList):
                             "score_explanation_mode": explanation_mode,
                             "score_feedback_enabled": feedback_enabled,
                             "score_feedback_instructions": feedback_instructions,
+                            **self._done_payload_extras(),
                         }
+                        if save_result and isinstance(save_result, dict):
+                            done_payload["api_messages"] = save_result.get(
+                                "api_messages", done_payload.get("api_messages", [])
+                            )
                         yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
 
                     generator = score_stream_generator()
@@ -1070,22 +1101,10 @@ class AnonymousRunList(RunList):
             ma_data = Microapp.objects.get(id=data.get("ma_id"))
             self.app_hash_id = MicroAppSerializer(ma_data).data["hash_id"]
             
-            # Handle guest users usage
-            if not request.user.id:
-                if not GuestUsage.check_usage_limit(self, ip):
-                    return Response(error.RUN_USAGE_LIMIT_EXCEED, status=status.HTTP_400_BAD_REQUEST)
-            else:
-                # Get owner details
-                users = CustomUser.objects.get(id=app_owner_id)
-                user_date_joined = UserSerializer(users).data["date_joined"]
-                # Check if the owner has any credits available
-                credits_check = RunUsage.check_for_available_credits(self, app_owner_id, user_date_joined)
-                if not credits_check["has_credits"]:
-                    return Response(
-                        {"error": credits_check["message"]},
-                        status=status.HTTP_400_BAD_REQUEST
-                    )
-            
+            blocked = enforce_owner_credits_for_run(self, app_owner_id, request, ip)
+            if blocked:
+                return blocked
+
             # Return model instance based on AI-model name
             model_router = AIModelRoute().get_ai_model(data.get("model", env("DEFAULT_AI_MODEL")))
            
@@ -1108,6 +1127,13 @@ class AnonymousRunList(RunList):
             
             # Format model specific message content  
             api_params["messages"] = model.get_model_message(api_params["messages"], data)
+
+            api_params["messages"] = self._inject_rag_context(
+                messages=api_params["messages"],
+                ma_data=ma_data,
+                user_prompt=data.get("user_prompt", ""),
+            )
+            self._snapshot_final_api_messages(api_params)
 
             # Add transcription cost to api_params before get_response
             api_params["transcription_cost"] = float(data.get("transcription_cost", 0))
@@ -1197,27 +1223,18 @@ class LiteLLMModelConfigurations(APIView):
     permission_classes = [IsAuthenticated]
 
     def get_user_plan(self, user_id):
-        """Get the user's current subscription plan"""
+        """Get the user's current subscription plan (litellm access group)."""
         try:
-            # Get the user's current billing cycle
-            billing_cycle = BillingCycle.objects.filter(
-                user=user_id,
-                status='open',
-                start_date__lte=timezone.now(),
-                end_date__gte=timezone.now()
-            ).first()
-            
-            if billing_cycle and billing_cycle.subscription:
-                # Check the subscription's price_id against known price IDs
-                price_id = billing_cycle.subscription.price_id
-                if price_id == settings.PRO_PLAN_PRICE_ID:
-                    return "pro"
-                elif price_id == settings.ENTERPRISE_PLAN_PRICE_ID:
-                    return "enterprise"
-            
-            # Default to free plan if no active subscription or unknown price_id
-            return "free"
-            
+            from apps.subscriptions.models import Subscription
+            from apps.subscriptions.constants import tier_for_price
+
+            subscription = (
+                Subscription.objects.filter(user_id=user_id).order_by("-created_at").first()
+            )
+            price_id = subscription.price_id if subscription else None
+            # Map the tier name to the lowercase litellm access group.
+            return tier_for_price(price_id).name.lower()
+
         except Exception as e:
             log.error(f"Error getting user plan: {str(e)}")
             return "free"

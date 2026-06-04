@@ -31,6 +31,39 @@ interface BillingDetails {
   end_date: string;
 }
 
+function subscriptionStatusDisplay(subscription: Subscription | null | undefined): {
+  label: string;
+  className: string;
+} {
+  if (!subscription) {
+    return { label: "Free", className: "bg-gray-alpha-100" };
+  }
+  if (subscription.cancel_at_period_end) {
+    return { label: "Canceling", className: "bg-amber-100 text-amber-950" };
+  }
+  switch (subscription.status) {
+    case "active":
+      return { label: "Active", className: "bg-green-100 text-green-950" };
+    case "trialing":
+      return { label: "Trialing", className: "bg-green-100 text-green-950" };
+    case "past_due":
+      return { label: "Past due", className: "bg-amber-100 text-amber-950" };
+    case "unpaid":
+      return { label: "Unpaid", className: "bg-red-100 text-red-700" };
+    case "incomplete":
+      return { label: "Incomplete", className: "bg-amber-100 text-amber-950" };
+    case "incomplete_expired":
+      return { label: "Incomplete", className: "bg-red-100 text-red-700" };
+    case "canceled":
+      return { label: "Canceled", className: "bg-gray-100 text-gray-700" };
+    default:
+      return {
+        label: subscription.status.replace(/_/g, " "),
+        className: "bg-gray-100 text-gray-700",
+      };
+  }
+}
+
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
   const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(
@@ -38,6 +71,7 @@ export default function SubscriptionPage() {
   );
   const [userData, setUserData] = useState<any>(null);
   const [topUpCredits, setTopUpCredits] = useState<number>(0);
+  const [billingBlocked, setBillingBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<string>("Free");
   const [isPollingOpen, setIsPollingOpen] = useState<boolean>(false);
@@ -51,6 +85,7 @@ export default function SubscriptionPage() {
     can_create: boolean;
   }>(null);
   const [couponCode, setCouponCode] = useState<string>("");
+  const [topUpLoading, setTopUpLoading] = useState(false);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponError, setCouponError] = useState<string>("");
   const [couponSuccess, setCouponSuccess] = useState<string>("");
@@ -78,6 +113,7 @@ export default function SubscriptionPage() {
       const currentBillingCycle = response.data.billing_details[0];
       setBillingDetails(currentBillingCycle);
       setTopUpCredits(response.data.top_up_credits || 0);
+      setBillingBlocked(Boolean(response.data.billing_blocked));
     } catch (error: any) {
       console.error("Error fetching credits:", error);
     }
@@ -117,6 +153,9 @@ export default function SubscriptionPage() {
           toast.error("Failed to load subscription data: " + error.message);
         }
       } finally {
+        // Clear the timeout guard on completion so it can't fire a spurious
+        // "Request timeout" toast after the data has already loaded.
+        clearTimeout(timeoutId);
         if (isMounted) {
           setLoading(false);
         }
@@ -137,6 +176,28 @@ export default function SubscriptionPage() {
       window.location.href = response.data.url;
     } catch (error: any) {
       toast.error("Failed to open billing portal: " + error.message);
+    }
+  };
+
+  const handleTopUpPurchase = async () => {
+    setTopUpLoading(true);
+    try {
+      const response = await api.post(
+        "/api/subscriptions/checkout-session/",
+        {
+          plan: "TopUp",
+          successUrl: `${window.location.origin}/settings/subscription?updated=success`,
+          cancelUrl: `${window.location.origin}/settings/subscription?updated=failure`,
+        },
+      );
+      localStorage.setItem("expectedCredits", "topup");
+      window.location.href = response.data.url;
+    } catch (error: any) {
+      const detail =
+        error.response?.data?.detail || error.message || "Unknown error";
+      toast.error("Failed to start top-up checkout: " + detail);
+    } finally {
+      setTopUpLoading(false);
     }
   };
 
@@ -192,17 +253,6 @@ export default function SubscriptionPage() {
     localStorage.removeItem("expectedPlan");
     localStorage.removeItem("expectedCredits");
     router.refresh();
-  };
-
-  const handleCancelDowngrade = async () => {
-    try {
-      await api.post("/api/subscriptions/cancel-downgrade/");
-      toast.success("Downgrade cancelled successfully.");
-      const userRes = await api.get("/api/auth/user/");
-      setSubscription(userRes.data.subscription || userRes.data);
-    } catch (error: any) {
-      toast.error("Failed to cancel downgrade: " + error.message);
-    }
   };
 
   const handleRedeemCoupon = async () => {
@@ -325,16 +375,33 @@ export default function SubscriptionPage() {
                     </div>
 
                     {/* Subscription Status */}
-                    {stripeEnabled && (
+                    {stripeEnabled && subscription && (() => {
+                      const statusBadge = subscriptionStatusDisplay(subscription);
+                      return (
                       <div className="flex gap-4 px-6 py-4 items-center justify-between">
                         <span className="font-medium text-sm text-gray-700">
                           Subscription status
                         </span>
-                        <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-green-100 text-green-950">
-                          {userData.subscription?.cancel_at_period_end
-                            ? "Canceling"
-                            : "Active"}
+                        <div
+                          className={`inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium capitalize ${statusBadge.className}`}
+                        >
+                          {statusBadge.label}
                         </div>
+                      </div>
+                      );
+                    })()}
+
+                    {billingBlocked && billingDetails && (
+                      <div className="mx-6 mb-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                        Payment failed or is overdue. Plan credits are paused until
+                        you update your payment method.{" "}
+                        <button
+                          type="button"
+                          onClick={handleManageSubscription}
+                          className="font-medium underline"
+                        >
+                          Manage billing in Stripe
+                        </button>
                       </div>
                     )}
 
@@ -375,16 +442,26 @@ export default function SubscriptionPage() {
                     </div>
 
                     {/* Credits Usage Section */}
-                    <div className="gap-4 px-6 py-4 items-center block">
-                      <span className="font-medium text-sm text-gray-700">
-                        Credit Usage
-                      </span>
+                    <div className="px-6 py-4">
+                      <div className="flex items-center justify-between gap-4 mb-3">
+                        <span className="font-medium text-sm text-gray-700">
+                          Credit Usage
+                        </span>
+                        {stripeEnabled && (
+                          <button
+                            type="button"
+                            onClick={handleTopUpPurchase}
+                            disabled={topUpLoading}
+                            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {topUpLoading ? "Loading…" : "+ Top up credits"}
+                          </button>
+                        )}
+                      </div>
                       <span className="font-medium text-right block text-xs text-gray-500 mb-3 max-sm:hidden">
-                        {billingDetails.credits_used.toLocaleString()} /{" "}
-                        {billingDetails.credits_allocated.toLocaleString()} used
-                        (Resets on{" "}
-                        {new Date(billingDetails.end_date).toLocaleDateString()}
-                        )
+                        {billingBlocked
+                          ? "Credits paused — update payment to restore access"
+                          : `${billingDetails.credits_used.toLocaleString()} / ${billingDetails.credits_allocated.toLocaleString()} used (Resets on ${new Date(billingDetails.end_date).toLocaleDateString()})`}
                       </span>
                       <div className="bg-gray-200 h-[6px] rounded-full max-sm:mt-3 w-full">
                         <div
@@ -438,10 +515,10 @@ export default function SubscriptionPage() {
                               ).toLocaleDateString()}
                             </span>
                             <button
-                              onClick={handleCancelDowngrade}
-                              className="px-4 py-2 rounded-md text-sm font-medium bg-red-500 text-white hover:bg-red-600"
+                              onClick={handleManageSubscription}
+                              className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90"
                             >
-                              Cancel Downgrade
+                              Manage in Stripe
                             </button>
                           </div>
                         </div>
