@@ -14,6 +14,7 @@ import Modal from "../Modal";
 import {
   AppSerialized,
   AppStats,
+  DashboardListScope,
 } from "@/app/(authenticated)/(dashboard)/types";
 import { cn } from "@/utils/cn";
 import {
@@ -22,6 +23,7 @@ import {
 } from "@/app/(authenticated)/app/(pages)/edit/[id]/components/ui/badge";
 import {
   ChartLine,
+  CirclePlus,
   Copy,
   GripVertical,
   PencilIcon,
@@ -99,13 +101,41 @@ const APP_ACTIONS: AppActionConfig[] = [
 
 interface AppTableProps {
   activeTab: string;
+  onCreateApp?: () => void | Promise<void>;
+  isCreatingApp?: boolean;
+}
+
+function getEmptyStateMessage(
+  listScope: DashboardListScope,
+  activeTab: string,
+  appsLength: number
+): string {
+  if (listScope.kind === "collection") {
+    return "No apps in this collection. Drag apps here from All apps to organize them.";
+  }
+  if (listScope.kind === "owned") {
+    return "You don't own any apps yet.";
+  }
+  if (listScope.kind === "shared") {
+    return "You aren't an admin on any shared apps yet.";
+  }
+  if (activeTab !== "all" && appsLength > 0) {
+    const label =
+      activeTab.charAt(0).toUpperCase() + activeTab.slice(1).toLowerCase();
+    return `No ${label.toLowerCase()} apps yet.`;
+  }
+  return "No apps found.";
 }
 
 /**
  * AppTable component - Card layout for apps with filtering
  * Default: privacy badge visible. On hover: title turns blue, action icons appear.
  */
-const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
+const AppTable: React.FC<AppTableProps> = ({
+  activeTab,
+  onCreateApp,
+  isCreatingApp = false,
+}) => {
   const api = axiosInstance();
   const {
     apps,
@@ -389,10 +419,44 @@ const AppTable: React.FC<AppTableProps> = ({ activeTab }) => {
   }
 
   if (filteredApps.length === 0) {
+    const showFirstAppCta =
+      listScope.kind === "all" &&
+      activeTab === "all" &&
+      apps.length === 0 &&
+      onCreateApp != null;
+
+    if (showFirstAppCta) {
+      return (
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            Create your first app
+          </h2>
+          <p className="mt-2 max-w-md text-sm text-gray-500 dark:text-gray-400">
+            Build a custom AI-powered experience for your learners. You can
+            create an app by describing what you want it to do, and then tweak it as you like.
+          </p>
+          <button
+            type="button"
+            onClick={onCreateApp}
+            disabled={isCreatingApp}
+            className={cn(
+              "mt-6 inline-flex items-center justify-center gap-x-2 rounded-lg bg-primary px-6 py-3 text-sm text-white shadow-sm transition-colors",
+              isCreatingApp
+                ? "cursor-not-allowed opacity-50"
+                : "hover:bg-primary-600"
+            )}
+          >
+            <CirclePlus className="h-5 w-5 shrink-0" />
+            {isCreatingApp ? "Creating..." : "Create your first app"}
+          </button>
+        </div>
+      );
+    }
+
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <p className="text-sm text-gray-500 dark:text-gray-400">
-          No apps found in this collection.
+          {getEmptyStateMessage(listScope, activeTab, apps.length)}
         </p>
       </div>
     );

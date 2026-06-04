@@ -107,7 +107,11 @@ const DashboardTabPage = () => {
       isCreatingApp={isCreatingApp}
       isCreatingCollection={isCreatingCollection}
     >
-      <AppTable activeTab={activeTab} />
+      <AppTable
+        activeTab={activeTab}
+        onCreateApp={onCreateApp}
+        isCreatingApp={isCreatingApp}
+      />
     </DashboardSidebar>
   );
 };
