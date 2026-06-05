@@ -197,8 +197,6 @@ function ScoreCriterionRow({
       return;
     }
 
-    let showTimer: number | undefined;
-    let barTimer: number | undefined;
     const prefersReduced = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
@@ -210,11 +208,11 @@ function ScoreCriterionRow({
       return;
     }
 
-    showTimer = window.setTimeout(() => {
+    const showTimer = window.setTimeout(() => {
       hasEnteredRef.current = true;
       setVisible(true);
     }, entranceDelayMs);
-    barTimer = window.setTimeout(
+    const barTimer = window.setTimeout(
       () => setBarPct(targetPct),
       entranceDelayMs + 80
     );
@@ -321,13 +319,13 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
     };
   }, [hasBreakdown, run?.id]);
 
-  if (!run) return null;
-
   const criteriaByName = useMemo(() => {
     const map = new Map<string, ScoreCriterion>();
     breakdown?.criteria.forEach((c) => map.set(c.name, c));
     return map;
   }, [breakdown]);
+
+  if (!run) return null;
 
   const isLoadingScores = isEvaluating || isScoreStreaming;
   const slotNames =
