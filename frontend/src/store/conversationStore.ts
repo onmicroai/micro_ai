@@ -39,10 +39,11 @@ export interface Run {
   score_feedback_instructions?: string;
   scoreData?: {
     run_score: string;
-    run_passed: boolean;
+    run_passed?: boolean;
     minimum_score: number;
     rubric: string;
     scored_run: boolean;
+    partial?: boolean;
     score_explanation?: boolean;
     score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
     score_feedback_enabled?: boolean;

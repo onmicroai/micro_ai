@@ -28,7 +28,11 @@ function serverMetaToRunUpdates(
   if (typeof source.cost === "number") updates.cost = source.cost;
   if (typeof source.credits === "number") updates.credits = source.credits;
   if (typeof source.run_passed === "boolean") updates.run_passed = source.run_passed;
-  if (typeof source.run_score === "string") updates.run_score = source.run_score;
+  if (typeof source.run_score === "string") {
+    updates.run_score = source.run_score;
+  } else if (source.run_score && typeof source.run_score === "object") {
+    updates.run_score = JSON.stringify(source.run_score);
+  }
   if (typeof source.score_explanation === "boolean")
     updates.score_explanation = source.score_explanation;
   if (typeof source.score_explanation_mode === "string")
@@ -75,6 +79,9 @@ const handleAIResponse = async (
       userId,
       {
         onChunk: (chunk) => {
+          if (requestBody?.scored_run) {
+            return;
+          }
           accumulated += chunk;
 
           // Update run message incrementally
@@ -118,7 +125,9 @@ const handleAIResponse = async (
             const store = useConversationStore.getState();
             store.updateRun(runId, {
               scoreData: scoreData,
-              run_passed: scoreData.run_passed,
+              ...(scoreData.run_passed !== undefined
+                ? { run_passed: scoreData.run_passed }
+                : {}),
               run_score: scoreData.run_score,
               ...serverMetaToRunUpdates(
                 scoreData as unknown as Record<string, unknown>,

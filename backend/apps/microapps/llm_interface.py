@@ -467,7 +467,11 @@ class UnifiedLLMInterface:
                 model=api_params["model"],
                 transcription_cost=0.0  # No transcription cost for scoring
             )
-            ai_score = response_data["choices"][0]["message"]["content"]
+            from .score_utils import normalize_run_score_for_storage
+
+            ai_score = normalize_run_score_for_storage(
+                response_data["choices"][0]["message"]["content"]
+            )
             score_result = False
             
             if self.extract_score(ai_score) >= minimum_score:
@@ -489,7 +493,7 @@ class UnifiedLLMInterface:
             return {"status": False, "message": str(e)}
 
     
-    def extract_score(self, response: str) -> float:
+    def extract_score(self, response: Any) -> float:
         """
         Extract the total score from a JSON-formatted response string (or dict).
 
@@ -504,30 +508,119 @@ class UnifiedLLMInterface:
             log.error(f"Error extracting score: {str(e)}")
             return 0.0
 
-    def build_instruction(self, data: Dict[str, Any], messages: list) -> list:
+    def build_instruction(
+        self,
+        data: Dict[str, Any],
+        messages: list,
+        include_overall_feedback: bool = False,
+    ) -> list:
         """
         Build scoring instruction message for the model.
         
         Args:
             data: Dictionary containing request data including rubric
             messages: List of existing conversation messages
+            include_overall_feedback: When True, also request overall_rationale in JSON
             
         Returns:
             Updated list of messages with scoring instruction appended
         """
         try:
+            rubric = str(data.get("rubric"))
             instruction = (
-                "Please provide a score for the previous user message. Use the following rubric:" 
-                + str(data.get("rubric")) 
-                + " Output your response as JSON, using this format: "
-                + "{ '[criteria 1]': '[score 1]', '[criteria 2]': '[score 2]', 'total': '[sum of all scores of all criteria]' }."
-                + " Make sure to include the 'total' key and its value in your response."
+                "Score the previous user message using the rubric below. "
+                "Output ONLY valid JSON with no prose before or after. "
+                "Use each rubric criterion name exactly as the JSON key. "
+                'Each criterion value must be an object with numeric "score" and plain-language "rationale". '
+                'Include a top-level "total" key with the sum of all criterion scores. '
             )
+            if include_overall_feedback:
+                custom_overall_instruction = str(
+                    data.get("score_feedback_instructions", "") or ""
+                ).strip()
+                overall_instruction = (
+                    custom_overall_instruction
+                    if custom_overall_instruction
+                    else "Provide a brief overall summary of what the learner did well and what to improve."
+                )
+                instruction += (
+                    'Also include a top-level string key "overall_rationale" with plain-language overall feedback. '
+                    + overall_instruction
+                    + " "
+                )
+            example = (
+                '{ "Criterion A": {"score": 3, "rationale": "..."}, '
+                + (
+                    '"overall_rationale": "...", '
+                    if include_overall_feedback
+                    else ""
+                )
+                + '"total": 8 }'
+            )
+            instruction += f"Example format: {example}. Rubric: {rubric}"
             messages.append({"role": "user", "content": instruction})
             return messages
         except Exception as e:
             log.error(f"Error building instruction: {str(e)}")
             return messages
+
+    def stream_score_response(self, api_params: Dict[str, Any], minimum_score: float):
+        """
+        Stream a single scored response (scores + optional per-criterion rationale).
+
+        Yields text chunks as they arrive. On completion sets:
+        self.full_content, self.ai_score, self.score_result, usage/cost attrs.
+        """
+        self.last_usage = None
+        self.last_cost = 0.0
+        self.last_credits = 0
+        self.full_content = ""
+        self.litellm_response_id = None
+        self.ai_score = ""
+        self.score_result = False
+
+        try:
+            params = api_params.copy()
+            params["stream"] = True
+            response_stream = self._make_proxy_request(params, stream=True)
+            collected_chunks = []
+
+            for chunk in response_stream:
+                collected_chunks.append(chunk)
+                self.litellm_response_id = chunk.get("id")
+                content = ""
+                try:
+                    content = chunk.get("choices", [{}])[0].get("delta", {}).get("content", "")
+                except Exception:
+                    content = ""
+
+                if content:
+                    self.full_content += content
+                    yield content
+
+                if chunk.get("usage"):
+                    self.last_usage = chunk["usage"]
+
+            if self.last_usage is None:
+                self.last_usage = token_counter.estimate_usage_for_streaming(
+                    messages=params.get("messages", []),
+                    full_content=self.full_content,
+                    model_name=params.get("model", ""),
+                )
+
+            from .score_utils import normalize_run_score_for_storage
+
+            self.ai_score = normalize_run_score_for_storage(self.full_content)
+            self.score_result = self.extract_score(self.ai_score) >= minimum_score
+
+            self.last_cost, self.last_credits = self.calculate_cost_from_usage(
+                usage_data=self.last_usage,
+                model=params["model"],
+                transcription_cost=0.0,
+            )
+        except Exception as e:
+            log.error(f"Error streaming scored response from {self.model_name}: {str(e)}")
+            raise e
 
     def build_score_explanation_instruction(self, data: Dict[str, Any], messages: list, score_json: str) -> list:
         """

@@ -2,11 +2,58 @@ import type { Run } from "@/store/conversationStore";
 import { extractJsonObject, toNum } from "@/utils/jsonUtils";
 import { smoothScrollToElement } from "@/utils/scrollUtils";
 
+export type ScoreCriterion = {
+  name: string;
+  score: number;
+  max: number;
+  rationale?: string;
+};
+
 export type ScoreBreakdown = {
-  criteria: Array<{ name: string; score: number; max: number }>;
+  criteria: ScoreCriterion[];
   total: number;
   totalMax: number;
 };
+
+const RESERVED_SCORE_KEYS = new Set([
+  "total",
+  "overall_rationale",
+  "score",
+  "rationale",
+]);
+
+export function getRubricCriteriaNames(rubric?: string): string[] {
+  if (!rubric) return [];
+  try {
+    const parsed = JSON.parse(rubric) as unknown;
+    if (Array.isArray(parsed)) {
+      const names: string[] = [];
+      parsed.forEach((item) => {
+        if (!item || typeof item !== "object") return;
+        const criteria = (item as { criteria?: unknown }).criteria;
+        if (typeof criteria === "string" && criteria.trim()) {
+          names.push(criteria.trim());
+        }
+      });
+      if (names.length > 0) return names;
+    }
+  } catch {}
+  return Object.keys(parseRubricMaxMap(rubric));
+}
+
+function criterionScoreAndRationale(value: unknown): {
+  score: number | null;
+  rationale?: string;
+} {
+  if (value && typeof value === "object" && !Array.isArray(value)) {
+    const obj = value as Record<string, unknown>;
+    const score = toNum(obj.score);
+    const rationale =
+      typeof obj.rationale === "string" ? obj.rationale : undefined;
+    return { score, rationale };
+  }
+  return { score: toNum(value) };
+}
 
 const SCORE_BAR_COLORS = {
   red: "#DF3F46",
@@ -62,23 +109,42 @@ export function parseRubricMaxMap(rubric?: string): Record<string, number> {
 
 export function buildScoreBreakdown(run: Run | null): ScoreBreakdown | null {
   if (!run?.run_score) return null;
-  const scoreObj = extractJsonObject(run.run_score);
+  const raw = run.run_score;
+  const scoreObj =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : extractJsonObject(String(raw));
   if (!scoreObj) return null;
 
-  const rubricMax = parseRubricMaxMap(run.scoreData?.rubric);
-  const criteria: Array<{ name: string; score: number; max: number }> = [];
+  const rubric = run.scoreData?.rubric;
+  const rubricMax = parseRubricMaxMap(rubric);
+  const rubricOrder = getRubricCriteriaNames(rubric);
+  const criteria: ScoreCriterion[] = [];
   let totalFromPayload: number | null = null;
 
-  Object.entries(scoreObj).forEach(([key, value]) => {
-    const n = toNum(value);
-    if (n === null) return;
-    if (key.toLowerCase() === "total") {
-      totalFromPayload = n;
-      return;
-    }
-    const max = rubricMax[key];
-    criteria.push({ name: key, score: n, max });
-  });
+  const totalValue = scoreObj.total;
+  const totalNum = toNum(totalValue);
+  if (totalNum !== null) totalFromPayload = totalNum;
+
+  const addCriterion = (key: string, value: unknown) => {
+    if (RESERVED_SCORE_KEYS.has(key.toLowerCase())) return;
+    const { score, rationale } = criterionScoreAndRationale(value);
+    if (score === null) return;
+    const max = rubricMax[key] ?? 0;
+    criteria.push({ name: key, score, max, rationale });
+  };
+
+  if (rubricOrder.length > 0) {
+    rubricOrder.forEach((name) => {
+      if (!(name in scoreObj)) return;
+      addCriterion(name, scoreObj[name]);
+    });
+  } else {
+    Object.entries(scoreObj).forEach(([key, value]) => {
+      if (RESERVED_SCORE_KEYS.has(key.toLowerCase())) return;
+      addCriterion(key, value);
+    });
+  }
 
   if (!criteria.length && totalFromPayload === null) return null;
 
@@ -91,6 +157,25 @@ export function buildScoreBreakdown(run: Run | null): ScoreBreakdown | null {
       : Math.max(total, run.scoreData?.minimum_score || 0, 1);
 
   return { criteria, total, totalMax };
+}
+
+export function extractOverallRationale(run: Run | null): string | null {
+  if (!run?.run_score) return null;
+  const raw = run.run_score;
+  const scoreObj =
+    typeof raw === "object" && raw !== null && !Array.isArray(raw)
+      ? (raw as Record<string, unknown>)
+      : extractJsonObject(String(raw));
+  if (!scoreObj) return null;
+  const overall = scoreObj.overall_rationale;
+  return typeof overall === "string" && overall.trim() ? overall : null;
+}
+
+export function shouldShowOverallFeedback(run: Run | null): boolean {
+  if (!run) return false;
+  const enabled =
+    run.score_feedback_enabled ?? run.scoreData?.score_feedback_enabled ?? false;
+  return enabled && Boolean(extractOverallRationale(run)?.trim());
 }
 
 export function criterionHint(

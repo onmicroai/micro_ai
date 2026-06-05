@@ -17,22 +17,17 @@ from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.llm_interface import UnifiedLLMInterface
 from apps.microapps.models import Run, RubricVersion, ScoreAnalysisSnapshot
 from apps.microapps.rubric_version_utils import find_gate_for_run_rubric
-from apps.microapps.score_utils import coerce_run_score_to_dict, parse_run_score_total
+from apps.microapps.score_utils import (
+    coerce_criterion_score,
+    coerce_run_score_to_dict,
+    parse_run_score_total,
+)
 
 log = logging.getLogger(__name__)
 
 
 def _to_float(v: Any) -> float | None:
-    if v is None or isinstance(v, bool):
-        return None
-    if isinstance(v, (int, float)):
-        return float(v)
-    if isinstance(v, str):
-        try:
-            return float(v.strip())
-        except ValueError:
-            return None
-    return None
+    return coerce_criterion_score(v)
 
 
 def _per_criterion_score_keys(score_map: dict[str, Any]) -> list[Any]:
@@ -46,7 +41,7 @@ def _per_criterion_score_keys(score_map: dict[str, Any]) -> list[Any]:
         if k is None:
             continue
         s = str(k).strip()
-        if not s or s.lower() == "total":
+        if not s or s.lower() in ("total", "overall_rationale"):
             continue
         out.append(k)
     return out
@@ -70,7 +65,7 @@ def _score_value_for_criterion(
             return v
     cnorm = (cname or "").strip().lower()
     for k in list(score_map.keys()):
-        if str(k).strip().lower() in ("", "total"):
+        if str(k).strip().lower() in ("", "total", "overall_rationale"):
             continue
         if str(k).strip().lower() == cnorm:
             return _to_float(score_map.get(k))
