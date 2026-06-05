@@ -7,6 +7,10 @@ import BillingUpdatePolling from "./billing-update-polling";
 import { useRouter } from "next/navigation";
 import { PricingCards } from "@/components/PricingCards";
 
+const stripeEnabled = Boolean(
+  process.env.NEXT_PUBLIC_STRIPE_PUBLIC_KEY?.trim(),
+);
+
 interface Subscription {
   id: string;
   price_id: string;
@@ -27,19 +31,61 @@ interface BillingDetails {
   end_date: string;
 }
 
+function subscriptionStatusDisplay(subscription: Subscription | null | undefined): {
+  label: string;
+  className: string;
+} {
+  if (!subscription) {
+    return { label: "Free", className: "bg-gray-alpha-100" };
+  }
+  if (subscription.cancel_at_period_end) {
+    return { label: "Canceling", className: "bg-amber-100 text-amber-950" };
+  }
+  switch (subscription.status) {
+    case "active":
+      return { label: "Active", className: "bg-green-100 text-green-950" };
+    case "trialing":
+      return { label: "Trialing", className: "bg-green-100 text-green-950" };
+    case "past_due":
+      return { label: "Past due", className: "bg-amber-100 text-amber-950" };
+    case "unpaid":
+      return { label: "Unpaid", className: "bg-red-100 text-red-700" };
+    case "incomplete":
+      return { label: "Incomplete", className: "bg-amber-100 text-amber-950" };
+    case "incomplete_expired":
+      return { label: "Incomplete", className: "bg-red-100 text-red-700" };
+    case "canceled":
+      return { label: "Canceled", className: "bg-gray-100 text-gray-700" };
+    default:
+      return {
+        label: subscription.status.replace(/_/g, " "),
+        className: "bg-gray-100 text-gray-700",
+      };
+  }
+}
+
 export default function SubscriptionPage() {
   const [subscription, setSubscription] = useState<Subscription | null>(null);
-  const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(null);
+  const [billingDetails, setBillingDetails] = useState<BillingDetails | null>(
+    null,
+  );
   const [userData, setUserData] = useState<any>(null);
   const [topUpCredits, setTopUpCredits] = useState<number>(0);
+  const [billingBlocked, setBillingBlocked] = useState(false);
   const [loading, setLoading] = useState(true);
   const [selectedPlan, setSelectedPlan] = useState<string>("Free");
   const [isPollingOpen, setIsPollingOpen] = useState<boolean>(false);
   const [pollingType, setPollingType] = useState<
     "subscription" | "credits" | null
   >(null);
-  const [appQuota, setAppQuota] = useState<null | { limit: number; used: number; remaining: number; can_create: boolean }>(null);
+  const [appQuota, setAppQuota] = useState<null | {
+    limit: number;
+    used: number;
+    remaining: number;
+    can_create: boolean;
+  }>(null);
   const [couponCode, setCouponCode] = useState<string>("");
+  const [topUpLoading, setTopUpLoading] = useState(false);
   const [couponLoading, setCouponLoading] = useState<boolean>(false);
   const [couponError, setCouponError] = useState<string>("");
   const [couponSuccess, setCouponSuccess] = useState<string>("");
@@ -67,8 +113,9 @@ export default function SubscriptionPage() {
       const currentBillingCycle = response.data.billing_details[0];
       setBillingDetails(currentBillingCycle);
       setTopUpCredits(response.data.top_up_credits || 0);
+      setBillingBlocked(Boolean(response.data.billing_blocked));
     } catch (error: any) {
-      console.error('Error fetching credits:', error);
+      console.error("Error fetching credits:", error);
     }
   }, [api]);
 
@@ -85,11 +132,11 @@ export default function SubscriptionPage() {
       try {
         const [userRes] = await Promise.all([
           api.get("/api/auth/user/"),
-          fetchCredits()
+          fetchCredits(),
         ]);
-        
+
         if (!isMounted) return;
-        
+
         const userData = userRes.data;
         setUserData(userData);
         setSubscription(userData.subscription);
@@ -106,6 +153,9 @@ export default function SubscriptionPage() {
           toast.error("Failed to load subscription data: " + error.message);
         }
       } finally {
+        // Clear the timeout guard on completion so it can't fire a spurious
+        // "Request timeout" toast after the data has already loaded.
+        clearTimeout(timeoutId);
         if (isMounted) {
           setLoading(false);
         }
@@ -129,9 +179,31 @@ export default function SubscriptionPage() {
     }
   };
 
+  const handleTopUpPurchase = async () => {
+    setTopUpLoading(true);
+    try {
+      const response = await api.post(
+        "/api/subscriptions/checkout-session/",
+        {
+          plan: "TopUp",
+          successUrl: `${window.location.origin}/settings/subscription?updated=success`,
+          cancelUrl: `${window.location.origin}/settings/subscription?updated=failure`,
+        },
+      );
+      localStorage.setItem("expectedCredits", "topup");
+      window.location.href = response.data.url;
+    } catch (error: any) {
+      const detail =
+        error.response?.data?.detail || error.message || "Unknown error";
+      toast.error("Failed to start top-up checkout: " + detail);
+    } finally {
+      setTopUpLoading(false);
+    }
+  };
+
   const handlePlanSelection = async (plan: string) => {
     setSelectedPlan(plan);
-    
+
     try {
       if (
         plan !== "Free" &&
@@ -145,7 +217,7 @@ export default function SubscriptionPage() {
             plan: plan,
             successUrl: `${window.location.origin}/settings/subscription?updated=success`,
             cancelUrl: `${window.location.origin}/settings/subscription?updated=failure`,
-          }
+          },
         );
         window.location.href = response.data.url;
         localStorage.setItem("expectedPlan", plan);
@@ -154,7 +226,7 @@ export default function SubscriptionPage() {
           "/api/subscriptions/update-subscription/",
           {
             plan: plan,
-          }
+          },
         );
 
         if (response.data.url) {
@@ -166,7 +238,7 @@ export default function SubscriptionPage() {
           toast.success("Downgrade scheduled at period end.");
         } else {
           toast.success(
-            "Subscription update initiated. Please wait while we update your subscription."
+            "Subscription update initiated. Please wait while we update your subscription.",
           );
         }
       }
@@ -181,17 +253,6 @@ export default function SubscriptionPage() {
     localStorage.removeItem("expectedPlan");
     localStorage.removeItem("expectedCredits");
     router.refresh();
-  };
-
-  const handleCancelDowngrade = async () => {
-    try {
-      await api.post("/api/subscriptions/cancel-downgrade/");
-      toast.success("Downgrade cancelled successfully.");
-      const userRes = await api.get("/api/auth/user/");
-      setSubscription(userRes.data.subscription || userRes.data);
-    } catch (error: any) {
-      toast.error("Failed to cancel downgrade: " + error.message);
-    }
   };
 
   const handleRedeemCoupon = async () => {
@@ -210,38 +271,41 @@ export default function SubscriptionPage() {
 
     try {
       const response = await api.post("/api/subscriptions/redeem-coupon/", {
-        coupon_code: couponCode.trim()
+        coupon_code: couponCode.trim(),
       });
 
       if (response.data.success) {
         setCouponSuccess(response.data.message);
         setCouponCode("");
-        
+
         // Refresh the page data to show updated values
         const [userRes, quotaRes] = await Promise.all([
           api.get("/api/auth/user/"),
           api.get("/api/microapps/quota/"),
-          fetchCredits()
+          fetchCredits(),
         ]);
-        
+
         const userData = userRes.data;
         setUserData(userData);
         setSubscription(userData.subscription);
         if (userData.plan) {
           setSelectedPlan(userData.plan);
         }
-        
+
         if (quotaRes.data && quotaRes.data.data) {
           setAppQuota(quotaRes.data.data);
         }
-        
+
         // Clear success message after 5 seconds
         setTimeout(() => setCouponSuccess(""), 5000);
       } else {
         setCouponError(response.data.error || "Failed to redeem coupon");
       }
     } catch (error: any) {
-      const errorMessage = error.response?.data?.error || error.message || "Failed to redeem coupon";
+      const errorMessage =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to redeem coupon";
       setCouponError(errorMessage);
     } finally {
       setCouponLoading(false);
@@ -271,47 +335,81 @@ export default function SubscriptionPage() {
       ) : (
         <div className="space-y-8">
           <div>
-            <h1 className="text-2xl font-bold">My Subscription</h1>
+            <h1 className="text-2xl font-bold">
+              {stripeEnabled ? "My Subscription" : "Usage"}
+            </h1>
           </div>
 
           {/* Raw Subscription Details Display */}
           {userData && (
             <div className="mt-6">
-              
               {billingDetails && (
                 <div className="flex flex-col items-center mt-4 mb-4">
                   <div className="rounded-lg w-full bg-background border divide-y">
                     {/* Header Section */}
                     <div className="flex max-sm:flex-col justify-between items-center max-sm:items-start gap-3 px-6 py-4">
-                      <span className="font-semibold text-base">Subscription Details</span>
-                      <button
-                        onClick={handleManageSubscription}
-                        className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
-                        disabled={!subscription?.customer_id}
+                      <span className="font-semibold text-base">
+                        {stripeEnabled
+                          ? "Subscription Details"
+                          : "Usage Details"}
+                      </span>
+                      {stripeEnabled && (
+                        <button
+                          onClick={handleManageSubscription}
+                          className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
+                          disabled={!subscription?.customer_id}
                         >
-                        Manage my Payment Method
-                     </button>
+                          Manage my Payment Method
+                        </button>
+                      )}
                     </div>
 
                     {/* Plan Section */}
                     <div className="flex gap-4 px-6 py-4 items-center justify-between">
-                      <span className="font-medium text-sm text-gray-700">Current Plan</span>
+                      <span className="font-medium text-sm text-gray-700">
+                        Current Plan
+                      </span>
                       <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-gray-alpha-100">
                         {selectedPlan}
                       </div>
                     </div>
 
                     {/* Subscription Status */}
-                    <div className="flex gap-4 px-6 py-4 items-center justify-between">
-                      <span className="font-medium text-sm text-gray-700">Subscription status</span>
-                      <div className="inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium bg-green-100 text-green-950">
-                        {userData.subscription?.cancel_at_period_end ? "Canceling" : "Active"}
+                    {stripeEnabled && subscription && (() => {
+                      const statusBadge = subscriptionStatusDisplay(subscription);
+                      return (
+                      <div className="flex gap-4 px-6 py-4 items-center justify-between">
+                        <span className="font-medium text-sm text-gray-700">
+                          Subscription status
+                        </span>
+                        <div
+                          className={`inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium capitalize ${statusBadge.className}`}
+                        >
+                          {statusBadge.label}
+                        </div>
                       </div>
-                    </div>
+                      );
+                    })()}
+
+                    {billingBlocked && billingDetails && (
+                      <div className="mx-6 mb-2 rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+                        Payment failed or is overdue. Plan credits are paused until
+                        you update your payment method.{" "}
+                        <button
+                          type="button"
+                          onClick={handleManageSubscription}
+                          className="font-medium underline"
+                        >
+                          Manage billing in Stripe
+                        </button>
+                      </div>
+                    )}
 
                     {/* Max Apps */}
                     <div className="flex gap-4 px-6 py-4 items-center justify-between">
-                      <span className="font-medium text-sm text-gray-700">Max Apps</span>
+                      <span className="font-medium text-sm text-gray-700">
+                        Max Apps
+                      </span>
                       <div
                         className={`inline-flex items-center text-xs px-2.5 h-6 rounded-full font-medium ${
                           appQuota
@@ -331,24 +429,45 @@ export default function SubscriptionPage() {
 
                     {/* Billing Period Section */}
                     <div className="flex gap-4 px-6 py-4 items-center justify-between">
-                      <span className="font-medium text-sm text-gray-700">Billing Period</span>
+                      <span className="font-medium text-sm text-gray-700">
+                        Billing Period
+                      </span>
                       <span className="text-sm">
-                        {new Date(billingDetails.start_date).toLocaleDateString()} - {new Date(billingDetails.end_date).toLocaleDateString()}
+                        {new Date(
+                          billingDetails.start_date,
+                        ).toLocaleDateString()}{" "}
+                        -{" "}
+                        {new Date(billingDetails.end_date).toLocaleDateString()}
                       </span>
                     </div>
 
                     {/* Credits Usage Section */}
-                    <div className="gap-4 px-6 py-4 items-center block">
-                      <span className="font-medium text-sm text-gray-700">Credit Usage</span>
+                    <div className="px-6 py-4">
+                      <div className="flex items-center justify-between gap-4 mb-3">
+                        <span className="font-medium text-sm text-gray-700">
+                          Credit Usage
+                        </span>
+                        {stripeEnabled && (
+                          <button
+                            type="button"
+                            onClick={handleTopUpPurchase}
+                            disabled={topUpLoading}
+                            className="shrink-0 px-3 py-1.5 rounded-md text-xs font-medium border border-gray-300 bg-white text-gray-900 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {topUpLoading ? "Loading…" : "+ Top up credits"}
+                          </button>
+                        )}
+                      </div>
                       <span className="font-medium text-right block text-xs text-gray-500 mb-3 max-sm:hidden">
-                        {billingDetails.credits_used.toLocaleString()} / {billingDetails.credits_allocated.toLocaleString()} used
-                        (Resets on {new Date(billingDetails.end_date).toLocaleDateString()})
+                        {billingBlocked
+                          ? "Credits paused — update payment to restore access"
+                          : `${billingDetails.credits_used.toLocaleString()} / ${billingDetails.credits_allocated.toLocaleString()} used (Resets on ${new Date(billingDetails.end_date).toLocaleDateString()})`}
                       </span>
                       <div className="bg-gray-200 h-[6px] rounded-full max-sm:mt-3 w-full">
-                        <div 
+                        <div
                           className="bg-blue-600 h-[6px] rounded-full"
-                          style={{ 
-                            width: `${Math.min((billingDetails.credits_used / billingDetails.credits_allocated) * 100, 100)}%`
+                          style={{
+                            width: `${Math.min((billingDetails.credits_used / billingDetails.credits_allocated) * 100, 100)}%`,
                           }}
                         />
                       </div>
@@ -357,58 +476,81 @@ export default function SubscriptionPage() {
                     {/* Additional Details */}
                     <div className="px-6 py-4 space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Plan Credits Remaining</span>
-                        <span className="text-sm">{billingDetails.credits_remaining.toLocaleString()}</span>
+                        <span className="text-sm text-gray-700">
+                          Plan Credits Remaining
+                        </span>
+                        <span className="text-sm">
+                          {billingDetails.credits_remaining.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
-                        <span className="text-sm text-gray-700">Top-up Credits</span>
-                        <span className="text-sm">{topUpCredits.toLocaleString()}</span>
+                        <span className="text-sm text-gray-700">
+                          Top-up Credits
+                        </span>
+                        <span className="text-sm">
+                          {topUpCredits.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between bg-gray-50 p-2 rounded-md">
-                        <span className="text-sm font-medium text-gray-900">Total Credits Available</span>
-                        <span className="text-sm font-medium text-gray-900">{(billingDetails.credits_remaining + topUpCredits).toLocaleString()}</span>
+                        <span className="text-sm font-medium text-gray-900">
+                          Total Credits Available
+                        </span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {(
+                            billingDetails.credits_remaining + topUpCredits
+                          ).toLocaleString()}
+                        </span>
                       </div>
                     </div>
 
                     {/* Cancel Downgrade Section */}
-                    {userData.subscription?.cancel_at_period_end && (
-                      <div className="px-6 py-4">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-red-500">
-                            Your plan will be downgraded on {new Date(billingDetails.end_date).toLocaleDateString()}
-                          </span>
-                          <button
-                            onClick={handleCancelDowngrade}
-                            className="px-4 py-2 rounded-md text-sm font-medium bg-red-500 text-white hover:bg-red-600"
-                          >
-                            Cancel Downgrade
-                          </button>
+                    {stripeEnabled &&
+                      userData.subscription?.cancel_at_period_end && (
+                        <div className="px-6 py-4">
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm text-red-500">
+                              Your plan will be downgraded on{" "}
+                              {new Date(
+                                billingDetails.end_date,
+                              ).toLocaleDateString()}
+                            </span>
+                            <button
+                              onClick={handleManageSubscription}
+                              className="px-4 py-2 rounded-md text-sm font-medium bg-primary text-primary-foreground hover:opacity-90"
+                            >
+                              Manage in Stripe
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {/* Replace the old plan selection with PricingCards */}
-          <PricingCards 
-            showTopUp={false} 
-            currentPlan={selectedPlan} 
-            onPlanSelect={handlePlanSelection}
-          />
+          {/* Plan selection - Stripe only */}
+          {stripeEnabled && (
+            <PricingCards
+              showTopUp={false}
+              currentPlan={selectedPlan}
+              onPlanSelect={handlePlanSelection}
+            />
+          )}
 
           {/* Coupon Redemption Section */}
           <div className="mt-8">
             <div className="rounded-lg bg-background border">
               <div className="px-6 py-4 border-b">
-                <h3 className="text-lg font-semibold text-gray-900">Redeem Coupon</h3>
+                <h3 className="text-lg font-semibold text-gray-900">
+                  Redeem Coupon
+                </h3>
                 <p className="text-sm text-gray-600 mt-1">
-                  Have a coupon code? Enter it below to unlock additional benefits.
+                  Have a coupon code? Enter it below to unlock additional
+                  benefits.
                 </p>
               </div>
-              
+
               <div className="px-6 py-4">
                 <div className="flex gap-3 max-sm:flex-col">
                   <div className="flex-1">
@@ -429,27 +571,47 @@ export default function SubscriptionPage() {
                     {couponLoading ? "Redeeming..." : "Redeem"}
                   </button>
                 </div>
-                
+
                 {/* Error Message */}
                 {couponError && (
                   <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-md">
                     <div className="flex items-center">
-                      <svg className="w-5 h-5 text-red-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      <svg
+                        className="w-5 h-5 text-red-400 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z"
+                          clipRule="evenodd"
+                        />
                       </svg>
-                      <span className="text-sm text-red-700">{couponError}</span>
+                      <span className="text-sm text-red-700">
+                        {couponError}
+                      </span>
                     </div>
                   </div>
                 )}
-                
+
                 {/* Success Message */}
                 {couponSuccess && (
                   <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-md">
                     <div className="flex items-center">
-                      <svg className="w-5 h-5 text-green-400 mr-2" fill="currentColor" viewBox="0 0 20 20">
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      <svg
+                        className="w-5 h-5 text-green-400 mr-2"
+                        fill="currentColor"
+                        viewBox="0 0 20 20"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                          clipRule="evenodd"
+                        />
                       </svg>
-                      <span className="text-sm text-green-700">{couponSuccess}</span>
+                      <span className="text-sm text-green-700">
+                        {couponSuccess}
+                      </span>
                     </div>
                   </div>
                 )}
@@ -457,9 +619,7 @@ export default function SubscriptionPage() {
             </div>
           </div>
 
-          <div className="mt-8">
-
-          </div>
+          <div className="mt-8"></div>
         </div>
       )}
     </>

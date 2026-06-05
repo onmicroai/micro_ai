@@ -28,7 +28,6 @@ from apps.microapps.score_analysis_service import (
 )
 from apps.microapps.rubric_publish import live_rubric_matches_snapshot
 from apps.microapps.score_utils import parse_run_score_total
-from apps.subscriptions.models import BillingCycle, TopUpToSubscription
 from apps.subscriptions.serializers import BillingDetailsSerializer
 from .mixins import handle_exception
 from django.utils import timezone
@@ -103,25 +102,65 @@ class BillingDetails(APIView):
     permission_classes = [IsAuthenticated]
     
     def get(self, request, format=None):
-        """Get billing details for authenticated user."""
+        """Get billing details for authenticated user, sourced from the credit wallet."""
+        from datetime import timedelta
+        from apps.subscriptions.models import Subscription
+        from apps.subscriptions.constants import tier_for_price
+        from apps.subscriptions.credits import get_or_create_wallet, ensure_period_fresh
+        from apps.subscriptions.helpers import subscription_billing_blocked
+        from apps.utils.usage_helper import convert_timestamp_to_datetime
+
         try:
-            billing_details = BillingCycle.objects.filter(user=request.user.id)
-            serializer = BillingDetailsSerializer(billing_details, many=True)
-            
-            # Calculate total remaining top-up credits for the user
-            # remaining_credits = allocated_credits - used_credits for each top-up
-            top_up_total = TopUpToSubscription.objects.filter(user=request.user).aggregate(
-                total=Sum(
-                    ExpressionWrapper(
-                        F('allocated_credits') - F('used_credits'),
-                        output_field=IntegerField()
-                    )
-                )
-            )['total'] or 0
+            user = request.user
+            subscription = (
+                Subscription.objects.filter(user=user).order_by("-created_at").first()
+            )
+            billing_blocked = subscription_billing_blocked(subscription)
+
+            wallet = get_or_create_wallet(user)
+            if not billing_blocked:
+                ensure_period_fresh(wallet)
+
+            tier = tier_for_price(subscription.price_id if subscription else None)
+
+            credits_allocated = tier.monthly_credits
+            if billing_blocked:
+                # Do not surface last-paid-period balance as usable plan credits.
+                credits_remaining = 0
+                credits_used = credits_allocated
+            else:
+                credits_remaining = wallet.subscription_credits
+                credits_used = max(0, credits_allocated - credits_remaining)
+
+            # When payment failed, Stripe may advance period dates before the wallet resets.
+            # Show the last paid-through window from the wallet, not the unpaid Stripe period.
+            if billing_blocked and wallet.reset_at:
+                end_date = wallet.reset_at
+                start_date = end_date - timedelta(days=30)
+            elif subscription and subscription.period_start:
+                end_date = wallet.reset_at
+                start_date = convert_timestamp_to_datetime(subscription.period_start)
+            else:
+                end_date = wallet.reset_at
+                start_date = end_date - timedelta(days=30)
+
+            # Preserve the legacy response shape: a single-element billing_details list
+            # plus the separate top_up_credits total.
+            billing_details = [{
+                "credits_allocated": credits_allocated,
+                "credits_used": credits_used,
+                "credits_remaining": credits_remaining,
+                "start_date": start_date,
+                "end_date": end_date,
+            }]
+
+            top_up_credits = 0 if billing_blocked else wallet.topup_credits
 
             return Response({
-                "billing_details": serializer.data,
-                "top_up_credits": top_up_total,
+                "billing_details": billing_details,
+                "top_up_credits": top_up_credits,
+                "billing_blocked": billing_blocked,
+                "subscription_status": subscription.status if subscription else None,
                 "status": status.HTTP_200_OK,
             }, status=status.HTTP_200_OK)
         except Exception as e:

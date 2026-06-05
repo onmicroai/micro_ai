@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Recurse -Path \"C:\\\\ProgaTech\\\\micro_ai\\\\frontend\\\\src\\\\app\\\\\\(authenticated\\)\\\\\\(dashboard\\)\\\\dashboard\" -File)",
+      "Bash(Select-Object FullName)"
+    ]
+  }
+}

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import UsageEvent, BillingCycle, SubscriptionConfiguration, Coupon, CouponUsage
+from .models import SubscriptionConfiguration, Coupon, CouponUsage
 from apps.subscriptions.models import Subscription as CustomSubscription
 
 class SpendCreditsSerializer(serializers.Serializer):
@@ -13,17 +13,16 @@ class CustomSubscriptionSerializer(serializers.ModelSerializer):
             'status', 'period_start', 'period_end', 'cancel_at_period_end',
             'canceled_at', 'created_at', 'updated_at'
         ]
-class UsageEventSerializer(serializers.ModelSerializer):
 
-    class Meta:
-        model = UsageEvent
-        fields = '__all__'
 
-class BillingDetailsSerializer(serializers.ModelSerializer):
+class BillingDetailsSerializer(serializers.Serializer):
+    """Compat shape for /api/microapps/user/billing (built from CreditWallet)."""
+    credits_allocated = serializers.IntegerField()
+    credits_used = serializers.IntegerField()
+    credits_remaining = serializers.IntegerField()
+    start_date = serializers.DateTimeField()
+    end_date = serializers.DateTimeField()
 
-    class Meta:
-        model = BillingCycle
-        fields = '__all__'
 
 class SubscriptionConfigurationSerializer(serializers.ModelSerializer):
     subscription_id = serializers.CharField(write_only=True)

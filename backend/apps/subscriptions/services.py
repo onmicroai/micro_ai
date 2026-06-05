@@ -1,6 +1,6 @@
 import logging
 from django.db import transaction
-from apps.subscriptions.models import Coupon, CouponUsage, SubscriptionConfiguration, Subscription, TopUpToSubscription
+from apps.subscriptions.models import Coupon, CouponUsage, SubscriptionConfiguration, Subscription
 from apps.utils.usage_helper import subscription_details
 
 logger = logging.getLogger(__name__)
@@ -146,12 +146,9 @@ class CouponActionService:
                     config.max_apps = max_apps
                     config.save()
                 
-                # 2. Create TopUpToSubscription
-                top_up = TopUpToSubscription.objects.create(
-                    user=user,
-                    allocated_credits=credits,
-                    used_credits=0,
-                )
+                # 2. Grant roll-over credits to the user's wallet
+                from apps.subscriptions.credits import grant_topup_credits
+                grant_topup_credits(user, credits, reason="coupon")
             
             return {
                 'success': True,

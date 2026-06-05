@@ -30,6 +30,11 @@ services:
     ports:
       - "8000:8000"
       - "5678:5678"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      EMAIL_HOST: ${EMAIL_HOST:-host.docker.internal}
+      EMAIL_PORT: ${EMAIL_PORT:-25}
     env_file:
       - ./.env
     restart: unless-stopped

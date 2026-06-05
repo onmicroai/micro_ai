@@ -11,6 +11,7 @@
  */
 
 import { authorizedFetch } from "./authorizedFetch";
+import { errorMessageFromResponse } from "./apiErrorMessage";
 import { readSseResponse } from "./readSseStream";
 
 export interface StreamCallbacks {
@@ -33,6 +34,7 @@ export interface ScoreData {
   run_uuid?: string;
   credits?: number;
   cost?: number;
+  api_messages?: Array<{ role: string; content: unknown }>;
 }
 
 // Decide endpoint once, can be extended to anonymous later
@@ -58,7 +60,7 @@ export async function streamRun(
     });
 
     if (!response.ok) {
-      throw new Error(`Request failed (${response.status})`);
+      throw new Error(await errorMessageFromResponse(response));
     }
 
     const contentType = response.headers.get("content-type");

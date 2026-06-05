@@ -5,51 +5,6 @@ from micro_ai import settings
 
 from apps.microapps.models import Run
 
-class TopUpToSubscription(models.Model):
-    """
-    Model for additional credits purchased by the user within a subscription.
-    """
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="top_ups"
-    )
-    allocated_credits = models.IntegerField(
-        default=0,
-        help_text="Total additional credits allocated to this subscription"
-    )
-    used_credits = models.IntegerField(
-        default=0,
-        help_text="Number of top-up credits used"
-    )
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        verbose_name = "Top Up to Subscription"
-        verbose_name_plural = "Top Ups to Subscriptions"
-
-    def __str__(self):
-        return f"Top-Up {self.id} - {self.user.email}: {self.allocated_credits} credits"
-
-    @property
-    def remaining_credits(self):
-        """
-        Returns the number of remaining top-up credits.
-        """
-        return max(0, self.allocated_credits - self.used_credits)
-
-    def record_usage(self, credits: int):
-        """
-        Deducts the specified amount of credits from the top-up.
-        Raises an error if there are not enough credits available.
-        """
-        if credits > self.remaining_credits:
-            raise ValueError("Insufficient top-up credits remaining")
-
-        self.used_credits += credits
-        self.save()
-
 
 class StripeCustomer(models.Model):
     user = models.ForeignKey(
@@ -186,124 +141,6 @@ class SubscriptionConfiguration(models.Model):
         except cls.DoesNotExist:
             return 0
 
-class BillingCycle(models.Model):
-    CYCLE_STATUS = (
-        ('open', 'Open'),
-        ('closed', 'Closed'),
-        ('error', 'Error'),
-    )
-
-    user = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE)
-    subscription = models.ForeignKey(
-        Subscription,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True
-    )
-    status = models.CharField(max_length=10, choices=CYCLE_STATUS, default='open')
-
-    credits_allocated = models.IntegerField(default=0)
-    credits_used = models.IntegerField(default=0)
-    credits_remaining = models.IntegerField(default=0)
-
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
-
-    stripe_subscription_item_id = models.CharField(max_length=255, null=True, blank=True)
-    last_usage_record_timestamp = models.DateTimeField(null=True, blank=True)
-    is_prorated = models.BooleanField(default=False)
-    previous_cycle = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL)
-
-    created_at = models.DateTimeField(default=timezone.now)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        ordering = ['-start_date']
-
-    def __str__(self):
-        return f"{self.user.email} - {self.start_date.strftime('%Y-%m-%d')} to {self.end_date.strftime('%Y-%m-%d')}"
-
-    @property
-    def is_active(self):
-        now = timezone.now()
-        return (
-            self.status == 'open' and 
-            self.start_date <= now <= self.end_date
-        )
-
-    @property
-    def usage_percentage(self):
-        if self.credits_allocated == 0:
-            return 0
-        return (self.credits_used / self.credits_allocated) * 100
-
-    def record_usage(self, credits):
-        if self.status != 'open':
-            raise ValueError("Cannot record usage on a closed or error billing cycle")
-
-        if credits > self.credits_remaining:
-            raise ValueError("Insufficient credits remaining")
-
-        self.credits_used += credits
-        self.credits_remaining -= credits
-        self.save()
-
-    def close_cycle(self):
-        if self.status == 'open':
-            self.status = 'closed'
-            self.save()
-
-    @classmethod
-    def create_next_cycle(cls, previous_cycle, new_period_end):
-        return cls.objects.create(
-            user=previous_cycle.user,
-            subscription=previous_cycle.subscription,
-            credits_allocated=previous_cycle.credits_allocated,
-            credits_remaining=previous_cycle.credits_allocated,
-            credits_used=0,
-            start_date=previous_cycle.end_date,
-            end_date=new_period_end,
-            stripe_subscription_item_id=previous_cycle.stripe_subscription_item_id,
-            previous_cycle=previous_cycle
-        )
-
-    @classmethod
-    def get_or_create_active_cycle(cls, user, subscription, period_start, period_end, credits_allocated, subscription_item_id):
-        active_cycle = cls.objects.filter(
-            user=user,
-            status='open',
-            start_date__lte=timezone.now(),
-            end_date__gte=timezone.now()
-        ).first()
-
-        if active_cycle:
-            return active_cycle
-
-        return cls.objects.create(
-            user=user,
-            subscription=subscription,
-            credits_allocated=credits_allocated,
-            credits_remaining=credits_allocated,
-            start_date=period_start,
-            end_date=period_end,
-            stripe_subscription_item_id=subscription_item_id
-        )
-
-class UsageEvent(models.Model):
-    billing_cycle = models.ForeignKey(BillingCycle, on_delete=models.CASCADE)
-    top_up = models.ForeignKey(TopUpToSubscription, on_delete=models.CASCADE, null=True, blank=True)
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    consumer = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='consumed_usage_events'
-    )
-    run_id = models.ForeignKey(Run, on_delete=models.CASCADE)
-    credits_charged = models.FloatField()
-    timestamp = models.DateTimeField(auto_now_add=True)
-
 class Coupon(models.Model):
     ACTION_CHOICES = [
         ('increase_max_apps', 'Increase Max Apps'),
@@ -345,3 +182,80 @@ class CouponUsage(models.Model):
 
     def __str__(self):
         return f"{self.user.email} used {self.coupon.code} at {self.used_at}"
+
+
+class CreditWallet(models.Model):
+    """
+    Single source of truth for a user's spendable credits.
+
+    `subscription_credits` are granted by the user's tier and reset to the tier
+    allotment each billing period. `topup_credits` are purchased one-off and roll
+    over indefinitely (never reset). Spending draws from subscription credits first.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="wallet",
+    )
+    subscription_credits = models.IntegerField(
+        default=0,
+        help_text="Tier credits for the current period. Reset to the tier allotment each period.",
+    )
+    topup_credits = models.IntegerField(
+        default=0,
+        help_text="Purchased one-off credits. Never reset; roll over across periods.",
+    )
+    reset_at = models.DateTimeField(
+        help_text="When subscription_credits should next be refilled to the tier allotment.",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Wallet {self.user.email}: {self.total_available} credits"
+
+    @property
+    def total_available(self) -> int:
+        return self.subscription_credits + self.topup_credits
+
+
+class CreditTransaction(models.Model):
+    """
+    Append-only audit log of credit movements. Positive amounts are grants,
+    negative amounts are spends.
+    """
+    REASON_CHOICES = [
+        ("monthly_grant", "Monthly grant"),
+        ("usage", "Usage"),
+        ("topup", "Top-up"),
+        ("coupon", "Coupon"),
+        ("adjustment", "Manual adjustment"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="credit_transactions",
+    )
+    amount = models.IntegerField(help_text="Positive for grants, negative for spends.")
+    reason = models.CharField(max_length=32, choices=REASON_CHOICES)
+    run = models.ForeignKey(
+        Run,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+    consumer = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="consumed_credit_transactions",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        sign = "+" if self.amount >= 0 else ""
+        return f"{self.user.email}: {sign}{self.amount} ({self.reason})"

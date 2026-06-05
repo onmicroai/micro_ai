@@ -6,16 +6,8 @@ from django.conf import settings
 from django.urls import reverse
 from rest_framework import serializers
 import django
-import json
-import os
-from apps.microapps.serializer import MicroAppSerializer
-from apps.microapps.views import MicroAppList
 from apps.users.models import CustomUser
 from apps.utils.custom_error_message import ErrorMessages as error
-
-json_file_path = os.path.join(settings.BASE_DIR, 'apps/utils', 'data', 'microapp_create.json')
-with open(json_file_path, 'r') as file:
-    data = json.load(file)
 
 class EmailAsUsernameAdapter(DefaultAccountAdapter):
     """
@@ -87,31 +79,11 @@ class AcceptInvitationAdapter(EmailAsUsernameAdapter):
                 user = super().save_user(request, user, form, commit)
                 if user.pk is None: 
                     user.save()
-                self.seed_app_templates(user)
                 return user
         except django.db.utils.IntegrityError as e:  
             raise serializers.ValidationError({'error': repr(e)})
         except Exception as e:
             raise serializers.ValidationError({'error': repr(e)})
-            
-    def add_app_templates(self, user):
-        try:
-            current_user_id = user.id
-            micro_app_list = MicroAppList
-            app_templates = data["data"]
-            for app in app_templates:
-                serializer = MicroAppSerializer(data = app)
-                if serializer.is_valid():
-                    microapp = serializer.save()
-                    micro_app_list.add_microapp_user(self, uid = current_user_id, microapp = microapp, max_count = False)
-        except Exception:
-           raise Exception(error.SERVER_ERROR)
-
-    def seed_app_templates(self, user):
-        try:
-            self.add_app_templates(user)
-        except Exception:
-            raise Exception(error.SERVER_ERROR)
 
 
 class NoNewUsersAccountAdapter(DefaultAccountAdapter):

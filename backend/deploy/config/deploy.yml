@@ -11,11 +11,8 @@ env:
     - POSTGRES_PASSWORD
     - SECRET_KEY
     - DATABASE_URL
-    - STRIPE_LIVE_PUBLIC_KEY
-    - STRIPE_LIVE_SECRET_KEY
-    - STRIPE_TEST_PUBLIC_KEY
-    - STRIPE_TEST_SECRET_KEY
-    - DJSTRIPE_WEBHOOK_SECRET
+    - STRIPE_PUBLIC_KEY
+    - STRIPE_SECRET_KEY
 
 # https://kamal-deploy.org/docs/configuration#using-different-roles-for-servers
 servers:

@@ -1,19 +1,15 @@
 import logging
-import uuid
 from django.urls import reverse
 from django.utils import timezone
 from django.conf import settings
-from datetime import timedelta
 import stripe
 
 from stripe.error import InvalidRequestError
-from apps.subscriptions.constants import PLANS, PRICE_IDS
-from apps.subscriptions.models import BillingCycle, StripeCustomer, Subscription
+from apps.subscriptions.constants import PLANS, PRICE_IDS, tier_for_price
+from apps.subscriptions.models import StripeCustomer, Subscription
 
 from apps.web.meta import absolute_url
 from apps.utils.billing import get_stripe_module
-from apps.utils.usage_helper import convert_timestamp_to_datetime
-from apps.utils.global_variables import UsageVariables
 
 log = logging.getLogger("micro_ai.subscription")
 
@@ -24,6 +20,40 @@ CURRENCY_SIGILS = {
 
 def subscription_is_active(subscription) -> bool:
     return subscription.status in ["active", "trialing"]
+
+
+# Stripe statuses where paid subscription credits must not refresh or display as usable.
+SUBSCRIPTION_BILLING_BLOCKED_STATUSES = frozenset(
+    {"incomplete", "incomplete_expired", "past_due", "unpaid"}
+)
+
+
+def is_free_tier_subscription(subscription: Subscription | None) -> bool:
+    """True when the user has no paid Stripe plan (wallet-only Free tier)."""
+    if subscription is None:
+        return True
+    # Legacy internal free rows may still exist until cleaned up.
+    if subscription.source == "internal" or subscription.price_id in (None, "id_free"):
+        return True
+    return tier_for_price(subscription.price_id).name == PLANS["free"]
+
+
+def subscription_allows_credit_period_reset(subscription: Subscription | None) -> bool:
+    """
+    Lazy monthly resets (and invoice.paid-style refills on access) apply only to
+    active paid subs or Free-tier users. Past-due/unpaid subs keep the last paid
+    wallet balance frozen until billing is fixed.
+    """
+    if is_free_tier_subscription(subscription):
+        return True
+    return subscription_is_active(subscription)
+
+
+def subscription_billing_blocked(subscription: Subscription | None) -> bool:
+    if is_free_tier_subscription(subscription):
+        return False
+    return subscription.status in SUBSCRIPTION_BILLING_BLOCKED_STATUSES
+
 
 def subscription_is_trialing(subscription) -> bool:
     return subscription.status == "trialing" and subscription.trial_end > timezone.now()
@@ -183,8 +213,9 @@ def create_customer_portal_session(
         if not subscription.subscription_id or not price_id:
             raise Exception("For subscription update, subscription_id and price_id must be provided.")
         stripe_subscription = get_subscription_details(subscription.subscription_id)
-        configuration = getattr(settings, "DEFAULT_PORTAL_CONFIGURATION_ID", None)
-        options["configuration"] = configuration
+        configuration = (getattr(settings, "DEFAULT_PORTAL_CONFIGURATION_ID", None) or "").strip()
+        if configuration:
+            options["configuration"] = configuration
         options["flow_data"] = {
             "after_completion": {
                 "redirect": {
@@ -208,26 +239,19 @@ def create_customer_portal_session(
 
 def cancel_subscription(subscription_id: str, at_period_end: bool = False):
     """
-    Cancels a Stripe subscription.
-    Before cancellation, checks for any active subscription schedules attached to the subscription
-    and cancels them. Then, if `at_period_end` is True, modifies the subscription to cancel at period end;
-    otherwise, deletes the subscription immediately.
+    Cancels a Stripe subscription. If `at_period_end` is True, the subscription is
+    set to cancel at the end of the current period; otherwise it is deleted
+    immediately.
     """
     stripe_module = get_stripe_module()
     try:
-        # Retrieve the subscription object from the database (assuming Subscription is imported)
-        subscription = Subscription.objects.get(subscription_id=subscription_id)
-        
-        # Cancel any active schedule associated with the subscription
-        cancel_active_schedule(subscription)
-        
         if at_period_end:
-            stripe_module.Subscription.modify(subscription.subscription_id, cancel_at_period_end=True)
+            stripe_module.Subscription.modify(subscription_id, cancel_at_period_end=True)
         else:
-            stripe_module.Subscription.delete(subscription.subscription_id)
+            stripe_module.Subscription.delete(subscription_id)
     except InvalidRequestError as e:
         if e.code != "resource_missing":
-            log.error("Error deleting Stripe subscription: ", e.user_message)
+            log.error("Error canceling Stripe subscription: %s", e.user_message)
 
 def set_subscription_max_apps(subscription, max_apps: int) -> None:
     from .models import SubscriptionConfiguration
@@ -239,21 +263,27 @@ def set_subscription_max_apps(subscription, max_apps: int) -> None:
         config.save()
 
 def upsert_subscription(customer_id, data):
-    from apps.utils.usage_helper import convert_timestamp_to_datetime
+    """
+    Update the local Subscription mirror from a Stripe event and sync the credit
+    wallet's tier when subscription membership materially changes.
+
+    Routine updates that don't change the tier leave the mid-period balance
+    untouched; the monthly reset is driven by the invoice.paid webhook.
+    """
+    from apps.subscriptions.credits import grant_subscription_credits
 
     new_subscription_id = data.get("subscription_id")
     stripe_customer = StripeCustomer.objects.filter(customer_id=customer_id).first()
 
     if stripe_customer is None or new_subscription_id is None:
-            return
+        return
 
-    subscription = Subscription.objects.filter(
-        customer=stripe_customer
-    ).first()
+    subscription = Subscription.objects.filter(customer=stripe_customer).first()
+    was_existing = subscription is not None
+    old_price_id = subscription.price_id if subscription else None
 
     period_start = data.get("period_start")
     period_end = data.get("period_end")
-    subscription_item_id = data.get("subscription_item_id")
 
     if subscription:
         subscription.subscription_id = data.get("subscription_id")
@@ -266,7 +296,6 @@ def upsert_subscription(customer_id, data):
         if period_end is not None:
             subscription.period_end = period_end
         subscription.canceled_at = data.get("canceled_at")
-        subscription.last_modified = timezone.now()
         subscription.save()
 
         log.info(f"Updated subscription {subscription.subscription_id} for customer {customer_id}")
@@ -290,56 +319,18 @@ def upsert_subscription(customer_id, data):
 
         log.info(f"Created new subscription {subscription.subscription_id} for user {stripe_customer.user.email}")
 
-    user = subscription.user
-    if subscription.status in ['canceled', 'incomplete_expired']:
-        plan = PLANS["free"]
-    else:
-        plan = get_plan_name(data.get("price_id"))
-    default_credits = get_default_credits_from_plan(plan)
-    period_start = convert_timestamp_to_datetime(period_start) if period_start else None
-    period_end = convert_timestamp_to_datetime(period_end) if period_end else None
+    # Sync the wallet's tier credits when membership materially changes:
+    # a brand-new subscription, a plan change, or a downgrade to Free (cancellation).
+    new_price_id = data.get("price_id")
+    downgraded_to_free = subscription.status in ("canceled", "incomplete_expired")
+    effective_tier = tier_for_price(None) if downgraded_to_free else tier_for_price(new_price_id)
+    tier_changed = old_price_id != new_price_id
 
-    billing_cycle = BillingCycle.objects.filter(
-        user=user
-    ).first()
-
-    if subscription.status in ['active', 'trialing']:
-        status_value = 'open'
-    elif subscription.status in ['canceled', 'incomplete_expired']:
-        status_value = 'closed'
-    else:
-        status_value = 'error'
-
-    if billing_cycle:
-        # Set the billing cycle status based on the subscription status.
-        # For example, if the subscription is 'active' or 'trialing', mark as 'open';
-        # if the subscription is 'canceled' or 'incomplete_expired', mark as 'closed'; 
-        # otherwise('past_due', 'incompleted'), mark as 'error'.
-        billing_cycle.subscription = subscription
-        if period_start is not None:
-            billing_cycle.start_date = period_start
-        if period_end is not None:
-            billing_cycle.end_date = period_end
-        billing_cycle.credits_allocated = default_credits
-        billing_cycle.credits_used = 0
-        billing_cycle.status = status_value
-        billing_cycle.credits_remaining = default_credits
-        billing_cycle.save()
-
-        log.info(f"Updated billing cycle {billing_cycle.id} for user {user.email}")
-    else:
-        status_value = "error" if subscription.status == "incomplete" else "open"
-        billing_cycle = BillingCycle.objects.create(
-            user=user,
-            subscription=subscription,
-            status=status_value,
-            start_date=period_start,
-            end_date=period_end,
-            credits_allocated=default_credits,
-            credits_remaining=default_credits,
-            stripe_subscription_item_id=subscription_item_id,
+    if (not was_existing) or tier_changed or downgraded_to_free:
+        grant_subscription_credits(subscription.user, effective_tier, period_end)
+        log.info(
+            "Synced wallet for %s to tier %s", subscription.user.email, effective_tier.name
         )
-        log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
     
 def get_plan_name(price_id: str | None) -> str:
     """
@@ -371,167 +362,3 @@ def get_price_id_from_plan(plan_name: str) -> str | None:
 
     return plan_price_mapping.get(plan_name)
 
-def get_default_credits_from_plan(plan_name: str) -> int:
-    """
-    Returns the default number of credits allocated for a given plan.
-
-    The function maps a plan name ("Free", "Pro", "Enterprise") 
-    to its respective credit allocation.
-    """
-    plan_credits_mapping = {
-        PLANS["free"]: 10_000,
-        PLANS["pro"]: 100_000,
-        PLANS["enterprise"]: 400_000,
-    }
-
-    return plan_credits_mapping.get(plan_name, 0)  # Defaults to 0 if plan is not recognized
-
-def is_downgrade(current_plan: str, new_plan: str) -> bool:
-    """
-    Determines if switching from the current plan to the new plan is a downgrade.
-
-    A downgrade occurs when the new plan has a lower priority in the defined order.
-    The order of plans is determined by the `PLAN_ORDER` list, ensuring scalability 
-    for future plan additions.
-
-    Args:
-        current_plan (str): The name of the user's current plan.
-        new_plan (str): The name of the new plan the user wants to switch to.
-
-    Returns:
-        bool: True if the new plan is a downgrade, False otherwise.
-    """
-    PLAN_ORDER = [
-        PLANS["free"],
-        PLANS["pro"],
-        PLANS["enterprise"],
-    ]
-
-    try:
-        current_index = PLAN_ORDER.index(current_plan)
-        new_index = PLAN_ORDER.index(new_plan)
-        return new_index < current_index
-    except ValueError:
-        return False
-
-def cancel_active_schedule(subscription):
-    """
-    Checks for any active subscription schedules attached to the given subscription.
-    If a schedule contains downgrade phases, it modifies the schedule to remove them,
-    adding a neutral phase if necessary, and then attempts to release the schedule
-    (detach it from the subscription) if its status allows.
-    """
-    stripe_module = get_stripe_module()
-    stripe_customer = subscription.customer
-    customer_id = stripe_customer.customer_id
-
-    scheduled_updates = stripe_module.SubscriptionSchedule.list(customer=customer_id)
-    schedules_for_subscription = [
-        schedule for schedule in scheduled_updates.data
-        if schedule.subscription == subscription.subscription_id
-    ]
-
-    for schedule in schedules_for_subscription:
-        current_phases = schedule.phases or []
-        filtered_phases = []
-        downgrade_phase_removed = False
-
-        for phase in current_phases:
-            items = phase.get("items", [])
-            if any(item.get("price") != subscription.price_id for item in items):
-                downgrade_phase_removed = True
-                continue
-            filtered_phases.append(phase)
-
-        if downgrade_phase_removed:
-            if not filtered_phases:
-                neutral_phase = {
-                    "items": [{"price": subscription.price_id, "quantity": 1}],
-                    "start_date": subscription.period_end,
-                    "iterations": 1,
-                }
-                filtered_phases = [neutral_phase]
-                log.info(
-                    "No phases left after removal. Added neutral phase for subscription",
-                    subscription.subscription_id
-                )
-            stripe_module.SubscriptionSchedule.modify(
-                schedule.id,
-                phases=filtered_phases
-            )
-            log.info(
-                "Modified schedule: removed downgrade phase(s), kept %d phase(s)",
-                schedule.id, len(filtered_phases)
-            )
-            if schedule.status in ["not_started", "active"]:
-                try:
-                    stripe_module.SubscriptionSchedule.release(schedule.id)
-                    log.info(
-                        "Released schedule %s after modification", schedule.id
-                    )
-                except Exception as release_error:
-                    log.info(
-                        "Could not release schedule %s: %s", schedule.id, str(release_error)
-                    )
-            else:
-                log.info(
-                    "Schedule %s is in status %s; not releasing.", schedule.id, schedule.status
-                )
-        else:
-            log.info(
-                "No downgrade phase found in schedule %s; no modification needed.",
-                schedule.id
-            )
-
-
-def update_or_create_free_subscription(user):
-    """
-    Creates or updates a free subscription for a user.
-    If a free subscription already exists, updates its dates instead of creating a new one.
-    """
-    now = timezone.now()
-    # Check for existing free subscription
-    existing_subscription = Subscription.objects.filter(
-        user=user,
-        source='internal',
-        price_id="id_free"
-    ).first()
-
-    if existing_subscription:
-        # Update the existing free subscription
-        existing_subscription.period_start = int(now.timestamp())
-        existing_subscription.period_end = int((now + timedelta(days=30)).timestamp())
-        existing_subscription.status = 'active'
-        existing_subscription.save()
-        return existing_subscription
-
-    # Create new free subscription if none exists
-    subscription = Subscription.objects.create(
-        user=user,
-        customer=None,
-        subscription_id=f"free_{uuid.uuid4().hex}",
-        status='active',
-        source='internal',
-        price_id="id_free",
-        period_start=int(now.timestamp()),
-        period_end=int((now + timedelta(days=30)).timestamp()),
-    )
-    return subscription
-
-def create_free_billing_cycle(user, subscription_instance):
-    """
-    Creates a free billing cycle for a new user.
-    """
-
-    period_start = convert_timestamp_to_datetime(subscription_instance.period_start)
-    period_end = convert_timestamp_to_datetime(subscription_instance.period_end)
-    billing_cycle = BillingCycle.objects.create(
-        user=user,
-        subscription=subscription_instance,
-        status="open",
-        start_date=period_start,
-        end_date=period_end,
-        credits_allocated=UsageVariables.FREE_PLAN_CREDIT_LIMIT,
-        credits_remaining=UsageVariables.FREE_PLAN_CREDIT_LIMIT,
-    )
-    log.info(f"Created new billing cycle {billing_cycle.id} for user {user.email}")
