@@ -27,6 +27,9 @@ jobs:
           script: |
             cd /home/ubuntu/micro_ai
             git pull origin master
+
+            # Copy .env before building so Next.js build args resolve from staging secrets
+            cp -f /opt/secrets/staging.env /home/ubuntu/micro_ai/.env
             
             # ensure db is up
             docker-compose -p backend -f docker-compose.prod.yml up -d db            
