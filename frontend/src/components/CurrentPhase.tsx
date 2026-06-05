@@ -19,6 +19,7 @@ import {
   RunScoreDisplay,
   passedTheRubricMinScore,
 } from "@/utils/phaseResultDisplay";
+import { buildScoreBreakdown } from "@/utils/scoreDisplayUtils";
 import { useConversationStore } from "@/store/conversationStore";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 
@@ -315,9 +316,7 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
                   currentRun?.scoreData?.scored_run ||
                   currentRun?.run_score
                );
-               const scoreReady = Boolean(
-                  currentRun?.scoreData?.run_score || currentRun?.run_score
-               );
+               const scoreReady = Boolean(buildScoreBreakdown(currentRun));
                const explanationRequested = Boolean(
                   currentRun?.score_explanation ?? currentRun?.scoreData?.score_explanation
                );

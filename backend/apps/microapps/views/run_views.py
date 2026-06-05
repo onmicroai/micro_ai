@@ -23,6 +23,12 @@ from apps.utils.global_variables import MicroappVariables, UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.models import Microapp, MicroAppUserJoin, Run, DocumentChunk, AppFileReference
 from apps.microapps.rubric_publish import ensure_rubric_version_for_scored_run
+from apps.microapps.score_utils import (
+    coerce_run_score_to_dict,
+    format_run_score_feedback_from_rationales,
+    parse_partial_run_score,
+    parse_run_score_total,
+)
 from apps.microapps.rag_service import retrieve_relevant_chunks_multi_file
 from apps.microapps.serializer import (
     MicroAppSerializer,
@@ -809,14 +815,6 @@ class ScoreRunList(RunList):
                 response = self.no_submission_phase()
                 self.response_type = MicroappVariables.FIXED_RESPONSE_TYPE
             else:
-                # Score first (non-streaming)
-                score_messages = model.build_instruction(data, list(api_params["messages"]))
-                score_params = api_params.copy()
-                score_params["messages"] = score_messages
-                score_params["stream"] = False
-                score_response = model.score_response(score_params, data.get("minimum_score"))
-                self.ai_score = score_response["ai_score"]
-                self.score_result = score_response["score_result"]
                 explanation_requested = data.get("score_explanation", True)
                 explanation_mode = data.get("score_explanation_mode", "always")
                 feedback_enabled_raw = data.get("score_feedback_enabled", True)
@@ -828,132 +826,134 @@ class ScoreRunList(RunList):
                 feedback_instructions = str(
                     data.get("score_feedback_instructions", "") or ""
                 )
+                include_overall_feedback = feedback_enabled
+                minimum_score = float(data.get("minimum_score") or 0)
 
-                def should_explain() -> bool:
-                    if not feedback_enabled:
-                        return False
-                    if not explanation_requested:
-                        return False
-                    if explanation_mode == "never":
-                        return False
-                    if explanation_mode == "failed_only":
-                        return self.score_result is False
-                    if explanation_mode == "passed_only":
-                        return self.score_result is True
-                    return True
+                def _serialized_run_score(value) -> str:
+                    if isinstance(value, (dict, list)):
+                        return json.dumps(value)
+                    return str(value)
+
+                def _score_event_payload(
+                    run_score_value,
+                    *,
+                    partial: bool = False,
+                    run_passed=None,
+                ) -> dict:
+                    payload = {
+                        "run_score": _serialized_run_score(run_score_value),
+                        "minimum_score": data.get("minimum_score"),
+                        "rubric": data.get("rubric"),
+                        "scored_run": True,
+                        "score_explanation": explanation_requested,
+                        "score_explanation_mode": explanation_mode,
+                        "score_feedback_enabled": feedback_enabled,
+                        "score_feedback_instructions": feedback_instructions,
+                    }
+                    if partial:
+                        payload["partial"] = True
+                    if run_passed is not None:
+                        payload["run_passed"] = run_passed
+                    return payload
+
+                def _usage_from_model() -> dict:
+                    if isinstance(model.last_usage, dict):
+                        return {
+                            "prompt_tokens": model.last_usage.get("prompt_tokens", 0),
+                            "completion_tokens": model.last_usage.get("completion_tokens", 0),
+                            "total_tokens": model.last_usage.get("total_tokens", 0),
+                        }
+                    return {
+                        "prompt_tokens": getattr(model.last_usage, "prompt_tokens", 0) if model.last_usage else 0,
+                        "completion_tokens": getattr(model.last_usage, "completion_tokens", 0) if model.last_usage else 0,
+                        "total_tokens": getattr(model.last_usage, "total_tokens", 0) if model.last_usage else 0,
+                    }
+
+                score_messages = model.build_instruction(
+                    data,
+                    list(api_params["messages"]),
+                    include_overall_feedback=include_overall_feedback,
+                )
+                score_params = api_params.copy()
+                score_params["messages"] = score_messages
 
                 model_config = model_router["config"]
                 if model_config.get("stream", True):
                     async def score_stream_generator():
-                        score_payload = {
-                            "run_score": self.ai_score,
-                            "run_passed": self.score_result,
-                            "minimum_score": data.get("minimum_score"),
-                            "rubric": data.get("rubric"),
-                            "scored_run": True,
-                            "score_explanation": explanation_requested,
-                            "score_explanation_mode": explanation_mode,
-                            "score_feedback_enabled": feedback_enabled,
-                            "score_feedback_instructions": feedback_instructions,
-                        }
-                        yield f"event: score\ndata: {json.dumps(score_payload)}\n\n"
+                        accumulated = ""
+                        last_partial_key = None
 
-                        if not should_explain():
-                            response_data = {
-                                "ai_response": "",
-                                "prompt_tokens": score_response.get("prompt_tokens", 0),
-                                "completion_tokens": score_response.get("completion_tokens", 0),
-                                "total_tokens": score_response.get("total_tokens", 0),
-                                "cost": score_response.get("cost", 0),
-                                "credits": score_response.get("credits", 0),
-                                "litellm_response_id": score_response.get("litellm_response_id"),
-                            }
-                            save_result = await sync_to_async(self.save_streaming_run_data)(
-                                response_data,
-                                data,
-                                api_params,
-                                model,
-                                app_owner_id,
-                                ip,
-                                request.user.id if request.user.id else None
+                        for chunk in model.stream_score_response(
+                            score_params, minimum_score
+                        ):
+                            accumulated += chunk
+                            partial = parse_partial_run_score(accumulated)
+                            if not partial:
+                                await asyncio.sleep(0)
+                                continue
+
+                            partial_key = json.dumps(partial, sort_keys=True)
+                            if partial_key == last_partial_key:
+                                await asyncio.sleep(0)
+                                continue
+                            last_partial_key = partial_key
+
+                            total = parse_run_score_total(partial)
+                            run_passed = (
+                                total >= minimum_score if total is not None else None
                             )
-                            done_payload = {
-                                "run_score": self.ai_score,
-                                "run_passed": self.score_result,
-                                "cost": response_data["cost"],
-                                "credits": response_data["credits"],
-                                "run_uuid": save_result.get("run_uuid") if save_result else data.get("run_uuid"),
-                                "score_explanation": explanation_requested,
-                                "score_explanation_mode": explanation_mode,
-                                "score_feedback_enabled": feedback_enabled,
-                                "score_feedback_instructions": feedback_instructions,
-                                **self._done_payload_extras(),
-                            }
-                            if save_result and isinstance(save_result, dict):
-                                done_payload["api_messages"] = save_result.get(
-                                    "api_messages", done_payload.get("api_messages", [])
-                                )
-                            yield f"event: done\ndata: {json.dumps(done_payload)}\n\n"
-                            return
-
-                        # Build explanation prompt (streaming)
-                        explanation_messages = model.build_score_explanation_instruction(
-                            data,
-                            list(api_params["messages"]),
-                            self.ai_score
-                        )
-                        explanation_params = api_params.copy()
-                        explanation_params["messages"] = explanation_messages
-                        explanation_params["stream"] = True
-
-                        for chunk in model.stream_response(explanation_params):
-                            yield f"data:{json.dumps(chunk)}\n\n"
+                            event = (
+                                "score_progress"
+                                if total is None
+                                else "score"
+                            )
+                            payload = _score_event_payload(
+                                partial,
+                                partial=total is None,
+                                run_passed=run_passed,
+                            )
+                            yield f"event: {event}\ndata: {json.dumps(payload)}\n\n"
                             await asyncio.sleep(0)
 
-                        # Build response data for the explanation
-                        if isinstance(model.last_usage, dict):
-                            prompt_tokens = model.last_usage.get("prompt_tokens", 0)
-                            completion_tokens = model.last_usage.get("completion_tokens", 0)
-                            total_tokens = model.last_usage.get("total_tokens", 0)
-                        else:
-                            prompt_tokens = getattr(model.last_usage, "prompt_tokens", 0) if model.last_usage else 0
-                            completion_tokens = getattr(model.last_usage, "completion_tokens", 0) if model.last_usage else 0
-                            total_tokens = getattr(model.last_usage, "total_tokens", 0) if model.last_usage else 0
+                        self.ai_score = model.ai_score
+                        self.score_result = model.score_result
 
+                        final_score_payload = _score_event_payload(
+                            self.ai_score,
+                            run_passed=self.score_result,
+                        )
+                        yield f"event: score\ndata: {json.dumps(final_score_payload)}\n\n"
+
+                        usage = _usage_from_model()
+                        score_dict = coerce_run_score_to_dict(self.ai_score)
+                        ai_response = (
+                            format_run_score_feedback_from_rationales(score_dict)
+                            if score_dict
+                            else ""
+                        )
                         response_data = {
-                            "ai_response": getattr(model, 'full_content', ''),
-                            "prompt_tokens": prompt_tokens,
-                            "completion_tokens": completion_tokens,
-                            "total_tokens": total_tokens,
-                            "cost": model.last_cost if hasattr(model, 'last_cost') else 0,
-                            "credits": model.last_credits if hasattr(model, 'last_credits') else 0,
-                            "litellm_response_id": getattr(model, 'litellm_response_id', None),
+                            "ai_response": ai_response,
+                            **usage,
+                            "cost": model.last_cost if hasattr(model, "last_cost") else 0,
+                            "credits": model.last_credits if hasattr(model, "last_credits") else 0,
+                            "litellm_response_id": getattr(model, "litellm_response_id", None),
                         }
 
-                        combined_data = response_data.copy()
-                        combined_data.update({
-                            "prompt_tokens": response_data["prompt_tokens"] + score_response["prompt_tokens"],
-                            "completion_tokens": response_data["completion_tokens"] + score_response["completion_tokens"],
-                            "total_tokens": response_data.get("total_tokens", 0) + score_response.get("total_tokens", 0),
-                            "cost": round(response_data["cost"] + score_response["cost"], 6),
-                            "credits": response_data["credits"] + score_response["credits"],
-                        })
-
                         save_result = await sync_to_async(self.save_streaming_run_data)(
-                            combined_data,
+                            response_data,
                             data,
                             api_params,
                             model,
                             app_owner_id,
                             ip,
-                            request.user.id if request.user.id else None
+                            request.user.id if request.user.id else None,
                         )
 
                         done_payload = {
-                            "run_score": self.ai_score,
+                            "run_score": _serialized_run_score(self.ai_score),
                             "run_passed": self.score_result,
-                            "cost": combined_data["cost"],
-                            "credits": combined_data["credits"],
+                            "cost": response_data["cost"],
+                            "credits": response_data["credits"],
                             "run_uuid": save_result.get("run_uuid") if save_result else data.get("run_uuid"),
                             "score_explanation": explanation_requested,
                             "score_explanation_mode": explanation_mode,
@@ -972,40 +972,32 @@ class ScoreRunList(RunList):
                     response['X-Accel-Buffering'] = 'no'
                     response['Cache-Control'] = 'no-cache'
                     return response
-                else:
-                    if not should_explain():
-                        response = {
-                            "ai_response": "",
-                            "prompt_tokens": score_response.get("prompt_tokens", 0),
-                            "completion_tokens": score_response.get("completion_tokens", 0),
-                            "total_tokens": score_response.get("total_tokens", 0),
-                            "cost": score_response.get("cost", 0),
-                            "credits": score_response.get("credits", 0),
-                            "litellm_response_id": score_response.get("litellm_response_id"),
-                        }
-                    else:
-                        # Build explanation prompt (non-streaming)
-                        explanation_messages = model.build_score_explanation_instruction(
-                            data,
-                            list(api_params["messages"]),
-                            self.ai_score
-                        )
-                        explanation_params = api_params.copy()
-                        explanation_params["messages"] = explanation_messages
-                        explanation_params["stream"] = False
-                        explanation_response = model.get_response(explanation_params)
-                        if not explanation_response["status"]:
-                            return Response({"error": error.INVALID_PAYLOAD, "status": status.HTTP_400_BAD_REQUEST}, status=status.HTTP_400_BAD_REQUEST)
-                        explanation_response = explanation_response["data"]
-                        explanation_response.update({
-                            "prompt_tokens": explanation_response["prompt_tokens"] + score_response["prompt_tokens"],
-                            "completion_tokens": explanation_response["completion_tokens"] + score_response["completion_tokens"],
-                            "total_tokens": explanation_response.get("total_tokens", 0) + score_response.get("total_tokens", 0),
-                            "cost": round(explanation_response["cost"] + score_response["cost"], 6),
-                            "credits": explanation_response["credits"] + score_response["credits"],
-                        })
-                        response = explanation_response
-                    self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
+
+                score_params["stream"] = False
+                score_response = model.score_response(score_params, minimum_score)
+                if score_response.get("status") is False:
+                    return Response(
+                        {"error": score_response.get("message", error.INVALID_PAYLOAD), "status": status.HTTP_400_BAD_REQUEST},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                self.ai_score = score_response["ai_score"]
+                self.score_result = score_response["score_result"]
+                score_dict = coerce_run_score_to_dict(self.ai_score)
+                ai_response = (
+                    format_run_score_feedback_from_rationales(score_dict)
+                    if score_dict
+                    else ""
+                )
+                response = {
+                    "ai_response": ai_response,
+                    "prompt_tokens": score_response.get("prompt_tokens", 0),
+                    "completion_tokens": score_response.get("completion_tokens", 0),
+                    "total_tokens": score_response.get("total_tokens", 0),
+                    "cost": score_response.get("cost", 0),
+                    "credits": score_response.get("credits", 0),
+                    "litellm_response_id": score_response.get("litellm_response_id"),
+                }
+                self.response_type = MicroappVariables.DEFAULT_RESPONSE_TYPE
 
             if isinstance(response, StreamingHttpResponse):
                 return response

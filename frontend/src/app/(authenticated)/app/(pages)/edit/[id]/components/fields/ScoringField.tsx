@@ -75,8 +75,8 @@ async function generateRubricWithAI({
   return res.data.rubric;
 }
 
-const DEFAULT_FEEDBACK_PLACEHOLDER =
-  "Call out what I did well and what can be improved, and why the score is what it is.";
+const DEFAULT_OVERALL_FEEDBACK_PLACEHOLDER =
+  "Provide a brief overall summary of what the learner did well and what to improve.";
 
 export default function ScoringField({
   field,
@@ -308,7 +308,7 @@ export default function ScoringField({
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <label className="text-sm font-medium text-gray-700">
-            Enable feedback
+            Enable overall feedback
           </label>
           {isPreview ? (
             <span className="text-sm text-gray-500">
@@ -328,13 +328,13 @@ export default function ScoringField({
         {feedbackEnabled && (
           <div className="space-y-1">
             <label className="text-sm font-medium text-gray-700">
-              Feedback instructions
+              Overall feedback instructions
             </label>
             {isPreview ? (
               <div className="w-full border border-gray-100 rounded-md px-3 py-2 text-sm text-gray-500 bg-gray-50 whitespace-pre-wrap">
                 {field.scoreFeedbackInstructions?.trim() || (
                   <span className="italic text-gray-400">
-                    {DEFAULT_FEEDBACK_PLACEHOLDER}
+                    {DEFAULT_OVERALL_FEEDBACK_PLACEHOLDER}
                   </span>
                 )}
               </div>
@@ -348,7 +348,7 @@ export default function ScoringField({
                 }
                 className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
                 rows={3}
-                placeholder={DEFAULT_FEEDBACK_PLACEHOLDER}
+                placeholder={DEFAULT_OVERALL_FEEDBACK_PLACEHOLDER}
               />
             )}
           </div>

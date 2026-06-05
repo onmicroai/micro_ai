@@ -29,6 +29,7 @@ import {
   RunScoreDisplay,
   passedTheRubricMinScore,
 } from "@/utils/phaseResultDisplay";
+import { buildScoreBreakdown } from "@/utils/scoreDisplayUtils";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
 import { Check, ChevronLeft, ChevronRight, Pencil, X } from "lucide-react";
 import { TEST_IDS } from "@/constants/testIds";
@@ -1050,9 +1051,7 @@ export default function CurrentElementFlowV2({
           runForThisStop?.scoreData?.scored_run ||
           runForThisStop?.run_score,
         );
-        const scoreReady = Boolean(
-          runForThisStop?.scoreData?.run_score || runForThisStop?.run_score,
-        );
+        const scoreReady = Boolean(buildScoreBreakdown(runForThisStop));
         const explanationRequested = Boolean(
           runForThisStop?.score_explanation ??
           runForThisStop?.scoreData?.score_explanation,

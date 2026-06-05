@@ -23,10 +23,11 @@ export interface StreamCallbacks {
 
 export interface ScoreData {
   run_score: string;
-  run_passed: boolean;
+  run_passed?: boolean;
   minimum_score: number;
   rubric: string;
   scored_run: boolean;
+  partial?: boolean;
   score_explanation?: boolean;
   score_explanation_mode?: "always" | "failed_only" | "passed_only" | "never";
   score_feedback_enabled?: boolean;
@@ -98,7 +99,10 @@ function dispatchStreamRunEvent(
     } else {
       onDone?.();
     }
-  } else if (eventType === "score") {
+  } else if (
+    eventType === "score" ||
+    eventType === "score_progress"
+  ) {
     if (data !== "") {
       try {
         const scoreData = JSON.parse(data) as ScoreData;
