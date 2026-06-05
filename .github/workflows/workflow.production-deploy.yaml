@@ -47,7 +47,7 @@ jobs:
             cd /docker/volumes/micro_ai
             cp -f /opt/secrets/production.env .env
 
-      - name: Deploy Backend & Frontend
+      - name: Build & Deploy Backend & Frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -56,9 +56,12 @@ jobs:
           port: 22
           script: |
             cd /docker/volumes/micro_ai
+            # Bake production NEXT_PUBLIC_* vars into the production image (separate from staging image)
+            docker-compose -p frontend -f docker-compose.prod.yml build --no-cache frontend
             docker-compose -p backend -f docker-compose.prod.yml up -d web
             docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
-            docker-compose -p frontend -f docker-compose.prod.yml up -d frontend
+            # -V recreates the anonymous .next volume so stale staging bundles are not reused
+            docker-compose -p frontend -f docker-compose.prod.yml up -d --force-recreate -V frontend
 
       - name: Clean up disk space
         uses: appleboy/ssh-action@v1.0.3

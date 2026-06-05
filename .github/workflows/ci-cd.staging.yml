@@ -28,7 +28,7 @@ jobs:
             cd /home/ubuntu/micro_ai
             git pull origin master
 
-            # Copy .env before building so Next.js build args resolve from staging secrets
+            # Bake staging NEXT_PUBLIC_* vars into the staging image at build time
             cp -f /opt/secrets/staging.env /home/ubuntu/micro_ai/.env
             
             # ensure db is up
@@ -122,4 +122,4 @@ jobs:
             docker-compose -p backend -f docker-compose.prod.yml up -d litellm
             docker-compose -p backend -f docker-compose.prod.yml up -d web-staging
             docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
-            docker-compose -p frontend -f docker-compose.prod.yml up -d frontend-staging
+            docker-compose -p frontend -f docker-compose.prod.yml up -d --force-recreate -V frontend-staging

@@ -134,7 +134,7 @@ services:
         condition: service_healthy
   frontend-staging:
     container_name: frontend-staging
-    image: frontend:latest
+    image: frontend-staging:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
@@ -164,6 +164,14 @@ services:
   frontend:
     container_name: frontend
     image: frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NEXT_PUBLIC_CLOUDFRONT_DOMAIN=${NEXT_PUBLIC_CLOUDFRONT_DOMAIN}
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        - NEXT_PUBLIC_STRIPE_PUBLIC_KEY=${STRIPE_PUBLIC_KEY}
+        - NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID=${NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID}
     expose:
       - "3000"
     volumes:
