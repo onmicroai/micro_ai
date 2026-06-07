@@ -149,10 +149,13 @@ export default function FieldPalette() {
           >
             {fields.map((field, index) => (
               <Draggable key={field.id} draggableId={field.id} index={index}>
-                {(provided, snapshot) => (
+                {(provided, snapshot) => {
+                  const { style, ...draggableProps } = provided.draggableProps;
+                  return (
                   <div
                     ref={provided.innerRef}
-                    {...provided.draggableProps}
+                    {...draggableProps}
+                    style={style as React.CSSProperties}
                     {...provided.dragHandleProps}
                     id={field.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-move transition-colors ${
@@ -174,7 +177,8 @@ export default function FieldPalette() {
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                )}
+                  );
+                }}
               </Draggable>
             ))}
             {provided.placeholder}
@@ -198,10 +202,13 @@ export default function FieldPalette() {
           >
             {promptFields.map((field, index) => (
               <Draggable key={field.id} draggableId={field.id} index={index}>
-                {(provided, snapshot) => (
+                {(provided, snapshot) => {
+                  const { style, ...draggableProps } = provided.draggableProps;
+                  return (
                   <div
                     ref={provided.innerRef}
-                    {...provided.draggableProps}
+                    {...draggableProps}
+                    style={style as React.CSSProperties}
                     {...provided.dragHandleProps}
                     id={field.id}
                     className={`flex items-center gap-3 p-3 rounded-lg border cursor-move transition-colors ${
@@ -223,7 +230,8 @@ export default function FieldPalette() {
                       </Tooltip>
                     </TooltipProvider>
                   </div>
-                )}
+                  );
+                }}
               </Draggable>
             ))}
             {provided.placeholder}

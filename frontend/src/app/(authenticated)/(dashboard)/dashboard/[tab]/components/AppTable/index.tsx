@@ -477,10 +477,14 @@ const AppTable: React.FC<AppTableProps> = ({
                 draggableId={`app-${app.id}`}
                 index={index}
               >
-                {(dragProvided, snapshot) => (
+                {(dragProvided, snapshot) => {
+                  const { style, ...draggableProps } =
+                    dragProvided.draggableProps;
+                  return (
                   <div
                     ref={dragProvided.innerRef}
-                    {...dragProvided.draggableProps}
+                    {...draggableProps}
+                    style={style as React.CSSProperties}
                     className={cn(
                       "group relative rounded-lg border border-gray-200 bg-white p-5 shadow-sm transition-colors dark:bg-gray-800",
                       snapshot.isDragging &&
@@ -558,7 +562,8 @@ const AppTable: React.FC<AppTableProps> = ({
                       </div>
                     </div>
                   </div>
-                )}
+                  );
+                }}
               </Draggable>
             ))}
             {listProvided.placeholder}
