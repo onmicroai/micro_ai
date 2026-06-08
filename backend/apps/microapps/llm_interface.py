@@ -529,6 +529,7 @@ class UnifiedLLMInterface:
             rubric = str(data.get("rubric"))
             instruction = (
                 "Score the previous user message using the rubric below. "
+                "If the user message does not contain what you need for scoring, then you can check the fallback responses in the system prompt and use those if relevant."
                 "Output ONLY valid JSON with no prose before or after. "
                 "Use each rubric criterion name exactly as the JSON key. "
                 'Each criterion value must be an object with numeric "score" and plain-language "rationale". '

@@ -800,10 +800,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   rows={1}
                   className={cn(
                     "max-h-32 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent pl-3 text-left text-sm leading-relaxed text-gray-800 outline-none",
-                    "[direction:rtl] [scrollbar-width:thin] [scrollbar-color:hsl(var(--primary))_transparent]",
-                    "[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent",
-                    "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary",
-                    "placeholder:text-left placeholder:text-gray-400 [&::placeholder]:[direction:ltr]",
+                    "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                    "placeholder:text-left placeholder:text-gray-400",
                     "disabled:cursor-not-allowed disabled:opacity-50",
                   )}
                 />
