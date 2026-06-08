@@ -1,11 +1,22 @@
-# \micro_ai\docker-compose.dev.yml
+# Dev server compose
+#
+# Profiles:
+#   (none)  — db only. DB is never stopped by CI/CD.
+#   app     — full stack: litellm, web, theme-cron, frontend
+#
+# Usage:
+#   Start everything:   docker compose --profile app up -d
+#   Start db only:      docker compose up -d db
+#   Stop app (not db):  docker compose --profile app down
+#   View logs:          docker compose --profile app logs -f
 
 services:
   db:
+    # No profile — db is always available and is never touched by deployments.
+    # Data lives on the host at /docker/volumes/postgres/ (bind mount, not a
+    # Docker named volume), so it is immune to `docker volume prune`.
     container_name: db
-    # pgvector is required for microapps.0061_rag_filesource_schema (CREATE EXTENSION vector).
     image: pgvector/pgvector:pg17
-    # persist data beyond lifetime of container
     volumes:
       - /docker/volumes/postgres/:/var/lib/postgresql/data/
     environment:
@@ -14,17 +25,17 @@ services:
       - POSTGRES_PASSWORD=${DATABASE_PASSWORD}
     ports:
       - "5432:5432"
+    restart: unless-stopped
     networks:
       micronet:
         ipv4_address: 172.25.0.2
-
     healthcheck:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
       retries: 10
 
-  # LiteLLM
   litellm:
+    profiles: [app]
     image: ghcr.io/berriai/litellm-database:main-stable
     container_name: litellm
     ports:
@@ -39,8 +50,12 @@ services:
     command:
       ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     init: true
+    restart: unless-stopped
 
   web:
+    profiles: [app]
+    # Explicit image tag so CI/CD can reliably retag for rollback.
+    image: microai-dev-web:latest
     container_name: web
     build:
       context: ./backend
@@ -73,10 +88,10 @@ services:
       start_period: 15s
 
   theme-cron:
+    profiles: [app]
+    # Reuses the web image — same Dockerfile, different command.
+    image: microai-dev-web:latest
     container_name: theme-cron
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.web
     command: >
       sh -c "while true; do
       python manage.py generate_app_themes;
@@ -106,8 +121,10 @@ services:
         condition: service_healthy
 
   frontend:
+    profiles: [app]
+    # Explicit image tag so CI/CD can reliably retag for rollback.
+    image: microai-dev-frontend:latest
     container_name: frontend
-    image: frontend:latest
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
@@ -118,24 +135,20 @@ services:
         - NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID=${NEXT_PUBLIC_STRIPE_PRICING_TABLE_ID}
     expose:
       - "3000"
-    volumes:
-      - ./frontend:/frontend
-      - /frontend/node_modules
-      - /frontend/.next
     networks:
       micronet:
         ipv4_address: 172.25.0.20
     env_file:
       - ./.env
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
-    user: "1000:1000" # ubuntu:ubuntu user:group
+    user: "1000:1000"
 
 volumes:
-  postgres_data:
   media_data:
 
 networks:

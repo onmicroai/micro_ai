@@ -1,156 +1,181 @@
-# Deploy WEB and FRONTEND to Development Server
-name: CI/CD Development(Dev Server)
+# Deploy to Development Server
+name: CI/CD Development
 
 on:
   push:
-    branches:
-      - dev
+    branches: [dev]
 
 concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+# Shared shorthand used in every SSH step.
+env:
+  COMPOSE: docker compose -f /home/ubuntu/micro_ai/docker-compose.dev.yml -p microai-dev
+
 jobs:
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 1. PREPARE
+  #    Pull latest code, inject secrets, snapshot current images for rollback,
+  #    and ensure the database is running.
+  #    The DB has no profile and is never stopped by subsequent steps.
+  # ─────────────────────────────────────────────────────────────────────────────
   prepare:
     name: Prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 60
-
+    timeout-minutes: 10
     steps:
-      - name: Pull dev branch and ensure db is up
+      - name: Pull code, copy secrets, snapshot rollback images, ensure db is up
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP_DEV }}
-          username: 'ubuntu'
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           port: 22
           script: |
+            set -euo pipefail
             cd /home/ubuntu/micro_ai
-            git pull origin dev
-            
-            # ensure db is up
-            docker-compose -p backend -f docker-compose.dev.yml up -d db
-            
-            # Copy .env file before building to ensure Next.js has access to public env vars at build time
-            cp -f /opt/secrets/.env /home/ubuntu/micro_ai/.env
 
+            git pull origin dev
+            cp -f /opt/secrets/.env .env
+
+            # Snapshot currently running images as :rollback BEFORE we build
+            # anything new. If the deploy later fails we can restore these.
+            # The `|| true` ensures a missing image (first-ever deploy) doesn't fail.
+            docker tag microai-dev-web:latest      microai-dev-web:rollback      2>/dev/null || true
+            docker tag microai-dev-frontend:latest microai-dev-frontend:rollback 2>/dev/null || true
+
+            # DB is profile-less — bring it up if it isn't already running and
+            # wait until its healthcheck passes before we attempt any builds.
+            ${{ env.COMPOSE }} up -d --wait db
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 2. BUILD  (parallel)
+  #    Build each image independently on the server so the two longest steps
+  #    don't block each other.
+  # ─────────────────────────────────────────────────────────────────────────────
   build-frontend:
     name: Build Frontend
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: prepare
-
     steps:
-      - name: Build Frontend
+      - name: Build frontend image
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP_DEV }}
-          username: 'ubuntu'
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           port: 22
           script: |
+            set -euo pipefail
             cd /home/ubuntu/micro_ai
-            docker-compose -p frontend -f docker-compose.dev.yml build frontend
+            ${{ env.COMPOSE }} build frontend
 
   build-web:
     name: Build Web
     runs-on: ubuntu-latest
     timeout-minutes: 60
     needs: prepare
-
     steps:
-      - name: Build Web
+      - name: Build web image (shared by web + theme-cron)
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP_DEV }}
-          username: 'ubuntu'
+          username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
           port: 22
           script: |
+            set -euo pipefail
             cd /home/ubuntu/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml build web
+            ${{ env.COMPOSE }} build web
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 3. DEPLOY  (with automatic rollback)
+  #    Stop the old app containers, start the new ones, and wait for every
+  #    healthcheck to pass.  If anything fails, the rollback() function fires
+  #    via `trap` and restores the previously snapshotted images.
+  #    The database is never touched here.
+  # ─────────────────────────────────────────────────────────────────────────────
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     needs: [build-frontend, build-web]
-
     steps:
-    - name: Stop Containers
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
-          if [ -d "/docker/volumes/micro_ai" ]; then
-            cd /docker/volumes/micro_ai
-            docker-compose -p backend -f docker-compose.dev.yml down litellm
-            docker-compose -p backend -f docker-compose.dev.yml down web
-            docker-compose -p backend -f docker-compose.dev.yml down theme-cron
-            docker-compose -p frontend -f docker-compose.dev.yml down frontend
-          else
-            echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
-          fi
+      - name: Deploy with auto-rollback on failure
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd /home/ubuntu/micro_ai
+            COMPOSE="${{ env.COMPOSE }}"
 
-    - name: Rsync Data and Env
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
+            rollback() {
+              echo "--- DEPLOY FAILED — rolling back to previous images ---"
+              # Stop whatever got started with the new images.
+              $COMPOSE --profile app down --remove-orphans 2>/dev/null || true
+              # Restore the snapshots taken in the prepare step.
+              docker tag microai-dev-web:rollback      microai-dev-web:latest      2>/dev/null || true
+              docker tag microai-dev-frontend:rollback microai-dev-frontend:latest 2>/dev/null || true
+              # Bring the previous working state back up (no --wait so we don't
+              # get stuck in a loop if the old image is also broken).
+              $COMPOSE --profile app up -d
+              echo "--- Rollback complete ---"
+            }
+            trap rollback ERR
 
-          cd /home/ubuntu/micro_ai
-          rsync -r --delete ./ /docker/volumes/micro_ai
+            # Stop current app containers (db is profile-less and unaffected).
+            $COMPOSE --profile app down --remove-orphans
 
-          cd /docker/volumes/micro_ai
-          cp -f /opt/secrets/.env .env
+            # Start new containers.  --wait blocks until every healthcheck
+            # passes (or the retries are exhausted, which exits non-zero and
+            # triggers the rollback trap above).
+            $COMPOSE --profile app up -d --wait
 
-    - name: Deploy LitellM & Backend & Frontend
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |          
-          cd /docker/volumes/micro_ai
-          docker-compose -p backend -f docker-compose.dev.yml up -d litellm
-          docker compose -p backend -f docker-compose.dev.yml up -d web
-          docker compose -p backend -f docker-compose.dev.yml up -d theme-cron
-          docker-compose -p frontend -f docker-compose.dev.yml up -d frontend
+            echo "--- Deploy successful ---"
 
+  # ─────────────────────────────────────────────────────────────────────────────
+  # 4. CLEAN  (only on successful deploy)
+  #    Remove dangling images and unused build cache to prevent the server disk
+  #    from filling up over time.  Named volumes are never pruned here.
+  #    The postgres data is a host bind-mount so it is immune to volume prune.
+  # ─────────────────────────────────────────────────────────────────────────────
   clean:
     name: Clean
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 10
     needs: deploy
-
+    if: success()
     steps:
-    - name: Prune unused Docker resources
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SERVER_IP_DEV }}
-        username: 'ubuntu'
-        key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
-        port: 22
-        script: |
+      - name: Prune unused Docker resources
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP_DEV }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          port: 22
+          script: |
+            echo "Pruning unused Docker resources..."
 
-          echo "Pruning unused Docker resources..."
-          # Only remove stopped containers
-          sudo docker container prune -f
-          # Only remove dangling images
-          sudo docker image prune -f
-          # Never prune volumes automatically
-          sudo docker builder prune -f
-          # Remove unused volumes while preserving media_data
-          echo "Removing unused volumes except media_data:"
-          sudo docker volume ls -q | grep -v -E "micro_ai_media_data|postgres_data" | xargs -r sudo docker volume rm
-          
-          # Check disk space after cleanup
-          echo "Disk space after cleanup:"
-          df -h /
+            # Stopped containers
+            docker container prune -f
+
+            # Dangling (untagged) images — keeps :latest and :rollback intact
+            docker image prune -f
+
+            # Stale build cache
+            docker builder prune -f
+
+            # Named volumes not attached to any container.
+            # media_data is attached to running web/theme-cron → safe.
+            # The postgres data is a host bind-mount, not a named volume → safe.
+            docker volume prune -f
+
+            echo "Disk usage after cleanup:"
+            df -h /
