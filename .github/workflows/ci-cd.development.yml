@@ -46,9 +46,23 @@ jobs:
             docker tag microai-dev-web:latest      microai-dev-web:rollback      2>/dev/null || true
             docker tag microai-dev-frontend:latest microai-dev-frontend:rollback 2>/dev/null || true
 
-            # DB is profile-less — bring it up if it isn't already running and
-            # wait until its healthcheck passes before we attempt any builds.
-            ${{ env.COMPOSE }} up -d --wait db
+            # Ensure db is up and healthy.
+            # `docker inspect db` succeeds whether the container belongs to
+            # the old "backend" project or the new "microai-dev" project, so
+            # we avoid a name-conflict error on the first run after migration.
+            if docker inspect db &>/dev/null; then
+              # Container already exists — just make sure it is started.
+              docker start db 2>/dev/null || true
+            else
+              # First-ever deploy — let compose create it under microai-dev.
+              ${{ env.COMPOSE }} up -d db
+            fi
+
+            # Wait for the healthcheck to pass before we start building.
+            echo "Waiting for db to be healthy..."
+            timeout 60 bash -c \
+              'until docker inspect --format="{{.State.Health.Status}}" db 2>/dev/null | grep -q "healthy"; do sleep 2; done'
+            echo "db is healthy."
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 2. BUILD  (parallel)
