@@ -75,9 +75,30 @@ export const synthesizeSpeech = async (
   }
 };
 
-export const playAudio = (audioData: string): void => {
-  const audio = new Audio(audioData);
-  audio.play().catch((error) => {
-    console.error("Error playing audio:", error);
+export const playAudio = (audioData: string): Promise<void> => {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(audioData);
+
+    const cleanup = () => {
+      if (audioData.startsWith("blob:")) {
+        URL.revokeObjectURL(audioData);
+      }
+    };
+
+    audio.onended = () => {
+      cleanup();
+      resolve();
+    };
+
+    audio.onerror = () => {
+      cleanup();
+      reject(new Error("Audio playback failed"));
+    };
+
+    audio.play().catch((error) => {
+      cleanup();
+      console.error("Error playing audio:", error);
+      reject(error);
+    });
   });
 };

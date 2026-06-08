@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   Element,
@@ -17,7 +17,7 @@ import {
   AudioRecorder as VoiceRecorder,
   useAudioRecorder,
 } from "react-audio-voice-recorder";
-import { ArrowDown, Bot, Send, User } from "lucide-react";
+import { ArrowDown, Bot, Loader2, Send, User, Volume2 } from "lucide-react";
 import { TEST_IDS } from "@/constants/testIds";
 import { transcribeAudio } from "@/utils/audioTranscriptionService";
 import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
@@ -29,6 +29,16 @@ import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
 import TableWrapper from "@/components/MessageTableWrapper";
 import { cn } from "@/utils/cn";
+
+function getChatHeightBounds() {
+  if (typeof window === "undefined") {
+    return { min: 400, max: 600 };
+  }
+  return {
+    min: Math.min(400, window.innerHeight * 0.5),
+    max: Math.min(600, window.innerHeight * 0.8),
+  };
+}
 
 interface ChatQuestionProps {
   element: Element;
@@ -53,6 +63,25 @@ interface ChatMessage {
   direction: "incoming" | "outgoing";
   wasAudioInput?: boolean;
   run_id?: string;
+  ttsStatus?: "synthesizing" | "playing";
+}
+
+function TtsStatusStrip({ status }: { status: "synthesizing" | "playing" }) {
+  return (
+    <div className="mt-2 flex items-center gap-1.5 border-t border-primary/10 pt-2 text-xs text-gray-500">
+      {status === "synthesizing" ? (
+        <>
+          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+          <span className="italic">Preparing audio…</span>
+        </>
+      ) : (
+        <>
+          <Volume2 className="h-3 w-3 animate-pulse text-primary" />
+          <span className="italic">Speaking…</span>
+        </>
+      )}
+    </div>
+  );
 }
 
 function AssistantAvatar({ avatarUrl }: { avatarUrl?: string }) {
@@ -144,13 +173,17 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [chatHeight, setChatHeight] = useState(() => getChatHeightBounds().min);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recorder = useAudioRecorder();
   const store = useConversationStore();
   const hasInteractedRef = useRef(false);
   const shouldAutoScrollRef = useRef(true);
+  const isTtsBusyRef = useRef(false);
+  const processingRecordingRef = useRef(false);
 
   // Load chat history from answers when component mounts
   useEffect(() => {
@@ -280,12 +313,60 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     streamingMessage,
   ]);
 
+  const isTtsBusy =
+    isSynthesizingAudio ||
+    messages.some(
+      (m) => m.ttsStatus === "synthesizing" || m.ttsStatus === "playing",
+    );
+
+  useEffect(() => {
+    isTtsBusyRef.current = isTtsBusy;
+  }, [isTtsBusy]);
+
+  const measureChatHeight = useCallback(() => {
+    const messagesEl = messagesContainerRef.current;
+    const inputEl = inputAreaRef.current;
+    if (!messagesEl || !inputEl) return;
+
+    const { min, max } = getChatHeightBounds();
+    const desired = messagesEl.scrollHeight + inputEl.offsetHeight;
+    setChatHeight(Math.min(max, Math.max(min, desired)));
+  }, []);
+
+  useLayoutEffect(() => {
+    measureChatHeight();
+  }, [
+    measureChatHeight,
+    messages,
+    streamingMessage,
+    isAssistantTyping,
+    isUserTyping,
+    isTtsBusy,
+  ]);
+
+  useLayoutEffect(() => {
+    const messagesEl = messagesContainerRef.current;
+    const inputEl = inputAreaRef.current;
+    if (!messagesEl) return;
+
+    const observer = new ResizeObserver(() => measureChatHeight());
+    observer.observe(messagesEl);
+    if (inputEl) observer.observe(inputEl);
+
+    window.addEventListener("resize", measureChatHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", measureChatHeight);
+    };
+  }, [measureChatHeight]);
+
   // Use MutationObserver for smoother handling of DOM changes during streaming
   useEffect(() => {
     const container = messagesContainerRef.current;
     if (!container || !streamingMessage) return;
 
     const observer = new MutationObserver(() => {
+      measureChatHeight();
       if (shouldAutoScrollRef.current) {
         requestAnimationFrame(() => {
           container.scrollTop = container.scrollHeight;
@@ -301,7 +382,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     });
 
     return () => observer.disconnect();
-  }, [streamingMessage]);
+  }, [streamingMessage, measureChatHeight]);
 
   /**
    * Handle scroll events to detect if user is manually scrolling up
@@ -324,15 +405,24 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    * @param blob - The blob of the recording.
    */
   const handleRecordingComplete = async (blob: Blob) => {
+    if (processingRecordingRef.current || isTtsBusyRef.current) {
+      return;
+    }
+
+    processingRecordingRef.current = true;
     try {
       setIsUserTyping(true);
       const { text: transcribedText, cost: transcriptionCost } =
         await transcribeAudio(blob, userId);
+      if (!transcribedText.trim() || isTtsBusyRef.current) {
+        return;
+      }
       await handleSend(transcribedText, true, transcriptionCost);
     } catch (error) {
       console.error("Error transcribing audio:", error);
     } finally {
       setIsUserTyping(false);
+      processingRecordingRef.current = false;
     }
   };
 
@@ -341,7 +431,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     wasAudioInput: boolean = false,
     transcriptionCost?: number,
   ) => {
-    if (!message.trim() || userMessageCount >= MESSAGE_LIMIT) {
+    if (!message.trim() || userMessageCount >= MESSAGE_LIMIT || isTtsBusy) {
       return;
     }
 
@@ -414,10 +504,41 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       if (response.success && response.response) {
         const shouldSynthesizeAudio =
           wasAudioInput && (element.enableTts || false);
-        setIsSynthesizingAudio(shouldSynthesizeAudio);
+
+        const aiMessage: ChatMessage = {
+          message: response.response,
+          sender: "ai",
+          direction: "incoming",
+          run_id: response.run_uuid,
+          ...(shouldSynthesizeAudio ? { ttsStatus: "synthesizing" as const } : {}),
+        };
+
+        setIsAssistantTyping(false);
+        setStreamingMessage("");
+        if (shouldSynthesizeAudio) {
+          isTtsBusyRef.current = true;
+        }
+        setMessages((prev) => [...prev, aiMessage]);
+
+        const patchAiMessage = (
+          runId: string | undefined,
+          patch: Partial<Pick<ChatMessage, "ttsStatus">>,
+        ) => {
+          setMessages((prev) => {
+            const next = [...prev];
+            for (let i = next.length - 1; i >= 0; i--) {
+              if (next[i].sender === "ai" && next[i].run_id === runId) {
+                next[i] = { ...next[i], ...patch };
+                break;
+              }
+            }
+            return next;
+          });
+        };
 
         let audioData: string | null = null;
         if (shouldSynthesizeAudio) {
+          setIsSynthesizingAudio(true);
           try {
             audioData = await synthesizeSpeech(
               response.response,
@@ -428,20 +549,20 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
             );
           } catch (error) {
             console.error("Error synthesizing speech:", error);
+            patchAiMessage(response.run_uuid, { ttsStatus: undefined });
+          } finally {
+            setIsSynthesizingAudio(false);
           }
         }
 
-        const aiMessage: ChatMessage = {
-          message: response.response,
-          sender: "ai",
-          direction: "incoming",
-          run_id: response.run_uuid,
-        };
-
-        setMessages((prev) => [...prev, aiMessage]);
-
         if (audioData) {
-          await playAudio(audioData);
+          patchAiMessage(response.run_uuid, { ttsStatus: "playing" });
+          try {
+            await playAudio(audioData);
+          } catch (error) {
+            console.error("Error playing audio:", error);
+          }
+          patchAiMessage(response.run_uuid, { ttsStatus: undefined });
         }
 
         const chatHistory = [...messages, userMessage, aiMessage].map((msg) => {
@@ -483,7 +604,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const hasError = !!errorMessage;
   const remainingMessages = MESSAGE_LIMIT - userMessageCount;
   const isAtLimit = userMessageCount >= MESSAGE_LIMIT;
-  const inputDisabled = disabled || isAtLimit;
+  const inputDisabled = disabled || isAtLimit || isTtsBusy;
 
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
@@ -519,9 +640,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
       <div
         className={cn(
-          "relative mt-2 min-h-[320px] h-[min(400px,50vh)] overflow-hidden rounded-lg border shadow-sm ring-1 ring-black/[0.04]",
+          "relative mt-2 overflow-hidden rounded-lg border shadow-sm ring-1 ring-black/[0.04] transition-[height] duration-200 ease-out",
           hasError ? "border-red-300 ring-red-100" : "border-gray-200",
         )}
+        style={{ height: chatHeight }}
       >
         <div className="flex h-full flex-col">
           {/* Messages Container */}
@@ -574,11 +696,14 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                         </ReactMarkdown>
                       </div>
                     )}
+                    {message.sender === "ai" && message.ttsStatus && (
+                      <TtsStatusStrip status={message.ttsStatus} />
+                    )}
                   </div>
                   {message.sender === "user" && <UserAvatar />}
                 </div>
               ))}
-              {(isAssistantTyping || isSynthesizingAudio) && (
+              {isAssistantTyping && (
                 <div className="flex items-start justify-start gap-2">
                   <AssistantAvatar avatarUrl={element.avatarUrl} />
                   <div className="rounded-2xl rounded-tl-sm bg-primary/10 px-4 py-2.5 shadow-sm">
@@ -625,6 +750,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
           {/* Input Area */}
           <div
+            ref={inputAreaRef}
             className={cn(
               "flex-shrink-0 border-t border-gray-100 bg-white p-4",
               isAtLimit && "opacity-60",
@@ -690,9 +816,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                     accept="audio/*"
                     className="hidden"
                     data-testid={TEST_IDS.CHAT_AUDIO_UPLOAD_INPUT}
+                    disabled={isTtsBusy}
                     onChange={(e) => {
                       const file = e.target.files?.[0];
-                      if (file) {
+                      if (file && !isTtsBusyRef.current) {
                         handleRecordingComplete(file);
                         e.target.value = "";
                       }
@@ -701,6 +828,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   <div
                     className={cn(
                       "flex-shrink-0",
+                      isTtsBusy && "pointer-events-none opacity-40",
                       recorder.isRecording &&
                         "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto",
                     )}
@@ -736,8 +864,20 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
             {!isAtLimit && (
               <p className="mt-1.5 px-1 text-[10px] text-gray-400">
-                {remainingMessages} message{remainingMessages !== 1 ? "s" : ""}{" "}
-                remaining · Enter to send · Shift+Enter for new line
+                {isTtsBusy ? (
+                  <span className="italic">
+                    {isSynthesizingAudio ||
+                    messages.some((m) => m.ttsStatus === "synthesizing")
+                      ? "Generating voice response…"
+                      : "Playing voice response…"}
+                  </span>
+                ) : (
+                  <>
+                    {remainingMessages} message
+                    {remainingMessages !== 1 ? "s" : ""} remaining · Enter to
+                    send · Shift+Enter for new line
+                  </>
+                )}
               </p>
             )}
           </div>
