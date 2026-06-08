@@ -130,27 +130,32 @@ jobs:
             cd /home/ubuntu/micro_ai
             COMPOSE="${{ env.COMPOSE }}"
 
+            # db has no profile, so --profile app up/down always tries to
+            # manage it and hits a name conflict with the existing container.
+            # We manage the 4 app services by name instead, keeping db
+            # completely out of the deploy step.
+            APP="litellm web theme-cron frontend"
+
             rollback() {
               echo "--- DEPLOY FAILED — rolling back to previous images ---"
-              # Stop whatever got started with the new images.
-              $COMPOSE --profile app down --remove-orphans 2>/dev/null || true
-              # Restore the snapshots taken in the prepare step.
+              $COMPOSE rm -sf $APP 2>/dev/null || true
               docker tag microai-dev-web:rollback      microai-dev-web:latest      2>/dev/null || true
               docker tag microai-dev-frontend:rollback microai-dev-frontend:latest 2>/dev/null || true
-              # Bring the previous working state back up (no --wait so we don't
-              # get stuck in a loop if the old image is also broken).
-              $COMPOSE --profile app up -d
+              # No --wait here to avoid looping if the rollback image is also broken.
+              $COMPOSE up -d --no-deps $APP
               echo "--- Rollback complete ---"
             }
             trap rollback ERR
 
-            # Stop current app containers (db is profile-less and unaffected).
-            $COMPOSE --profile app down --remove-orphans
+            # Stop and remove current app containers.
+            $COMPOSE rm -sf $APP 2>/dev/null || true
 
-            # Start new containers.  --wait blocks until every healthcheck
-            # passes (or the retries are exhausted, which exits non-zero and
-            # triggers the rollback trap above).
-            $COMPOSE --profile app up -d --wait
+            # Start services in dependency order.
+            # --no-deps: compose will not attempt to create/start db.
+            # --wait:    block until the healthcheck passes before proceeding.
+            $COMPOSE up -d --no-deps litellm
+            $COMPOSE up -d --wait --no-deps web
+            $COMPOSE up -d --no-deps theme-cron frontend
 
             echo "--- Deploy successful ---"
 
