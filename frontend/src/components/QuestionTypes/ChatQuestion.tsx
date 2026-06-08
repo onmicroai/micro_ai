@@ -17,7 +17,7 @@ import {
   AudioRecorder as VoiceRecorder,
   useAudioRecorder,
 } from "react-audio-voice-recorder";
-import { Send } from "lucide-react";
+import { ArrowDown, Bot, Send, User } from "lucide-react";
 import { TEST_IDS } from "@/constants/testIds";
 import { transcribeAudio } from "@/utils/audioTranscriptionService";
 import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
@@ -28,7 +28,7 @@ import ReactMarkdown from "react-markdown";
 import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
 import TableWrapper from "@/components/MessageTableWrapper";
-import { Textarea } from "../basic/textarea";
+import { cn } from "@/utils/cn";
 
 interface ChatQuestionProps {
   element: Element;
@@ -53,6 +53,63 @@ interface ChatMessage {
   direction: "incoming" | "outgoing";
   wasAudioInput?: boolean;
   run_id?: string;
+}
+
+function AssistantAvatar({ avatarUrl }: { avatarUrl?: string }) {
+  if (avatarUrl) {
+    return (
+      <div className="h-8 w-8 flex-shrink-0 overflow-hidden rounded-full shadow-sm ring-2 ring-white">
+        <Image
+          src={avatarUrl}
+          alt="Assistant avatar"
+          width={32}
+          height={32}
+          className="h-full w-full object-cover"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+      <Bot className="h-4 w-4 text-primary" />
+    </div>
+  );
+}
+
+function UserAvatar() {
+  return (
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-gray-200">
+      <User className="h-4 w-4 text-gray-500" />
+    </div>
+  );
+}
+
+function TypingDots({ variant }: { variant: "assistant" | "user" }) {
+  const dotClass = variant === "assistant" ? "bg-gray-400" : "bg-white";
+
+  return (
+    <span className="inline-flex h-5 items-center gap-1">
+      <span
+        className={cn(
+          "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]",
+          dotClass,
+        )}
+      />
+      <span
+        className={cn(
+          "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:150ms]",
+          dotClass,
+        )}
+      />
+      <span
+        className={cn(
+          "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:300ms]",
+          dotClass,
+        )}
+      />
+    </span>
+  );
 }
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
@@ -83,12 +140,13 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   ]);
   const [isAssistantTyping, setIsAssistantTyping] = useState(false);
   const [isUserTyping, setIsUserTyping] = useState(false);
-  const [isActive] = useState(true);
   const [inputMessage, setInputMessage] = useState("");
   const [isSynthesizingAudio, setIsSynthesizingAudio] = useState(false);
   const [streamingMessage, setStreamingMessage] = useState("");
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const recorder = useAudioRecorder();
   const store = useConversationStore();
   const hasInteractedRef = useRef(false);
@@ -172,6 +230,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     }
   };
 
+  const jumpToLatest = () => {
+    shouldAutoScrollRef.current = true;
+    setShowScrollToBottom(false);
+    scrollToBottom(true);
+  };
+
   // Scroll to bottom when chat history is loaded (initial load ONLY)
   useEffect(() => {
     const chatHistory = answers[element.name]?.value || [];
@@ -179,6 +243,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       setTimeout(() => {
         scrollToBottom(false);
         shouldAutoScrollRef.current = true;
+        setShowScrollToBottom(false);
       }, 0);
     }
   }, [element.name]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -194,7 +259,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       return;
     }
 
-    if (!shouldAutoScrollRef.current) return;
+    if (!shouldAutoScrollRef.current) {
+      setShowScrollToBottom(true);
+      return;
+    }
 
     if (streamingMessage) {
       requestAnimationFrame(() => {
@@ -244,8 +312,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
     if (shouldAutoScrollRef.current && !nearBottom) {
       shouldAutoScrollRef.current = false;
+      setShowScrollToBottom(true);
     } else if (!shouldAutoScrollRef.current && nearBottom) {
       shouldAutoScrollRef.current = true;
+      setShowScrollToBottom(false);
     }
   };
 
@@ -284,6 +354,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
     setMessages((prev) => [...prev, userMessage]);
     setInputMessage(""); // Clear input after sending
+    if (inputRef.current) {
+      inputRef.current.style.height = "auto";
+    }
     setIsUserTyping(false);
     setIsAssistantTyping(true);
 
@@ -292,6 +365,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
     // Update auto-scroll preference based on current position when sending
     shouldAutoScrollRef.current = isNearBottom();
+    if (!shouldAutoScrollRef.current) {
+      setShowScrollToBottom(true);
+    }
 
     try {
       const prompts: Prompt[] = [];
@@ -385,11 +461,17 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend(inputMessage);
     }
+  };
+
+  const handleInputResize = (e: React.FormEvent<HTMLTextAreaElement>) => {
+    const el = e.currentTarget;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 128)}px`;
   };
 
   const getErrorMessage = (elementName: string): string | null => {
@@ -400,6 +482,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const errorMessage = getErrorMessage(element.name);
   const hasError = !!errorMessage;
   const remainingMessages = MESSAGE_LIMIT - userMessageCount;
+  const isAtLimit = userMessageCount >= MESSAGE_LIMIT;
+  const inputDisabled = disabled || isAtLimit;
 
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
@@ -421,30 +505,30 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   return (
     <div className={`${isVisible ? "" : "hidden"}`}>
       {questionText && (
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm/6 font-medium text-gray-900">
           {questionText}
-          {element.isRequired && <span className="text-red-500 ml-1">*</span>}
+          {element.isRequired && <span className="ml-1 text-red-500">*</span>}
         </label>
       )}
 
       {element.description && (
-        <p className="mt-1 text-sm/6 text-gray-600 mb-2">
-          {element.description}
-        </p>
+        <p className="mt-1 text-sm/6 text-gray-600">{element.description}</p>
       )}
 
       {hasError && <p className="mt-1 text-sm text-red-600">{errorMessage}</p>}
 
-      {isActive ? (
-        <div
-          className="border rounded-lg overflow-hidden shadow-sm"
-          style={{ height: "400px", position: "relative" }}
-        >
-          <div className="flex flex-col h-full">
-            {/* Messages Container */}
+      <div
+        className={cn(
+          "relative mt-2 min-h-[320px] h-[min(400px,50vh)] overflow-hidden rounded-lg border shadow-sm ring-1 ring-black/[0.04]",
+          hasError ? "border-red-300 ring-red-100" : "border-gray-200",
+        )}
+      >
+        <div className="flex h-full flex-col">
+          {/* Messages Container */}
+          <div className="relative min-h-0 flex-1">
             <div
               ref={messagesContainerRef}
-              className="flex-1 overflow-y-auto p-4 space-y-4"
+              className="h-full space-y-4 overflow-y-auto p-4"
               onScroll={handleScroll}
               style={{
                 transform: "translateZ(0)",
@@ -455,34 +539,30 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               {messages.map((message, i) => (
                 <div
                   key={i}
-                  className={`flex ${
+                  className={cn(
+                    "flex items-start gap-2",
                     message.direction === "outgoing"
                       ? "justify-end"
-                      : "justify-start"
-                  } items-start gap-1`}
+                      : "justify-start",
+                  )}
                 >
-                  {message.sender === "ai" && element.avatarUrl && (
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
-                      <Image
-                        src={element.avatarUrl}
-                        alt="Assistant avatar"
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
+                  {message.sender === "ai" && (
+                    <AssistantAvatar avatarUrl={element.avatarUrl} />
                   )}
                   <div
-                    className={`max-w-[80%] rounded-2xl px-4 py-2.5 shadow-sm ${
+                    className={cn(
+                      "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
                       message.direction === "outgoing"
-                        ? "bg-[#5C5EF1] text-white rounded-tr-none"
-                        : "bg-[#f0f2f5] text-gray-900 rounded-tl-none"
-                    }`}
+                        ? "rounded-tr-sm bg-primary text-primary-foreground"
+                        : "rounded-tl-sm bg-primary/10 text-gray-900",
+                    )}
                   >
                     {message.direction === "outgoing" ? (
-                      <div className="text-sm">{message.message}</div>
+                      <div className="whitespace-pre-wrap break-words">
+                        {message.message}
+                      </div>
                     ) : (
-                      <div className="text-sm prose prose-sm max-w-none">
+                      <div className="prose prose-sm max-w-none">
                         <ReactMarkdown
                           remarkPlugins={[gfm]}
                           components={{
@@ -495,24 +575,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                       </div>
                     )}
                   </div>
+                  {message.sender === "user" && <UserAvatar />}
                 </div>
               ))}
               {(isAssistantTyping || isSynthesizingAudio) && (
-                <div className="flex justify-start items-start gap-1">
-                  {element.avatarUrl && (
-                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 ring-2 ring-white shadow-sm">
-                      <Image
-                        src={element.avatarUrl}
-                        alt="Assistant avatar"
-                        width={40}
-                        height={40}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  )}
-                  <div className="bg-[#f0f2f5] rounded-2xl px-4 py-2.5 shadow-sm rounded-tl-none">
+                <div className="flex items-start justify-start gap-2">
+                  <AssistantAvatar avatarUrl={element.avatarUrl} />
+                  <div className="rounded-2xl rounded-tl-sm bg-primary/10 px-4 py-2.5 shadow-sm">
                     {streamingMessage ? (
-                      <div className="text-sm prose prose-sm max-w-none">
+                      <div className="prose prose-sm max-w-none text-sm leading-relaxed">
                         <ReactMarkdown
                           remarkPlugins={[gfm]}
                           components={{
@@ -524,134 +595,159 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                         </ReactMarkdown>
                       </div>
                     ) : (
-                      <div className="flex space-x-2">
-                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce" />
-                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-100" />
-                        <div className="w-2 h-2 bg-[#5C5EF1] animate-bounce delay-200" />
-                      </div>
+                      <TypingDots variant="assistant" />
                     )}
                   </div>
                 </div>
               )}
               {isUserTyping && (
-                <div className="flex justify-end items-start gap-1">
-                  <div className="bg-[#5C5EF1] rounded-2xl px-4 py-2.5 shadow-sm rounded-tr-none">
-                    <div className="flex space-x-2">
-                      <div className="w-2 h-2 bg-white animate-bounce" />
-                      <div className="w-2 h-2 bg-white animate-bounce delay-100" />
-                      <div className="w-2 h-2 bg-white animate-bounce delay-200" />
-                    </div>
+                <div className="flex items-start justify-end gap-2">
+                  <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 shadow-sm">
+                    <TypingDots variant="user" />
                   </div>
+                  <UserAvatar />
                 </div>
               )}
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Input Area */}
-            <div className="border-t border-gray-200 p-4">
-              <div className="flex items-center space-x-2">
-                {recorder.isRecording ? (
-                  <div className="flex-1 rounded-lg p-4 min-w-0 overflow-hidden">
-                    <div className="flex items-center space-x-2">
-                      {recorder.mediaRecorder && (
-                        <LiveAudioVisualizer
-                          mediaRecorder={recorder.mediaRecorder}
-                          width={600}
-                          height={24}
-                          barWidth={4}
-                          gap={2}
-                          barColor="rgb(99, 102, 241)"
-                          fftSize={1024}
-                          maxDecibels={-20}
-                          minDecibels={-80}
-                          smoothingTimeConstant={0.8}
-                        />
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex-1 relative">
-                    <Textarea
-                      value={inputMessage}
-                      onChange={(e) => setInputMessage(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder={
-                        userMessageCount >= MESSAGE_LIMIT
-                          ? "Message limit has been reached"
-                          : `Type message here (${remainingMessages} messages remaining)`
-                      }
-                      disabled={disabled || userMessageCount >= MESSAGE_LIMIT}
-                      style={{ minHeight: "45px", maxHeight: "120px" }}
+            {showScrollToBottom && (
+              <button
+                type="button"
+                onClick={jumpToLatest}
+                className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md transition-colors hover:bg-gray-50"
+              >
+                <ArrowDown className="h-3 w-3" />
+                New messages
+              </button>
+            )}
+          </div>
+
+          {/* Input Area */}
+          <div
+            className={cn(
+              "flex-shrink-0 border-t border-gray-100 bg-white p-4",
+              isAtLimit && "opacity-60",
+            )}
+          >
+            {isAtLimit && (
+              <div className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                You&apos;ve used all {MESSAGE_LIMIT} messages in this chat.
+              </div>
+            )}
+
+            <div
+              className={cn(
+                "flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20",
+              )}
+            >
+              {recorder.isRecording ? (
+                <div className="min-w-0 flex-1 overflow-hidden rounded-lg p-2">
+                  {recorder.mediaRecorder && (
+                    <LiveAudioVisualizer
+                      mediaRecorder={recorder.mediaRecorder}
+                      width={600}
+                      height={24}
+                      barWidth={4}
+                      gap={2}
+                      barColor="rgb(99, 102, 241)"
+                      fftSize={1024}
+                      maxDecibels={-20}
+                      minDecibels={-80}
+                      smoothingTimeConstant={0.8}
                     />
-                  </div>
-                )}
-                <div className="flex-shrink-0">
-                  {!recorder.isRecording && (
-                    <button
-                      onClick={() => handleSend(inputMessage)}
-                      disabled={
-                        !inputMessage.trim() ||
-                        disabled ||
-                        userMessageCount >= MESSAGE_LIMIT
-                      }
-                      className="p-2 text-[#5C5EF1] hover:bg-gray-100 rounded-full disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <Send className="w-5 h-5" />
-                    </button>
                   )}
                 </div>
-                {element.enableTts && userMessageCount < MESSAGE_LIMIT && (
-                  <>
-                    <input
-                      type="file"
-                      accept="audio/*"
-                      className="hidden"
-                      data-testid={TEST_IDS.CHAT_AUDIO_UPLOAD_INPUT}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) {
-                          handleRecordingComplete(file);
-                          e.target.value = "";
-                        }
+              ) : (
+                <textarea
+                  ref={inputRef}
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  onInput={handleInputResize}
+                  placeholder={
+                    element.enableTts
+                      ? "Type or speak your message…"
+                      : "Type your message…"
+                  }
+                  disabled={inputDisabled}
+                  rows={1}
+                  className={cn(
+                    "max-h-32 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent pl-3 text-left text-sm leading-relaxed text-gray-800 outline-none",
+                    "[direction:rtl] [scrollbar-width:thin] [scrollbar-color:hsl(var(--primary))_transparent]",
+                    "[&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent",
+                    "[&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-primary",
+                    "placeholder:text-left placeholder:text-gray-400 [&::placeholder]:[direction:ltr]",
+                    "disabled:cursor-not-allowed disabled:opacity-50",
+                  )}
+                />
+              )}
+
+              {element.enableTts && !isAtLimit && (
+                <>
+                  <input
+                    type="file"
+                    accept="audio/*"
+                    className="hidden"
+                    data-testid={TEST_IDS.CHAT_AUDIO_UPLOAD_INPUT}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        handleRecordingComplete(file);
+                        e.target.value = "";
+                      }
+                    }}
+                  />
+                  <div
+                    className={cn(
+                      "flex-shrink-0",
+                      recorder.isRecording &&
+                        "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto",
+                    )}
+                  >
+                    <VoiceRecorder
+                      onRecordingComplete={handleRecordingComplete}
+                      recorderControls={recorder}
+                      downloadFileExtension="webm"
+                      showVisualizer={false}
+                      classes={{
+                        AudioRecorderClass:
+                          "!p-0 !bg-transparent !shadow-none hover:!bg-gray-100 !rounded-lg",
+                        AudioRecorderPauseResumeClass: "!p-2",
+                        AudioRecorderDiscardClass: "!p-2",
                       }}
                     />
-                    <div
-                      className={`flex-shrink-0 ${
-                        recorder.isRecording
-                          ? "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto"
-                          : ""
-                      }`}
-                    >
-                      <VoiceRecorder
-                        onRecordingComplete={handleRecordingComplete}
-                        recorderControls={recorder}
-                        downloadFileExtension="webm"
-                        showVisualizer={false}
-                        classes={{
-                          AudioRecorderClass:
-                            "!p-0 !bg-transparent !shadow-none hover:!bg-gray-100",
-                          AudioRecorderPauseResumeClass: "!p-2",
-                          AudioRecorderDiscardClass: "!p-2",
-                        }}
-                      />
-                    </div>
-                  </>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
+
+              {!recorder.isRecording && (
+                <button
+                  type="button"
+                  onClick={() => handleSend(inputMessage)}
+                  disabled={!inputMessage.trim() || inputDisabled}
+                  aria-label="Send message"
+                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-gray-200"
+                >
+                  <Send className="h-4 w-4 text-primary-foreground disabled:text-gray-400" />
+                </button>
+              )}
             </div>
+
+            {!isAtLimit && (
+              <p className="mt-1.5 px-1 text-[10px] text-gray-400">
+                {remainingMessages} message{remainingMessages !== 1 ? "s" : ""}{" "}
+                remaining · Enter to send · Shift+Enter for new line
+              </p>
+            )}
           </div>
         </div>
-      ) : (
-        <div className="mt-2 p-4 bg-gray-50 rounded-md border">
-          <p className="text-sm text-gray-600">Chat ended. History saved.</p>
-        </div>
-      )}
+      </div>
 
-      {/* Add credits display outside chatbox */}
       {(isOwner || isAdmin) && (
-        <div className="flex justify-end mt-2">
-          <span className="text-xs text-gray-400">
-            Chat Credits Used: {totalCredits}
+        <div className="mt-2 flex justify-end">
+          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+            Chat credits: {totalCredits}
           </span>
         </div>
       )}
