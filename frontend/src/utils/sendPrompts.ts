@@ -18,6 +18,7 @@ import {
 } from "@/store/conversationStore";
 import delay from "./delay";
 import { buildRequestBody, getPageConfig } from "@/utils/buildRequestBody";
+import { buildFormContext } from "@/utils/buildFormContext";
 import { streamRun } from "@/utils/streamRun";
 import { formatApiErrorPayload, mapKnownErrorText } from "@/utils/apiErrorMessage";
 
@@ -550,6 +551,14 @@ export const sendPromptsUtil = async (options: {
   const pageConfig = pageConfigOverride ?? getPageConfig(page);
   const phaseTitle = page?.title ?? "";
 
+  // Whole-app fallback context: every visible, answered field, so the AI is
+  // aware of the form values even when the creator didn't wire placeholders in.
+  const allElements =
+    appConfig?.elements ??
+    appConfig?.phases?.flatMap((p) => p.elements) ??
+    [];
+  const formContext = buildFormContext(allElements, answers);
+
   //Create a run with current settings and 'pending' status
   //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
   const run = {
@@ -635,6 +644,7 @@ export const sendPromptsUtil = async (options: {
     phaseTitle,
     runSource,
     isPreview,
+    formContext,
   });
   requestBody.run_try_id = runtimeMeta?.tryId;
   if (run?.id) {

@@ -1,4 +1,5 @@
 import { Answers, Element, Prompt } from "@/app/(authenticated)/app/types";
+import { resolveAnswerText } from "@/utils/answerText";
 
 /**
  * Injects values into the AI prompt property.
@@ -61,69 +62,11 @@ const processPromptText = (
 ): string => {
    const plainText = htmlToPlainText(promptText);
    return plainText.replace(placeholderRegex, (_, key) => {
-      const answer = answers[key];
-      const otherValue = answer?.otherValue || "";
-      const value = answer?.value;
-      const isOtherExists = isOtherValue(value);
-      let valueString: string | undefined;
-
-      if (Array.isArray(value)) {
-         const notOtherValues = value.filter(val => val !== 'other');
-         if (notOtherValues.length > 0) { 
-            const element = elementsByName.get(key);
-            const mapped = element?.choices
-               ? notOtherValues.map((v) => mapChoiceValueToText(element, v))
-               : notOtherValues;
-            valueString = mapped.join(", ");
-         }
-      } else {
-         const notOtherValue = typeof value === "string" && value !== "" && value !== "other";
-         if (notOtherValue) {
-            const element = elementsByName.get(key);
-            valueString =
-               element?.choices ? mapChoiceValueToText(element, value) : value;
-         }
-      } 
-
-      if (valueString !== undefined && isOtherExists) {
-         return `${valueString}, ${String(otherValue)}`;
-      } 
-      
-      if (valueString !== undefined) {
-         return valueString;
-      } 
-      
-      if (isOtherExists) {
-         return String(otherValue);
-      }
-
-      return `{${key}}`;
+      const resolved = resolveAnswerText(elementsByName.get(key), answers[key]);
+      // Leave the placeholder intact when there is no answer for this field.
+      return resolved !== "" ? resolved : `{${key}}`;
    });
 };
-
-function mapChoiceValueToText(element: Element, rawValue: string): string {
-   const choices = element.choices || [];
-   for (const choice of choices) {
-      if (typeof choice === "string") {
-         if (choice === rawValue) return choice;
-      } else if (choice.value === rawValue) {
-         return choice.text;
-      }
-   }
-   return rawValue;
-}
-
-/**
- * Checks if the value is an "other" value.
- * @param values - The values to check.
- * @returns True if the value is an "other" value, false otherwise.
- */
-const isOtherValue = (values: string[] | string) => {
-   if (Array.isArray(values)) {
-      return values.includes('other');
-   }
-   return values === 'other';
-}
 
 /**
  * Converts HTML content to clean plain text with proper spaces and new lines.

@@ -34,6 +34,12 @@ interface BuildRequestBodyOptions {
   phaseTitle?: string;
   runSource?: "default" | "chat";
   isPreview?: boolean;
+  /**
+   * Fallback context block describing the app's visible, answered fields.
+   * Injected as a system message so the AI is aware of form values even when
+   * the creator did not reference them via placeholders in the prompt.
+   */
+  formContext?: string;
 }
 
 const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
@@ -76,6 +82,7 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
     phaseTitle,
     runSource,
     isPreview,
+    formContext,
   } = options;
 
   const store = useConversationStore.getState();
@@ -123,6 +130,15 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
             {
               role: "system",
               content: aiConfig.systemPrompt,
+            },
+          ]
+        : []),
+      // Fallback form context (if any visible, answered fields exist)
+      ...(formContext
+        ? [
+            {
+              role: "system",
+              content: formContext,
             },
           ]
         : []),
