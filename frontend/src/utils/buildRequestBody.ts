@@ -2,7 +2,6 @@ import { PageConfigOverride } from "@/app/(authenticated)/app/types";
 import {
   SurveyPage,
   Base64Images,
-  AttachedFile,
 } from "@/app/(authenticated)/app/types";
 import { useConversationStore } from "@/store/conversationStore";
 
@@ -11,6 +10,30 @@ interface AIConfig {
   temperature: number;
   maxResponseTokens: number | null;
   systemPrompt: string;
+}
+
+interface BuildRequestBodyOptions {
+  finalPrompt: string;
+  finalAiInstructions: string;
+  appId: number;
+  requestSkip: boolean;
+  userId: number | null;
+  aiConfig: AIConfig;
+  pageConfig: PageConfigOverride;
+  images: Base64Images;
+  appHashId: string | undefined;
+  skipScoredRun?: boolean;
+  hasFixedResponse?: boolean;
+  fixedResponseText?: string;
+  noSubmit?: boolean;
+  transcriptionCost?: number;
+  run_uuid?: string;
+  scoreExplanation?: boolean;
+  scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
+  activeTryId?: string;
+  phaseTitle?: string;
+  runSource?: "default" | "chat";
+  isPreview?: boolean;
 }
 
 const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
@@ -27,45 +50,34 @@ const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
 
 /**
  * Builds the request body for the AI API call.
- * @param finalPrompt The final prompt to send to the AI.
- * @param finalAiInstructions The final AI instructions to send to the AI.
- * @param appId The app ID.
- * @param requestSkip Whether to skip the request.
- * @param userId The user ID.
- * @param aiConfig The AI config.
- * @param pageConfig The page config.
- * @param images The images to send to the AI.
- * @param appHashId The app hash ID.
- * @param skipScoredRun Whether to skip the scored run.
- * @param noSubmit Whether to skip the submission.
- * @param transcriptionCost The transcription cost.
- * @param run_uuid The run UUID.
- * @returns
+ * @param options The options used to assemble the request body.
+ * @returns The request body object sent to the run/score endpoints.
  */
-export const buildRequestBody = async (
-  finalPrompt: string,
-  finalAiInstructions: string,
-  appId: number,
-  requestSkip: boolean,
-  userId: number | null,
-  aiConfig: AIConfig,
-  pageConfig: PageConfigOverride,
-  images: Base64Images,
-  appHashId: string | undefined,
-  _attachedFiles: AttachedFile[] = [],
-  skipScoredRun: boolean = false,
-  hasFixedResponse: boolean = false,
-  fixedResponseText: string = "",
-  noSubmit: boolean = false,
-  transcriptionCost?: number,
-  run_uuid?: string,
-  scoreExplanation?: boolean,
-  scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never",
-  activeTryId?: string,
-  phaseTitle?: string,
-  runSource?: "default" | "chat",
-  isPreview?: boolean,
-) => {
+export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
+  const {
+    finalPrompt,
+    finalAiInstructions,
+    appId,
+    requestSkip,
+    userId,
+    aiConfig,
+    pageConfig,
+    images,
+    appHashId,
+    skipScoredRun = false,
+    hasFixedResponse = false,
+    fixedResponseText = "",
+    noSubmit = false,
+    transcriptionCost,
+    run_uuid,
+    scoreExplanation,
+    scoreExplanationMode,
+    activeTryId,
+    phaseTitle,
+    runSource,
+    isPreview,
+  } = options;
+
   const store = useConversationStore.getState();
   const scopedRuns = store.getRunsForTry(activeTryId);
 

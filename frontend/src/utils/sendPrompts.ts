@@ -48,6 +48,54 @@ function serverMetaToRunUpdates(
   return updates;
 }
 
+/**
+ * Applies a completed (non-streaming) JSON run response to the store and UI.
+ * Shared by the streaming-JSON path and the non-streaming fallback path so the
+ * run-completion logic lives in exactly one place.
+ */
+const finalizeRunResponse = async (
+  responseData: any,
+  runId: string | undefined,
+  runTryId: string | undefined,
+  setState: (state: any) => void,
+): Promise<SendPromptResponse> => {
+  const store = useConversationStore.getState();
+  const promptResponse = responseData.response;
+
+  if (runId) {
+    store.updateRun(runId, {
+      status: "completed",
+      run_passed: responseData.run_passed,
+      run_score: responseData.run_score,
+      no_submission: responseData.no_submission,
+      cost: responseData.cost,
+      credits: responseData.credits,
+      session_id: responseData.session_id,
+      ...serverMetaToRunUpdates(responseData as Record<string, unknown>),
+    });
+  }
+
+  if (promptResponse?.trim()) {
+    store.addMessage("assistant", promptResponse, runId, runTryId);
+  }
+
+  await delay(1000);
+
+  setState((state: any) => ({
+    ...state,
+    promptResponse,
+    promptLoading: false,
+    responses: [...(state.responses || []), promptResponse],
+  }));
+
+  return {
+    success: true,
+    response: promptResponse,
+    run_passed: responseData.run_passed,
+    run_uuid: responseData.run_uuid,
+  };
+};
+
 const handleAIResponse = async (
   requestBody: any,
   userId: number | null,
@@ -191,48 +239,12 @@ const handleAIResponse = async (
     // If response is not null, it means backend returned JSON (non-streaming)
     if (response) {
       const data = await response.json();
-      const responseData = data.data;
-      const promptResponse = responseData.response;
-
-      // Update the current run with all response data
-      if (runId) {
-        store.updateRun(runId, {
-          status: "completed",
-          run_passed: responseData.run_passed,
-          run_score: responseData.run_score,
-          no_submission: responseData.no_submission,
-          cost: responseData.cost,
-          credits: responseData.credits,
-          session_id: responseData.session_id,
-          ...serverMetaToRunUpdates(responseData as Record<string, unknown>),
-        });
-      }
-
-      // Add the response message
-      if (promptResponse?.trim()) {
-        store.addMessage(
-          "assistant",
-          promptResponse,
-          runId,
-          requestBody?.run_try_id,
-        );
-      }
-
-      await delay(1000);
-
-      setState((state: any) => ({
-        ...state,
-        promptResponse,
-        promptLoading: false,
-        responses: [...(state.responses || []), promptResponse],
-      }));
-
-      return {
-        success: true,
-        response: promptResponse,
-        run_passed: responseData.run_passed,
-        run_uuid: responseData.run_uuid,
-      };
+      return await finalizeRunResponse(
+        data.data,
+        runId,
+        requestBody?.run_try_id,
+        setState,
+      );
     }
 
     // Streaming path (response is undefined): wait for onDone/onError.
@@ -299,47 +311,12 @@ const handleAIResponse = async (
       responseData = response.data.data;
     }
 
-    const promptResponse = responseData.response;
-
-    // Update the current run with all response data
-    if (runId) {
-      store.updateRun(runId, {
-        status: "completed",
-        run_passed: responseData.run_passed,
-        run_score: responseData.run_score,
-        no_submission: responseData.no_submission,
-        cost: responseData.cost,
-        credits: responseData.credits,
-        session_id: responseData.session_id,
-        ...serverMetaToRunUpdates(responseData as Record<string, unknown>),
-      });
-    }
-
-    // Add the response message
-    if (promptResponse?.trim()) {
-      store.addMessage(
-        "assistant",
-        promptResponse,
-        runId,
-        requestBody?.run_try_id,
-      );
-    }
-
-    await delay(1000);
-
-    setState((state: any) => ({
-      ...state,
-      promptResponse,
-      promptLoading: false,
-      responses: [...(state.responses || []), promptResponse],
-    }));
-
-    return {
-      success: true,
-      response: promptResponse,
-      run_passed: responseData.run_passed,
-      run_uuid: responseData.run_uuid,
-    };
+    return await finalizeRunResponse(
+      responseData,
+      runId,
+      requestBody?.run_try_id,
+      setState,
+    );
   } catch (error: any) {
     let errorResponse;
 
@@ -569,7 +546,6 @@ export const sendPromptsUtil = async (options: {
     systemPrompt: appConfig?.aiConfig.systemPrompt || "",
   };
 
-  const attachedFiles = appConfig?.attachedFiles || [];
   const page = appConfig?.phases?.[pageIndex] || null;
   const pageConfig = pageConfigOverride ?? getPageConfig(page);
   const phaseTitle = page?.title ?? "";
@@ -637,9 +613,9 @@ export const sendPromptsUtil = async (options: {
     fixedResponseText = combinedText;
   }
 
-  const requestBody = await buildRequestBody(
-    combinedPrompt,
-    combinedAiInstructions,
+  const requestBody = await buildRequestBody({
+    finalPrompt: combinedPrompt,
+    finalAiInstructions: combinedAiInstructions,
     appId,
     requestSkip,
     userId,
@@ -647,20 +623,19 @@ export const sendPromptsUtil = async (options: {
     pageConfig,
     images,
     appHashId,
-    attachedFiles,
     skipScoredRun,
     hasFixedResponse,
     fixedResponseText,
     noSubmit,
     transcriptionCost,
-    run.id,
+    run_uuid: run.id,
     scoreExplanation,
     scoreExplanationMode,
-    runtimeMeta?.tryId,
+    activeTryId: runtimeMeta?.tryId,
     phaseTitle,
     runSource,
     isPreview,
-  );
+  });
   requestBody.run_try_id = runtimeMeta?.tryId;
   if (run?.id) {
     const isScoredRun = Boolean(requestBody?.scored_run);
