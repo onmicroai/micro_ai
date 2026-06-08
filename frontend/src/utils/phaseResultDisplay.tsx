@@ -18,11 +18,13 @@ import {
   extractOverallRationale,
   getRubricCriteriaNames,
   getScoreColorByPct,
+  parseRubricMaxMap,
   ScoreCriterion,
   shouldShowOverallFeedback,
   smoothScrollToElement,
 } from "@/utils/scoreDisplayUtils";
 import ReactMarkdownWrapper from "@/components/basic/ReactMarkdownWrapper";
+import { cn } from "@/utils/cn";
 
 interface AIResponseDisplayProps {
   run: Run | null;
@@ -45,15 +47,16 @@ export const MarkdownResponseDisplay: React.FC<{
 
   return (
     <div
-      className={`bg-gradient-to-b from-white to-gray-50/50 border border-gray-200/80 rounded-sm p-6 shadow-sm backdrop-blur-sm ${
-        className || ""
-      }`}
+      className={cn(
+        "rounded-sm border border-gray-200/80 bg-gradient-to-b from-white to-gray-50/50 p-6 shadow-sm backdrop-blur-sm",
+        className,
+      )}
     >
       <div className={proseClasses}>
         <ReactMarkdownWrapper>{content}</ReactMarkdownWrapper>
       </div>
       {footer ? (
-        <div className="mt-4 pt-4 border-t border-gray-100">{footer}</div>
+        <div className="mt-4 border-t border-gray-100 pt-4">{footer}</div>
       ) : null}
     </div>
   );
@@ -69,7 +72,6 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
   const [disliked, setDisliked] = useState(false);
   const { user } = useUserStore();
 
-  // Initialize liked/disliked states based on run.satisfaction
   useEffect(() => {
     if (run) {
       setLiked(run.satisfaction === 1);
@@ -91,13 +93,12 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
     setLiked(newLiked);
     setDisliked(false);
 
-    // Update on server
     updateRunUtil(
       run.id,
       {
         satisfaction: newLiked ? 1 : null,
       },
-      user?.id || null
+      user?.id || null,
     );
   };
 
@@ -107,19 +108,17 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
     setDisliked(newDisliked);
     setLiked(false);
 
-    // Update on server
     updateRunUtil(
       run.id,
       {
         satisfaction: newDisliked ? -1 : null,
       },
-      user?.id || null
+      user?.id || null,
     );
   };
 
-  // Get the last assistant message as the response
   const assistantMessage = run.messages.findLast(
-    (m) => m.role === "assistant" || m.role === "fixed_response"
+    (m) => m.role === "assistant" || m.role === "fixed_response",
   );
   if (!assistantMessage?.content) return null;
 
@@ -128,12 +127,12 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
       content={assistantMessage.content || ""}
       className="mt-6"
       footer={
-        <div className="flex justify-between items-center">
+        <div className="flex items-center justify-between">
           <div className="flex space-x-3">
             <button
               type="button"
               onClick={() => handleCopy(assistantMessage.content)}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-gray-400 transition-colors hover:text-gray-600"
               title={copied ? "Copied!" : "Copy to clipboard"}
             >
               {copied ? <FaCopy /> : <FaRegCopy />}
@@ -160,8 +159,8 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
             </button>
           </div>
           {(isOwner || isAdmin) && (
-            <span className="text-xs text-gray-400">
-              Credits Used:{" "}
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-500">
+              Credits:{" "}
               {typeof run.credits === "string"
                 ? Number(run.credits).toFixed(0)
                 : run.credits?.toFixed(0) || "0"}
@@ -176,112 +175,211 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
 const BAR_TRANSITION = "width 900ms cubic-bezier(0.22, 1, 0.36, 1)";
 const ROW_ENTRANCE_MS = 420;
 
-function ScoreCriterionRow({
+function prefersReducedMotion(): boolean {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function ScoreCriterionSlot({
+  name,
   criterion,
+  isLoading,
+  isStreaming,
   entranceDelayMs,
+  knownMax,
 }: {
-  criterion: ScoreCriterion;
+  name: string;
+  criterion?: ScoreCriterion;
+  isLoading: boolean;
+  isStreaming: boolean;
   entranceDelayMs: number;
+  knownMax?: number;
 }) {
-  const { name, score, max, rationale } = criterion;
+  const startedAsLoadingRef = useRef(isLoading);
+  const hasScoreAnimatedRef = useRef(false);
+  const hadRationaleRef = useRef(false);
+
+  const score = criterion?.score ?? null;
+  const max = criterion?.max ?? knownMax ?? 0;
+  const rationale = criterion?.rationale;
+  const hasScore = score !== null;
+  const isWaitingForScore = isLoading && !hasScore;
+
   const targetPct =
-    max > 0 ? Math.max(0, Math.min(100, (score / max) * 100)) : 0;
-  const barColor = getScoreColorByPct(targetPct);
-  const [visible, setVisible] = useState(false);
+    hasScore && max > 0
+      ? Math.max(0, Math.min(100, (score / max) * 100))
+      : 0;
+  const barColor = hasScore ? getScoreColorByPct(targetPct) : "#dfe1e8";
+
+  const [rowVisible, setRowVisible] = useState(
+    () => startedAsLoadingRef.current || isStreaming,
+  );
   const [barPct, setBarPct] = useState(0);
-  const hasEnteredRef = useRef(false);
+  const [scoreVisible, setScoreVisible] = useState(false);
+  const [rationaleVisible, setRationaleVisible] = useState(false);
 
+  const rationaleText =
+    rationale?.trim() ||
+    (hasScore && !isWaitingForScore && !isStreaming
+      ? criterionHint(name, score!, max)
+      : null);
+
+  const isWaitingForRationale =
+    hasScore && !rationale?.trim() && (isStreaming || isWaitingForScore);
+
+  // Row entrance for batch reveal (non-streaming, not started as skeleton)
   useEffect(() => {
-    if (hasEnteredRef.current) {
-      setBarPct(targetPct);
+    if (startedAsLoadingRef.current || isStreaming) {
+      setRowVisible(true);
       return;
     }
 
-    const prefersReduced = window.matchMedia(
-      "(prefers-reduced-motion: reduce)"
-    ).matches;
-
-    if (prefersReduced) {
-      hasEnteredRef.current = true;
-      setVisible(true);
-      setBarPct(targetPct);
+    if (prefersReducedMotion()) {
+      setRowVisible(true);
       return;
     }
 
-    const showTimer = window.setTimeout(() => {
-      hasEnteredRef.current = true;
-      setVisible(true);
-    }, entranceDelayMs);
-    const barTimer = window.setTimeout(
-      () => setBarPct(targetPct),
-      entranceDelayMs + 80
-    );
+    const timer = window.setTimeout(() => setRowVisible(true), entranceDelayMs);
+    return () => window.clearTimeout(timer);
+  }, [entranceDelayMs, isStreaming]);
 
-    return () => {
-      if (showTimer) window.clearTimeout(showTimer);
-      if (barTimer) window.clearTimeout(barTimer);
-    };
-  }, [entranceDelayMs, targetPct]);
+  // Bar and score animation
+  useEffect(() => {
+    if (!hasScore) return;
+
+    if (prefersReducedMotion()) {
+      hasScoreAnimatedRef.current = true;
+      setBarPct(targetPct);
+      setScoreVisible(true);
+      return;
+    }
+
+    if (hasScoreAnimatedRef.current) {
+      setBarPct(targetPct);
+      setScoreVisible(true);
+      return;
+    }
+
+    const delay =
+      startedAsLoadingRef.current || isStreaming ? 0 : entranceDelayMs + 80;
+
+    const timer = window.setTimeout(() => {
+      hasScoreAnimatedRef.current = true;
+      setBarPct(targetPct);
+      setScoreVisible(true);
+    }, delay);
+
+    return () => window.clearTimeout(timer);
+  }, [hasScore, targetPct, entranceDelayMs, isStreaming]);
+
+  // Rationale crossfade
+  useEffect(() => {
+    if (isWaitingForScore || isWaitingForRationale) {
+      if (!rationale?.trim()) {
+        setRationaleVisible(false);
+      }
+      return;
+    }
+
+    const hasRationaleText = Boolean(rationaleText);
+    if (!hasRationaleText) return;
+
+    if (rationale?.trim() && !hadRationaleRef.current) {
+      hadRationaleRef.current = true;
+    }
+
+    if (prefersReducedMotion()) {
+      setRationaleVisible(true);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => setRationaleVisible(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [rationale, rationaleText, isWaitingForScore, isWaitingForRationale]);
 
   return (
     <div
-      className="border border-[#ebedf2] px-5 py-4 space-y-3 transition-all duration-500 ease-out"
-      style={{
-        opacity: visible ? 1 : 0,
-        transform: visible ? "translateY(0)" : "translateY(8px)",
-      }}
+      className={cn(
+        "space-y-3 rounded-lg border border-gray-200 px-5 py-4 ring-1 ring-black/[0.04] transition-all duration-500 ease-out",
+        rowVisible ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0",
+      )}
     >
-      <div className="flex items-center gap-5">
-        <div className="text-base leading-5 font-semibold w-[120px] truncate">
-          {name}
-        </div>
-        <div className="flex-1 h-[10px] bg-[#ebedf2] overflow-hidden rounded-sm">
+      <h4 className="text-sm font-semibold leading-snug text-gray-900">{name}</h4>
+
+      <div className="flex items-center gap-4">
+        <div
+          className={cn(
+            "h-[10px] flex-1 overflow-hidden rounded-sm bg-gray-100",
+            isWaitingForScore && "animate-pulse",
+          )}
+        >
           <div
             className="h-full rounded-sm"
             style={{
-              width: `${barPct}%`,
+              width: hasScore ? `${barPct}%` : "0%",
               backgroundColor: barColor,
               transition: BAR_TRANSITION,
             }}
           />
         </div>
-        <div className="w-[56px] text-right tabular-nums">
-          <span
-            className="text-[20px] leading-6 font-bold"
-            style={{ color: barColor }}
-          >
-            {score}
-          </span>
-          <span className="text-sm leading-[18px] font-semibold text-[#878c98]">
-            /{max}
-          </span>
+
+        <div className="w-14 shrink-0 text-right tabular-nums">
+          {hasScore ? (
+            <span
+              className="transition-opacity duration-300"
+              style={{ opacity: scoreVisible ? 1 : 0 }}
+            >
+              <span
+                className="text-xl font-bold leading-6"
+                style={{ color: barColor }}
+              >
+                {score}
+              </span>
+              <span className="text-sm font-semibold leading-[18px] text-gray-500">
+                /{max}
+              </span>
+            </span>
+          ) : (
+            <span
+              className="inline-block h-6 w-12 animate-pulse rounded bg-gray-100"
+              aria-hidden
+            />
+          )}
         </div>
       </div>
-      <p className="text-sm leading-[18px] text-gray-700 min-h-[18px]">
-        {rationale?.trim() ? rationale : criterionHint(name, score, max)}
-      </p>
+
+      <div className="min-h-[18px]">
+        {isWaitingForScore || isWaitingForRationale ? (
+          <div
+            className="h-4 w-4/5 animate-pulse rounded bg-gray-100"
+            aria-hidden
+          />
+        ) : (
+          <p
+            className={cn(
+              "text-sm leading-[18px] text-gray-700 transition-opacity duration-300",
+              rationaleVisible ? "opacity-100" : "opacity-0",
+            )}
+          >
+            {rationaleText}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
 
-function ScoreCriterionSkeletonRow({ label }: { label: string }) {
-  return (
-    <div
-      className="border border-[#ebedf2] px-5 py-4 space-y-3"
-      aria-hidden
-    >
-      <div className="flex items-center gap-5 animate-pulse">
-        <div className="text-base leading-5 font-semibold w-[120px] truncate text-gray-400">
-          {label}
-        </div>
-        <div className="flex-1 h-[10px] bg-[#ebedf2] rounded-sm overflow-hidden">
-          <div className="h-full w-1/3 bg-[#dfe1e8] rounded-sm" />
-        </div>
-        <div className="w-[56px] h-6 bg-[#ebedf2] rounded" />
-      </div>
-      <div className="h-4 bg-[#f4f5f7] rounded w-4/5 animate-pulse" />
-    </div>
-  );
+function getScoreSubtitle(
+  isLoadingScores: boolean,
+  hasBreakdown: boolean,
+  isScoreStreaming: boolean,
+): string {
+  if (isLoadingScores && !hasBreakdown) {
+    return "Evaluating your response…";
+  }
+  if (isScoreStreaming || (isLoadingScores && hasBreakdown)) {
+    return "Scoring in progress…";
+  }
+  return "Based on your score, let\u2019s break down the feedback.";
 }
 
 export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
@@ -293,7 +391,11 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
   const hasBreakdown = Boolean(breakdown?.criteria.length);
   const rubricNames = useMemo(
     () => getRubricCriteriaNames(run?.scoreData?.rubric),
-    [run?.scoreData?.rubric]
+    [run?.scoreData?.rubric],
+  );
+  const rubricMaxMap = useMemo(
+    () => parseRubricMaxMap(run?.scoreData?.rubric),
+    [run?.scoreData?.rubric],
   );
   const overallRationale = extractOverallRationale(run);
   const showOverallFeedback = shouldShowOverallFeedback(run);
@@ -310,7 +412,7 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
   useEffect(() => {
     if (!hasBreakdown || hasScrolledRef.current) return;
     if (!scoreSectionRef.current) return;
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (prefersReducedMotion()) return;
 
     hasScrolledRef.current = true;
     const stopScroll = smoothScrollToElement(scoreSectionRef.current, 900);
@@ -331,73 +433,90 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
   const slotNames =
     rubricNames.length > 0
       ? rubricNames
-      : breakdown?.criteria.map((c) => c.name) ?? [];
+      : (breakdown?.criteria.map((c) => c.name) ?? []);
 
   if (!isLoadingScores && !hasBreakdown) return null;
 
+  const feedbackPanelClass =
+    "rounded-lg border border-primary/20 bg-primary/10 p-5";
+
   return (
-    <div ref={scoreSectionRef} className="mt-6 bg-white space-y-5">
-      <h3 className="text-[18px] leading-5 font-semibold">Score</h3>
+    <div ref={scoreSectionRef} className="mt-6 space-y-5 bg-white">
+      <h3 className="text-lg font-semibold leading-5">Score</h3>
       <p className="text-sm leading-[18px] text-gray-600">
-        {isLoadingScores && !hasBreakdown
-          ? "Evaluating your response…"
-          : "Based on your score, let\u2019s break down the feedback."}
+        {getScoreSubtitle(isLoadingScores, hasBreakdown, isScoreStreaming)}
       </p>
 
       <div className="space-y-3">
         {slotNames.length === 0 && isLoadingScores ? (
           <>
-            <ScoreCriterionSkeletonRow label="Evaluating…" />
-            <ScoreCriterionSkeletonRow label="Evaluating…" />
+            <ScoreCriterionSlot
+              name="Evaluating…"
+              isLoading
+              isStreaming={isScoreStreaming}
+              entranceDelayMs={0}
+            />
+            <ScoreCriterionSlot
+              name="Evaluating…"
+              isLoading
+              isStreaming={isScoreStreaming}
+              entranceDelayMs={0}
+            />
           </>
         ) : (
           slotNames.map((name, idx) => {
             const criterion = criteriaByName.get(name);
-            if (criterion) {
-              return (
-                <ScoreCriterionRow
-                  key={name}
-                  criterion={criterion}
-                  entranceDelayMs={Math.min(idx * ROW_ENTRANCE_MS, 840)}
-                />
-              );
-            }
-            if (isLoadingScores) {
-              return <ScoreCriterionSkeletonRow key={name} label={name} />;
-            }
-            return null;
+            const stillLoading = isLoadingScores && !criterion;
+
+            if (!criterion && !stillLoading) return null;
+
+            return (
+              <ScoreCriterionSlot
+                key={name}
+                name={name}
+                criterion={criterion}
+                isLoading={stillLoading}
+                isStreaming={isScoreStreaming}
+                entranceDelayMs={
+                  isScoreStreaming
+                    ? 0
+                    : Math.min(idx * ROW_ENTRANCE_MS, 840)
+                }
+                knownMax={rubricMaxMap[name]}
+              />
+            );
           })
         )}
       </div>
 
       {showOverallTotal && breakdown ? (
-      <div className="bg-[#fafafb] p-5 space-y-4">
-        <h4 className="text-center text-lg font-semibold text-primary">
-          Overall Score: {breakdown.total}/{breakdown.totalMax} points
-        </h4>
-        {showOverallFeedback && overallRationale ? (
-          <div className="bg-[rgba(225,227,255,0.5)] border border-primary p-5">
-            <div className={proseClasses}>
-              <ReactMarkdownWrapper>{overallRationale}</ReactMarkdownWrapper>
+        <div className="space-y-4 rounded-lg bg-gray-50 p-5">
+          <h4 className="text-center text-lg font-semibold text-primary">
+            Overall Score: {breakdown.total}/{breakdown.totalMax} points
+          </h4>
+          {showOverallFeedback && overallRationale ? (
+            <div className={feedbackPanelClass}>
+              <div className={proseClasses}>
+                <ReactMarkdownWrapper>{overallRationale}</ReactMarkdownWrapper>
+              </div>
             </div>
-          </div>
-        ) : explanationContent ? (
-          <div className="bg-[rgba(225,227,255,0.5)] border border-primary p-5">
-            <div className={proseClasses}>
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
-                rehypePlugins={[rehypeKatex]}
-                components={{
-                  code: CodeBlock,
-                  table: TableWrapper,
-                }}
-              >
-                {explanationContent}
-              </ReactMarkdown>
+          ) : explanationContent ? (
+            <div className={feedbackPanelClass}>
+              <div className={proseClasses}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+                  rehypePlugins={[rehypeKatex]}
+                  components={{
+                    code: CodeBlock,
+                    table: TableWrapper,
+                  }}
+                >
+                  {explanationContent}
+                </ReactMarkdown>
+              </div>
             </div>
-          </div>
-        ) : null}
-      </div>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );
