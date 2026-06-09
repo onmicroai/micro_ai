@@ -57,6 +57,8 @@ services:
     # Explicit image tag so CI/CD can reliably retag for rollback.
     image: microai-dev-web:latest
     container_name: web
+    # bash required — dash (sh) does not support pipefail in docker_startup.sh
+    command: ["bash", "/code/deploy/docker_startup.sh"]
     build:
       context: ./backend
       dockerfile: Dockerfile.web

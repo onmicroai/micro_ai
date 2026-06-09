@@ -56,5 +56,5 @@ RUN mkdir static_root \
     && chown -R django:django /code \
     && chmod +x /code/deploy/docker_startup.sh
 
-# Invoke via sh so the script runs even when ./backend:/code bind-mount overwrites the image chmod.
-CMD ["sh", "/code/deploy/docker_startup.sh"]
+# Invoke via bash (not sh/dash) — startup script uses bash options like pipefail.
+CMD ["bash", "/code/deploy/docker_startup.sh"]

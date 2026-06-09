@@ -1,8 +1,6 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -o errexit
-set -o pipefail
-set -o nounset
+set -euo pipefail
 
 PORT=${PORT:-8000}
 SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-micro_ai.settings_production}"
