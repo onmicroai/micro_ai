@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import UserButton from "@/components/modules/user-button/userButton";
 import AuthButtons from "./authButtons";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 import { useParams } from "next/navigation";
 import { useDashboardStore } from "@/app/(authenticated)/(dashboard)/dashboard/[tab]/store/dashboardStore";
 import { useUserStore } from "@/store/userStore";
@@ -82,8 +82,8 @@ export default function PrivateNavbar({ showCreateApp = false, isHomePage = fals
                <div>
                   <Link href="/dashboard">
                      <Image
-                        src={Logo}
-                        alt="Micro AI"
+                        src={LOGO_SRC}
+                        alt={LOGO_ALT}
                         width={150}
                         height={40}
                         className={logoClasses}

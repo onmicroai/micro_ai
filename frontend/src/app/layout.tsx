@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import "@/globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
+import { PLATFORM_NAME } from "@/constants/branding";
 
 export const metadata: Metadata = {
-  title: "Micro AI",
+  title: PLATFORM_NAME,
   description: "Build AI-Powered, Instructor-Guided Apps for Education",
   icons: {
     icon: [

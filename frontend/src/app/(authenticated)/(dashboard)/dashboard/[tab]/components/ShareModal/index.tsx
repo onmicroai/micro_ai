@@ -15,6 +15,7 @@ import {
 import { ShareModalProps } from '@/app/(authenticated)/(dashboard)/types';
 import axiosInstance from '@/utils/axiosInstance';
 import { useDashboardStore } from '../../store/dashboardStore';
+import { PLATFORM_NAME } from "@/constants/branding";
 import { cn } from '@/utils/cn';
 
 interface AdminUser {
@@ -737,7 +738,7 @@ const ShareModal: React.FC<ShareModalProps> = ({
                            Step 1 — Configure your LMS
                         </h4>
                         <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
-                           Enter these values in your LMS to register OnMicro.AI as an LTI 1.3 provider. Your LMS will then generate credentials for Step 2.
+                           Enter these values in your LMS to register {PLATFORM_NAME} as an LTI 1.3 provider. Your LMS will then generate credentials for Step 2.
                         </p>
                         <div className="space-y-3">
                            <div>

@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import UserButton from "@/components/modules/user-button/userButton";
 import AuthButtons from "./authButtons";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 import { useUserStore } from "@/store/userStore";
 
 const SCROLL_THRESHOLD = 32;
@@ -70,8 +70,8 @@ export default function PublicNavbar({ isHomePage = false }: PublicNavbarProps) 
                <div>
                   <Link href="/">
                      <Image
-                        src={Logo}
-                        alt="Micro AI"
+                        src={LOGO_SRC}
+                        alt={LOGO_ALT}
                         width={150}
                         height={40}
                         className={logoClasses}

@@ -7,7 +7,7 @@ import { useEffect } from 'react'
 import Button from '@/components/modules/button/button'
 import { buttonTypes } from "@/constants";
 import { Container } from '@/components/Container'
-
+import { PLATFORM_NAME } from "@/constants/branding";
 import home_bg from '@/img/home_background.png'
 
 const VIDEO_URL = "https://d1jscdodpm97w5.cloudfront.net/Quick+Demo.mp4"
@@ -88,7 +88,7 @@ export function Hero() {
           {/* Right: description + links — less width, slightly smaller type */}
           <div className="flex flex-col justify-center text-left lg:max-w-sm">
             <p className="text-pretty text-base font-medium tracking-tight text-blue-100 sm:text-lg">
-              OnMicro lets educators build their own custom apps, integrate them into the LMS, and observe student usage. With a user experience designed to be as easy as a Google form.
+              {PLATFORM_NAME} lets educators build their own custom apps, integrate them into the LMS, and observe student usage. With a user experience designed to be as easy as a Google form.
             </p>
             <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-sm">
 

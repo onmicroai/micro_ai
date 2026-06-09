@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { ToastContainer } from 'react-toastify';
 import DashboardLayoutClient from "./dashboard-layout-client";
+import { PLATFORM_NAME } from "@/constants/branding";
 
 export const metadata: Metadata = {
-  title: "Micro AI - Home",
+  title: `${PLATFORM_NAME} - Home`,
   description: "Build AI-Powered, Instructor-Guided Apps for Education",
 };
 

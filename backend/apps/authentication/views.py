@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status, serializers
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from django.conf import settings
+from apps.utils.branding import get_email_branding_context
 from dj_rest_auth.serializers import PasswordResetSerializer
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
@@ -109,7 +110,8 @@ class CustomPasswordResetSerializer(PasswordResetSerializer):
         return {
             'domain_override': settings.DOMAIN,
             'extra_email_context': {
-                'domain': settings.DOMAIN
+                'domain': settings.DOMAIN,
+                **get_email_branding_context(),
             }
         }
 

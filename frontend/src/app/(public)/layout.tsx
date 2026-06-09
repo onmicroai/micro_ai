@@ -1,9 +1,10 @@
 import Footer from "@/components/layout/footer/footer";
 import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from 'react-toastify';
+import { PLATFORM_NAME } from "@/constants/branding";
 
 export const metadata = {
-   title: "Micro AI",
+   title: PLATFORM_NAME,
    description: "Build AI-Powered, Instructor-Guided Apps for Education",
 };
 

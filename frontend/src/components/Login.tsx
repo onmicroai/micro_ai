@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { PLATFORM_NAME } from "@/constants/branding";
 
 interface LoginFormData {
   email: string;
@@ -59,7 +60,7 @@ export default function Login({
           />
         </svg>
         <h2 className="mt-6 text-center text-2xl font-bold leading-9 tracking-tight text-gray-900">
-          Sign in to OnMicro.AI
+          Sign in to {PLATFORM_NAME}
         </h2>
       </div>
 

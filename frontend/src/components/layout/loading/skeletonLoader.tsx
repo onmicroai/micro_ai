@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 
 type SkeletonVariant = 'default' | 'app' | 'builder';
 
@@ -17,8 +17,8 @@ export default function SkeletonLoader({ variant = 'default' }: SkeletonLoaderPr
           <div className="flex items-center h-full w-full px-4 relative">
             <div className="flex items-center h-full">
               <Image
-                src={Logo}
-                alt="OnMicro AI"
+                src={LOGO_SRC}
+                alt={LOGO_ALT}
                 width={175}
                 height={56}
                 className="w-[175px] h-[56px] object-contain"

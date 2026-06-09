@@ -42,6 +42,10 @@ CLOUDFRONT_DOMAIN = env(
     "CLOUDFRONT_DOMAIN", default=""
 ).replace("https://", "").replace("http://", "").strip().strip("/")
 
+# Shared with frontend via the same .env keys (NEXT_PUBLIC_*).
+PLATFORM_NAME = env("NEXT_PUBLIC_PLATFORM_NAME", default="OnMicro AI")
+LOGO_FILENAME = env("NEXT_PUBLIC_LOGO_FILENAME", default="logo.svg")
+
 # Application definition
 
 DJANGO_APPS = [

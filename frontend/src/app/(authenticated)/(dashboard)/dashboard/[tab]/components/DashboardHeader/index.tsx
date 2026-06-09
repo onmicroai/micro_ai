@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 import { useRouter } from "next/navigation";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import LogoIcon from "@/img/logos/small-logo.png";
 import {
   Select,
@@ -46,15 +46,15 @@ export default function DashboardHeader({
         <Link href="/dashboard" className="flex items-center">
           <Image
             src={LogoIcon}
-            alt="OnMicro.AI"
+            alt={LOGO_ALT}
             width={36}
             height={36}
             className="h-9 w-9 lg:hidden"
             priority
           />
           <Image
-            src={Logo}
-            alt="OnMicro.AI"
+            src={LOGO_SRC}
+            alt={LOGO_ALT}
             width={140}
             height={36}
             className="h-5 w-auto hidden lg:block"

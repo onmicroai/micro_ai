@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Section from "../section/section";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
+import { LOGO_ALT, LOGO_SRC, PLATFORM_NAME } from "@/constants/branding";
 import { sectionTypes } from "@/constants";
 
 
@@ -14,14 +14,14 @@ export default function Footer() {
           <div className="max-w-7xl mx-auto px-4 py-12 grid grid-cols-12 gap-8">
             <div className="col-span-4 space-y-4">
               <Image 
-                src={Logo}
-                alt="Micro AI" 
+                src={LOGO_SRC}
+                alt={LOGO_ALT}
                 className="h-5 w-auto" 
                 width={150} 
                 height={40}
               />
               <p className="text-gray-600 text-sm">
-                OnMicro.AI is a no-code platform for educators to build AI-powered, instructor-guided tools for course development and assessment. Educators can leverage the scale and speed of AI while protecting their pedagogy.
+                {PLATFORM_NAME} is a no-code platform for educators to build AI-powered, instructor-guided tools for course development and assessment. Educators can leverage the scale and speed of AI while protecting their pedagogy.
               </p>
             </div>
             <div className="col-span-4"></div>
@@ -49,7 +49,7 @@ export default function Footer() {
       <Section type={sectionTypes.last} style={{ padding: "0" }}>
         <div className="dark:bg-black-dark">
           <div className="max-w-7xl mx-auto px-4 py-6 flex justify-between items-center border-t border-gray-200">
-            <p className="text-gray-600 text-sm">© {new Date().getFullYear()} OnMicro.AI. All rights reserved.</p>
+            <p className="text-gray-600 text-sm">© {new Date().getFullYear()} {PLATFORM_NAME}. All rights reserved.</p>
 
           </div>
         </div>

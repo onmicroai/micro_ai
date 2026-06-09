@@ -110,8 +110,8 @@
                     style="text-decoration: none"
                   >
                     <img
-                      src="https://{{ cloudfront_domain }}/onmicroai_logo.png"
-                      alt="OnMicro.AI"
+                      src="{{ logo_url }}"
+                      alt="{{ logo_alt }}"
                       style="height: 24px; width: auto"
                     />
                   </a>
@@ -221,7 +221,7 @@
                       margin-top: 12px;
                     "
                   >
-                    © {% now "Y" %} OnMicro.AI. All Rights Reserved.
+                    © {% now "Y" %} {{ platform_name }}. All Rights Reserved.
                   </p>
                 </td>
               </tr>

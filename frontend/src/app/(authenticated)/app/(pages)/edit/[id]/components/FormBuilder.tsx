@@ -81,8 +81,8 @@ import ChatBuildSidebar, {
   type ChatBuildSidebarHandle,
 } from "./ui/chat-build-sidebar";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
-import Logo from "@/img/logos/onMicroAI_logo_horiz_color-cropped.svg";
 import Image from "next/image";
+import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 import MonitorPreview from "./ui/monitor-preview";
 import { TagFocusProvider } from "./TagFocusContext";
 import { Textarea } from "@/components/basic/textarea";
@@ -1891,8 +1891,8 @@ export default function FormBuilder() {
                 onClick={() => router.push("/dashboard")}
               >
                 <Image
-                  src={Logo}
-                  alt="Micro AI"
+                  src={LOGO_SRC}
+                  alt={LOGO_ALT}
                   width={175}
                   height={56}
                   className="w-[175px] h-[56px] object-contain"

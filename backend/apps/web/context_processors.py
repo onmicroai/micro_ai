@@ -1,6 +1,7 @@
 from copy import copy
 from django.conf import settings
 from .meta import absolute_url, get_server_root
+from apps.utils.branding import get_email_branding_context
 
 
 def project_meta(request):
@@ -41,4 +42,5 @@ def email_context(request):
         'domain': settings.DOMAIN,
         "cloudfront_domain": getattr(settings, "CLOUDFRONT_DOMAIN", ""),
         'user_email': getattr(request.user, 'email', '') if request.user.is_authenticated else '',
+        **get_email_branding_context(),
     }
