@@ -69,6 +69,7 @@ services:
       - "host.docker.internal:host-gateway"
     environment:
       - DEBUG=1
+      - DJANGO_SETTINGS_MODULE=micro_ai.settings
       - EMAIL_HOST=${EMAIL_HOST:-host.docker.internal}
       - EMAIL_PORT=${EMAIL_PORT:-25}
     env_file:
@@ -81,11 +82,11 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: curl --fail http://localhost:8000/ || exit 1
+      test: curl --fail http://localhost:8000/health/ || exit 1
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 15s
+      retries: 12
+      start_period: 60s
 
   theme-cron:
     profiles: [app]

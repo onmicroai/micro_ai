@@ -1,8 +1,12 @@
 from django.contrib import messages
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.translation import gettext_lazy as _
+
+
+def health(request):
+    return HttpResponse("ok", content_type="text/plain")
 
 
 def home(request):

@@ -154,7 +154,7 @@ jobs:
             # --no-deps: compose will not attempt to create/start db.
             # --wait:    block until the healthcheck passes before proceeding.
             $COMPOSE up -d --no-deps litellm
-            $COMPOSE up -d --wait --no-deps web
+            $COMPOSE up -d --wait --wait-timeout 180 --no-deps web
             $COMPOSE up -d --no-deps theme-cron frontend
 
             echo "--- Deploy successful ---"

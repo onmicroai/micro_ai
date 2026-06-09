@@ -50,11 +50,11 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: curl --fail http://localhost:8000/ || exit 1
+      test: curl --fail http://localhost:8000/health/ || exit 1
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 15s
+      retries: 12
+      start_period: 60s
 
   # LiteLLM
   litellm:
@@ -96,11 +96,11 @@ services:
       db:
         condition: service_healthy
     healthcheck:
-      test: curl --fail http://localhost:8000/ || exit 1
+      test: curl --fail http://localhost:8000/health/ || exit 1
       interval: 10s
       timeout: 5s
-      retries: 20
-      start_period: 15s
+      retries: 12
+      start_period: 60s
 
   theme-cron:
     container_name: theme-cron
