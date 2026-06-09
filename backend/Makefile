@@ -93,11 +93,7 @@ npm-watch: ## Runs npm watch in the container (recommended for dev)
 npm-type-check: ## Runs the type checker on the front end TypeScript code
 	@docker compose run --rm --no-deps web npm run type-check
 
-build-api-client:  ## Update the JavaScript API client code.
-	@docker run --rm --network host -v ${PWD}/api-client:/local openapitools/openapi-generator-cli:v7.5.0 generate \
-	-i http://localhost:8000/api/schema/ \
-	-g typescript-fetch \
-	-o /local/
+
 
 upgrade: pip-compile build start-bg migrations migrate npm-install npm-dev
 

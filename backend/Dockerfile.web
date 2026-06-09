@@ -20,8 +20,7 @@ FROM node:20-bookworm-slim AS build-node
 RUN node -v && npm -v
 WORKDIR /code
 COPY *.json *.js .babelrc /code/
-COPY assets /code/assets/
-COPY api-client /code/api-client/
+
 
 RUN npm install
 
