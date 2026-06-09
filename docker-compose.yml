@@ -169,7 +169,6 @@ services:
 
 volumes:
   postgres_data:
-  static:
   media_data:
 
 networks:

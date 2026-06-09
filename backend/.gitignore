@@ -3,11 +3,9 @@
 *~
 db.sqlite3
 venv/
-.sass-cache/
 micro_ai/localsettings.py
 micro_ai/local.py
 static_root/
-node_modules/
 openapitools.json
 media/
 apps/lti/private.key
@@ -22,7 +20,3 @@ _dist/
 deploy/.env
 .secrets
 .github/workflows/wagtail_test.yml
-# uncomment these lines after setting up the front-end build pipeline in dev and production
-static/css/
-static/js/
-venv/

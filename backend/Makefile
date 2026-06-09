@@ -75,27 +75,7 @@ isort: ## Runs isort on the codebase
 
 format: black isort ## Runs formatting (black and isort) on the codebase
 
-npm-install: ## Runs npm install in the container
-	@docker compose run --rm --no-deps web npm install $(filter-out $@,$(MAKECMDGOALS))
-
-npm-uninstall: ## Runs npm uninstall in the container
-	@docker compose run --rm --no-deps web npm uninstall $(filter-out $@,$(MAKECMDGOALS))
-
-npm-build: ## Runs npm build in the container (for production assets)
-	@docker compose run --rm --no-deps web npm run build
-
-npm-dev: ## Runs npm dev in the container
-	@docker compose run --rm --no-deps web npm run dev
-
-npm-watch: ## Runs npm watch in the container (recommended for dev)
-	@docker compose run --rm --no-deps web npm run dev-watch
-
-npm-type-check: ## Runs the type checker on the front end TypeScript code
-	@docker compose run --rm --no-deps web npm run type-check
-
-
-
-upgrade: pip-compile build start-bg migrations migrate npm-install npm-dev
+upgrade: pip-compile build start-bg migrations migrate
 
 .PHONY: help
 .DEFAULT_GOAL := help

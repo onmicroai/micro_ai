@@ -3,7 +3,7 @@
 # See https://docs.docker.com/build/guide/multi-stage/
 
 # Stage 1: Build the python dependencies
-FROM python:3.11-slim-bookworm as build-python
+FROM python:3.11-slim-bookworm AS build-python
 RUN apt-get update \
   && apt-get install -y build-essential libpq-dev
 COPY ./requirements /requirements
@@ -15,20 +15,7 @@ RUN pip install --upgrade "pip>=24,<26" wheel pip-tools setuptools build \
        -r /requirements/requirements.txt \
        -r /requirements/prod-requirements.txt
 
-# Stage 2: Build the front end files
-FROM node:20-bookworm-slim AS build-node
-RUN node -v && npm -v
-WORKDIR /code
-COPY *.json *.js .babelrc /code/
-
-
-RUN npm install
-
-# Build needs everything because it needs to be able to do the tailwind class detection/purging stuff
-COPY . /code
-RUN npm run build
-
-# Stage 3: Build the final image
+# Stage 2: Build the final image
 FROM python:3.11-slim-bookworm
 ENV PYTHONUNBUFFERED 1
 ENV DEBUG 0
@@ -65,10 +52,9 @@ WORKDIR /code
 # Copy the application code
 # TODO: "chown -R django:django" doesn't change user/role of the files for some reason
 COPY . /code
-COPY --from=build-node /code/static /code/static
 RUN mkdir static_root \
-    && chown -R django:django /code \    
-    && chmod +x /code/deploy/docker_startup.sh 
+    && chown -R django:django /code \
+    && chmod +x /code/deploy/docker_startup.sh
 
 # Use the entrypoint script to start the application
 CMD /code/deploy/docker_startup.sh

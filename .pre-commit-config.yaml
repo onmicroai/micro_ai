@@ -1,4 +1,4 @@
-exclude: ^static/.*|assets/.*|/migrations/.*|\.min\.js$|\.min\.css$|\.css\.map$|\.min\.js$|\.js\.map$|\.svg$
+exclude: ^/migrations/.*|\.min\.js$|\.min\.css$|\.css\.map$|\.js\.map$|\.svg$
 default_stages: [pre-commit]
 default_language_version:
    python: python3.11
