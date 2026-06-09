@@ -218,7 +218,6 @@ ACCOUNT_LOGOUT_ON_GET = True
 ACCOUNT_LOGIN_ON_EMAIL_CONFIRMATION = True
 ACCOUNT_LOGIN_BY_CODE_ENABLED = True
 
-TOTP_ISSUER = "OnMicro.AI"
 
 SOCIALACCOUNT_FORMS = {
     "signup": "apps.users.forms.CustomSocialSignupForm",
