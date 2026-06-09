@@ -38,7 +38,6 @@ jobs:
             cd /home/ubuntu/micro_ai
 
             git pull origin dev
-            cp -f /opt/secrets/.env .env
 
             # Snapshot currently running images as :rollback BEFORE we build
             # anything new. If the deploy later fails we can restore these.
