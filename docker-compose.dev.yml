@@ -83,10 +83,10 @@ services:
         condition: service_healthy
     healthcheck:
       test: curl --fail http://localhost:8000/health/ || exit 1
-      interval: 10s
-      timeout: 5s
-      retries: 12
-      start_period: 60s
+      interval: 5s
+      timeout: 10s
+      retries: 24
+      start_period: 120s
 
   theme-cron:
     profiles: [app]

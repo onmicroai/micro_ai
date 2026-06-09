@@ -138,24 +138,57 @@ jobs:
 
             rollback() {
               echo "--- DEPLOY FAILED — rolling back to previous images ---"
-              $COMPOSE rm -sf $APP 2>/dev/null || true
+              $COMPOSE --profile app rm -sf $APP 2>/dev/null || true
               docker tag microai-dev-web:rollback      microai-dev-web:latest      2>/dev/null || true
               docker tag microai-dev-frontend:rollback microai-dev-frontend:latest 2>/dev/null || true
               # No --wait here to avoid looping if the rollback image is also broken.
-              $COMPOSE up -d --no-deps $APP
+              $COMPOSE --profile app up -d --no-deps $APP
               echo "--- Rollback complete ---"
             }
             trap rollback ERR
 
             # Stop and remove current app containers.
-            $COMPOSE rm -sf $APP 2>/dev/null || true
+            $COMPOSE --profile app rm -sf $APP 2>/dev/null || true
 
             # Start services in dependency order.
             # --no-deps: compose will not attempt to create/start db.
-            # --wait:    block until the healthcheck passes before proceeding.
-            $COMPOSE up -d --no-deps litellm
-            $COMPOSE up -d --wait --wait-timeout 180 --no-deps web
-            $COMPOSE up -d --no-deps theme-cron frontend
+            # --profile app: web/frontend are behind the app profile.
+            # Avoid `compose --wait` for web — it can report unhealthy before
+            # start_period elapses; poll docker inspect instead (same as db).
+            $COMPOSE --profile app up -d --no-deps litellm
+            $COMPOSE --profile app up -d --no-deps web
+
+            echo "Waiting for web to become healthy..."
+            WEB_WAIT=180
+            WEB_ELAPSED=0
+            WEB_STATUS=""
+            while [ "$WEB_ELAPSED" -lt "$WEB_WAIT" ]; do
+              WEB_STATUS=$(docker inspect --format='{{.State.Health.Status}}' web 2>/dev/null || echo "missing")
+              WEB_STATE=$(docker inspect --format='{{.State.Status}}' web 2>/dev/null || echo "missing")
+              echo "web: state=${WEB_STATE} health=${WEB_STATUS} (${WEB_ELAPSED}s)"
+
+              if [ "$WEB_STATUS" = "healthy" ]; then
+                break
+              fi
+
+              if [ "$WEB_STATE" = "exited" ] || [ "$WEB_STATE" = "dead" ]; then
+                echo "web container exited — logs:"
+                docker logs web --tail 80
+                exit 1
+              fi
+
+              sleep 5
+              WEB_ELAPSED=$((WEB_ELAPSED + 5))
+            done
+
+            if [ "$WEB_STATUS" != "healthy" ]; then
+              echo "web did not become healthy within ${WEB_WAIT}s — logs:"
+              docker logs web --tail 80
+              exit 1
+            fi
+            echo "web is healthy."
+
+            $COMPOSE --profile app up -d --no-deps theme-cron frontend
 
             echo "--- Deploy successful ---"
 
