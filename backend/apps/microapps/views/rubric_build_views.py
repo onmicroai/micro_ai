@@ -1,4 +1,5 @@
 import os
+import re
 import tempfile
 import logging as log
 import json
@@ -18,6 +19,42 @@ import concurrent.futures
 BASE_DIR = Path(__file__).resolve().parent.parent
 env = environ.Env()
 env.read_env(os.path.join(BASE_DIR, ".env"))
+
+_FENCED_JSON_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
+
+
+def _parse_rubric_from_ai_response(raw: str) -> list | None:
+    """Parse a rubric JSON array from a model message (plain JSON or ```json fences)."""
+    text = (raw or "").strip()
+    if not text:
+        return None
+
+    candidates = [text]
+    for match in _FENCED_JSON_RE.finditer(text):
+        candidates.append(match.group(1).strip())
+
+    bracket_start = text.find("[")
+    if bracket_start != -1:
+        candidates.append(text[bracket_start:])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    if bracket_start != -1:
+        try:
+            parsed, _ = json.JSONDecoder().raw_decode(text[bracket_start:])
+            if isinstance(parsed, list):
+                return parsed
+        except json.JSONDecodeError:
+            pass
+
+    return None
+
 
 class RubricBuildView(APIView):
     """Generate rubric and log usage for microapp rubric build."""
@@ -141,11 +178,17 @@ Generate a comprehensive rubric based on this information."""
 
             ai_response = response["data"]["ai_response"].strip()
 
-            try:
-               rubric = json.loads(ai_response)
-               rubric_str = json.dumps(rubric, ensure_ascii=False)
-            except Exception:
-               return Response({"error": "Failed to parse rubric from AI response"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            rubric = _parse_rubric_from_ai_response(ai_response)
+            if rubric is None:
+                log.error(
+                    "Failed to parse rubric from AI response (first 500 chars): %s",
+                    ai_response[:500],
+                )
+                return Response(
+                    {"error": "Failed to parse rubric from AI response"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            rubric_str = json.dumps(rubric, ensure_ascii=False)
             credits_spent = response["data"]["credits"]
 
             files_data = []
