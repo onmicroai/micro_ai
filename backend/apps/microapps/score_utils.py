@@ -11,7 +11,9 @@ import json
 import re
 from typing import Any, Optional
 
-_TOTAL_IN_JSON_RE = re.compile(r'"total"\s*:\s*"?([\d.]+)"?', re.IGNORECASE)
+# The (?=...) lookahead requires a delimiter after the number so a partially
+# streamed value (e.g. the "1" of "10") is never parsed as a complete score.
+_TOTAL_IN_JSON_RE = re.compile(r'"total"\s*:\s*"?([\d.]+)"?(?=\s*[,}"])', re.IGNORECASE)
 _TOTAL_PROSE_RE = re.compile(r"\btotal\s*:\s*([\d.]+)\b", re.IGNORECASE)
 _FENCED_JSON_RE = re.compile(r"```(?:json)?\s*([\s\S]*?)\s*```", re.IGNORECASE)
 _RESERVED_SCORE_KEYS = frozenset({"total", "overall_rationale", "score", "rationale"})
@@ -20,7 +22,7 @@ _OVERALL_RATIONALE_RE = re.compile(
     re.DOTALL,
 )
 _NESTED_CRITERION_RE = re.compile(
-    r'"([^"\\]+)"\s*:\s*\{\s*"score"\s*:\s*([\d.]+)'
+    r'"([^"\\]+)"\s*:\s*\{\s*"score"\s*:\s*([\d.]+)(?=\s*[,}])'
     r'(?:\s*,\s*"rationale"\s*:\s*"((?:[^"\\]|\\.)*)")?',
     re.DOTALL,
 )
@@ -171,7 +173,13 @@ def parse_partial_run_score(text: str) -> dict[str, Any]:
     Returns criterion keys with flat numbers or nested {score, rationale} objects.
     """
     complete = _dict_from_string_best_effort(text)
-    if complete:
+    # Guard against the trailing-"{" heuristic locking onto a *nested* criterion
+    # object (e.g. {"score": 10, "rationale": "..."}) while the outer map is still
+    # streaming: a result whose keys are all reserved is a fragment, not the full
+    # score map, so fall through to the incremental regex extraction instead.
+    if complete and any(
+        str(k).strip().lower() not in _RESERVED_SCORE_KEYS for k in complete
+    ):
         return complete
 
     result: dict[str, Any] = {}

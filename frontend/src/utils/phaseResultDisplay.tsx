@@ -38,7 +38,11 @@ interface RunScoreDisplayProps {
   explanationContent?: string | null;
 }
 
-export const MarkdownResponseDisplay: React.FC<{
+// Display components are memoized so streaming score ticks (which re-render
+// the parent flow) skip re-rendering — and re-parsing markdown for — every
+// card whose run object is unchanged. conversationStore.updateRun preserves
+// object identity for untouched runs, so prop equality checks work.
+const MarkdownResponseDisplayBase: React.FC<{
   content: string;
   footer?: React.ReactNode;
   className?: string;
@@ -62,7 +66,9 @@ export const MarkdownResponseDisplay: React.FC<{
   );
 };
 
-export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
+export const MarkdownResponseDisplay = React.memo(MarkdownResponseDisplayBase);
+
+const AIResponseDisplayBase: React.FC<AIResponseDisplayProps> = ({
   run,
   isOwner = false,
   isAdmin = false,
@@ -171,6 +177,8 @@ export const AIResponseDisplay: React.FC<AIResponseDisplayProps> = ({
     />
   );
 };
+
+export const AIResponseDisplay = React.memo(AIResponseDisplayBase);
 
 const BAR_TRANSITION = "width 900ms cubic-bezier(0.22, 1, 0.36, 1)";
 const ROW_ENTRANCE_MS = 420;
@@ -322,8 +330,20 @@ function ScoreCriterionSlot({
           />
         </div>
 
-        <div className="w-14 shrink-0 text-right tabular-nums">
-          {hasScore ? (
+        {/* Skeleton and value are layered and crossfaded (instead of swapped in
+            the DOM) so the score appears without a blank flash between states. */}
+        <div className="relative h-6 w-14 shrink-0 text-right tabular-nums">
+          {/* animate-pulse must be removed when hidden: its keyframes animate
+              opacity and would override the inline opacity: 0. */}
+          <span
+            className={cn(
+              "absolute right-0 top-0 h-6 w-12 rounded bg-gray-100 transition-opacity duration-300",
+              !hasScore && "animate-pulse",
+            )}
+            style={{ opacity: hasScore ? 0 : 1 }}
+            aria-hidden
+          />
+          {hasScore && (
             <span
               className="transition-opacity duration-300"
               style={{ opacity: scoreVisible ? 1 : 0 }}
@@ -338,31 +358,29 @@ function ScoreCriterionSlot({
                 /{max}
               </span>
             </span>
-          ) : (
-            <span
-              className="inline-block h-6 w-12 animate-pulse rounded bg-gray-100"
-              aria-hidden
-            />
           )}
         </div>
       </div>
 
-      <div className="min-h-[18px]">
-        {isWaitingForScore || isWaitingForRationale ? (
-          <div
-            className="h-4 w-4/5 animate-pulse rounded bg-gray-100"
-            aria-hidden
-          />
-        ) : (
-          <p
-            className={cn(
-              "text-sm leading-[18px] text-gray-700 transition-opacity duration-300",
-              rationaleVisible ? "opacity-100" : "opacity-0",
-            )}
-          >
-            {rationaleText}
-          </p>
-        )}
+      <div className="relative min-h-[18px]">
+        <div
+          className={cn(
+            "absolute left-0 top-0 h-4 w-4/5 rounded bg-gray-100 transition-opacity duration-300",
+            (isWaitingForScore || isWaitingForRationale) && "animate-pulse",
+          )}
+          style={{
+            opacity: isWaitingForScore || isWaitingForRationale ? 1 : 0,
+          }}
+          aria-hidden
+        />
+        <p
+          className={cn(
+            "text-sm leading-[18px] text-gray-700 transition-opacity duration-300",
+            rationaleVisible ? "opacity-100" : "opacity-0",
+          )}
+        >
+          {rationaleText}
+        </p>
       </div>
     </div>
   );
@@ -382,7 +400,7 @@ function getScoreSubtitle(
   return "Based on your score, let\u2019s break down the feedback.";
 }
 
-export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
+const RunScoreDisplayBase: React.FC<RunScoreDisplayProps> = ({
   run,
   isEvaluating = false,
   explanationContent,
@@ -521,6 +539,8 @@ export const RunScoreDisplay: React.FC<RunScoreDisplayProps> = ({
     </div>
   );
 };
+
+export const RunScoreDisplay = React.memo(RunScoreDisplayBase);
 
 export const getRunScore = (run: Run | null): string | null => {
   return run?.run_score || null;

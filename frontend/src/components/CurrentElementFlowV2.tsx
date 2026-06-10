@@ -191,19 +191,29 @@ export default function CurrentElementFlowV2({
   onComplete,
 }: Props) {
   const isPreview = useRuntimePreview();
-  const {
-    surveyJson,
-    answers: surveyAnswers,
-    images: surveyImages,
-    errors,
-    promptLoading,
-    setErrors,
-    setElements,
-    setImages: setSurveyImages,
-    sendPrompts,
-    setInputValue: surveySetInputValue,
-  } = useSurveyStore();
-  const { getRunsForTry, getLatestRunForStop } = useConversationStore();
+  // Per-field selectors: subscribing to the whole store would re-render this
+  // entire flow on every streamed chunk/score tick written to unrelated state
+  // (e.g. promptResponse / scoreData in the survey store).
+  const surveyJson = useSurveyStore((s) => s.surveyJson);
+  const surveyAnswers = useSurveyStore((s) => s.answers);
+  const surveyImages = useSurveyStore((s) => s.images);
+  const errors = useSurveyStore((s) => s.errors);
+  const promptLoading = useSurveyStore((s) => s.promptLoading);
+  const setErrors = useSurveyStore((s) => s.setErrors);
+  const setElements = useSurveyStore((s) => s.setElements);
+  const setSurveyImages = useSurveyStore((s) => s.setImages);
+  const sendPrompts = useSurveyStore((s) => s.sendPrompts);
+  const surveySetInputValue = useSurveyStore((s) => s.setInputValue);
+  const getRunsForTry = useConversationStore((s) => s.getRunsForTry);
+  const getLatestRunForStop = useConversationStore(
+    (s) => s.getLatestRunForStop,
+  );
+  // Narrow data subscription: run cards read run data during render via the
+  // getters above (stable refs), so we must re-render when runs change — but
+  // only when they change.
+  const conversationRuns = useConversationStore(
+    (s) => s.currentConversation?.runs,
+  );
   const {
     tryOrder,
     triesById,
@@ -859,12 +869,11 @@ export default function CurrentElementFlowV2({
   );
 
   const lastRequiredScoringPassOriginalIndex = useMemo(() => {
-    const runsForActiveTry = getRunsForTry(activeTryId ?? undefined).filter(
-      (run) => run.run_passed !== false,
-    );
-    const runsById = new Map(
-      getRunsForTry(undefined).map((run) => [run.id, run] as const),
-    );
+    const allRuns = conversationRuns ?? [];
+    const runsForActiveTry = (
+      activeTryId ? allRuns.filter((run) => run.tryId === activeTryId) : allRuns
+    ).filter((run) => run.run_passed !== false);
+    const runsById = new Map(allRuns.map((run) => [run.id, run] as const));
     let maxPass = -1;
 
     for (const run of runsForActiveTry) {
@@ -887,7 +896,7 @@ export default function CurrentElementFlowV2({
     }
 
     return maxPass;
-  }, [getRunsForTry, activeTryId, appElements, stopStateByElementId]);
+  }, [conversationRuns, activeTryId, appElements, stopStateByElementId]);
   const showGlobalTryNavigator =
     tryOrder.length > 1 && (isComplete || stopIndex === null);
 

@@ -907,9 +907,13 @@ class ScoreRunList(RunList):
                                 if total is None
                                 else "score"
                             )
+                            # Always mark in-stream events as partial: the total can
+                            # parse before trailing rationales / overall_rationale
+                            # finish streaming, and dropping the flag early makes the
+                            # UI leave its "scoring in progress" state too soon.
                             payload = _score_event_payload(
                                 partial,
-                                partial=total is None,
+                                partial=True,
                                 run_passed=run_passed,
                             )
                             yield f"event: {event}\ndata: {json.dumps(payload)}\n\n"

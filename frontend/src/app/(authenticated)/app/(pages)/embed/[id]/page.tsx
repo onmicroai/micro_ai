@@ -199,9 +199,7 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       if (data == null || typeof data !== "object" || Array.isArray(data)) {
         return;
       }
-      if (
-        (data as { type?: unknown }).type !== EMBED_RESTART_MESSAGE_TYPE
-      ) {
+      if ((data as { type?: unknown }).type !== EMBED_RESTART_MESSAGE_TYPE) {
         return;
       }
       restartEmbeddedApp();
@@ -214,87 +212,89 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-4">
-        {surveyJson?.title && (
-          <h1 className="text-xl/loose font-semibold text-gray-900">
-            {surveyJson.title}
-          </h1>
-        )}
-        {surveyJson?.description && (
-          <p className="mt-1 text-sm/6 text-gray-600">
-            {surveyJson.description}
-          </p>
-        )}
+        <div className="bg-white rounded-xl shadow-md overflow-hidden p-6">
+          {surveyJson?.title && (
+            <h1 className="text-xl/loose font-semibold text-gray-900">
+              {surveyJson.title}
+            </h1>
+          )}
+          {surveyJson?.description && (
+            <p className="mt-1 text-sm/6 text-gray-600">
+              {surveyJson.description}
+            </p>
+          )}
 
-        {loading && (
-          <div className="flex justify-center py-8">
-            <SkeletonLoader />
-          </div>
-        )}
+          {loading && (
+            <div className="flex justify-center py-8">
+              <SkeletonLoader />
+            </div>
+          )}
 
-        {!loading && (surveyJson?.elements?.length || 0) === 0 && (
-          <p className="text-gray-600 text-center py-8">
-            This application doesn&apos;t contain any questions.
-          </p>
-        )}
+          {!loading && (surveyJson?.elements?.length || 0) === 0 && (
+            <p className="text-gray-600 text-center py-8">
+              This application doesn&apos;t contain any questions.
+            </p>
+          )}
 
-        {appId !== null && !loading && (
-          <div className="mt-6">
-            <CurrentElementFlow
-              key={flowKey}
-              appId={appId}
-              userId={userId}
-              onComplete={() => setShowThankYouMessage(true)}
-              isOwner={isOwner}
-              isAdmin={isAdmin}
-            />
-          </div>
-        )}
-
-        <div>
-          {showThankYouMessage && (
-            <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-              <div
-                className="text-sm/6  max-w-none text-green-800"
-                dangerouslySetInnerHTML={{
-                  __html: surveyJson?.completedHtml || "",
-                }}
+          {appId !== null && !loading && (
+            <div className="mt-6">
+              <CurrentElementFlow
+                key={flowKey}
+                appId={appId}
+                userId={userId}
+                onComplete={() => setShowThankYouMessage(true)}
+                isOwner={isOwner}
+                isAdmin={isAdmin}
               />
             </div>
           )}
-        </div>
 
-        {/* Chat Continuation Interface */}
-        <ContinuationInterface
-          appId={appId}
-          userId={userId}
-          surveyJson={surveyJson}
-          answers={answers}
-          isOwner={isOwner}
-          isAdmin={isAdmin}
-          isExpanded={isContinuationExpanded}
-          onToggleExpanded={() =>
-            setIsContinuationExpanded(!isContinuationExpanded)
-          }
-        />
+          <div>
+            {showThankYouMessage && (
+              <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                <div
+                  className="text-sm/6  max-w-none text-green-800"
+                  dangerouslySetInnerHTML={{
+                    __html: surveyJson?.completedHtml || "",
+                  }}
+                />
+              </div>
+            )}
+          </div>
 
-        <div className="mt-4 flex justify-between items-center">
-          <button
-            onClick={restartEmbeddedApp}
-            className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-          >
-            <RotateCcw className="w-4 h-4" />
-            Restart
-          </button>
+          {/* Chat Continuation Interface */}
+          <ContinuationInterface
+            appId={appId}
+            userId={userId}
+            surveyJson={surveyJson}
+            answers={answers}
+            isOwner={isOwner}
+            isAdmin={isAdmin}
+            isExpanded={isContinuationExpanded}
+            onToggleExpanded={() =>
+              setIsContinuationExpanded(!isContinuationExpanded)
+            }
+          />
 
-          {showThankYouMessage && !isContinuationExpanded && (
+          <div className="mt-4 flex justify-between items-center">
             <button
-              onClick={() => setIsContinuationExpanded(true)}
+              onClick={restartEmbeddedApp}
               className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
             >
-              <MessageCircle className="w-4 h-4" />
-              Continue the conversation
+              <RotateCcw className="w-4 h-4" />
+              Restart
             </button>
-          )}
+
+            {showThankYouMessage && !isContinuationExpanded && (
+              <button
+                onClick={() => setIsContinuationExpanded(true)}
+                className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                Continue the conversation
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

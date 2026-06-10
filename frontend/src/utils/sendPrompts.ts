@@ -19,7 +19,7 @@ import {
 import delay from "./delay";
 import { buildRequestBody, getPageConfig } from "@/utils/buildRequestBody";
 import { buildFormContext } from "@/utils/buildFormContext";
-import { streamRun } from "@/utils/streamRun";
+import { streamRun, type ScoreData } from "@/utils/streamRun";
 import { formatApiErrorPayload, mapKnownErrorText } from "@/utils/apiErrorMessage";
 
 function serverMetaToRunUpdates(
@@ -123,6 +123,49 @@ const handleAIResponse = async (
       resolveDone = resolve;
     });
 
+    // Score events are full snapshots, so bursts arriving within one frame can
+    // be coalesced last-wins: at most one store update + render per frame.
+    let pendingScoreData: ScoreData | null = null;
+    let scoreFrame: number | null = null;
+    const applyPendingScore = () => {
+      scoreFrame = null;
+      const scoreData = pendingScoreData;
+      pendingScoreData = null;
+      if (!scoreData) return;
+
+      setState((state: any) => ({
+        ...state,
+        scoreData: scoreData,
+        showScoreResults: true,
+      }));
+
+      if (runId) {
+        useConversationStore.getState().updateRun(runId, {
+          scoreData: scoreData,
+          ...(scoreData.run_passed !== undefined
+            ? { run_passed: scoreData.run_passed }
+            : {}),
+          run_score: scoreData.run_score,
+          ...serverMetaToRunUpdates(
+            scoreData as unknown as Record<string, unknown>,
+          ),
+        });
+      }
+    };
+    const flushPendingScore = () => {
+      if (scoreFrame !== null) {
+        cancelAnimationFrame(scoreFrame);
+      }
+      applyPendingScore();
+    };
+    const discardPendingScore = () => {
+      if (scoreFrame !== null) {
+        cancelAnimationFrame(scoreFrame);
+        scoreFrame = null;
+      }
+      pendingScoreData = null;
+    };
+
     const response = await streamRun(
       requestBody,
       userId,
@@ -164,39 +207,24 @@ const handleAIResponse = async (
           });
         },
         onScore: (scoreData) => {
-          setState((state: any) => ({
-            ...state,
-            scoreData: scoreData,
-            showScoreResults: true,
-          }));
-
-          if (runId) {
-            const store = useConversationStore.getState();
-            store.updateRun(runId, {
-              scoreData: scoreData,
-              ...(scoreData.run_passed !== undefined
-                ? { run_passed: scoreData.run_passed }
-                : {}),
-              run_score: scoreData.run_score,
-              ...serverMetaToRunUpdates(
-                scoreData as unknown as Record<string, unknown>,
-              ),
-            });
+          pendingScoreData = scoreData;
+          if (scoreFrame === null) {
+            scoreFrame = requestAnimationFrame(applyPendingScore);
           }
         },
         onDone: (meta?: unknown) => {
           if (streamCompleted) return;
-          // Finalize run
+          // Apply any score snapshot still waiting on a frame before
+          // finalizing, so the final state can't be overwritten afterwards.
+          flushPendingScore();
+          // Finalize run: status + server meta merged into a single update
+          // (one re-render instead of two).
           if (runId) {
-            store.updateRun(runId, { status: "completed" });
-          }
-          if (runId && meta && typeof meta === "object") {
-            const metaUpdates = serverMetaToRunUpdates(
-              meta as Record<string, unknown>,
-            );
-            if (Object.keys(metaUpdates).length > 0) {
-              store.updateRun(runId, metaUpdates);
-            }
+            const metaUpdates =
+              meta && typeof meta === "object"
+                ? serverMetaToRunUpdates(meta as Record<string, unknown>)
+                : {};
+            store.updateRun(runId, { status: "completed", ...metaUpdates });
           }
           setState((state: any) => ({
             ...state,
@@ -219,6 +247,8 @@ const handleAIResponse = async (
         },
         onError: (err) => {
           console.error(err);
+          // A queued partial snapshot is stale once the stream has failed.
+          discardPendingScore();
           if (runId) {
             store.updateRun(runId, { status: "failed" });
           }
@@ -651,6 +681,22 @@ export const sendPromptsUtil = async (options: {
     const isScoredRun = Boolean(requestBody?.scored_run);
     store.updateRun(run.id, {
       score_expected: isScoredRun,
+      // Seed scoreData with the locally known rubric so the score UI can render
+      // named criterion skeletons immediately on submit, instead of generic
+      // placeholders that get remounted when the first SSE score event arrives.
+      ...(isScoredRun
+        ? {
+            scoreData: {
+              run_score: "",
+              minimum_score: Number(requestBody?.minimum_score) || 0,
+              rubric:
+                typeof requestBody?.rubric === "string"
+                  ? requestBody.rubric
+                  : "",
+              scored_run: true,
+            },
+          }
+        : {}),
       score_explanation: requestBody?.score_explanation ?? undefined,
       score_explanation_mode: requestBody?.score_explanation_mode ?? undefined,
       score_feedback_enabled: requestBody?.score_feedback_enabled ?? undefined,

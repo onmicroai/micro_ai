@@ -1,6 +1,53 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+/**
+ * localStorage wrapper that throttles writes (trailing, max one per second).
+ * Streaming runs call updateRun on every SSE event; persisting synchronously
+ * each time stringifies all conversations on the main thread and competes
+ * with score/markdown animations. Pending writes flush on pagehide so the
+ * latest state is not lost on navigation or tab close.
+ */
+const PERSIST_WRITE_INTERVAL_MS = 1000;
+
+const throttledLocalStorage = (() => {
+  const pending = new Map<string, string>();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+
+  const flush = () => {
+    if (timer !== null) {
+      clearTimeout(timer);
+      timer = null;
+    }
+    pending.forEach((value, key) => {
+      try {
+        localStorage.setItem(key, value);
+      } catch {
+        // Quota/security errors: drop the write, same failure mode as before.
+      }
+    });
+    pending.clear();
+  };
+
+  if (typeof window !== "undefined") {
+    window.addEventListener("pagehide", flush);
+  }
+
+  return {
+    getItem: (key: string) => pending.get(key) ?? localStorage.getItem(key),
+    setItem: (key: string, value: string) => {
+      pending.set(key, value);
+      if (timer === null) {
+        timer = setTimeout(flush, PERSIST_WRITE_INTERVAL_MS);
+      }
+    },
+    removeItem: (key: string) => {
+      pending.delete(key);
+      localStorage.removeItem(key);
+    },
+  };
+})();
+
 // Define the structure of a message
 export interface Message {
   role: "user" | "assistant" | "instruction" | "fixed_response";
@@ -392,7 +439,7 @@ export const useConversationStore = create<ConversationStore>()(
     }),
     {
       name: "conversation-storage",
-      storage: createJSONStorage(() => localStorage),
+      storage: createJSONStorage(() => throttledLocalStorage),
       partialize: (state) => ({
         currentConversation: state.currentConversation,
         conversations: state.conversations,
