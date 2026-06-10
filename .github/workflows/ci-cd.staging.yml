@@ -1,5 +1,5 @@
-# Deploy WEB + FRONTEND to Staging
-name: CI/CD Staging (Prod Server)
+# Build WEB + FRONTEND on master push (pre-production validation)
+name: CI/CD Build Production Images
 
 on:
   push:
@@ -25,92 +25,24 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
+            set -euo pipefail
             cd /home/ubuntu/micro_ai
             git pull origin master
 
-            # Bake staging NEXT_PUBLIC_* vars into the staging image at build time
-            cp -f /opt/secrets/staging.env /home/ubuntu/micro_ai/.env
-            
-            # ensure db is up
-            docker-compose -p backend -f docker-compose.prod.yml up -d db            
-
-  build-frontend:
-    name: Build Frontend
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: prepare
-
-    steps:
-      - name: Build Frontend
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            cd /home/ubuntu/micro_ai
-            docker-compose -p frontend -f docker-compose.prod.yml build --no-cache frontend-staging
-
-  build-web:
-    name: Build Web
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: prepare
-
-    steps:
-      - name: Build Web
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            cd /home/ubuntu/micro_ai
-            docker-compose -p backend -f docker-compose.prod.yml build web-staging
-
-  staging:
-    name: Deploy Staging
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    needs: [build-frontend, build-web]
-
-    steps:
-      - name: Stop Containers
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            if [ -d "/docker/volumes/micro_ai_staging" ]; then
-              cd /docker/volumes/micro_ai_staging
-              docker-compose -p backend -f docker-compose.prod.yml down litellm
-              docker-compose -p backend -f docker-compose.prod.yml down web-staging
-              docker-compose -p backend -f docker-compose.prod.yml down theme-cron
-              docker-compose -p frontend -f docker-compose.prod.yml down frontend-staging
+            if docker inspect db &>/dev/null; then
+              docker start db 2>/dev/null || true
             else
-              echo "Directory /docker/volumes/micro_ai_staging does not exist. Skipping."
+              docker compose -f docker-compose.prod.yml up -d db
             fi
 
-      - name: Rsync Data and Env
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            
-            cd /home/ubuntu/micro_ai
-            rsync -r --delete ./ /docker/volumes/micro_ai_staging
-            
-            cd /docker/volumes/micro_ai_staging
-            cp -f /opt/secrets/staging.env .env
+  build:
+    name: Build Images
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    needs: prepare
 
-      - name: Deploy Backend & Frontend
+    steps:
+      - name: Build web and frontend
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -118,8 +50,6 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /docker/volumes/micro_ai_staging
-            docker-compose -p backend -f docker-compose.prod.yml up -d litellm
-            docker-compose -p backend -f docker-compose.prod.yml up -d web-staging
-            docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
-            docker-compose -p frontend -f docker-compose.prod.yml up -d --force-recreate -V frontend-staging
+            set -euo pipefail
+            cd /home/ubuntu/micro_ai
+            docker compose -f docker-compose.prod.yml build --no-cache web frontend

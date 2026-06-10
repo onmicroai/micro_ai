@@ -1,4 +1,4 @@
-# Deploy WEB + FRONTEND to Production
+# Deploy WEB + FRONTEND + NGINX to Production
 name: PRODUCTION DEPLOY(Prod Server) $$
 
 on:
@@ -8,14 +8,18 @@ concurrency:
   group: ${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  DEPLOY_DIR: /docker/volumes/micro_ai
+  COMPOSE: docker compose -f /docker/volumes/micro_ai/docker-compose.prod.yml -p microai
+
 jobs:
 
-  deploy_cotnainers:
+  deploy:
     name: Deploy Containers
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Stop Containers
+      - name: Stop app containers
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -23,16 +27,16 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            if [ -d "/docker/volumes/micro_ai" ]; then
-              cd /docker/volumes/micro_ai
-              docker-compose -p backend -f docker-compose.prod.yml down theme-cron
-              docker-compose -p backend -f docker-compose.prod.yml down web
-              docker-compose -p frontend -f docker-compose.prod.yml down frontend
+            set -euo pipefail
+            if [ -d "${{ env.DEPLOY_DIR }}" ]; then
+              cd "${{ env.DEPLOY_DIR }}"
+              ${{ env.COMPOSE }} stop theme-cron web frontend nginx 2>/dev/null || true
+              ${{ env.COMPOSE }} rm -f theme-cron web frontend nginx 2>/dev/null || true
             else
-              echo "Directory /docker/volumes/micro_ai does not exist. Skipping."
+              echo "Directory ${{ env.DEPLOY_DIR }} does not exist. Skipping stop."
             fi
 
-      - name: Rsync Data and Env
+      - name: Rsync data and env
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -40,14 +44,21 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            
+            set -euo pipefail
             cd /home/ubuntu/micro_ai
-            rsync -r --delete ./ /docker/volumes/micro_ai
-            
-            cd /docker/volumes/micro_ai
+            rsync -r --delete ./ "${{ env.DEPLOY_DIR }}"
+
+            cd "${{ env.DEPLOY_DIR }}"
             cp -f /opt/secrets/production.env .env
 
-      - name: Build & Deploy Backend & Frontend
+            # Migrate certbot certs from legacy standalone nginx volume if present
+            mkdir -p nginx/certbot/conf nginx/certbot/www
+            if [ -d /docker/volumes/nginx/certbot ] && [ ! -d nginx/certbot/conf/live ]; then
+              echo "Migrating certbot data from /docker/volumes/nginx/certbot..."
+              cp -a /docker/volumes/nginx/certbot/. nginx/certbot/
+            fi
+
+      - name: Stop system nginx
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -55,13 +66,74 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           script: |
-            cd /docker/volumes/micro_ai
-            # Bake production NEXT_PUBLIC_* vars into the production image (separate from staging image)
-            docker-compose -p frontend -f docker-compose.prod.yml build --no-cache frontend
-            docker-compose -p backend -f docker-compose.prod.yml up -d web
-            docker-compose -p backend -f docker-compose.prod.yml up -d theme-cron
-            # -V recreates the anonymous .next volume so stale staging bundles are not reused
-            docker-compose -p frontend -f docker-compose.prod.yml up -d --force-recreate -V frontend
+            set -euo pipefail
+            if systemctl is-active --quiet nginx; then
+              sudo systemctl stop nginx
+              sudo systemctl disable nginx
+            fi
+
+            sleep 2
+            if sudo lsof -i :80; then
+              echo "Port 80 is still in use. Attempting to kill processes..."
+              sudo fuser -k 80/tcp || true
+              sleep 2
+            fi
+
+            # Stop legacy standalone nginx compose project if it exists
+            if [ -f /docker/volumes/nginx/docker-compose.yaml ]; then
+              cd /docker/volumes/nginx
+              docker compose -p nginx down 2>/dev/null || true
+            fi
+
+      - name: Build and deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd "${{ env.DEPLOY_DIR }}"
+            COMPOSE="${{ env.COMPOSE }}"
+
+            $COMPOSE build --no-cache web frontend
+
+            $COMPOSE up -d web
+
+            echo "Waiting for web to become healthy..."
+            WEB_WAIT=180
+            WEB_ELAPSED=0
+            WEB_STATUS=""
+            while [ "$WEB_ELAPSED" -lt "$WEB_WAIT" ]; do
+              WEB_STATUS=$(docker inspect --format='{{.State.Health.Status}}' web 2>/dev/null || echo "missing")
+              WEB_STATE=$(docker inspect --format='{{.State.Status}}' web 2>/dev/null || echo "missing")
+              echo "web: state=${WEB_STATE} health=${WEB_STATUS} (${WEB_ELAPSED}s)"
+
+              if [ "$WEB_STATUS" = "healthy" ]; then
+                break
+              fi
+
+              if [ "$WEB_STATE" = "exited" ] || [ "$WEB_STATE" = "dead" ]; then
+                echo "web container exited — logs:"
+                docker logs web --tail 80
+                exit 1
+              fi
+
+              sleep 5
+              WEB_ELAPSED=$((WEB_ELAPSED + 5))
+            done
+
+            if [ "$WEB_STATUS" != "healthy" ]; then
+              echo "web did not become healthy within ${WEB_WAIT}s — logs:"
+              docker logs web --tail 80
+              exit 1
+            fi
+
+            $COMPOSE up -d theme-cron
+            # -V recreates the anonymous .next volume so stale bundles are not reused
+            $COMPOSE up -d --force-recreate -V frontend
+            $COMPOSE up -d --force-recreate nginx
 
       - name: Clean up disk space
         uses: appleboy/ssh-action@v1.0.3
@@ -72,9 +144,6 @@ jobs:
           port: 22
           script: |
             echo "Cleaning up Docker resources..."
-            # Remove stopped containers
             sudo docker container prune -f
-            # Remove unused images
             sudo docker image prune -a -f
-            # Remove build cache
             sudo docker builder prune -f

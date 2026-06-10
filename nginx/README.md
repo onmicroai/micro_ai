@@ -7,8 +7,8 @@ This uses the `webroot` method and writes updated certificates directly into the
 
 ```bash
 docker run --rm \
-  -v "/docker/volumes/nginx/certbot/conf:/etc/letsencrypt" \
-  -v "/docker/volumes/nginx/certbot/www:/var/www/certbot" \
+  -v "/docker/volumes/micro_ai/nginx/certbot/conf:/etc/letsencrypt" \
+  -v "/docker/volumes/micro_ai/nginx/certbot/www:/var/www/certbot" \
   certbot/certbot renew --webroot -w /var/www/certbot --no-random-sleep-on-renew -v
 ```
 
@@ -17,7 +17,7 @@ docker run --rm \
 After renewal, confirm the certificate was updated:
 
 ```bash
-openssl x509 -noout -dates -in /docker/volumes/nginx/certbot/conf/live/<sitename>/fullchain.pem
+openssl x509 -noout -dates -in /docker/volumes/micro_ai/nginx/certbot/conf/live/<sitename>/fullchain.pem
 ```
 
 You should see an expiration date about 90 days from today.
