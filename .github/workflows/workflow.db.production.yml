@@ -28,20 +28,13 @@ jobs:
             cd /home/ubuntu/micro_ai
             git pull origin master
             
-            # Sync from staging to production
-            sudo rsync -a --delete /docker/volumes/micro_ai_staging/ /home/ubuntu/micro_ai/
-            
-            # Copy environment files
-            cd /home/ubuntu/micro_ai
-            sudo cp -f /opt/secrets/production.env .env
-            
             # Setup force recreate flag
             FORCE_RECREATE=""
             if [ "${{ inputs.force_recreate }}" = "true" ]; then
               FORCE_RECREATE="--force-recreate"
             fi
            
-            docker compose -p microai -f docker-compose.prod.yml up -d $FORCE_RECREATE db
+            docker compose -f docker-compose.prod.yml up -d $FORCE_RECREATE db
             
             # Verify deployment
             docker ps

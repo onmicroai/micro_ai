@@ -9,8 +9,8 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DEPLOY_DIR: /docker/volumes/micro_ai
-  COMPOSE: docker compose -f /docker/volumes/micro_ai/docker-compose.prod.yml -p microai
+  APP_DIR: /home/ubuntu/micro_ai
+  COMPOSE: docker compose -f /home/ubuntu/micro_ai/docker-compose.prod.yml
 
 jobs:
 
@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - name: Stop app containers
+      - name: Pull code
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -28,15 +28,10 @@ jobs:
           port: 22
           script: |
             set -euo pipefail
-            if [ -d "${{ env.DEPLOY_DIR }}" ]; then
-              cd "${{ env.DEPLOY_DIR }}"
-              ${{ env.COMPOSE }} stop theme-cron web frontend nginx 2>/dev/null || true
-              ${{ env.COMPOSE }} rm -f theme-cron web frontend nginx 2>/dev/null || true
-            else
-              echo "Directory ${{ env.DEPLOY_DIR }} does not exist. Skipping stop."
-            fi
+            cd "${{ env.APP_DIR }}"
+            git pull origin master
 
-      - name: Rsync data and env
+      - name: Deploy with rolling recreate
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.SERVER_IP }}
@@ -45,61 +40,12 @@ jobs:
           port: 22
           script: |
             set -euo pipefail
-            cd /home/ubuntu/micro_ai
-            rsync -r --delete ./ "${{ env.DEPLOY_DIR }}"
-
-            cd "${{ env.DEPLOY_DIR }}"
-            cp -f /opt/secrets/production.env .env
-
-            # Migrate certbot certs from legacy standalone nginx volume if present
-            mkdir -p nginx/certbot/conf nginx/certbot/www
-            if [ -d /docker/volumes/nginx/certbot ] && [ ! -d nginx/certbot/conf/live ]; then
-              echo "Migrating certbot data from /docker/volumes/nginx/certbot..."
-              cp -a /docker/volumes/nginx/certbot/. nginx/certbot/
-            fi
-
-      - name: Stop system nginx
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            set -euo pipefail
-            if systemctl is-active --quiet nginx; then
-              sudo systemctl stop nginx
-              sudo systemctl disable nginx
-            fi
-
-            sleep 2
-            if sudo lsof -i :80; then
-              echo "Port 80 is still in use. Attempting to kill processes..."
-              sudo fuser -k 80/tcp || true
-              sleep 2
-            fi
-
-            # Stop legacy standalone nginx compose project if it exists
-            if [ -f /docker/volumes/nginx/docker-compose.yaml ]; then
-              cd /docker/volumes/nginx
-              docker compose -p nginx down 2>/dev/null || true
-            fi
-
-      - name: Build and deploy
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_IP }}
-          username: 'ubuntu'
-          key: ${{ secrets.SSH_PRIVATE_KEY }}
-          port: 22
-          script: |
-            set -euo pipefail
-            cd "${{ env.DEPLOY_DIR }}"
+            cd "${{ env.APP_DIR }}"
             COMPOSE="${{ env.COMPOSE }}"
 
-            $COMPOSE build --no-cache web frontend
-
-            $COMPOSE up -d web
+            # --no-deps: never touch db/litellm during app deploy.
+            # --force-recreate: swap containers without a separate stop/rm step.
+            $COMPOSE up -d --force-recreate --no-deps web
 
             echo "Waiting for web to become healthy..."
             WEB_WAIT=180
@@ -129,11 +75,14 @@ jobs:
               docker logs web --tail 80
               exit 1
             fi
+            echo "web is healthy."
 
-            $COMPOSE up -d theme-cron
+            $COMPOSE up -d --force-recreate --no-deps theme-cron
             # -V recreates the anonymous .next volume so stale bundles are not reused
-            $COMPOSE up -d --force-recreate -V frontend
-            $COMPOSE up -d --force-recreate nginx
+            $COMPOSE up -d --force-recreate --no-deps -V frontend
+            $COMPOSE up -d --force-recreate --no-deps nginx
+
+            echo "--- Deploy successful ---"
 
       - name: Clean up disk space
         uses: appleboy/ssh-action@v1.0.3

@@ -48,7 +48,7 @@ jobs:
           ssh-keyscan -H ${{ secrets.SERVER_IP_DEV }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
           # Download .env file from server (same location as deployment workflow)
-          ssh ubuntu@${{ secrets.SERVER_IP_DEV }} 'if [ -f "/opt/secrets/.env" ]; then cat /opt/secrets/.env; elif [ -f "/docker/volumes/micro_ai/.env" ]; then cat /docker/volumes/micro_ai/.env; else echo "# .env file not found on server"; fi' > ./frontend/.env
+          ssh ubuntu@${{ secrets.SERVER_IP_DEV }} 'if [ -f "/opt/secrets/.env" ]; then cat /opt/secrets/.env; elif [ -f "/home/ubuntu/micro_ai/.env" ]; then cat /home/ubuntu/micro_ai/.env; else echo "# .env file not found on server"; fi' > ./frontend/.env
 
           echo "✅ Downloaded .env file from dev server"
 

@@ -2,7 +2,7 @@
 # via the PRODUCTION DEPLOY workflow. This file is kept for reference only.
 #
 # Certbot renewal paths have moved to:
-#   /docker/volumes/micro_ai/nginx/certbot/conf
-#   /docker/volumes/micro_ai/nginx/certbot/www
+#   /home/ubuntu/micro_ai/nginx/certbot/conf
+#   /home/ubuntu/micro_ai/nginx/certbot/www
 #
 # See nginx/README.md for SSL renewal instructions.
