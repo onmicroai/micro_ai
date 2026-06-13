@@ -145,6 +145,8 @@ services:
         ipv4_address: 172.25.0.20
     env_file:
       - ./.env
+    environment:
+      - INTERNAL_API_URL=http://web:8000
     restart: unless-stopped
     logging:
       driver: json-file

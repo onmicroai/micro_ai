@@ -11,11 +11,22 @@ class MicroAppUserJoinAdmin(admin.ModelAdmin):
     list_per_page = 50  # Show more items per page for better filtering
 
 class MicroappAdmin(admin.ModelAdmin):
-    list_display = ('title', 'privacy', 'ai_model', 'copy_allowed', 'is_archived', 'hash_id')
-    list_filter = ('privacy', 'copy_allowed', 'is_archived', 'ai_model')
+    list_display = ('title', 'privacy', 'is_promoted', 'promo_priority', 'ai_model', 'copy_allowed', 'is_archived', 'hash_id')
+    list_filter = ('privacy', 'is_promoted', 'copy_allowed', 'is_archived', 'ai_model')
     search_fields = ('title', 'explanation', 'hash_id')
-    list_editable = ('privacy', 'copy_allowed', 'is_archived')
-    ordering = ('title',)
+    list_editable = ('privacy', 'is_promoted', 'promo_priority', 'copy_allowed', 'is_archived')
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).order_by_promo_priority()
+
+    def save_model(self, request, obj, form, change):
+        super().save_model(request, obj, form, change)
+        if obj.is_promoted and obj.privacy != Microapp.PUBLIC:
+            from django.contrib import messages
+            messages.warning(
+                request,
+                f'"{obj.title}" is promoted but privacy is not public — it will not appear on the home or library pages.',
+            )
 
 class RunAdmin(admin.ModelAdmin):
     list_display = ('id', 'ma_id', 'user_id', 'ai_model', 'timestamp', 'satisfaction', 'cost', 'credits', 'run_passed')

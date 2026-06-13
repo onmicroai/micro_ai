@@ -18,7 +18,8 @@ from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
     MicroAppSwaggerPostSerializer,
-    MicroAppSwaggerPutSerializer
+    MicroAppSwaggerPutSerializer,
+    PromotedMicroAppSerializer,
 )
 from apps.collection.serializer import CollectionMicroappSerializer
 from apps.utils.usage_helper import MicroAppUsage
@@ -316,6 +317,40 @@ class MicroAppDetailsByHash(APIView, MicroAppMixin):
             return Response(
                 error.MICROAPP_NOT_EXIST,
                 status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return handle_exception(e)
+
+
+@extend_schema_view(
+    get=extend_schema(
+        responses={200: PromotedMicroAppSerializer(many=True)},
+        summary="List promoted public microapps for home and library pages",
+    )
+)
+class PromotedMicroAppsList(APIView):
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        """Return promoted, public, non-archived microapps ordered by priority."""
+        try:
+            qs = Microapp.objects.filter(
+                is_promoted=True,
+                is_archived=False,
+                privacy=Microapp.PUBLIC,
+            ).order_by_promo_priority()
+
+            limit = request.query_params.get('limit')
+            if limit is not None:
+                try:
+                    qs = qs[: max(int(limit), 0)]
+                except ValueError:
+                    pass
+
+            serializer = PromotedMicroAppSerializer(qs, many=True)
+            return Response(
+                {'data': serializer.data, 'status': status.HTTP_200_OK},
+                status=status.HTTP_200_OK,
             )
         except Exception as e:
             return handle_exception(e)

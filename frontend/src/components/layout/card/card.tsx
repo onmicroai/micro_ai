@@ -3,6 +3,7 @@
 import React from 'react';
 import { Icon } from '@iconify/react';
 import Image from 'next/image';
+import { getPromoMonogram } from '@/utils/getPromoMonogram';
 
 interface CardProps {
   title: string;
@@ -12,46 +13,71 @@ interface CardProps {
   appUrl: string;
 }
 
-export default function Card({ title, imageUrl, iconName, description, appUrl }: CardProps) {
+function CardBadge({
+  title,
+  imageUrl,
+  iconName,
+}: Pick<CardProps, 'title' | 'imageUrl' | 'iconName'>) {
+  const badgeClassName =
+    'relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-[#1E293B] to-[#594F7F] ring-1 ring-gray-900/5';
+
+  if (imageUrl) {
+    return (
+      <div className={badgeClassName} aria-hidden="true">
+        <Image src={imageUrl} alt="" fill className="object-cover" sizes="40px" />
+      </div>
+    );
+  }
+
+  if (iconName) {
+    return (
+      <div className={badgeClassName} aria-hidden="true">
+        <Icon icon={iconName} className="h-5 w-5 text-white" />
+      </div>
+    );
+  }
+
   return (
-    <a 
+    <div className={badgeClassName} aria-hidden="true">
+      <span className="text-sm font-semibold tracking-tight text-white">
+        {getPromoMonogram(title)}
+      </span>
+    </div>
+  );
+}
+
+export default function Card({
+  title,
+  imageUrl,
+  iconName,
+  description,
+  appUrl,
+}: CardProps) {
+  return (
+    <a
       href={appUrl}
-      className="block overflow-hidden rounded-lg bg-white shadow hover:shadow-lg transition-shadow"
+      className="group flex h-full flex-col rounded-xl border border-gray-200 bg-white p-6 transition-all hover:-translate-y-0.5 hover:border-gray-300 hover:shadow-md"
     >
-      <div className="relative w-full">
-        <div className="absolute inset-0">
-          {imageUrl ? (
-            <Image 
-              src={imageUrl} 
-              alt={title} 
-              fill
-              className="object-cover"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          ) : iconName && (
-            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-[#1E293B] to-[#594F7F]">
-              <Icon 
-                icon={iconName} 
-                className="w-auto h-[90%] text-white" 
-              />
-            </div>
-          )}
-        </div>
-        <div className="pt-[56.25%]"></div>
+      <div className="flex items-center gap-3">
+        <CardBadge title={title} imageUrl={imageUrl} iconName={iconName} />
+        <h3 className="line-clamp-2 text-base font-semibold text-gray-900">
+          {title}
+        </h3>
       </div>
-      <div className="px-4 py-5 sm:px-6">
-        <h3 className="text-lg font-medium text-gray-900">{title}</h3>
-      </div>
-      <div className="px-4 py-5 sm:p-6">
-        <p className="text-gray-500">{description}</p>
-      </div>
-      <div className="px-4 py-4 sm:px-6">
+
+      <p className="mt-3 line-clamp-3 flex-1 text-sm leading-relaxed text-gray-500">
+        {description}
+      </p>
+
+      <span className="mt-4 inline-flex items-center text-sm font-medium text-indigo-600">
+        Launch App
         <span
-          className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          aria-hidden="true"
+          className="ml-1 transition-transform group-hover:translate-x-0.5"
         >
-          Launch App <span aria-hidden="true">&rarr;</span>
+          &rarr;
         </span>
-      </div>
+      </span>
     </a>
-  )
+  );
 }

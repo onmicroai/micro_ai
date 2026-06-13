@@ -3,6 +3,7 @@
 import Card from '@/components/layout/card/card'
 
 interface CardData {
+  hashId?: string;
   title: string;
   imageUrl?: string;
   iconName?: string;
@@ -31,9 +32,9 @@ export function CardGrid({ cards }: CardGridProps) {
         </div>
     <div className="mt-16 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card, index) => (
+        {cards.map((card) => (
           <Card
-            key={index}
+            key={card.hashId ?? card.appUrl}
             title={card.title}
             iconName={card.iconName}
             imageUrl={card.imageUrl}

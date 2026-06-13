@@ -8,7 +8,12 @@ class MicroAppSerializer(serializers.ModelSerializer):
     class Meta:
         model = Microapp
         fields = '__all__'
-        extra_kwargs = {'is_archived': {'write_only': True}, 'hash_id': {'allow_null': True}} #We allow the hash_id to be null because it is generated when the microapp is created
+        extra_kwargs = {
+            'is_archived': {'write_only': True},
+            'hash_id': {'allow_null': True},
+            'is_promoted': {'read_only': True},
+            'promo_priority': {'read_only': True},
+        }
 
     def update(self, instance, validated_data):
         instance = super().update(instance, validated_data)
@@ -16,6 +21,17 @@ class MicroAppSerializer(serializers.ModelSerializer):
             reconcile_active_rubric_pointer_after_app_json_save(instance.pk)
             instance.refresh_from_db()
         return instance
+
+class PromotedMicroAppSerializer(serializers.ModelSerializer):
+    description = serializers.CharField(source='explanation')
+    app_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Microapp
+        fields = ['hash_id', 'title', 'description', 'app_url']
+
+    def get_app_url(self, obj):
+        return f'/app/{obj.hash_id}'
 
 class MicroAppSwaggerPostSerializer(serializers.ModelSerializer):
     collection_id = serializers.IntegerField(write_only=True, required=False, allow_null=True)

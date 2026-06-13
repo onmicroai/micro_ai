@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Case, F, IntegerField, Value, When
 from pgvector.django import VectorField
 from micro_ai import settings
 import logging as log
@@ -30,6 +31,20 @@ def handle_exception(e):
 
 def handle_functional_exception(e):
     log.error(e)
+
+class MicroappQuerySet(models.QuerySet):
+    PROMO_PRIORITY_UNSET_SORT = 999999
+
+    def order_by_promo_priority(self):
+        """Priority 1 first, then 2, etc. Priority 0 is treated as unset and sorts last."""
+        return self.annotate(
+            _promo_sort=Case(
+                When(promo_priority=0, then=Value(self.PROMO_PRIORITY_UNSET_SORT)),
+                default=F("promo_priority"),
+                output_field=IntegerField(),
+            )
+        ).order_by("_promo_sort", "title")
+
 
 class Microapp(models.Model):
 
@@ -88,6 +103,12 @@ class Microapp(models.Model):
 
     # Add this new field
     is_archived = models.BooleanField(default=False)
+
+    # Shown on home page and public library when true (admin-only; lower promo_priority first, 0 = unset/last)
+    is_promoted = models.BooleanField(default=False)
+    promo_priority = models.PositiveIntegerField(default=0)
+
+    objects = MicroappQuerySet.as_manager()
     
     # A unique hash identifier for the microapp
     # This is automatically generated when the app is created

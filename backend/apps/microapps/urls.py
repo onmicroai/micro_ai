@@ -10,6 +10,7 @@ from .views import (
     PublicMicroApps,
     PublicMicroAppsByHash,
     MicroAppVisibility,
+    PromotedMicroAppsList,
     
     # User views
     UserMicroApps,
@@ -65,6 +66,7 @@ urlpatterns = [
     path('<int:pk>/<int:collection_id>/clone', CloneMicroApp.as_view(), name="clone_microapp"),
     
     # Public access
+    path('public/promoted/', PromotedMicroAppsList.as_view(), name='promoted_microapps'),
     path('public/app/<int:id>', PublicMicroApps.as_view(), name="public_microapps"),
     path('public/hash/<str:hash_id>', PublicMicroAppsByHash.as_view(), name="public_microapps_by_hash"),
     path('visibility/<str:hash_id>', MicroAppVisibility.as_view(), name="app_visibility"),
