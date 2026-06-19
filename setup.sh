@@ -150,6 +150,7 @@ if [[ "$is_prod" =~ ^[Yy]$ ]]; then
     read domain
     if [ -n "$domain" ]; then
         _update_env_key "DOMAIN" "https://$domain"
+        _update_env_key "NGINX_SERVER_NAME" "$domain"
     fi
     _update_env_key "PRODUCTION" "True"
     _update_env_key "DEBUG" "False"

@@ -126,8 +126,15 @@ services:
     ports:
       - "80:80"
       - "443:443"
+    env_file:
+      - ./.env
+    environment:
+      # Only substitute ${NGINX_SERVER_NAME}; leave nginx $host, $uri, etc. untouched
+      - NGINX_ENVSUBST_FILTER=NGINX_SERVER_NAME
+      - NGINX_ENVSUBST_TEMPLATE_SUFFIX=.template
     volumes:
-      - ./nginx/nginx.prod.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx.prod.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./nginx/docker-entrypoint.d/14-set-nginx-server-name.sh:/docker-entrypoint.d/14-set-nginx-server-name.sh:ro
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
       - ./nginx/fallback:/usr/share/nginx/html
