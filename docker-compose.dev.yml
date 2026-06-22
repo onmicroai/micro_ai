@@ -36,7 +36,7 @@ services:
 
   litellm:
     profiles: [app]
-    image: ghcr.io/berriai/litellm-database:main-stable
+    image: ghcr.io/berriai/litellm-database:1.89.3
     container_name: litellm
     ports:
       - "4000:4000"
