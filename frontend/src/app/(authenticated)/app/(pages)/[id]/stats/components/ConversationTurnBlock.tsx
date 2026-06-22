@@ -30,8 +30,11 @@ function userPromptRaw(message: ConversationMessage): string {
 
 function showUserPrompt(message: ConversationMessage) {
   const raw = userPromptRaw(message);
-  if (showScoreGate(message) && raw === ".") return false;
-  return Boolean(raw?.trim());
+  const hasAttachments =
+    Array.isArray(message.user_attachments) &&
+    message.user_attachments.length > 0;
+  if (showScoreGate(message) && raw === "." && !hasAttachments) return false;
+  return Boolean(raw?.trim()) || hasAttachments;
 }
 
 /** Run row that only renders score gate (dummy "." user turn). */
@@ -96,7 +99,11 @@ export function ConversationTurnBlock({
     <div className="flex flex-col gap-5">
       <div className="space-y-4">
         {showUserPrompt(message) ? (
-          <ConversationBubble role="user" text={userPromptRaw(message)} />
+          <ConversationBubble
+            role="user"
+            text={userPromptRaw(message)}
+            attachments={message.user_attachments}
+          />
         ) : null}
         {!gate ? (
           <ConversationBubble role="assistant" text={message.response} />

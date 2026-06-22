@@ -30,6 +30,7 @@ import {
   ElementInstruction,
   Choice,
   HiddenHeaderElement,
+  FileAttachment,
 } from "@/app/(authenticated)/app/types";
 import { useUserStore } from "@/store/userStore";
 import { useSurveyStore } from "../store/editSurveyStore";
@@ -226,6 +227,13 @@ interface FieldProps {
       allowedFileTypes?: string[];
     }
   ) => void;
+  onUpdateTextareaFileUploadSettings?: (
+    fieldId: string,
+    settings: {
+      allowFileUpload?: boolean;
+      multiple?: boolean;
+    }
+  ) => void;
   onUpdateFieldMaxMessages?: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage?: (
     fieldId: string,
@@ -271,6 +279,7 @@ export default function Field({
   onUpdateConditionalLogic,
   onUpdateRichText,
   onUpdateImageUploadSettings,
+  onUpdateTextareaFileUploadSettings,
   onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
@@ -541,6 +550,16 @@ export default function Field({
     setPreviewAnswers((prev) => ({
       ...prev,
       [name]: { value, otherValue },
+    }));
+  };
+
+  const handlePreviewSetFieldAttachments = (
+    name: string,
+    attachments: FileAttachment[]
+  ) => {
+    setPreviewAnswers((prev) => ({
+      ...prev,
+      [name]: { ...prev[name], value: prev[name]?.value ?? "", attachments },
     }));
   };
 
@@ -1489,6 +1508,44 @@ export default function Field({
     return null;
   };
 
+  const renderTextareaFileUploadSection = () => {
+    if (field.type !== "textarea") return null;
+
+    const allowFileUpload = field.allowFileUpload ?? true;
+
+    return (
+      <div className="mt-2 space-y-3">
+        <div className="flex items-center gap-4">
+          <Switch
+            checked={allowFileUpload}
+            onCheckedChange={(checked) => {
+              onUpdateTextareaFileUploadSettings?.(field.id, {
+                allowFileUpload: checked,
+                multiple: checked ? (field.multiple ?? true) : false,
+              });
+            }}
+          />
+          <Label>Allow file uploads</Label>
+        </div>
+
+        {allowFileUpload && (
+          <div className="flex items-center gap-4 pl-1">
+            <Switch
+              checked={field.multiple ?? true}
+              onCheckedChange={(checked) => {
+                onUpdateTextareaFileUploadSettings?.(field.id, {
+                  allowFileUpload: true,
+                  multiple: checked,
+                });
+              }}
+            />
+            <Label>Allow multiple files</Label>
+          </div>
+        )}
+      </div>
+    );
+  };
+
   function renderFieldPreview() {
     const previewAnswersWithDefaults =
       previewAnswers[field.name]?.value !== undefined
@@ -1559,6 +1616,7 @@ export default function Field({
               skipVisibilityCheck={true}
               handleInputChange={handlePreviewInputChange}
               setInputValue={handlePreviewSetInputValue}
+              setFieldAttachments={handlePreviewSetFieldAttachments}
               setImages={() => {}}
               visible={true}
               appId={0}
@@ -1803,6 +1861,7 @@ export default function Field({
                     transition={{ delay: 0.3, duration: 0.3 }}
                   >
                     {renderValidationSection()}
+                    {renderTextareaFileUploadSection()}
                   </motion.div>
                 </motion.div>
               </motion.div>

@@ -1010,6 +1010,10 @@ export default function FormBuilder() {
         voiceInstructions: "",
         avatarUrl: "",
       }),
+      ...(type === "textarea" && {
+        allowFileUpload: true,
+        multiple: true,
+      }),
     };
 
     const updated = [...current];
@@ -1235,6 +1239,10 @@ export default function FormBuilder() {
       case "textarea":
         typeSpecificDefaults.placeholder = "";
         typeSpecificDefaults.defaultValue = "";
+        if (newType === "textarea") {
+          typeSpecificDefaults.allowFileUpload = true;
+          typeSpecificDefaults.multiple = true;
+        }
         break;
     }
 
@@ -1300,6 +1308,16 @@ export default function FormBuilder() {
       maxFiles?: number;
       maxFileSize?: number;
       allowedFileTypes?: string[];
+    }
+  ) => {
+    updateElement(fieldId, settings);
+  };
+
+  const updateTextareaFileUploadSettings = (
+    fieldId: string,
+    settings: {
+      allowFileUpload?: boolean;
+      multiple?: boolean;
     }
   ) => {
     updateElement(fieldId, settings);
@@ -2540,6 +2558,15 @@ export default function FormBuilder() {
                                                       settings
                                                     ) =>
                                                       updateImageUploadSettings(
+                                                        fieldId,
+                                                        settings
+                                                      )
+                                                    }
+                                                    onUpdateTextareaFileUploadSettings={(
+                                                      fieldId,
+                                                      settings
+                                                    ) =>
+                                                      updateTextareaFileUploadSettings(
                                                         fieldId,
                                                         settings
                                                       )

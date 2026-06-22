@@ -22,6 +22,8 @@ import type {
   Prompt,
   handleInputChange,
   setInputValue,
+  setFieldAttachments,
+  FileAttachment,
 } from "@/app/(authenticated)/app/types";
 import {
   AIResponseDisplay,
@@ -204,6 +206,7 @@ export default function CurrentElementFlowV2({
   const setSurveyImages = useSurveyStore((s) => s.setImages);
   const sendPrompts = useSurveyStore((s) => s.sendPrompts);
   const surveySetInputValue = useSurveyStore((s) => s.setInputValue);
+  const surveySetFieldAttachments = useSurveyStore((s) => s.setFieldAttachments);
   const getRunsForTry = useConversationStore((s) => s.getRunsForTry);
   const getLatestRunForStop = useConversationStore(
     (s) => s.getLatestRunForStop,
@@ -485,6 +488,20 @@ export default function CurrentElementFlowV2({
       applyDraftImages(updater);
     },
     [applyDraftImages],
+  );
+
+  const setFieldAttachmentsWithDraft: setFieldAttachments = useCallback(
+    (name, attachments: FileAttachment[]) => {
+      applyDraftAnswers((prev) => {
+        const existing = prev[name] ?? { value: "" };
+        return {
+          ...prev,
+          [name]: { ...existing, attachments },
+        };
+      });
+      surveySetFieldAttachments(name, attachments);
+    },
+    [applyDraftAnswers, surveySetFieldAttachments],
   );
 
   const trimFixedStateFromOriginalIndex = useCallback(
@@ -980,6 +997,7 @@ export default function CurrentElementFlowV2({
                 disabled={isEditingThisField ? false : isLocked}
                 handleInputChange={handleInputChangeWithDraft}
                 setInputValue={setInputValueWithDraft}
+                setFieldAttachments={setFieldAttachmentsWithDraft}
                 setImages={setImagesWithDraft}
                 visible={true}
                 appId={appId}

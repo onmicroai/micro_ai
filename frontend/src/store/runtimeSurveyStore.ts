@@ -11,6 +11,7 @@ import {
   Prompt,
   Base64Images,
   PageConfigOverride,
+  FileAttachment,
 } from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
 import axios from "axios";
@@ -492,6 +493,26 @@ export const useSurveyStore = create<SurveyStore>()(
         set({
           answers: updatedAnswers,
           ...(state.surveyJson?.id ? { answersPerApp: { ...state.answersPerApp, [key]: updatedAnswers } } : {}),
+        });
+      },
+
+      setFieldAttachments: (name: string, attachments: FileAttachment[]) => {
+        const answers = get().answers;
+        const existing = answers[name] ?? { value: "" };
+        const updatedAnswers = {
+          ...answers,
+          [name]: {
+            ...existing,
+            attachments,
+          },
+        };
+        const state = get();
+        const key = `${state.surveyJson?.id || ""}_${state.currentUserId ?? ""}`;
+        set({
+          answers: updatedAnswers,
+          ...(state.surveyJson?.id
+            ? { answersPerApp: { ...state.answersPerApp, [key]: updatedAnswers } }
+            : {}),
         });
       },
 

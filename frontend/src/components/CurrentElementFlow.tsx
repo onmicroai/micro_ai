@@ -106,6 +106,7 @@ export default function CurrentElementFlow({
     setAnswers,
     setImages,
     setInputValue,
+    setFieldAttachments,
     handleInputChange,
     sendPrompts,
   } = useSurveyStore();
@@ -862,6 +863,7 @@ export default function CurrentElementFlow({
                 disabled={isEditingThisField ? false : isLocked}
                 handleInputChange={handleInputChangeWithRetryMark}
                 setInputValue={setInputValueWithRetryMark}
+                setFieldAttachments={setFieldAttachments}
                 setImages={setImages}
                 visible={true}
                 appId={appId}

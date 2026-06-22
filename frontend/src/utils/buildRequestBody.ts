@@ -4,6 +4,11 @@ import {
   Base64Images,
 } from "@/app/(authenticated)/app/types";
 import { useConversationStore } from "@/store/conversationStore";
+import {
+  formatAttachmentsBlock,
+  formatUserAttachmentsMetadata,
+  type FormAttachmentPayload,
+} from "@/utils/gatherFormAttachments";
 
 interface AIConfig {
   aiModel: string;
@@ -40,6 +45,8 @@ interface BuildRequestBodyOptions {
    * the creator did not reference them via placeholders in the prompt.
    */
   formContext?: string;
+  /** File attachments from Long Text fields (text sent to AI, metadata persisted). */
+  formAttachments?: FormAttachmentPayload[];
 }
 
 const getPageConfig = (page: SurveyPage | null): PageConfigOverride => {
@@ -83,6 +90,7 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
     runSource,
     isPreview,
     formContext,
+    formAttachments = [],
   } = options;
 
   const store = useConversationStore.getState();
@@ -120,6 +128,11 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
       content: ".",
     });
   }
+
+  const attachmentBlock = formatAttachmentsBlock(formAttachments);
+  const userMessageText = finalPrompt
+    ? `${finalPrompt}${attachmentBlock}`
+    : attachmentBlock || finalPrompt;
 
   const requestBody: any = {
     model: aiConfig.aiModel,
@@ -167,7 +180,7 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
                 ),
                 {
                   type: "text",
-                  text: finalPrompt,
+                  text: userMessageText,
                 },
               ],
             },
@@ -175,7 +188,7 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
         : [
             {
               role: "user",
-              content: finalPrompt,
+              content: userMessageText,
             },
           ]),
     ],
@@ -249,6 +262,10 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
   requestBody.phase_title = (phaseTitle ?? "").slice(0, 255);
   requestBody.is_chat_run = runSource === "chat";
   requestBody.is_preview = Boolean(isPreview);
+
+  if (formAttachments.length > 0) {
+    requestBody.user_attachments = formatUserAttachmentsMetadata(formAttachments);
+  }
 
   return requestBody;
 };

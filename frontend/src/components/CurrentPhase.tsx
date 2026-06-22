@@ -57,6 +57,7 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
     setElements,
     setErrors,
     setInputValue,
+    setFieldAttachments,
     handleInputChange,
     setPrompt,
     setAiInstructions,
@@ -277,6 +278,7 @@ const CurrentPhase: React.FC<CurrentPhaseProps> = ({
                 disabled={false}
                 handleInputChange={handleInputChange}
                 setInputValue={setInputValue}
+                setFieldAttachments={setFieldAttachments}
                 setImages={setImages}
                 visible={isVisible}
                 appId={appId}

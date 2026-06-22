@@ -3,6 +3,7 @@ import React from "react";
 import {
   setInputValue,
   handleInputChange,
+  setFieldAttachments,
 } from "@/app/(authenticated)/app/types";
 import { questionType } from "../app/(authenticated)/app/constants";
 
@@ -27,6 +28,7 @@ interface RenderElementProps {
   element: Element;
   answers: Record<string, any>;
   setInputValue: setInputValue;
+  setFieldAttachments: setFieldAttachments;
   setImages: (updater: (prev: Base64Images) => Base64Images) => void;
   handleInputChange: handleInputChange;
   visible: boolean;
@@ -48,6 +50,7 @@ const RenderQuestion = ({
   element,
   answers,
   setInputValue,
+  setFieldAttachments,
   setImages,
   handleInputChange,
   visible,
@@ -86,6 +89,7 @@ const RenderQuestion = ({
           element={element}
           answers={answers}
           handleInputChange={handleInputChange}
+          setFieldAttachments={setFieldAttachments}
           errors={errors}
           disabled={disabled}
           skipVisibilityCheck={skipVisibilityCheck}

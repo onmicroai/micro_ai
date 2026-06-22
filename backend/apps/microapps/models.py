@@ -272,6 +272,9 @@ class Run(models.Model):
 
     user_prompt = models.JSONField()
 
+    # Filename metadata for Long Text field file attachments (no document body).
+    user_attachments = models.JSONField(default=list, blank=True)
+
     # Exact messages array sent to the LLM (after model formatting and RAG injection).
     api_messages = models.JSONField(default=list, blank=True)
 

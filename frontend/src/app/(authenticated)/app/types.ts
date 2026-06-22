@@ -5,9 +5,21 @@ export type Answers = {
   [key: string]: AnswerValue;
 };
 
+export type FileAttachmentStatus = "parsing" | "ready" | "error";
+
+export type FileAttachment = {
+  id: string;
+  filename: string;
+  text: string;
+  wordCount?: number;
+  size?: number;
+  status?: FileAttachmentStatus;
+};
+
 export type AnswerValue = {
   value: string | string[];
   otherValue?: string;
+  attachments?: FileAttachment[];
 };
 
 export type Base64Images = {
@@ -39,6 +51,11 @@ export type setInputValue = (
 
 export type handleInputChange = (
   e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+) => void;
+
+export type setFieldAttachments = (
+  name: string,
+  attachments: FileAttachment[]
 ) => void;
 
 export type PageConfigOverride = {
@@ -114,6 +131,7 @@ export interface SurveyStore {
   setLoading: (loading: boolean) => void;
   setPromptLoading: (loading: boolean) => void;
   setInputValue: setInputValue;
+  setFieldAttachments: setFieldAttachments;
   handleInputChange: handleInputChange;
   sendPrompts: sendPrompts;
   setElements: (elements: Element[] | null) => void;
@@ -264,6 +282,8 @@ export interface Element {
   // Text input specific
   minChars?: number;
   maxChars?: number;
+  /** Long Text: allow document uploads alongside typed text */
+  allowFileUpload?: boolean;
 
   // Choice-based fields (radio, checkbox, dropdown)
   choices?: Choice[];

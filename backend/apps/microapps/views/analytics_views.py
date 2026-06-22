@@ -559,6 +559,7 @@ class AppConversationDetails(APIView):
                 'phase_title',
                 'is_chat_run',
                 'user_prompt',
+                'user_attachments',
                 'response',
                 'credits',
                 'minimum_score',

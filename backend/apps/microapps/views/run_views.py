@@ -256,6 +256,7 @@ class RunList(APIView, UsageTrackingMixin):
                 "is_preview": bool(data.get("is_preview", False)),
                 "rubric_version": active_rv_pk,
                 "user_prompt": data.get("user_prompt", {}),
+                "user_attachments": data.get("user_attachments", []),
                 "app_hash_id": app_hash_id,
                 "response_type": self.response_type,
                 "run_uuid": data.get("run_uuid"),

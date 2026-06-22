@@ -19,6 +19,7 @@ import {
 import delay from "./delay";
 import { buildRequestBody, getPageConfig } from "@/utils/buildRequestBody";
 import { buildFormContext } from "@/utils/buildFormContext";
+import { gatherFormAttachments } from "@/utils/gatherFormAttachments";
 import { streamRun, type ScoreData } from "@/utils/streamRun";
 import { formatApiErrorPayload, mapKnownErrorText } from "@/utils/apiErrorMessage";
 
@@ -588,6 +589,7 @@ export const sendPromptsUtil = async (options: {
     appConfig?.phases?.flatMap((p) => p.elements) ??
     [];
   const formContext = buildFormContext(allElements, answers);
+  const formAttachments = gatherFormAttachments(allElements, answers);
 
   //Create a run with current settings and 'pending' status
   //Creating a run will automatically add it to the conversation, if it exists. Or, it will create a new one if it doesn't.
@@ -675,6 +677,7 @@ export const sendPromptsUtil = async (options: {
     runSource,
     isPreview,
     formContext,
+    formAttachments,
   });
   requestBody.run_try_id = runtimeMeta?.tryId;
   if (run?.id) {

@@ -1,5 +1,11 @@
 import { format } from "date-fns";
 
+export type UserAttachmentRecord = {
+  filename: string;
+  word_count?: number;
+  field_name?: string;
+};
+
 export type ConversationMessage = {
   timestamp: string;
   user_id?: number | null;
@@ -13,6 +19,8 @@ export type ConversationMessage = {
   is_chat_run?: boolean;
   /** Final user prompt / chat line (JSONField) */
   user_prompt: unknown;
+  /** Long Text field attachment metadata (filenames only) */
+  user_attachments?: UserAttachmentRecord[];
   response: string;
   rubric: string;
   scored_run?: boolean;

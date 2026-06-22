@@ -627,7 +627,6 @@ class FileEmbeddingStatusView(APIView, MicroAppMixin):
 class ParseFile(APIView, FileProcessingMixin):
     """Return raw text from an uploaded document without persisting it anywhere."""
     permission_classes = [IsAuthenticated]
-    MAX_CHARS = 20_000
 
     def post(self, request, format=None):
         """Parse uploaded file and return text content."""
@@ -652,16 +651,6 @@ class ParseFile(APIView, FileProcessingMixin):
                 try:
                     processor = DocumentProcessor()
                     parsed_content = processor.extract_text(temp_file.name)
-
-                    # Enforce 20 000-character cap
-                    if len(parsed_content) > self.MAX_CHARS:
-                        return Response(
-                            {
-                                "error": f"Parsed content exceeds {self.MAX_CHARS:,} character limit.",
-                                "status": status.HTTP_400_BAD_REQUEST,
-                            },
-                            status=status.HTTP_400_BAD_REQUEST,
-                        )
 
                     # Basic word count (re-using helper logic)
                     word_count = self.count_words(parsed_content)

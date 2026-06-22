@@ -213,6 +213,7 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
               disabled={true}
               handleInputChange={handleInputChange}
               setInputValue={setInputValue}
+              setFieldAttachments={() => {}}
               setImages={setImages}
               visible={isVisible}
               appId={surveyJson?.id || 0}

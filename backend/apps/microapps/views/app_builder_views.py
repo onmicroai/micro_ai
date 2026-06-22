@@ -247,16 +247,25 @@ All element types:
 }
 Additional fields: minChars, maxChars
 
-### textarea — Multi-line text input
+### textarea — Multi-line text input (typed text + optional document uploads)
+Learners type free-form text and may optionally attach one or more documents (PDF, Word, etc.). Typed text and file content are kept separate: {name} placeholders inject only the typed text; uploaded document text is sent to the AI automatically when the learner submits.
+
 {
   "id": "textarea-1700000000002",
   "name": "essay_text",
   "type": "textarea",
   "label": "Paste your essay here:",
   "isRequired": true,
-  "placeholder": "Enter text..."
+  "placeholder": "Enter text...",
+  "allowFileUpload": true,
+  "multiple": true
 }
-Additional fields: minChars, maxChars
+Additional fields:
+- minChars, maxChars (optional): Character length validation on typed text only
+- allowFileUpload (boolean, optional, default true): Whether learners can attach documents alongside typed text. Set false for typed-text-only fields.
+- multiple (boolean, optional, default true when allowFileUpload is true): Whether learners can attach more than one file. When false, a new upload replaces the previous file.
+
+Use textarea (not text) when learners may paste long responses or upload documents for AI review. Use imageUpload only for images sent as vision input, not for document text extraction.
 
 ### radio — Single-choice selection
 {
@@ -405,6 +414,8 @@ Field notes:
 This triggers an AI call and displays the response. The instructions array defines what gets sent.
 User-provided values are injected using {field_name} placeholders.
 
+For textarea fields: {field_name} injects only the learner's typed text. If the learner attached documents to that field, the full extracted document text is included automatically in the AI request — do not duplicate file content in instructions. Reference the field by name (e.g. "Review the learner's submission below:\\n\\n{essay_text}") and rely on automatic attachment delivery for uploaded files.
+
 {
   "id": "aiResponse-1700000000012",
   "name": "aiResponse1",
@@ -543,6 +554,8 @@ Apps are rarely a single "type" — they commonly combine capabilities (e.g., an
 
 **Collect structured input** → text, textarea, radio, checkbox, dropdown, slider, boolean, imageUpload
 Use these when the learner needs to provide information, make a choice, or upload content.
+- **textarea**: Long typed responses plus optional document uploads (PDF, Word, etc.). Set `allowFileUpload: true` and `multiple: true` when learners may attach one or more files; set `allowFileUpload: false` for typed text only. Prefer textarea over text when content may be long or include uploaded documents.
+- **imageUpload**: Images only (vision/multimodal input), not document text extraction.
 
 **Display instructions, context, or a passage** → richText (static HTML), title (section heading), fixedResponse (static text with variable injection)
 Use richText or title to orient the learner before an action. Use fixedResponse to echo back user values in a confirmation or summary.
