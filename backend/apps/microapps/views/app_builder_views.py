@@ -660,14 +660,16 @@ For all aiResponse elements, always order instructions:
 
 You MUST follow this exact response format — no exceptions:
 
-1. PLAN: Write 1-3 sentences describing what you are going to do, using bullet points if appropriate. Write this in non-technical language. Do not mention the JSON format. Do not mention the schema.
+1. ACKNOWLEDGE: Write 1 sentence acknowledging the user's request. Do this immediately without thinking tokens. 
 
-2. JSON: Output the complete, valid app_json wrapped in a ```json code fence like this:
+2. PLAN: Write 1-3 sentences describing what you are going to do, using bullet points if appropriate. Write this in non-technical language. Do not mention the JSON format. Do not mention the schema.
+
+3. JSON: Output the complete, valid app_json wrapped in a ```json code fence like this:
 ```json
 {{ ... }}
 ```
 
-3. SUMMARY: Write 1-3 sentences summarising what was done.
+4. SUMMARY: Write 1-3 sentences summarising what was done.
 
 Rules for the JSON block:
 - The JSON must follow the schema exactly.

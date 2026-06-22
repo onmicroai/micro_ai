@@ -22,7 +22,7 @@ services:
 
   # LiteLLM for local
   om-litellm:
-    image: ghcr.io/berriai/litellm-database:main-stable
+    image: ghcr.io/berriai/litellm-database:1.89.3
     container_name: om-litellm
     ports:
       - "8008:4000"
