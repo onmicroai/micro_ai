@@ -22,7 +22,7 @@ from django.conf import settings
 from pylti1p3.tool_config import ToolConfDict
 from pathlib import Path
 from django.http import HttpResponseRedirect
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from django.contrib.auth import get_user_model
 from apps.microapps.models import Microapp, MicroAppUserJoin
 
@@ -198,6 +198,61 @@ def get_jwks(request):
     return JsonResponse(tool_conf.get_jwks(), safe=False)
 
 
+def canvas_config(request):
+    """
+    Returns the LTI 1.3 (LTI Advantage) tool configuration JSON used to create a
+    Canvas Developer Key. A Canvas admin can paste the URL of this endpoint (or
+    its JSON) into the "LTI Advantage Services" Developer Key form. It declares
+    the OIDC/launch/JWKS endpoints, the AGS scopes needed for grade passback, and
+    deep-linking placements so instructors can insert OnMicro apps from within
+    Canvas (Rich Content Editor, assignment, and module/link pickers).
+    """
+    login_url = request.build_absolute_uri(reverse('app-login'))
+    launch_url = request.build_absolute_uri(reverse('app-launch'))
+    jwks_url = request.build_absolute_uri(reverse('app-jwks'))
+
+    # Canvas matches a tool by its domain; derive it from the configured domain.
+    domain = urlparse(settings.DOMAIN).netloc or settings.DOMAIN
+
+    deep_linking_placements = ['link_selection', 'assignment_selection', 'editor_button']
+    placements = [
+        {
+            'placement': placement,
+            'message_type': 'LtiDeepLinkingRequest',
+            'target_link_uri': launch_url,
+        }
+        for placement in deep_linking_placements
+    ]
+
+    config = {
+        'title': 'OnMicro.AI',
+        'description': 'Insert OnMicro.AI apps into your course.',
+        'oidc_initiation_url': login_url,
+        'target_link_uri': launch_url,
+        'public_jwk_url': jwks_url,
+        'scopes': [
+            'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+            'https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly',
+            'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+        ],
+        'extensions': [
+            {
+                'domain': domain,
+                'platform': 'canvas.instructure.com',
+                # "public" so the launch includes the user's email, which is used
+                # to match the instructor to their OnMicro account in the picker.
+                'privacy_level': 'public',
+                'settings': {
+                    'placements': placements,
+                },
+            }
+        ],
+        'custom_fields': {},
+    }
+
+    return JsonResponse(config)
+
+
 def deep_link_picker(request):
     """
     Content picker page for LTI Deep Linking.
@@ -293,6 +348,14 @@ def deep_link_select(request):
     resource.set_url(launch_url)
     resource.set_title(microapp.title)
     resource.set_custom_params({'microapp_hash_id': microapp.hash_id})
+
+    # Attach a line item so the LMS (e.g. Canvas) creates a gradable column
+    # tied to this resource. Score passback in score() uses the same maximum.
+    line_item = LineItem()
+    line_item.set_score_maximum(1)\
+        .set_label(microapp.title)\
+        .set_tag('score')
+    resource.set_lineitem(line_item)
 
     # Generate the auto-submitting form that posts back to the LMS
     html = message_launch.get_deep_link().output_response_form([resource])

@@ -1,4 +1,17 @@
+from urllib.parse import urlparse
+
 from django.utils.deprecation import MiddlewareMixin
+
+
+# LMS origins that are always allowed to embed LTI content. Canvas is matched
+# with a wildcard since institutions are hosted on per-tenant subdomains
+# (e.g. school.instructure.com), and beta/test hosts use *.instructure.com too.
+STATIC_FRAME_ANCESTORS = [
+    "'self'",
+    "https://*.instructure.com",
+    "https://curricu.me",
+    "https://sumac.curricu.me",
+]
 
 
 class LTIFrameMiddleware(MiddlewareMixin):
@@ -21,11 +34,38 @@ class LTIFrameMiddleware(MiddlewareMixin):
                 del response['X-Frame-Options']
             
             # Set CSP to allow embedding from LTI consumer domains
-            response['Content-Security-Policy'] = (
-                "frame-ancestors 'self' https://curricu.me https://sumac.curricu.me"
-            )
+            ancestors = ' '.join(self._frame_ancestors())
+            response['Content-Security-Policy'] = f"frame-ancestors {ancestors}"
         
         return response
+
+    def _frame_ancestors(self):
+        """
+        Build the list of allowed frame-ancestors: the static LMS origins plus
+        the origin of every registered LTI platform (issuer), so that any
+        configured consumer (e.g. a Canvas instance) can embed the tool.
+        """
+        ancestors = list(STATIC_FRAME_ANCESTORS)
+        try:
+            from .models import LTIConfig
+            issuers = LTIConfig.objects.values_list('issuer', flat=True).distinct()
+            for issuer in issuers:
+                origin = self._issuer_origin(issuer)
+                if origin and origin not in ancestors:
+                    ancestors.append(origin)
+        except Exception:
+            # Never let header construction break the response.
+            pass
+        return ancestors
+
+    @staticmethod
+    def _issuer_origin(issuer):
+        if not issuer:
+            return None
+        parsed = urlparse(issuer)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}"
+        return None
     
     def _is_lti_context(self, request):
         """
