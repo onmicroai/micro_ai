@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import pprint
 import jwt as pyjwt
@@ -9,18 +10,22 @@ from django.shortcuts import render
 from django.utils.html import escape
 from django.views.decorators.http import require_POST
 from django.urls import reverse
-from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch, DjangoCacheDataStorage
+from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
 from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
+from pylti1p3.tool_config import ToolConfDict
 import secrets
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect
 from .models import LTIConfig
-from django.conf import settings
-from pylti1p3.tool_config import ToolConfDict
+from .pylti_helpers import (
+    LTIDjangoCookieService,
+    get_launch_data_storage,
+    lti_request,
+)
 from pathlib import Path
 from django.http import HttpResponseRedirect
 from urllib.parse import urlencode, urlparse
@@ -28,6 +33,7 @@ from django.contrib.auth import get_user_model
 from apps.microapps.models import Microapp, MicroAppUserJoin
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -41,6 +47,17 @@ class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
     def _generate_nonce(self) -> str:
         return secrets.token_hex(32)
 
+    def __init__(self, request, tool_config, launch_data_storage=None, **kwargs):
+        django_request = lti_request(request)
+        cookie_service = LTIDjangoCookieService(django_request)
+        super().__init__(
+            request,
+            tool_config,
+            cookie_service=cookie_service,
+            launch_data_storage=launch_data_storage,
+            **kwargs,
+        )
+
 class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
     """
     Extended LTI Message Launch with clock skew tolerance.
@@ -53,9 +70,37 @@ class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
         Initialize with clock skew tolerance for JWT validation.
         Accepts all parent class arguments including session_service, cookie_service, etc.
         """
+        django_request = lti_request(request, post_only=True)
+        cookie_service = LTIDjangoCookieService(django_request)
         # Set JWT leeway before calling parent __init__
         self._jwt_leeway = 60  # 60 seconds of clock skew tolerance
-        super().__init__(request, tool_config, launch_data_storage=launch_data_storage, **kwargs)
+        super().__init__(
+            request,
+            tool_config,
+            cookie_service=cookie_service,
+            launch_data_storage=launch_data_storage,
+            **kwargs,
+        )
+
+    @classmethod
+    def from_cache(
+        cls,
+        launch_id,
+        request,
+        tool_config,
+        launch_data_storage=None,
+        **kwargs,
+    ):
+        django_request = lti_request(request, post_only=True)
+        cookie_service = LTIDjangoCookieService(django_request)
+        return super().from_cache(
+            launch_id,
+            request,
+            tool_config,
+            cookie_service=cookie_service,
+            launch_data_storage=launch_data_storage,
+            **kwargs,
+        )
     
     def _get_jwt(self, jwt_str):
         """
@@ -130,8 +175,20 @@ def get_jwk_from_public_key(key_name):
     f.close()
     return jwk
 
-def get_launch_data_storage():
-    return DjangoCacheDataStorage()
+
+def _lti_cookie_debug_context(request):
+    lti_cookies = {
+        key: value
+        for key, value in request.COOKIES.items()
+        if key.startswith('lti1p3-')
+    }
+    return {
+        'is_secure': request.is_secure(),
+        'x_forwarded_proto': request.META.get('HTTP_X_FORWARDED_PROTO'),
+        'lti_cross_site_cookies': getattr(settings, 'LTI_CROSS_SITE_COOKIES', False),
+        'lti_cookies': lti_cookies,
+        'has_session_id': 'lti1p3-session-id' in request.COOKIES,
+    }
 
 
 def build_deep_link_response_html(deep_link, resources, return_url):
@@ -183,9 +240,11 @@ def login(request):
     launch_data_storage = get_launch_data_storage()
     oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
     target_link_uri = get_launch_url(request)
-    return oidc_login\
-        .disable_check_cookies()\
-        .redirect(target_link_uri)
+    return oidc_login.enable_check_cookies(
+        main_msg='Your browser is blocking cookies required for this app inside Canvas.',
+        click_msg='Click here to open OnMicro in a new tab.',
+        loading_msg='Loading…',
+    ).redirect(target_link_uri)
 
 @csrf_exempt
 @require_POST
@@ -227,10 +286,26 @@ def launch(request):
 
     except Exception as e:
       import traceback
+      cookie_ctx = _lti_cookie_debug_context(request)
+      logger.error(
+          'LTI launch failed: %s | cookie_context=%s',
+          e,
+          cookie_ctx,
+          exc_info=True,
+      )
       print("LTI Launch Error:")
       print(traceback.format_exc())
       print(f"Request data: {request.POST}")
       print(f"Request headers: {request.headers}")
+      print(f"LTI cookie context: {cookie_ctx}")
+      if 'session-id' in str(e).lower():
+          return HttpResponse(
+              'LTI Launch Error: session cookie missing. '
+              'If you use strict privacy settings or Brave Shields, allow cookies for '
+              'dev.onmicro.ai and reload. '
+              f'Debug: {cookie_ctx}',
+              status=500,
+          )
       return HttpResponse(f"LTI Launch Error: {str(e)}", status=500)
 
 def get_jwks(request):
