@@ -6,6 +6,7 @@ import jwt as pyjwt
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render
+from django.utils.html import escape
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch, DjangoCacheDataStorage
@@ -131,6 +132,32 @@ def get_jwk_from_public_key(key_name):
 
 def get_launch_data_storage():
     return DjangoCacheDataStorage()
+
+
+def build_deep_link_response_html(deep_link, resources, return_url):
+    """
+    Build an auto-submitting form that POSTs the deep-link JWT back to the LMS.
+
+    pylti1p3's output_response_form() omits target="_top". When the picker runs
+    inside a cross-site iframe (Canvas embedding dev.onmicro.ai), a default form
+    submit is treated as a third-party request and the LMS session cookie is not
+    sent — Canvas then redirects to /login. Submitting with target="_top" posts
+    from the top-level Canvas window so the session is included.
+    """
+    if not return_url:
+        raise ValueError('Missing deep_link_return_url in launch data')
+
+    jwt_val = deep_link.get_response_jwt(resources)
+    safe_url = escape(return_url)
+    safe_jwt = escape(jwt_val)
+    return (
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Returning to your course</title></head>'
+        '<body><p>Inserting your app&hellip;</p>'
+        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_top">'
+        f'<input type="hidden" name="JWT" value="{safe_jwt}" /></form>'
+        '<script type="text/javascript">document.getElementById("lti13_deep_link_auto_submit").submit();</script>'
+        '</body></html>'
+    )
 
 
 def get_launch_url(request):
@@ -363,8 +390,15 @@ def deep_link_select(request):
         .set_tag('score')
     resource.set_lineitem(line_item)
 
-    # Generate the auto-submitting form that posts back to the LMS
-    html = message_launch.get_deep_link().output_response_form([resource])
+    ld = message_launch.get_launch_data()
+    dl_settings = ld.get('https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings', {})
+    return_url = dl_settings.get('deep_link_return_url')
+    if not return_url:
+        return HttpResponse('Missing deep link return URL in launch data.', status=400)
+
+    # POST the signed deep-link response back to Canvas at the top window so
+    # the LMS session cookie is sent (see build_deep_link_response_html).
+    html = build_deep_link_response_html(message_launch.get_deep_link(), [resource], return_url)
 
     return HttpResponse(html)
 
