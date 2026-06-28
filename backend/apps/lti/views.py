@@ -164,10 +164,12 @@ def launch(request):
       pprint.pprint(ld)
       lid = message_launch.get_launch_id()
 
-      # Deep Link launch: redirect instructor to content picker
+      # Deep Link launch: redirect instructor to content picker.
+      # Pass launch_id in the URL — Django sessions are scoped to /admin/ only
+      # (SESSION_COOKIE_PATH), so a session key would not survive this redirect.
       if message_launch.is_deep_link_launch():
-          request.session['deep_link_launch_id'] = lid
-          return redirect(reverse('app-deep-link-picker'))
+          picker_url = f"{reverse('app-deep-link-picker')}?launch_id={lid}"
+          return redirect(picker_url)
 
       # Regular resource launch
       iss = message_launch.get_iss()
@@ -262,7 +264,7 @@ def deep_link_picker(request):
     Content picker page for LTI Deep Linking.
     Shows the instructor's microapps so they can select one to link in the LMS.
     """
-    launch_id = request.session.get('deep_link_launch_id')
+    launch_id = request.GET.get('launch_id')
     if not launch_id:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
@@ -321,7 +323,7 @@ def deep_link_select(request):
     """
     Handles the instructor's microapp selection and sends the Deep Link response back to the LMS.
     """
-    launch_id = request.session.get('deep_link_launch_id')
+    launch_id = request.POST.get('launch_id')
     microapp_hash_id = request.POST.get('microapp_hash_id')
 
     if not launch_id or not microapp_hash_id:
@@ -363,9 +365,6 @@ def deep_link_select(request):
 
     # Generate the auto-submitting form that posts back to the LMS
     html = message_launch.get_deep_link().output_response_form([resource])
-
-    # Clean up the session
-    del request.session['deep_link_launch_id']
 
     return HttpResponse(html)
 
