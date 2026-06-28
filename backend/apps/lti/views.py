@@ -138,11 +138,18 @@ def build_deep_link_response_html(deep_link, resources, return_url):
     """
     Build an auto-submitting form that POSTs the deep-link JWT back to the LMS.
 
-    pylti1p3's output_response_form() omits target="_top". When the picker runs
-    inside a cross-site iframe (Canvas embedding dev.onmicro.ai), a default form
-    submit is treated as a third-party request and the LMS session cookie is not
-    sent — Canvas then redirects to /login. Submitting with target="_top" posts
-    from the top-level Canvas window so the session is included.
+    pylti1p3's output_response_form() submits inside the tool iframe with no
+    target. That is a cross-site POST, so Canvas session cookies are not sent
+    and Canvas redirects to /login.
+
+    target="_top" sends cookies but replaces the entire Canvas page with the
+    deep_linking_response view. Canvas then postMessages the result to its
+    parent frame to close the modal and insert content — but there is no parent
+    after a top-level navigation, so the UI hangs on "retrieving content".
+
+    target="_parent" POSTs into the Canvas frame that embeds the tool (same
+    origin as the return URL), so session cookies are sent AND the response page
+    can postMessage back to the assignment editor above it.
     """
     if not return_url:
         raise ValueError('Missing deep_link_return_url in launch data')
@@ -153,7 +160,7 @@ def build_deep_link_response_html(deep_link, resources, return_url):
     return (
         '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Returning to your course</title></head>'
         '<body><p>Inserting your app&hellip;</p>'
-        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_top">'
+        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_parent">'
         f'<input type="hidden" name="JWT" value="{safe_jwt}" /></form>'
         '<script type="text/javascript">document.getElementById("lti13_deep_link_auto_submit").submit();</script>'
         '</body></html>'
