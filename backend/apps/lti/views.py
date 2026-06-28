@@ -367,6 +367,26 @@ def canvas_config(request):
     return JsonResponse(config)
 
 
+def _restore_message_launch_from_cache(request, launch_id, tool_conf):
+    launch_data_storage = get_launch_data_storage()
+    try:
+        return ExtendedDjangoMessageLaunch.from_cache(
+            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
+        )
+    except Exception as e:
+        logger.exception(
+            'LTI from_cache failed launch_id=%s cookie_context=%s',
+            launch_id,
+            _lti_cookie_debug_context(request),
+        )
+        if settings.DEBUG:
+            raise RuntimeError(
+                f'Deep link restore failed: {e}. '
+                'Confirm micro_ai_django_cache exists (manage.py createcachetable).'
+            ) from e
+        raise
+
+
 def deep_link_picker(request):
     """
     Content picker page for LTI Deep Linking.
@@ -377,12 +397,11 @@ def deep_link_picker(request):
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
     tool_conf = get_tool_conf(request)
-    launch_data_storage = get_launch_data_storage()
 
     try:
-        message_launch = ExtendedDjangoMessageLaunch.from_cache(
-            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
-        )
+        message_launch = _restore_message_launch_from_cache(request, launch_id, tool_conf)
+    except RuntimeError as e:
+        return HttpResponse(str(e), status=400)
     except Exception:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
@@ -438,12 +457,11 @@ def deep_link_select(request):
         return HttpResponse('Invalid request. Please try again from your LMS.', status=400)
 
     tool_conf = get_tool_conf(request)
-    launch_data_storage = get_launch_data_storage()
 
     try:
-        message_launch = ExtendedDjangoMessageLaunch.from_cache(
-            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
-        )
+        message_launch = _restore_message_launch_from_cache(request, launch_id, tool_conf)
+    except RuntimeError as e:
+        return HttpResponse(str(e), status=400)
     except Exception:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 

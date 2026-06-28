@@ -28,9 +28,11 @@ class LTIDjangoCookieService(DjangoCookieService):
 
 class LTIDjangoCacheDataStorage(DjangoCacheDataStorage):
     def get_session_cookie_name(self):
-        if getattr(settings, 'LTI_CROSS_SITE_COOKIES', False):
-            return self._session_cookie_name
-        return super().get_session_cookie_name()
+        # Store launch state keyed by launch_id only (no lti1p3-session-id prefix).
+        # pylti1p3 documents this as the HTTPS iframe fallback when session cookies
+        # are unreliable; launch_id is an unguessable UUID. OIDC state/nonce still
+        # use their own short-lived lti1p3-state-* cookies on /lti/login/ + /launch/.
+        return None
 
 
 def lti_request(request, post_only=False):
