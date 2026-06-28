@@ -386,6 +386,14 @@ PRODUCTION = env.bool('PRODUCTION', default=False)
 is_production = PRODUCTION
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
+# Trust the X-Forwarded-Proto header set by the nginx reverse proxy so that
+# request.is_secure() returns True behind TLS termination. This is required for
+# LTI: pylti1p3 only marks its state/nonce cookies "Secure; SameSite=None" (and
+# therefore sendable inside a cross-site LMS iframe) when request.is_secure() is
+# True. nginx always sets this header to the real scheme, overriding any client
+# value, so trusting it here is safe. (Also declared in settings_production.py.)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 # SameSite cookie configuration for production vs development
 SAMESITE_SETTING = 'None' if is_production else 'Lax'
 
