@@ -140,7 +140,11 @@ def get_launch_url(request):
     return target_link_uri
 
 
+@csrf_exempt
 def login(request):
+    # Canvas sends the OIDC login initiation as a cross-origin POST, so this
+    # endpoint must be exempt from CSRF Origin checking (like launch/select).
+    # Open edX uses GET here, which is why it worked without the decorator.
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
     oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
