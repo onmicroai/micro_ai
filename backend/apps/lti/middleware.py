@@ -11,6 +11,7 @@ STATIC_FRAME_ANCESTORS = [
     "https://*.instructure.com",
     "https://curricu.me",
     "https://sumac.curricu.me",
+    "https://canvas.curricu.me",
 ]
 
 
@@ -21,22 +22,25 @@ class LTIFrameMiddleware(MiddlewareMixin):
     """
     
     def process_response(self, request, response):
-        # Only process API and LTI requests
-        if not (request.path.startswith('/api/') or request.path.startswith('/lti/')):
+        # LTI tool endpoints are always loaded inside an LMS iframe.
+        # API routes only get relaxed frame headers when the request carries
+        # LTI context (e.g. lid on the embed page calling /lti/api/score/...).
+        is_lti_path = request.path.startswith('/lti/')
+        is_lti_context = is_lti_path or (
+            request.path.startswith('/api/') and self._is_lti_context(request)
+        )
+
+        if not is_lti_context:
             return response
-        
-        # Check if this is an LTI context
-        is_lti_context = self._is_lti_context(request)
-        
-        if is_lti_context:
-            # Remove X-Frame-Options to allow iframe embedding
-            if 'X-Frame-Options' in response:
-                del response['X-Frame-Options']
-            
-            # Set CSP to allow embedding from LTI consumer domains
-            ancestors = ' '.join(self._frame_ancestors())
-            response['Content-Security-Policy'] = f"frame-ancestors {ancestors}"
-        
+
+        # Remove X-Frame-Options to allow iframe embedding
+        if 'X-Frame-Options' in response:
+            del response['X-Frame-Options']
+
+        # Set CSP to allow embedding from LTI consumer domains
+        ancestors = ' '.join(self._frame_ancestors())
+        response['Content-Security-Policy'] = f"frame-ancestors {ancestors}"
+
         return response
 
     def _frame_ancestors(self):

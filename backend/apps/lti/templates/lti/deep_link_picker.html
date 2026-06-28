@@ -116,6 +116,7 @@
                 {% for app in microapps %}
                     <li class="app">
                         <form class="app-form" method="post" action="{% url 'app-deep-link-select' %}">
+                            <input type="hidden" name="launch_id" value="{{ launch_id }}">
                             <input type="hidden" name="microapp_hash_id" value="{{ app.hash_id }}">
                             <div class="app-info">
                                 <p class="app-title">{{ app.title }}</p>
