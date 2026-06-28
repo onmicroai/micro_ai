@@ -240,11 +240,10 @@ def login(request):
     launch_data_storage = get_launch_data_storage()
     oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
     target_link_uri = get_launch_url(request)
-    return oidc_login.enable_check_cookies(
-        main_msg='Your browser is blocking cookies required for this app inside Canvas.',
-        click_msg='Click here to open OnMicro in a new tab.',
-        loading_msg='Loading…',
-    ).redirect(target_link_uri)
+    # Do not use enable_check_cookies() here: it gates on document.cookie inside the
+    # cross-site Canvas iframe (sec-fetch-storage-access: none). That JS test often
+    # fails even when server Set-Cookie with SameSite=None works (see LTIDjango* helpers).
+    return oidc_login.disable_check_cookies().redirect(target_link_uri)
 
 @csrf_exempt
 @require_POST
