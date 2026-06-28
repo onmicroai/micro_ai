@@ -120,9 +120,13 @@ ROOT_URLCONF = "micro_ai.urls"
 
 
 # pylti1p3 launch data (state, nonce, JWT body) via DjangoCacheDataStorage.
+# pylti1p3 launch state (OIDC nonce, JWT body, deep-link restore) must survive
+# across requests and workers; LocMemCache is per-process and breaks deep-link
+# picker reloads under gunicorn/uvicorn.
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'micro_ai_django_cache',
     },
 }
 
