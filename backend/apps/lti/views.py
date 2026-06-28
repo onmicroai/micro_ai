@@ -138,18 +138,18 @@ def build_deep_link_response_html(deep_link, resources, return_url):
     """
     Build an auto-submitting form that POSTs the deep-link JWT back to the LMS.
 
-    pylti1p3's output_response_form() submits inside the tool iframe with no
-    target. That is a cross-site POST, so Canvas session cookies are not sent
-    and Canvas redirects to /login.
+    The form MUST submit inside the tool iframe (target="_self"). Canvas renders
+    its deep_linking_response page in that iframe, then postMessages the parsed
+    content items to window.parent (the assignment editor behind the modal).
 
-    target="_top" sends cookies but replaces the entire Canvas page with the
-    deep_linking_response view. Canvas then postMessages the result to its
-    parent frame to close the modal and insert content — but there is no parent
-    after a top-level navigation, so the UI hangs on "retrieving content".
+    Using target="_parent" or "_top" replaces the assignment page itself — in
+    Canvas's modal layout the tool iframe's parent *is* the top window, so
+    nothing is left listening for the postMessage and the UI hangs on
+    "Retrieving Content".
 
-    target="_parent" POSTs into the Canvas frame that embeds the tool (same
-    origin as the return URL), so session cookies are sent AND the response page
-    can postMessage back to the assignment editor above it.
+    A cross-site iframe POST requires the LMS to send session cookies with
+    SameSite=None; Secure (see Canvas session_store.yml). Without that, Canvas
+    redirects to /login instead.
     """
     if not return_url:
         raise ValueError('Missing deep_link_return_url in launch data')
@@ -160,7 +160,7 @@ def build_deep_link_response_html(deep_link, resources, return_url):
     return (
         '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Returning to your course</title></head>'
         '<body><p>Inserting your app&hellip;</p>'
-        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_parent">'
+        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_self">'
         f'<input type="hidden" name="JWT" value="{safe_jwt}" /></form>'
         '<script type="text/javascript">document.getElementById("lti13_deep_link_auto_submit").submit();</script>'
         '</body></html>'
@@ -403,8 +403,7 @@ def deep_link_select(request):
     if not return_url:
         return HttpResponse('Missing deep link return URL in launch data.', status=400)
 
-    # POST the signed deep-link response back to Canvas at the top window so
-    # the LMS session cookie is sent (see build_deep_link_response_html).
+    # POST the JWT back to Canvas inside the tool iframe (see build_deep_link_response_html).
     html = build_deep_link_response_html(message_launch.get_deep_link(), [resource], return_url)
 
     return HttpResponse(html)
