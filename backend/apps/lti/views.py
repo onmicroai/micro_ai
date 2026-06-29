@@ -49,11 +49,10 @@ class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
 
     def __init__(self, request, tool_config, launch_data_storage=None, **kwargs):
         django_request = lti_request(request)
-        cookie_service = LTIDjangoCookieService(django_request)
+        kwargs.setdefault('cookie_service', LTIDjangoCookieService(django_request))
         super().__init__(
             request,
             tool_config,
-            cookie_service=cookie_service,
             launch_data_storage=launch_data_storage,
             **kwargs,
         )
@@ -71,37 +70,16 @@ class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
         Accepts all parent class arguments including session_service, cookie_service, etc.
         """
         django_request = lti_request(request, post_only=True)
-        cookie_service = LTIDjangoCookieService(django_request)
+        kwargs.setdefault('cookie_service', LTIDjangoCookieService(django_request))
         # Set JWT leeway before calling parent __init__
         self._jwt_leeway = 60  # 60 seconds of clock skew tolerance
         super().__init__(
             request,
             tool_config,
-            cookie_service=cookie_service,
             launch_data_storage=launch_data_storage,
             **kwargs,
         )
 
-    @classmethod
-    def from_cache(
-        cls,
-        launch_id,
-        request,
-        tool_config,
-        launch_data_storage=None,
-        **kwargs,
-    ):
-        django_request = lti_request(request, post_only=True)
-        cookie_service = LTIDjangoCookieService(django_request)
-        return super().from_cache(
-            launch_id,
-            request,
-            tool_config,
-            cookie_service=cookie_service,
-            launch_data_storage=launch_data_storage,
-            **kwargs,
-        )
-    
     def _get_jwt(self, jwt_str):
         """
         Override JWT decoding to add leeway for clock skew tolerance.
