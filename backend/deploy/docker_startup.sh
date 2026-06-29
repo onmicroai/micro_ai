@@ -8,6 +8,9 @@ SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-micro_ai.settings_production}"
 echo "Running Django migrations (${SETTINGS_MODULE})..."
 python manage.py migrate --noinput --settings="${SETTINGS_MODULE}"
 
+echo "Ensuring Django cache table exists..."
+python manage.py createcachetable --noinput --settings="${SETTINGS_MODULE}" 2>/dev/null || true
+
 if [ "${SETTINGS_MODULE}" = "micro_ai.settings_production" ]; then
   echo "Collecting static files..."
   python manage.py collectstatic --noinput --settings="${SETTINGS_MODULE}"

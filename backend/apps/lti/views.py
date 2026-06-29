@@ -1,4 +1,5 @@
 import datetime
+import logging
 import os
 import pprint
 import jwt as pyjwt
@@ -6,27 +7,33 @@ import jwt as pyjwt
 from django.conf import settings
 from django.http import HttpResponse, HttpResponseForbidden, JsonResponse
 from django.shortcuts import render
+from django.utils.html import escape
 from django.views.decorators.http import require_POST
 from django.urls import reverse
-from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch, DjangoCacheDataStorage
+from pylti1p3.contrib.django import DjangoOIDCLogin, DjangoMessageLaunch
 from pylti1p3.deep_link_resource import DeepLinkResource
 from pylti1p3.grade import Grade
 from pylti1p3.lineitem import LineItem
 from pylti1p3.tool_config import ToolConfJsonFile
 from pylti1p3.registration import Registration
+from pylti1p3.tool_config import ToolConfDict
 import secrets
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect
 from .models import LTIConfig
-from django.conf import settings
-from pylti1p3.tool_config import ToolConfDict
+from .pylti_helpers import (
+    LTIDjangoCookieService,
+    get_launch_data_storage,
+    lti_request,
+)
 from pathlib import Path
 from django.http import HttpResponseRedirect
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlparse
 from django.contrib.auth import get_user_model
 from apps.microapps.models import Microapp, MicroAppUserJoin
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
@@ -40,6 +47,16 @@ class ExtendedDjangoOIDCLogin(DjangoOIDCLogin):
     def _generate_nonce(self) -> str:
         return secrets.token_hex(32)
 
+    def __init__(self, request, tool_config, launch_data_storage=None, **kwargs):
+        django_request = lti_request(request)
+        kwargs.setdefault('cookie_service', LTIDjangoCookieService(django_request))
+        super().__init__(
+            request,
+            tool_config,
+            launch_data_storage=launch_data_storage,
+            **kwargs,
+        )
+
 class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
     """
     Extended LTI Message Launch with clock skew tolerance.
@@ -52,10 +69,17 @@ class ExtendedDjangoMessageLaunch(DjangoMessageLaunch):
         Initialize with clock skew tolerance for JWT validation.
         Accepts all parent class arguments including session_service, cookie_service, etc.
         """
+        django_request = lti_request(request, post_only=True)
+        kwargs.setdefault('cookie_service', LTIDjangoCookieService(django_request))
         # Set JWT leeway before calling parent __init__
         self._jwt_leeway = 60  # 60 seconds of clock skew tolerance
-        super().__init__(request, tool_config, launch_data_storage=launch_data_storage, **kwargs)
-    
+        super().__init__(
+            request,
+            tool_config,
+            launch_data_storage=launch_data_storage,
+            **kwargs,
+        )
+
     def _get_jwt(self, jwt_str):
         """
         Override JWT decoding to add leeway for clock skew tolerance.
@@ -129,8 +153,53 @@ def get_jwk_from_public_key(key_name):
     f.close()
     return jwk
 
-def get_launch_data_storage():
-    return DjangoCacheDataStorage()
+
+def _lti_cookie_debug_context(request):
+    lti_cookies = {
+        key: value
+        for key, value in request.COOKIES.items()
+        if key.startswith('lti1p3-')
+    }
+    return {
+        'is_secure': request.is_secure(),
+        'x_forwarded_proto': request.META.get('HTTP_X_FORWARDED_PROTO'),
+        'lti_cross_site_cookies': getattr(settings, 'LTI_CROSS_SITE_COOKIES', False),
+        'lti_cookies': lti_cookies,
+        'has_session_id': 'lti1p3-session-id' in request.COOKIES,
+    }
+
+
+def build_deep_link_response_html(deep_link, resources, return_url):
+    """
+    Build an auto-submitting form that POSTs the deep-link JWT back to the LMS.
+
+    The form MUST submit inside the tool iframe (target="_self"). Canvas renders
+    its deep_linking_response page in that iframe, then postMessages the parsed
+    content items to window.parent (the assignment editor behind the modal).
+
+    Using target="_parent" or "_top" replaces the assignment page itself — in
+    Canvas's modal layout the tool iframe's parent *is* the top window, so
+    nothing is left listening for the postMessage and the UI hangs on
+    "Retrieving Content".
+
+    A cross-site iframe POST requires the LMS to send session cookies with
+    SameSite=None; Secure (see Canvas session_store.yml). Without that, Canvas
+    redirects to /login instead.
+    """
+    if not return_url:
+        raise ValueError('Missing deep_link_return_url in launch data')
+
+    jwt_val = deep_link.get_response_jwt(resources)
+    safe_url = escape(return_url)
+    safe_jwt = escape(jwt_val)
+    return (
+        '<!DOCTYPE html><html><head><meta charset="utf-8"><title>Returning to your course</title></head>'
+        '<body><p>Inserting your app&hellip;</p>'
+        f'<form id="lti13_deep_link_auto_submit" action="{safe_url}" method="POST" target="_self">'
+        f'<input type="hidden" name="JWT" value="{safe_jwt}" /></form>'
+        '<script type="text/javascript">document.getElementById("lti13_deep_link_auto_submit").submit();</script>'
+        '</body></html>'
+    )
 
 
 def get_launch_url(request):
@@ -140,14 +209,19 @@ def get_launch_url(request):
     return target_link_uri
 
 
+@csrf_exempt
 def login(request):
+    # Canvas sends the OIDC login initiation as a cross-origin POST, so this
+    # endpoint must be exempt from CSRF Origin checking (like launch/select).
+    # Open edX uses GET here, which is why it worked without the decorator.
     tool_conf = get_tool_conf(request)
     launch_data_storage = get_launch_data_storage()
     oidc_login = ExtendedDjangoOIDCLogin(request, tool_conf, launch_data_storage=launch_data_storage)
     target_link_uri = get_launch_url(request)
-    return oidc_login\
-        .disable_check_cookies()\
-        .redirect(target_link_uri)
+    # Do not use enable_check_cookies() here: it gates on document.cookie inside the
+    # cross-site Canvas iframe (sec-fetch-storage-access: none). That JS test often
+    # fails even when server Set-Cookie with SameSite=None works (see LTIDjango* helpers).
+    return oidc_login.disable_check_cookies().redirect(target_link_uri)
 
 @csrf_exempt
 @require_POST
@@ -160,10 +234,12 @@ def launch(request):
       pprint.pprint(ld)
       lid = message_launch.get_launch_id()
 
-      # Deep Link launch: redirect instructor to content picker
+      # Deep Link launch: redirect instructor to content picker.
+      # Pass launch_id in the URL — Django sessions are scoped to /admin/ only
+      # (SESSION_COOKIE_PATH), so a session key would not survive this redirect.
       if message_launch.is_deep_link_launch():
-          request.session['deep_link_launch_id'] = lid
-          return redirect(reverse('app-deep-link-picker'))
+          picker_url = f"{reverse('app-deep-link-picker')}?launch_id={lid}"
+          return redirect(picker_url)
 
       # Regular resource launch
       iss = message_launch.get_iss()
@@ -187,10 +263,26 @@ def launch(request):
 
     except Exception as e:
       import traceback
+      cookie_ctx = _lti_cookie_debug_context(request)
+      logger.error(
+          'LTI launch failed: %s | cookie_context=%s',
+          e,
+          cookie_ctx,
+          exc_info=True,
+      )
       print("LTI Launch Error:")
       print(traceback.format_exc())
       print(f"Request data: {request.POST}")
       print(f"Request headers: {request.headers}")
+      print(f"LTI cookie context: {cookie_ctx}")
+      if 'session-id' in str(e).lower():
+          return HttpResponse(
+              'LTI Launch Error: session cookie missing. '
+              'If you use strict privacy settings or Brave Shields, allow cookies for '
+              'dev.onmicro.ai and reload. '
+              f'Debug: {cookie_ctx}',
+              status=500,
+          )
       return HttpResponse(f"LTI Launch Error: {str(e)}", status=500)
 
 def get_jwks(request):
@@ -198,22 +290,96 @@ def get_jwks(request):
     return JsonResponse(tool_conf.get_jwks(), safe=False)
 
 
+def canvas_config(request):
+    """
+    Returns the LTI 1.3 (LTI Advantage) tool configuration JSON used to create a
+    Canvas Developer Key. A Canvas admin can paste the URL of this endpoint (or
+    its JSON) into the "LTI Advantage Services" Developer Key form. It declares
+    the OIDC/launch/JWKS endpoints, the AGS scopes needed for grade passback, and
+    deep-linking placements so instructors can insert OnMicro apps from within
+    Canvas (Rich Content Editor, assignment, and module/link pickers).
+    """
+    login_url = request.build_absolute_uri(reverse('app-login'))
+    launch_url = request.build_absolute_uri(reverse('app-launch'))
+    jwks_url = request.build_absolute_uri(reverse('app-jwks'))
+
+    # Canvas matches a tool by its domain; derive it from the configured domain.
+    domain = urlparse(settings.DOMAIN).netloc or settings.DOMAIN
+
+    deep_linking_placements = ['link_selection', 'assignment_selection', 'editor_button']
+    placements = [
+        {
+            'placement': placement,
+            'message_type': 'LtiDeepLinkingRequest',
+            'target_link_uri': launch_url,
+        }
+        for placement in deep_linking_placements
+    ]
+
+    config = {
+        'title': 'OnMicro.AI',
+        'description': 'Insert OnMicro.AI apps into your course.',
+        'oidc_initiation_url': login_url,
+        'target_link_uri': launch_url,
+        'public_jwk_url': jwks_url,
+        'scopes': [
+            'https://purl.imsglobal.org/spec/lti-ags/scope/lineitem',
+            'https://purl.imsglobal.org/spec/lti-ags/scope/result.readonly',
+            'https://purl.imsglobal.org/spec/lti-ags/scope/score',
+        ],
+        'extensions': [
+            {
+                'domain': domain,
+                'platform': 'canvas.instructure.com',
+                # "public" so the launch includes the user's email, which is used
+                # to match the instructor to their OnMicro account in the picker.
+                'privacy_level': 'public',
+                'settings': {
+                    'placements': placements,
+                },
+            }
+        ],
+        'custom_fields': {},
+    }
+
+    return JsonResponse(config)
+
+
+def _restore_message_launch_from_cache(request, launch_id, tool_conf):
+    launch_data_storage = get_launch_data_storage()
+    try:
+        return ExtendedDjangoMessageLaunch.from_cache(
+            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
+        )
+    except Exception as e:
+        logger.exception(
+            'LTI from_cache failed launch_id=%s cookie_context=%s',
+            launch_id,
+            _lti_cookie_debug_context(request),
+        )
+        if settings.DEBUG:
+            raise RuntimeError(
+                f'Deep link restore failed: {e}. '
+                'Confirm micro_ai_django_cache exists (manage.py createcachetable).'
+            ) from e
+        raise
+
+
 def deep_link_picker(request):
     """
     Content picker page for LTI Deep Linking.
     Shows the instructor's microapps so they can select one to link in the LMS.
     """
-    launch_id = request.session.get('deep_link_launch_id')
+    launch_id = request.GET.get('launch_id')
     if not launch_id:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
     tool_conf = get_tool_conf(request)
-    launch_data_storage = get_launch_data_storage()
 
     try:
-        message_launch = ExtendedDjangoMessageLaunch.from_cache(
-            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
-        )
+        message_launch = _restore_message_launch_from_cache(request, launch_id, tool_conf)
+    except RuntimeError as e:
+        return HttpResponse(str(e), status=400)
     except Exception:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
@@ -262,19 +428,18 @@ def deep_link_select(request):
     """
     Handles the instructor's microapp selection and sends the Deep Link response back to the LMS.
     """
-    launch_id = request.session.get('deep_link_launch_id')
+    launch_id = request.POST.get('launch_id')
     microapp_hash_id = request.POST.get('microapp_hash_id')
 
     if not launch_id or not microapp_hash_id:
         return HttpResponse('Invalid request. Please try again from your LMS.', status=400)
 
     tool_conf = get_tool_conf(request)
-    launch_data_storage = get_launch_data_storage()
 
     try:
-        message_launch = ExtendedDjangoMessageLaunch.from_cache(
-            launch_id, request, tool_conf, launch_data_storage=launch_data_storage
-        )
+        message_launch = _restore_message_launch_from_cache(request, launch_id, tool_conf)
+    except RuntimeError as e:
+        return HttpResponse(str(e), status=400)
     except Exception:
         return HttpResponse('Deep link session expired. Please try again from your LMS.', status=400)
 
@@ -294,11 +459,22 @@ def deep_link_select(request):
     resource.set_title(microapp.title)
     resource.set_custom_params({'microapp_hash_id': microapp.hash_id})
 
-    # Generate the auto-submitting form that posts back to the LMS
-    html = message_launch.get_deep_link().output_response_form([resource])
+    # Attach a line item so the LMS (e.g. Canvas) creates a gradable column
+    # tied to this resource. Score passback in score() uses the same maximum.
+    line_item = LineItem()
+    line_item.set_score_maximum(1)\
+        .set_label(microapp.title)\
+        .set_tag('score')
+    resource.set_lineitem(line_item)
 
-    # Clean up the session
-    del request.session['deep_link_launch_id']
+    ld = message_launch.get_launch_data()
+    dl_settings = ld.get('https://purl.imsglobal.org/spec/lti-dl/claim/deep_linking_settings', {})
+    return_url = dl_settings.get('deep_link_return_url')
+    if not return_url:
+        return HttpResponse('Missing deep link return URL in launch data.', status=400)
+
+    # POST the JWT back to Canvas inside the tool iframe (see build_deep_link_response_html).
+    html = build_deep_link_response_html(message_launch.get_deep_link(), [resource], return_url)
 
     return HttpResponse(html)
 

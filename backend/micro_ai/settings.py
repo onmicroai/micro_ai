@@ -119,6 +119,17 @@ MIDDLEWARE = [
 ROOT_URLCONF = "micro_ai.urls"
 
 
+# pylti1p3 launch data (state, nonce, JWT body) via DjangoCacheDataStorage.
+# pylti1p3 launch state (OIDC nonce, JWT body, deep-link restore) must survive
+# across requests and workers; LocMemCache is per-process and breaks deep-link
+# picker reloads under gunicorn/uvicorn.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'micro_ai_django_cache',
+    },
+}
+
 # used to disable the cache in dev, but turn it on in production.
 # more here: https://nickjanetakis.com/blog/django-4-1-html-templates-are-cached-by-default-with-debug-true
 _DEFAULT_LOADERS = [
@@ -385,6 +396,23 @@ REST_FRAMEWORK = {
 PRODUCTION = env.bool('PRODUCTION', default=False)
 is_production = PRODUCTION
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
+
+# Trust the X-Forwarded-Proto header set by the nginx reverse proxy so that
+# request.is_secure() returns True behind TLS termination. This is required for
+# LTI: pylti1p3 only marks its state/nonce cookies "Secure; SameSite=None" (and
+# therefore sendable inside a cross-site LMS iframe) when request.is_secure() is
+# True. nginx always sets this header to the real scheme, overriding any client
+# value, so trusting it here is safe. (Also declared in settings_production.py.)
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# LTI 1.3 launches run inside a cross-site LMS iframe. pylti1p3's session-id cookie
+# must use SameSite=None; Secure on every /lti/login/ and /lti/launch/ request.
+# Default to True when the public DOMAIN is HTTPS (e.g. dev.onmicro.ai) so cookie
+# behaviour stays consistent even if a proxy header is missing on one hop.
+LTI_CROSS_SITE_COOKIES = env.bool(
+    'LTI_CROSS_SITE_COOKIES',
+    default=str(DOMAIN).startswith('https://'),
+)
 
 # SameSite cookie configuration for production vs development
 SAMESITE_SETTING = 'None' if is_production else 'Lax'
