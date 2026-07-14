@@ -141,6 +141,27 @@ class SubscriptionConfiguration(models.Model):
         except cls.DoesNotExist:
             return 0
 
+
+class UserEntitlement(models.Model):
+    """
+    User-scoped perks that are independent of Stripe subscription state.
+    Used for coupon-granted max_apps overrides on free-tier users.
+    """
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="entitlement",
+    )
+    max_apps = models.IntegerField(
+        null=True,
+        blank=True,
+        help_text="Override for the user's max app limit (from coupons or manual grants)",
+    )
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Entitlements for {self.user.email}"
+
 class Coupon(models.Model):
     ACTION_CHOICES = [
         ('increase_max_apps', 'Increase Max Apps'),

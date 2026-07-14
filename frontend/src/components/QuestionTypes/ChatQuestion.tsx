@@ -17,10 +17,22 @@ import {
   AudioRecorder as VoiceRecorder,
   useAudioRecorder,
 } from "react-audio-voice-recorder";
-import { ArrowDown, Bot, Loader2, Send, User, Volume2 } from "lucide-react";
+import {
+  ArrowDown,
+  Bot,
+  Loader2,
+  Send,
+  Square,
+  User,
+  Volume2,
+} from "lucide-react";
 import { TEST_IDS } from "@/constants/testIds";
 import { transcribeAudio } from "@/utils/audioTranscriptionService";
-import { synthesizeSpeech, playAudio } from "@/utils/textToSpeechService";
+import {
+  synthesizeSpeech,
+  playAudio,
+  stopAudio,
+} from "@/utils/textToSpeechService";
 import { useConversationStore } from "@/store/conversationStore";
 import { useSurveyStore } from "@/store/runtimeSurveyStore";
 import { useRuntimePreview } from "@/context/RuntimePreviewContext";
@@ -66,7 +78,13 @@ interface ChatMessage {
   ttsStatus?: "synthesizing" | "playing";
 }
 
-function TtsStatusStrip({ status }: { status: "synthesizing" | "playing" }) {
+function TtsStatusStrip({
+  status,
+  onStop,
+}: {
+  status: "synthesizing" | "playing";
+  onStop?: () => void;
+}) {
   return (
     <div className="mt-2 flex items-center gap-1.5 border-t border-primary/10 pt-2 text-xs text-gray-500">
       {status === "synthesizing" ? (
@@ -76,7 +94,16 @@ function TtsStatusStrip({ status }: { status: "synthesizing" | "playing" }) {
         </>
       ) : (
         <>
-          <Volume2 className="h-3 w-3 animate-pulse text-primary" />
+          <button
+            type="button"
+            onClick={onStop}
+            title="Stop speaking"
+            aria-label="Stop speaking"
+            className="group/icon flex-shrink-0 rounded p-0.5 transition-colors hover:bg-primary/10"
+          >
+            <Volume2 className="h-3 w-3 animate-pulse text-primary group-hover/icon:hidden" />
+            <Square className="hidden h-3 w-3 fill-primary text-primary group-hover/icon:block" />
+          </button>
           <span className="italic">Speaking…</span>
         </>
       )}
@@ -697,7 +724,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                       </div>
                     )}
                     {message.sender === "ai" && message.ttsStatus && (
-                      <TtsStatusStrip status={message.ttsStatus} />
+                      <TtsStatusStrip
+                        status={message.ttsStatus}
+                        onStop={
+                          message.ttsStatus === "playing" ? stopAudio : undefined
+                        }
+                      />
                     )}
                   </div>
                   {message.sender === "user" && <UserAvatar />}

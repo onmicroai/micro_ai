@@ -3,8 +3,8 @@ from datetime import datetime
 from django.db.models import Count
 from django.utils import timezone
 from apps.microapps.models import Run, MicroAppUserJoin
-from apps.subscriptions.models import Subscription, SubscriptionConfiguration
-from apps.subscriptions.constants import tier_for_price
+from apps.subscriptions.models import Subscription
+from apps.subscriptions.helpers import resolve_max_apps_for_user
 from apps.subscriptions.serializers import CustomSubscriptionSerializer
 from apps.users.models import CustomUser
 from apps.utils.global_variables import UsageVariables
@@ -113,20 +113,7 @@ class MicroAppUsage:
         
         current_app_count = userapps["count"] or 0
 
-        subscription_instance = (
-            Subscription.objects.filter(user_id=user_id).order_by("-created_at").first()
-        )
-        tier = tier_for_price(
-            subscription_instance.price_id if subscription_instance else None
-        )
-        max_apps = tier.max_apps
-
-        if subscription_instance:
-            config = SubscriptionConfiguration.objects.filter(
-                subscription=subscription_instance
-            ).first()
-            if config and config.max_apps is not None:
-                max_apps = config.max_apps
+        max_apps = resolve_max_apps_for_user(user_id)
 
         return {
             "can_create": current_app_count < max_apps,
