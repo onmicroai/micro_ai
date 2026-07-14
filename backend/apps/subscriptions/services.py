@@ -1,7 +1,7 @@
 import logging
 from django.db import transaction
-from apps.subscriptions.models import Coupon, CouponUsage, SubscriptionConfiguration, Subscription
-from apps.utils.usage_helper import subscription_details
+from apps.subscriptions.models import Coupon, CouponUsage
+from apps.subscriptions.helpers import set_user_max_apps
 
 logger = logging.getLogger(__name__)
 
@@ -50,44 +50,19 @@ class CouponActionService:
             dict: Result with success status and max_apps value
         """
         try:
-            # Get the max_apps value from additional_data
             max_apps = coupon.get_action_value('max_apps')
             if not max_apps:
                 return {
                     'success': False,
                     'message': 'max_apps value not found in coupon data'
                 }
-            
-            # Get user's subscription
-            subscription_data = subscription_details(user.id)
-            if not subscription_data:
-                return {
-                    'success': False,
-                    'message': 'User has no active subscription'
-                }
-            
-            # Get or create SubscriptionConfiguration
-            subscription_instance = Subscription.objects.get(id=subscription_data["id"])
-            config, created = SubscriptionConfiguration.objects.get_or_create(
-                subscription=subscription_instance,
-                defaults={'max_apps': max_apps}
-            )
-            
-            if not created:
-                # Update existing configuration
-                config.max_apps = max_apps
-                config.save()
+
+            set_user_max_apps(user, max_apps)
             
             return {
                 'success': True,
                 'message': f'Successfully set max_apps to {max_apps}',
                 'max_apps': max_apps
-            }
-            
-        except Subscription.DoesNotExist:
-            return {
-                'success': False,
-                'message': 'User subscription not found'
             }
         except Exception as e:
             logger.error(f"Error in increase_max_apps action: {str(e)}")
@@ -109,7 +84,6 @@ class CouponActionService:
             dict: Result with success status and values
         """
         try:
-            # Get the values from additional_data
             max_apps = coupon.get_action_value('max_apps')
             credits = coupon.get_action_value('credits')
             
@@ -124,29 +98,9 @@ class CouponActionService:
                     'success': False,
                     'message': 'credits value not found in coupon data'
                 }
-            
-            # Get user's subscription
-            subscription_data = subscription_details(user.id)
-            if not subscription_data:
-                return {
-                    'success': False,
-                    'message': 'User has no active subscription'
-                }
-            
-            # Use transaction to ensure both operations succeed or fail together
+
             with transaction.atomic():
-                # 1. Update max_apps
-                subscription_instance = Subscription.objects.get(id=subscription_data["id"])
-                config, created = SubscriptionConfiguration.objects.get_or_create(
-                    subscription=subscription_instance,
-                    defaults={'max_apps': max_apps}
-                )
-                
-                if not created:
-                    config.max_apps = max_apps
-                    config.save()
-                
-                # 2. Grant roll-over credits to the user's wallet
+                set_user_max_apps(user, max_apps)
                 from apps.subscriptions.credits import grant_topup_credits
                 grant_topup_credits(user, credits, reason="coupon")
             
@@ -156,15 +110,9 @@ class CouponActionService:
                 'max_apps': max_apps,
                 'credits': credits
             }
-            
-        except Subscription.DoesNotExist:
-            return {
-                'success': False,
-                'message': 'User subscription not found'
-            }
         except Exception as e:
             logger.error(f"Error in increase_max_apps_and_credits action: {str(e)}")
             return {
                 'success': False,
                 'message': f'Error updating max_apps and credits: {str(e)}'
-            } 
+            }

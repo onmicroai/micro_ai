@@ -6,6 +6,7 @@ from .models import (
     StripeCustomer,
     Subscription,
     SubscriptionConfiguration,
+    UserEntitlement,
     Coupon,
     CouponUsage,
 )
@@ -101,6 +102,18 @@ class SubscriptionConfigurationAdmin(admin.ModelAdmin):
         return obj.subscription.subscription_id if obj.subscription else '-'
     get_subscription_id.short_description = 'Subscription ID'
     get_subscription_id.admin_order_field = 'subscription__subscription_id'
+
+
+@admin.register(UserEntitlement)
+class UserEntitlementAdmin(admin.ModelAdmin):
+    list_display = ('get_email', 'max_apps', 'updated_at')
+    search_fields = ('user__email',)
+    ordering = ('-updated_at',)
+
+    def get_email(self, obj):
+        return obj.user.email if obj.user else '-'
+    get_email.short_description = 'Email'
+    get_email.admin_order_field = 'user__email'
 
 @admin.register(Coupon)
 class CouponAdmin(admin.ModelAdmin):

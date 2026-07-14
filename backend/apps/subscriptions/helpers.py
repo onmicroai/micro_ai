@@ -262,6 +262,44 @@ def set_subscription_max_apps(subscription, max_apps: int) -> None:
         config.max_apps = max_apps
         config.save()
 
+
+def set_user_max_apps(user, max_apps: int) -> None:
+    from .models import UserEntitlement
+    UserEntitlement.objects.update_or_create(
+        user=user,
+        defaults={"max_apps": max_apps},
+    )
+
+
+def resolve_max_apps_for_user(user_id: int) -> int:
+    """
+    Resolve the effective max_apps limit for a user.
+
+    Precedence: user entitlement override > subscription configuration > tier default.
+    """
+    from .models import Subscription, SubscriptionConfiguration, UserEntitlement
+
+    subscription_instance = (
+        Subscription.objects.filter(user_id=user_id).order_by("-created_at").first()
+    )
+    tier = tier_for_price(
+        subscription_instance.price_id if subscription_instance else None
+    )
+    max_apps = tier.max_apps
+
+    entitlement = UserEntitlement.objects.filter(user_id=user_id).first()
+    if entitlement and entitlement.max_apps is not None:
+        return entitlement.max_apps
+
+    if subscription_instance:
+        config = SubscriptionConfiguration.objects.filter(
+            subscription=subscription_instance
+        ).first()
+        if config and config.max_apps is not None:
+            max_apps = config.max_apps
+
+    return max_apps
+
 def upsert_subscription(customer_id, data):
     """
     Update the local Subscription mirror from a Stripe event and sync the credit
