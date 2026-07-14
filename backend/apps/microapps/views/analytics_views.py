@@ -33,6 +33,7 @@ from .mixins import handle_exception
 from django.utils import timezone
 
 MIN_USAGE_DURATION_SECONDS = 5
+MAX_USAGE_DURATION_SECONDS = 1000  # Exclude outlier sessions from avg time-in-app
 
 
 def get_latest_themes_for_app(app_id):
@@ -85,7 +86,8 @@ def get_stats_for_app_ids(app_ids):
         durations.setdefault(usage['ma_id'], []).append(duration_seconds)
     for ma_id, values in durations.items():
         if ma_id in result and values:
-            result[ma_id]['avg_session_seconds'] = round(sum(values) / len(values), 2)
+            avg_values = [v for v in values if v <= MAX_USAGE_DURATION_SECONDS]
+            result[ma_id]['avg_session_seconds'] = round(sum(avg_values) / len(avg_values), 2) if avg_values else 0
             result[ma_id]['min_session_seconds'] = round(min(values), 2)
             result[ma_id]['max_session_seconds'] = round(max(values), 2)
     return result
@@ -267,7 +269,8 @@ class AppStatistics(APIView):
                 if duration_seconds < MIN_USAGE_DURATION_SECONDS:
                     continue
                 durations.append(duration_seconds)
-            avg_session_seconds = round(sum(durations) / len(durations), 2) if durations else 0
+            avg_durations = [d for d in durations if d <= MAX_USAGE_DURATION_SECONDS]
+            avg_session_seconds = round(sum(avg_durations) / len(avg_durations), 2) if avg_durations else 0
             min_session_seconds = round(min(durations), 2) if durations else 0
             max_session_seconds = round(max(durations), 2) if durations else 0
 
