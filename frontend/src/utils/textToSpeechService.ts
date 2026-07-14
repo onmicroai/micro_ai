@@ -75,7 +75,19 @@ export const synthesizeSpeech = async (
   }
 };
 
+let activePlayback: {
+  audio: HTMLAudioElement;
+  audioData: string;
+  stop: () => void;
+} | null = null;
+
+export const stopAudio = (): void => {
+  activePlayback?.stop();
+};
+
 export const playAudio = (audioData: string): Promise<void> => {
+  stopAudio();
+
   return new Promise((resolve, reject) => {
     const audio = new Audio(audioData);
 
@@ -85,20 +97,36 @@ export const playAudio = (audioData: string): Promise<void> => {
       }
     };
 
-    audio.onended = () => {
+    let settled = false;
+    const finish = (result: "ended" | "stopped" | "error", error?: Error) => {
+      if (settled) return;
+      settled = true;
+      activePlayback = null;
       cleanup();
-      resolve();
+      if (result === "error") {
+        reject(error ?? new Error("Audio playback failed"));
+      } else {
+        resolve();
+      }
     };
 
+    const stop = () => {
+      audio.pause();
+      audio.currentTime = 0;
+      finish("stopped");
+    };
+
+    activePlayback = { audio, audioData, stop };
+
+    audio.onended = () => finish("ended");
+
     audio.onerror = () => {
-      cleanup();
-      reject(new Error("Audio playback failed"));
+      finish("error", new Error("Audio playback failed"));
     };
 
     audio.play().catch((error) => {
-      cleanup();
       console.error("Error playing audio:", error);
-      reject(error);
+      finish("error", error);
     });
   });
 };
