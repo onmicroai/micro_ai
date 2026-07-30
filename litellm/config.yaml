@@ -158,22 +158,36 @@ model_list:
 litellm_settings:
     drop_params: true
     set_verbose: false
-    ## Nov 17 2025: So far, I have only found that fallback works if the requested model is in the model_list. In other words requesting "my_fake_model" will not fall back. The LiteLLM docs make me think this SHOULD work, but I haven't gotten it to do so.
-    default_fallbacks: ["openai/gpt-5-mini"]
+    default_fallbacks: ["gpt-5-mini"]
 
 router_settings:
-    fallbacks: [  
-      {"openai/gpt-4o-mini": ["openai/gpt-5-mini"]},
-      {"openai/gpt-5.1": ["openai/gpt-5-mini"]},
-      {"openai/gpt-5-mini": ["anthropic/claude-haiku-4-5-20251001"]},
-      {"anthropic/claude-sonnet-4-5-20250929": ["openai/gpt-5-mini"]},
-      {"anthropic/claude-haiku-4-5-20251001": ["openai/gpt-5-mini"]},
-      {"anthropic/claude-opus-4-1-20250805": ["openai/gpt-5-mini"]},
-      {"gemini/gemini-2.5-pro": ["openai/gpt-5-mini"]},
-      {"gemini/gemini-2.5-flash": ["openai/gpt-5-mini"]},
+    ## IMPORTANT: both the keys and the values here must be `model_name` values from
+    ## model_list above (the public model group), NOT the provider-prefixed
+    ## `litellm_params.model` value. A key like "gemini/gemini-2.5-flash" never matches,
+    ## because the model group is "gemini-2.5-flash" — the entry is silently ignored and
+    ## the request fails with "Available Model Group Fallbacks=None".
+    ##
+    ## Every model in model_list needs an entry, not just the legacy ones.
+    ## Fallbacks cross providers on purpose: a Google or OpenAI outage should land
+    ## somewhere else. Targets stay inside the same access_groups tier so a free-tier
+    ## request never falls back onto a pro-only model.
+    fallbacks: [
+## CURRENT MODELS
+      {"gemini-3-flash-preview": ["claude-haiku-4-5-20251001", "gpt-5-mini"]},
+      {"gemini-3.1-pro-preview": ["claude-sonnet-4-6", "gpt-5.4"]},
+      {"claude-sonnet-4-6": ["gpt-5.4"]},
+      {"claude-opus-4-6": ["claude-sonnet-4-6", "gpt-5.4"]},
+      {"gpt-5.4": ["claude-sonnet-4-6"]},
+      {"gpt-5-mini": ["claude-haiku-4-5-20251001"]},
+      {"claude-haiku-4-5-20251001": ["gpt-5-mini"]},
 ## LEGACY MODELS
-      {"bad_model_name": ["openai/gpt-5-mini"]},
-      {"gpt-4o": ["openai/gpt-5-mini"]},
-      {"gpt-5": ["openai/gpt-5.1"]},
-
+      {"gemini-2.5-pro": ["gpt-5-mini"]},
+      {"gemini-2.5-flash": ["gpt-5-mini"]},
+      {"claude-sonnet-4-5-20250929": ["gpt-5-mini"]},
+      {"claude-opus-4-1-20250805": ["gpt-5-mini"]},
+      {"gpt-4o-mini": ["gpt-5-mini"]},
+      {"gpt-5.1": ["gpt-5-mini"]},
+      {"gpt-4o": ["gpt-5-mini"]},
+      {"gpt-5": ["gpt-5.1"]},
+      {"bad_model_name": ["gpt-5-mini"]},
     ]
