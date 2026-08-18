@@ -19,6 +19,7 @@ services:
     image: pgvector/pgvector:pg17
     volumes:
       - /docker/volumes/postgres/:/var/lib/postgresql/data/
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     environment:
       - POSTGRES_DB=${DATABASE_NAME}
       - POSTGRES_USER=${DATABASE_USER}
@@ -33,6 +34,32 @@ services:
       test: pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}
       interval: 2s
       retries: 10
+
+  keycloak:
+    profiles: [app]
+    image: quay.io/keycloak/keycloak:26.0
+    container_name: keycloak
+    command: ["start", "--http-relative-path=/auth", "--http-enabled=true", "--hostname-strict=false"]
+    environment:
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://db:5432/keycloak
+      - KC_DB_USERNAME=${DATABASE_USER}
+      - KC_DB_PASSWORD=${DATABASE_PASSWORD}
+      # A full URL here must include the relative path — Keycloak only
+      # auto-appends KC_HTTP_RELATIVE_PATH when this is a bare hostname.
+      - KC_HOSTNAME=${DOMAIN}/auth
+      - KC_PROXY_HEADERS=xforwarded
+      - KEYCLOAK_ADMIN=${KEYCLOAK_ADMIN}
+      - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
+    env_file:
+      - ./.env
+    restart: unless-stopped
+    networks:
+      micronet:
+        ipv4_address: 172.25.0.15
+    depends_on:
+      db:
+        condition: service_healthy
 
   litellm:
     profiles: [app]

@@ -45,6 +45,7 @@ jobs:
 
             # --no-deps: never touch db/litellm during app deploy.
             # --force-recreate: swap containers without a separate stop/rm step.
+            $COMPOSE up -d --force-recreate --no-deps keycloak
             $COMPOSE up -d --force-recreate --no-deps web
 
             echo "Waiting for web to become healthy..."
@@ -83,6 +84,19 @@ jobs:
             $COMPOSE up -d --force-recreate --no-deps nginx
 
             echo "--- Deploy successful ---"
+
+      - name: Apply Keycloak realm config
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_IP }}
+          username: 'ubuntu'
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd "${{ env.APP_DIR }}"
+            set -a; source .env; set +a
+            ./keycloak/import-realm.sh
 
       - name: Clean up disk space
         uses: appleboy/ssh-action@v1.0.3
