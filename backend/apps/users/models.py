@@ -29,6 +29,11 @@ class CustomUser(AbstractUser):
 
     avatar = models.FileField(upload_to=_get_avatar_filename, blank=True, validators=[validate_profile_picture])
 
+    # Keycloak's user UUID ("sub" claim) — stable for the life of the account,
+    # unchanged when email/username change, unlike email. See resolve_user()
+    # in apps/authentication once it lands (docs/keycloak-migration.md, section 2).
+    keycloak_sub = models.CharField(max_length=36, unique=True, null=True, blank=True, db_index=True)
+
     def __str__(self):
         return f"{self.get_full_name()} <{self.email or self.username}>"
 
