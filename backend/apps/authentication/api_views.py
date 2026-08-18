@@ -24,10 +24,10 @@ from django.core.cache import cache
 from django.conf import settings
 from datetime import datetime, timedelta, UTC
 from allauth.account.models import EmailConfirmation, EmailAddress
+from allauth.account.signals import user_signed_up
 import logging
 from dj_rest_auth.registration.views import RegisterView as BaseRegisterView
 import os
-from apps.subscriptions.credits import get_or_create_wallet
 
 logger = logging.getLogger(__name__)
 
@@ -325,9 +325,16 @@ class CustomRegisterView(BaseRegisterView):
 
     def perform_create(self, serializer):
         user = serializer.save(self.request)
-        
-        # Fund the user's free-tier wallet (no synthetic internal subscription).
-        get_or_create_wallet(user)
+
+        # This view overrides perform_create entirely rather than calling
+        # super() (dj_rest_auth's base RegisterView.perform_create), so
+        # allauth's complete_signup() — the only thing that normally fires
+        # user_signed_up — never runs here. Fire it explicitly (without the
+        # rest of complete_signup's side effects, e.g. perform_login, which
+        # this JWT-only flow doesn't want) so the signal receiver in
+        # apps/users/signals.py funds the wallet — the same receiver Keycloak
+        # JIT provisioning uses (apps/authentication/keycloak_resolve.py).
+        user_signed_up.send(sender=user.__class__, request=self.request, user=user)
 
         # Check if email verification is already set up
         from allauth.account.models import EmailAddress

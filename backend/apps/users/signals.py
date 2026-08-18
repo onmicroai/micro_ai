@@ -7,6 +7,7 @@ from django.core.mail import mail_admins
 from django.db.models.signals import pre_save, post_delete
 from django.dispatch import receiver
 from apps.users.models import CustomUser
+from apps.subscriptions.credits import get_or_create_wallet
 from django.core.files.base import ContentFile
 from django.utils.text import slugify
 import requests
@@ -18,6 +19,11 @@ def handle_sign_up(request, user, **kwargs):
     # or subscribe them to your mailing list.
     # This example notifies the admins, in case you want to keep track of sign ups
     _notify_admins_of_signup(user)
+
+    # Fund the user's free-tier wallet (no synthetic internal subscription).
+    # Fires for both the legacy registration flow and Keycloak JIT provisioning
+    # (apps/authentication/keycloak_resolve.py), since both send this signal.
+    get_or_create_wallet(user)
 
     gravatar_url = f"https://www.gravatar.com/avatar/{user.gravatar_id}?s=128&d=identicon"
     response = requests.get(gravatar_url)

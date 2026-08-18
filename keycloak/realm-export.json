@@ -41,6 +41,17 @@
             "access.token.claim": "true",
             "userinfo.token.claim": "true"
           }
+        },
+        {
+          "name": "onmicro-spa-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "onmicro-spa",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
         }
       ]
     }

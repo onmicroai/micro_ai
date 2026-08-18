@@ -382,6 +382,16 @@ SITE_ID = 1
 # DRF config
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
+        # KeycloakAuthentication MUST come first: simplejwt's
+        # JWTAuthentication raises InvalidToken (rather than returning None)
+        # for a token it doesn't recognize as its own, and DRF stops at the
+        # first authenticator that raises — so simplejwt would never let
+        # KeycloakAuthentication run if listed first. KeycloakAuthentication
+        # itself returns None for any token not claiming our Keycloak issuer
+        # (see keycloak_auth.py), so simplejwt still gets its turn.
+        # KeycloakAuthentication is additive here; simplejwt is removed at
+        # cutover (docs/keycloak-migration.md delivery plan).
+        "apps.authentication.keycloak_auth.KeycloakAuthentication",
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ("apps.api.permissions.IsAuthenticatedOrHasUserAPIKey",),
@@ -435,6 +445,24 @@ SIMPLE_JWT = {
     "AUTH_COOKIE_PATH": "/",         
     "AUTH_COOKIE_SAMESITE": SAMESITE_SETTING,
 }
+
+# Keycloak resource-server config — validates tokens minted by the realm's
+# own Keycloak (keycloak/realm-export.json), never issues any itself.
+KEYCLOAK_REALM = env("KEYCLOAK_REALM", default="onmicro")
+# Must match the token's `iss` claim exactly — this is the public URL
+# (KC_HOSTNAME in docker-compose*.yml), reachable from the browser.
+KEYCLOAK_ISSUER = env(
+    "KEYCLOAK_ISSUER",
+    default=f"{DOMAIN}/auth/realms/{KEYCLOAK_REALM}",
+)
+# Where Django actually fetches JWKS from — container-to-container via the
+# Docker service name, since "localhost" in KEYCLOAK_ISSUER means the web
+# container itself, not the keycloak container, from inside Django.
+KEYCLOAK_JWKS_URL = env(
+    "KEYCLOAK_JWKS_URL",
+    default=f"http://keycloak:8080/auth/realms/{KEYCLOAK_REALM}",
+)
+KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="onmicro-spa")
 
 REST_AUTH = {
     "USE_JWT": True,

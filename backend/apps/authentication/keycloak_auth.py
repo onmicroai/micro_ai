@@ -1,0 +1,96 @@
+"""
+DRF authentication class that validates a Keycloak-issued Bearer token and
+resolves it to a CustomUser via keycloak_resolve.resolve_user.
+
+Added alongside simplejwt (see REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
+in settings.py) so existing simplejwt-issued tokens keep working unmodified
+until cutover. This class is listed FIRST, ahead of simplejwt — not for
+performance, but because simplejwt's JWTAuthentication.get_validated_token()
+raises InvalidToken (rather than returning None) for a token it doesn't
+recognize as its own, and DRF stops at the first authenticator that raises.
+Placed first, simplejwt would never get a turn for its own tokens whenever
+this ran second. So this class must itself return None (not raise) for any
+token that doesn't even claim to be from our Keycloak issuer, checked via an
+unverified peek at the `iss` claim before attempting real verification —
+only a token that *claims* to be ours but fails verification should raise.
+"""
+
+import logging
+
+import jwt
+from django.conf import settings
+from rest_framework.authentication import BaseAuthentication
+from rest_framework.exceptions import AuthenticationFailed
+
+from apps.authentication.keycloak_resolve import resolve_user
+
+logger = logging.getLogger(__name__)
+
+_jwks_client = None
+
+
+def _get_jwks_client() -> jwt.PyJWKClient:
+    global _jwks_client
+    if _jwks_client is None:
+        # Deliberately KEYCLOAK_JWKS_URL, not KEYCLOAK_ISSUER — the latter is
+        # the public URL embedded in the token's `iss` claim (validated
+        # separately below) and isn't reachable from inside this container.
+        _jwks_client = jwt.PyJWKClient(
+            f"{settings.KEYCLOAK_JWKS_URL}/protocol/openid-connect/certs",
+            cache_keys=True,
+        )
+    return _jwks_client
+
+
+def _extract_bearer(request) -> str | None:
+    header = request.META.get("HTTP_AUTHORIZATION", "")
+    if not header.startswith("Bearer "):
+        return None
+    return header[len("Bearer "):].strip()
+
+
+def _claims_from_our_issuer(raw_token: str) -> bool:
+    """
+    Unverified peek at `iss` only — used solely to decide whether this
+    authenticator should even attempt the token, never to trust its content.
+    """
+    try:
+        unverified = jwt.decode(raw_token, options={"verify_signature": False})
+    except jwt.PyJWTError:
+        return False
+    return unverified.get("iss") == settings.KEYCLOAK_ISSUER
+
+
+def verify(raw_token: str) -> dict:
+    """Validate signature, iss, aud, exp/nbf. Returns the decoded claims."""
+    try:
+        signing_key = _get_jwks_client().get_signing_key_from_jwt(raw_token)
+        return jwt.decode(
+            raw_token,
+            signing_key.key,
+            algorithms=["RS256"],
+            audience=settings.KEYCLOAK_AUDIENCE,
+            issuer=settings.KEYCLOAK_ISSUER,
+            leeway=30,
+        )
+    except jwt.PyJWTError as exc:
+        raise AuthenticationFailed(f"Invalid Keycloak token: {exc}") from exc
+
+
+class KeycloakAuthentication(BaseAuthentication):
+    def authenticate(self, request):
+        raw_token = _extract_bearer(request)
+        if raw_token is None:
+            return None
+
+        # Not even claiming to be from our realm (e.g. a simplejwt token) —
+        # decline so the next authenticator in the chain gets a turn.
+        if not _claims_from_our_issuer(raw_token):
+            return None
+
+        claims = verify(raw_token)
+        user = resolve_user(claims)
+        return user, raw_token
+
+    def authenticate_header(self, request):
+        return "Bearer"
