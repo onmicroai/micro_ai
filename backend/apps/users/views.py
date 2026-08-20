@@ -19,6 +19,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from .serializers import CustomUserSerializer
 
+from .deactivation import deactivate_user_and_keys
 from .forms import CustomUserChangeForm, UploadAvatarForm
 from .helpers import require_email_confirmation, user_has_confirmed_email_address
 from .models import CustomUser
@@ -206,7 +207,5 @@ def profile_api(request):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
     
     elif request.method == 'DELETE':
-        user = request.user
-        user.is_active = False
-        user.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)   
+        deactivate_user_and_keys(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
