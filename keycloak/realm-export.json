@@ -22,7 +22,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": false,
       "serviceAccountsEnabled": false,
-      "redirectUris": ["${DOMAIN}/auth/callback", "${DOMAIN}/auth/callback/*"],
+      "redirectUris": ["${DOMAIN}/auth-callback", "${DOMAIN}/auth-callback*"],
       "webOrigins": ["${DOMAIN}"],
       "attributes": {
         "pkce.code.challenge.method": "S256",
