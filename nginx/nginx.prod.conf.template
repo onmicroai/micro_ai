@@ -32,6 +32,16 @@ server {
     rewrite ^/a/([^/]+)/subscription$ /a/$1/subscription/ permanent;
     rewrite ^/accounts/logout_loading$ /accounts/logout_loading/ permanent;
 
+    # REST federation endpoints (apps/authentication/federation_views.py) —
+    # Keycloak-only, called container-to-container. The shared secret they
+    # require is defense-in-depth, not the primary control; this block is
+    # what actually keeps them off the public internet. Must come before the
+    # general ^/(api|...) block below, which would otherwise proxy this path
+    # straight through to Django.
+    location ~ ^/api/auth/federation/ {
+        return 404;
+    }
+
     # ✅ Allow iframe embedding ONLY for /app/embed/ paths
     location ~ ^/app/embed/ {
         proxy_pass http://frontend:3000;

@@ -58,5 +58,21 @@
   ],
   "identityProviders": [],
   "browserFlow": "browser",
-  "attributes": {}
+  "attributes": {},
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "django-legacy-users",
+        "providerId": "User migration using a REST client",
+        "providerType": "org.keycloak.storage.UserStorageProvider",
+        "config": {
+          "URI": ["http://web:8000/api/auth/federation"],
+          "API_TOKEN_ENABLED": ["true"],
+          "API_TOKEN": ["${KEYCLOAK_FEDERATION_SHARED_SECRET}"],
+          "SEVER_FEDERATION_LINK": ["true"],
+          "USE_USER_ID_FOR_CREDENTIAL_VERIFICATION": ["false"]
+        }
+      }
+    ]
+  }
 }

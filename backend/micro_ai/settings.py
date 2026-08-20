@@ -400,6 +400,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
     "DEFAULT_THROTTLE_RATES": {
         "add_admin": "20/hour",
+        "federation_password_check": "10/hour",
     },
 }
 
@@ -463,6 +464,13 @@ KEYCLOAK_JWKS_URL = env(
     default=f"http://keycloak:8080/auth/realms/{KEYCLOAK_REALM}",
 )
 KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="onmicro-spa")
+
+# REST federation (apps/authentication/federation_views.py) — the Bearer
+# token Keycloak's "User migration using a REST client" provider sends on
+# every call to the two federation endpoints. No default: an empty secret
+# would make HasFederationSharedSecret reject every request, which is the
+# correct fail-closed behavior if this isn't configured.
+KEYCLOAK_FEDERATION_SHARED_SECRET = env("KEYCLOAK_FEDERATION_SHARED_SECRET", default="")
 
 REST_AUTH = {
     "USE_JWT": True,

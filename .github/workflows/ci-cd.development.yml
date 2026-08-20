@@ -154,6 +154,8 @@ jobs:
             # --profile app: web/frontend are behind the app profile.
             # Avoid `compose --wait` for web — it can report unhealthy before
             # start_period elapses; poll docker inspect instead (same as db).
+            ./keycloak/fetch-provider.sh
+
             $COMPOSE --profile app up -d --no-deps litellm
             $COMPOSE --profile app up -d --no-deps keycloak
             $COMPOSE --profile app up -d --no-deps web

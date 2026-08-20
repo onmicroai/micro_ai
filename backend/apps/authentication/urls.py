@@ -5,11 +5,20 @@ from dj_rest_auth.views import UserDetailsView
 from django.urls import path, re_path
 from rest_framework_simplejwt.views import TokenVerifyView
 from . import api_views
+from . import federation_views
 from . import views
 
 app_name = "authentication"
 
 urlpatterns = [
+    # REST federation — Keycloak-only (network-isolated + shared-secret,
+    # never proxied through nginx). GET (profile lookup) and POST (password
+    # check) share one path per the provider's contract. See federation_views.py.
+    path(
+        "federation/<str:username_or_email>",
+        federation_views.FederationView.as_view(),
+        name="federation",
+    ),
     path("register/", api_views.CustomRegisterView.as_view(), name="rest_register"),
     path("login/", api_views.LoginViewWith2fa.as_view(), name="rest_login"),
     path("verify-otp/", api_views.VerifyOTPView.as_view(), name="verify_otp"),

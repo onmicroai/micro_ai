@@ -43,6 +43,8 @@ jobs:
             cd "${{ env.APP_DIR }}"
             COMPOSE="${{ env.COMPOSE }}"
 
+            ./keycloak/fetch-provider.sh
+
             # --no-deps: never touch db/litellm during app deploy.
             # --force-recreate: swap containers without a separate stop/rm step.
             $COMPOSE up -d --force-recreate --no-deps keycloak

@@ -9,19 +9,22 @@
 #
 # A second, less obvious gotcha this script exists to work around: Keycloak's
 # realm UPDATE endpoint (PUT /admin/realms/{realm}) does NOT cascade into
-# nested collections like clients[].protocolMappers[] — that nested-object
-# processing only happens on realm CREATE (POST /admin/realms). So a plain
-# "update the whole realm JSON" only ever applies top-level realm settings;
-# adding a protocol mapper to an existing client via that path silently does
-# nothing. This script therefore reconciles clients and their protocol
-# mappers individually, by id, after the realm-level upsert.
+# nested collections like clients[].protocolMappers[] or components[] (e.g.
+# the REST user federation provider) — that nested-object processing only
+# happens on realm CREATE (POST /admin/realms). So a plain "update the whole
+# realm JSON" only ever applies top-level realm settings; adding a protocol
+# mapper to an existing client, or a new federation provider, via that path
+# silently does nothing. This script therefore reconciles clients (with
+# their protocol mappers) and components individually, by id, after the
+# realm-level upsert.
 #
 # Requires: docker, envsubst (gettext), jq — all on the machine running this
 # script (not inside the Keycloak container, which has neither).
 #
 # Usage: KEYCLOAK_CONTAINER=keycloak DOMAIN=https://dev.onmicro.ai \
 #        KEYCLOAK_REALM=onmicro KEYCLOAK_ADMIN=admin \
-#        KEYCLOAK_ADMIN_PASSWORD=... ./keycloak/import-realm.sh
+#        KEYCLOAK_ADMIN_PASSWORD=... \
+#        KEYCLOAK_FEDERATION_SHARED_SECRET=... ./keycloak/import-realm.sh
 set -euo pipefail
 
 KEYCLOAK_CONTAINER="${KEYCLOAK_CONTAINER:-keycloak}"
@@ -29,6 +32,7 @@ KEYCLOAK_REALM="${KEYCLOAK_REALM:?KEYCLOAK_REALM must be set}"
 DOMAIN="${DOMAIN:?DOMAIN must be set}"
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be set}"
 KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}"
+KEYCLOAK_FEDERATION_SHARED_SECRET="${KEYCLOAK_FEDERATION_SHARED_SECRET:?KEYCLOAK_FEDERATION_SHARED_SECRET must be set}"
 
 for bin in envsubst jq docker; do
   command -v "$bin" >/dev/null 2>&1 || {
@@ -48,8 +52,10 @@ kc() {
 RENDERED="$(mktemp)"
 trap 'rm -f "$RENDERED"' EXIT
 DOMAIN="$DOMAIN" KEYCLOAK_REALM="$KEYCLOAK_REALM" \
-  envsubst '${DOMAIN} ${KEYCLOAK_REALM}' \
+  KEYCLOAK_FEDERATION_SHARED_SECRET="$KEYCLOAK_FEDERATION_SHARED_SECRET" \
+  envsubst '${DOMAIN} ${KEYCLOAK_REALM} ${KEYCLOAK_FEDERATION_SHARED_SECRET}' \
   < "${SCRIPT_DIR}/realm-export.json" > "$RENDERED"
+chmod 600 "$RENDERED"  # contains the federation shared secret in plaintext
 
 echo "Authenticating kcadm against ${KEYCLOAK_CONTAINER}..."
 kc config credentials \
@@ -62,10 +68,10 @@ REALM_EXISTS=0
 kc get "realms/${KEYCLOAK_REALM}" >/dev/null 2>&1 && REALM_EXISTS=1
 
 if [ "$REALM_EXISTS" = "1" ]; then
-  echo "Realm '${KEYCLOAK_REALM}' exists — applying top-level settings, then reconciling clients."
-  jq 'del(.clients)' "$RENDERED" | kc update "realms/${KEYCLOAK_REALM}" -f -
+  echo "Realm '${KEYCLOAK_REALM}' exists — applying top-level settings, then reconciling clients and components."
+  jq 'del(.clients) | del(.components)' "$RENDERED" | kc update "realms/${KEYCLOAK_REALM}" -f -
 else
-  echo "Realm '${KEYCLOAK_REALM}' does not exist — creating (clients + protocol mappers included)."
+  echo "Realm '${KEYCLOAK_REALM}' does not exist — creating (clients, protocol mappers, and components included)."
   kc create realms -f "$RENDERED"
   echo "Realm import complete."
   exit 0
@@ -117,6 +123,33 @@ while [ "$i" -lt "$CLIENT_COUNT" ]; do
     done
   fi
   i=$((i + 1))
+done
+
+# Reconcile components (e.g. the REST user federation provider) — same
+# nested-collection gotcha as clients above; only realm CREATE processes
+# these, not UPDATE.
+PROVIDER_TYPES=$(jq -r '.components // {} | keys[]' "$RENDERED")
+for PROVIDER_TYPE in $PROVIDER_TYPES; do
+  COMPONENT_COUNT=$(jq --arg pt "$PROVIDER_TYPE" '.components[$pt] | length' "$RENDERED")
+  k=0
+  while [ "$k" -lt "$COMPONENT_COUNT" ]; do
+    COMPONENT_JSON=$(jq -c --arg pt "$PROVIDER_TYPE" ".components[\$pt][$k]" "$RENDERED")
+    COMPONENT_NAME=$(echo "$COMPONENT_JSON" | jq -r '.name')
+
+    EXISTING_COMPONENT_ID=$(kc get components -r "$KEYCLOAK_REALM" \
+        -q "name=${COMPONENT_NAME}" -q "type=${PROVIDER_TYPE}" \
+      | jq -r '.[0].id // empty')
+
+    if [ -z "$EXISTING_COMPONENT_ID" ]; then
+      echo "  component '${COMPONENT_NAME}' (${PROVIDER_TYPE}) does not exist — creating."
+      echo "$COMPONENT_JSON" | kc create components -r "$KEYCLOAK_REALM" -f -
+    else
+      echo "  component '${COMPONENT_NAME}' (${PROVIDER_TYPE}) exists (${EXISTING_COMPONENT_ID}) — updating."
+      echo "$COMPONENT_JSON" | jq --arg id "$EXISTING_COMPONENT_ID" '.id = $id' \
+        | kc update "components/${EXISTING_COMPONENT_ID}" -r "$KEYCLOAK_REALM" -f -
+    fi
+    k=$((k + 1))
+  done
 done
 
 echo "Realm import complete."

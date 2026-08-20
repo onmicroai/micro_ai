@@ -53,6 +53,9 @@ services:
       - KEYCLOAK_ADMIN_PASSWORD=${KEYCLOAK_ADMIN_PASSWORD}
     env_file:
       - ./.env
+    volumes:
+      # Run keycloak/fetch-provider.sh first — see keycloak/README.md.
+      - ./keycloak/providers:/opt/keycloak/providers:ro
     restart: unless-stopped
     networks:
       micronet:
