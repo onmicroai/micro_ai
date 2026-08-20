@@ -75,19 +75,29 @@ def _link_user(user, sub: str):
 
 def jit_create(claims: dict):
     """
-    Create a new CustomUser from a Keycloak token that matched none of the
-    three resolve_user lookups. Fires the same user_signed_up signal the
-    legacy registration flow fires, so wallet funding / admin-notify /
-    avatar-fetch all happen from one place (apps/users/signals.py).
+    Create a new CustomUser from claims that matched no existing row. Fires
+    the same user_signed_up signal the legacy registration flow fires, so
+    wallet funding / admin-notify / avatar-fetch all happen from one place
+    (apps/users/signals.py).
+
+    `sub` is optional here — resolve_user always supplies a real Keycloak
+    sub, but apps/lti/provisioning.py also calls this directly for LTI
+    deep-link JIT creation, where there is no Keycloak sub yet (an LTI
+    launch's own `sub` is the LMS's identifier, not Keycloak's — writing
+    that into keycloak_sub would permanently block the user's real future
+    Keycloak login from ever linking, since _link_user refuses to overwrite
+    an already-set keycloak_sub). Leaving keycloak_sub null here is exactly
+    what lets that user link normally the first time they do go through
+    Keycloak (resolve_user's email-fallback branch).
     """
     from allauth.account.signals import user_signed_up
 
     CustomUser = get_user_model()
     email = (claims.get("email") or "").strip().lower()
     if not email or not claims.get("email_verified"):
-        raise SuspiciousOperation("Keycloak token asserted no verified email")
+        raise SuspiciousOperation("claims asserted no verified email")
 
-    sub = claims["sub"]
+    sub = claims.get("sub")
     username = _unique_username_for(email)
 
     try:
@@ -101,9 +111,13 @@ def jit_create(claims: dict):
     except IntegrityError:
         # Lost a race with a parallel request creating the same user —
         # the unique constraint on keycloak_sub is the arbiter. Re-read.
-        existing = CustomUser.objects.filter(keycloak_sub=sub).first()
-        if existing:
-            return existing
+        # Only meaningful when sub is set: keycloak_sub=None matches every
+        # other unlinked row, so re-reading by it here would return an
+        # arbitrary wrong user instead of the intended one.
+        if sub:
+            existing = CustomUser.objects.filter(keycloak_sub=sub).first()
+            if existing:
+                return existing
         raise
 
     user.set_unusable_password()
