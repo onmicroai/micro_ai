@@ -10,22 +10,22 @@ import {
    useState,
 } from "react";
 import type { User } from "oidc-client-ts";
-import { getUserManager, clearSessionPresent } from "@/utils/keycloakAuth";
+import { getUserManager, clearSessionPresent, redirectToRegister } from "@/utils/keycloakAuth";
 import { useUserStore } from "@/store/userStore";
 
 /**
  * Same isAuthenticated/login/logout shape as context/AuthContext.tsx so a
- * later swap doesn't require touching every consumer's call sites — but
- * login/register collapse into a single login() (Keycloak owns the login
- * *and* registration form; there's nothing left for this app to submit
- * credentials to), and there's no authorizeUserWithJwt equivalent, since
- * oidc-client-ts's signinRedirectCallback() (see app/auth-callback/page.tsx)
- * handles the token exchange internally.
+ * later swap doesn't require touching every consumer's call sites. Keycloak
+ * owns both forms, so there's no authorizeUserWithJwt equivalent — oidc-
+ * client-ts's signinRedirectCallback() (see app/auth-callback/page.tsx)
+ * handles the token exchange internally regardless of which form the user
+ * came back from.
  */
 interface KeycloakAuthContextProps {
    isAuthenticated: boolean;
    user: User | null;
    login: (returnTo?: string) => Promise<void>;
+   register: (returnTo?: string) => Promise<void>;
    logout: () => Promise<void>;
 }
 
@@ -74,6 +74,10 @@ export const KeycloakAuthProvider: FC<KeycloakAuthProviderProps> = ({ children }
       await getUserManager().signinRedirect({ state: returnTo });
    }, []);
 
+   const register = useCallback(async (returnTo?: string): Promise<void> => {
+      await redirectToRegister(returnTo);
+   }, []);
+
    const logout = useCallback(async (): Promise<void> => {
       clearSessionPresent();
       await getUserManager().signoutRedirect();
@@ -89,7 +93,7 @@ export const KeycloakAuthProvider: FC<KeycloakAuthProviderProps> = ({ children }
    }, [isAuthenticated, djangoUser, getDjangoUser]);
 
    return (
-      <KeycloakAuthContext.Provider value={{ isAuthenticated, user, login, logout }}>
+      <KeycloakAuthContext.Provider value={{ isAuthenticated, user, login, register, logout }}>
          {children}
       </KeycloakAuthContext.Provider>
    );

@@ -18,6 +18,27 @@ const KEYCLOAK_CLIENT_ID =
   process.env.NEXT_PUBLIC_KEYCLOAK_CLIENT_ID || "onmicro-spa";
 
 let userManagerSingleton: UserManager | null = null;
+let registerUserManagerSingleton: UserManager | null = null;
+
+function baseUserManagerSettings() {
+  if (!KEYCLOAK_URL) {
+    throw new Error("NEXT_PUBLIC_KEYCLOAK_URL is not set");
+  }
+  return {
+    authority: `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}`,
+    client_id: KEYCLOAK_CLIENT_ID,
+    // Not /auth/callback — nginx's ^/auth/ block (docker-compose*.yml,
+    // KC_HTTP_RELATIVE_PATH=/auth) routes every /auth/* path straight to
+    // Keycloak itself, never to this Next.js app. Any callback route
+    // under /auth/ would be unreachable by the browser.
+    redirect_uri: `${window.location.origin}/auth-callback`,
+    post_logout_redirect_uri: window.location.origin,
+    response_type: "code",
+    scope: "openid profile email",
+    userStore: new WebStorageStateStore({ store: window.localStorage }),
+    automaticSilentRenew: true,
+  };
+}
 
 /**
  * Browser-only singleton. Refresh-token based silent renewal (oidc-client-ts's
@@ -32,25 +53,42 @@ export function getUserManager(): UserManager {
     throw new Error("getUserManager() must only be called in the browser");
   }
   if (!userManagerSingleton) {
-    if (!KEYCLOAK_URL) {
-      throw new Error("NEXT_PUBLIC_KEYCLOAK_URL is not set");
-    }
-    userManagerSingleton = new UserManager({
-      authority: `${KEYCLOAK_URL}/realms/${KEYCLOAK_REALM}`,
-      client_id: KEYCLOAK_CLIENT_ID,
-      // Not /auth/callback — nginx's ^/auth/ block (docker-compose*.yml,
-      // KC_HTTP_RELATIVE_PATH=/auth) routes every /auth/* path straight to
-      // Keycloak itself, never to this Next.js app. Any callback route
-      // under /auth/ would be unreachable by the browser.
-      redirect_uri: `${window.location.origin}/auth-callback`,
-      post_logout_redirect_uri: window.location.origin,
-      response_type: "code",
-      scope: "openid profile email",
-      userStore: new WebStorageStateStore({ store: window.localStorage }),
-      automaticSilentRenew: true,
-    });
+    userManagerSingleton = new UserManager(baseUserManagerSettings());
   }
   return userManagerSingleton;
+}
+
+/**
+ * A second UserManager, identical to the main one except its
+ * authorization_endpoint is seeded to Keycloak's registration form instead
+ * of its login form — Keycloak has no query param that switches an existing
+ * request between the two; they're genuinely separate endpoints
+ * (/protocol/openid-connect/{auth,registrations}), same params otherwise.
+ * `metadataSeed` overrides just that one discovered field, everything else
+ * (token_endpoint, jwks_uri, ...) still comes from normal discovery. Safe to
+ * keep as a second instance: both share the same localStorage-backed
+ * userStore, so auth-callback's signinRedirectCallback() (always called on
+ * the main manager) finds the pending request by its `state` regardless of
+ * which manager created it.
+ */
+function getRegisterUserManager(): UserManager {
+  if (typeof window === "undefined") {
+    throw new Error("getRegisterUserManager() must only be called in the browser");
+  }
+  if (!registerUserManagerSingleton) {
+    const settings = baseUserManagerSettings();
+    registerUserManagerSingleton = new UserManager({
+      ...settings,
+      metadataSeed: {
+        authorization_endpoint: `${settings.authority}/protocol/openid-connect/registrations`,
+      },
+    });
+  }
+  return registerUserManagerSingleton;
+}
+
+export async function redirectToRegister(returnTo?: string): Promise<void> {
+  await getRegisterUserManager().signinRedirect({ state: returnTo });
 }
 
 export function markSessionPresent(): void {

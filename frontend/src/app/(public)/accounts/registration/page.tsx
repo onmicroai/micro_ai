@@ -5,13 +5,15 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 // Keycloak owns registration now (registrationAllowed: true in the realm —
-// keycloak/realm-export.json) via its own hosted login page's "Register"
-// link. There's nothing left for this app to submit a signup form to, so
-// this route just forwards into the same login redirect as /accounts/login.
+// keycloak/realm-export.json) via its own hosted registration form. There's
+// nothing left for this app to submit a signup form to, so this route just
+// forwards straight into Keycloak's registration form (not its login form —
+// see register() in KeycloakAuthContext/keycloakAuth.ts for why that needs
+// a second UserManager rather than just calling login()).
 function RegistrationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { login, isAuthenticated } = useAuth();
+  const { register, isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -20,8 +22,8 @@ function RegistrationContent() {
       return;
     }
     const nextPath = searchParams.get("next");
-    login(nextPath || "/dashboard");
-  }, [isAuthenticated, router, searchParams, login]);
+    register(nextPath || "/dashboard");
+  }, [isAuthenticated, router, searchParams, register]);
 
   return (
     <div className="min-h-screen bg-white flex items-center justify-center">
