@@ -1,12 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Deliberately NOT imported from utils/keycloakAuth.ts (which exports this
+// same name) — that module pulls in oidc-client-ts, which isn't Edge
+// Runtime-safe. The old code hardcoded "access_token"/"refresh_token" here
+// rather than importing from tokenCookieUtils.ts for the same reason; kept
+// that pattern. Must stay in sync with SESSION_PRESENT_COOKIE there by hand.
+const SESSION_PRESENT_COOKIE = "kc_session_present";
+
 export function middleware(request: NextRequest) {
-  const accessToken = request.cookies.get("access_token")?.value;
-  const refreshToken = request.cookies.get("refresh_token")?.value;
+  // Presence-only, same as the old access_token/refresh_token check — this
+  // Edge Runtime can't read localStorage (where the actual Keycloak tokens
+  // live), so it never verified the JWT either, before or after this swap.
+  // See utils/keycloakAuth.ts's markSessionPresent/clearSessionPresent for
+  // where this cookie is actually set/cleared.
+  const hasSession = !!request.cookies.get(SESSION_PRESENT_COOKIE)?.value;
   const pathname = request.nextUrl.pathname.toLowerCase();
 
   // Edit URLs are often shared by mistake; guests should see the public app, not login.
-  if (!accessToken && !refreshToken) {
+  if (!hasSession) {
     const editPathMatch = pathname.match(/^\/app\/edit\/([^/]+)\/?$/);
     if (editPathMatch) {
       const id = editPathMatch[1];
@@ -28,15 +39,15 @@ export function middleware(request: NextRequest) {
   // Check if the current path is an auth path
   const isAuthPath = authPaths.some(path => pathname.toLowerCase() === path.toLowerCase());
 
-  // Redirect to login if trying to access protected path without token
-  if (isProtectedPath && !accessToken && !refreshToken) {
+  // Redirect to login if trying to access protected path without a session
+  if (isProtectedPath && !hasSession) {
     const url = new URL("/accounts/login", request.url);
     url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
   // Redirect to dashboard if accessing auth paths while logged in
-  if (isAuthPath && accessToken) {
+  if (isAuthPath && hasSession) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

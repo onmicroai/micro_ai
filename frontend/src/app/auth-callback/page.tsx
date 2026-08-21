@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getUserManager, markSessionPresent } from "@/utils/keycloakAuth";
+import { useDashboardStore } from "@/app/(authenticated)/(dashboard)/dashboard/[tab]/store/dashboardStore";
 
 /**
  * PKCE redirect target Keycloak sends the browser back to after login.
@@ -11,6 +12,7 @@ import { getUserManager, markSessionPresent } from "@/utils/keycloakAuth";
  */
 export default function AuthCallbackPage() {
    const router = useRouter();
+   const cloneApp = useDashboardStore((state) => state.cloneApp);
    const [error, setError] = useState<string | null>(null);
    const ranOnce = useRef(false);
 
@@ -22,8 +24,26 @@ export default function AuthCallbackPage() {
 
       getUserManager()
          .signinRedirectCallback()
-         .then((user) => {
+         .then(async (user) => {
             markSessionPresent();
+
+            // Continuation of RemixBanner.tsx's "remix this app, but you're
+            // not logged in" flow — it stashes the app id in localStorage
+            // (survives the full-page redirect through Keycloak) before
+            // sending the user to /accounts/login. This used to run inside
+            // that login page itself, back when login was an in-page XHR
+            // rather than a redirect away and back.
+            const pendingRemixAppId = localStorage.getItem("pendingRemixAppId");
+            if (pendingRemixAppId) {
+               try {
+                  await cloneApp(parseInt(pendingRemixAppId));
+               } catch (err) {
+                  console.error("Error handling pending remix:", err);
+               } finally {
+                  localStorage.removeItem("pendingRemixAppId");
+               }
+            }
+
             const returnTo = typeof user.state === "string" ? user.state : "/dashboard";
             router.replace(returnTo);
          })
@@ -31,7 +51,7 @@ export default function AuthCallbackPage() {
             console.error("Keycloak sign-in callback failed:", err);
             setError(err instanceof Error ? err.message : "Sign-in failed");
          });
-   }, [router]);
+   }, [router, cloneApp]);
 
    if (error) {
       return (

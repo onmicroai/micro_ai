@@ -4,11 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserStore } from "@/store/userStore";
 import { checkRole } from "@/utils/checkRoles";
 import { checkIsPublic } from "@/utils/checkAppPrivacy";
-import {
-  getAccessToken,
-  getAccessTokenExpiration,
-} from "@/utils/tokenCookieUtils";
-import isTokenExpired from "@/utils/isTokenExpired";
+import { hasValidSessionSync } from "@/utils/keycloakAuth";
 
 /**
  * run | embed — public apps allowed for everyone; private apps need owner or admin.
@@ -47,9 +43,7 @@ export function useMicroappAccess(
     if (typeof window === "undefined") {
       return userIsLoading;
     }
-    const hasValidAccessToken =
-      !!getAccessToken() && !isTokenExpired(getAccessTokenExpiration());
-    return userIsLoading || (hasValidAccessToken && user === null);
+    return userIsLoading || (hasValidSessionSync() && user === null);
   }, [user, userIsLoading]);
 
   const [authLoading, setAuthLoading] = useState(true);

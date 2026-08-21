@@ -56,7 +56,25 @@
       ]
     }
   ],
-  "identityProviders": [],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": ${GOOGLE_IDP_ENABLED},
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_OAUTH_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_OAUTH_CLIENT_SECRET}",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT"
+      }
+    }
+  ],
   "browserFlow": "browser",
   "attributes": {},
   "components": {

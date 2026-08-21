@@ -9,14 +9,15 @@
 #
 # A second, less obvious gotcha this script exists to work around: Keycloak's
 # realm UPDATE endpoint (PUT /admin/realms/{realm}) does NOT cascade into
-# nested collections like clients[].protocolMappers[] or components[] (e.g.
-# the REST user federation provider) — that nested-object processing only
-# happens on realm CREATE (POST /admin/realms). So a plain "update the whole
-# realm JSON" only ever applies top-level realm settings; adding a protocol
-# mapper to an existing client, or a new federation provider, via that path
+# nested collections like clients[].protocolMappers[], components[] (e.g.
+# the REST user federation provider), or identityProviders[] (e.g. Google) —
+# that nested-object processing only happens on realm CREATE
+# (POST /admin/realms). So a plain "update the whole realm JSON" only ever
+# applies top-level realm settings; adding a protocol mapper to an existing
+# client, a new federation provider, or a new identity provider via that path
 # silently does nothing. This script therefore reconciles clients (with
-# their protocol mappers) and components individually, by id, after the
-# realm-level upsert.
+# their protocol mappers), components, and identity providers individually,
+# by id/alias, after the realm-level upsert.
 #
 # Requires: docker, envsubst (gettext), jq — all on the machine running this
 # script (not inside the Keycloak container, which has neither).
@@ -24,7 +25,11 @@
 # Usage: KEYCLOAK_CONTAINER=keycloak DOMAIN=https://dev.onmicro.ai \
 #        KEYCLOAK_REALM=onmicro KEYCLOAK_ADMIN=admin \
 #        KEYCLOAK_ADMIN_PASSWORD=... \
-#        KEYCLOAK_FEDERATION_SHARED_SECRET=... ./keycloak/import-realm.sh
+#        KEYCLOAK_FEDERATION_SHARED_SECRET=... \
+#        GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... \
+#        ./keycloak/import-realm.sh
+#        (GOOGLE_OAUTH_* are optional — leave both unset to disable the
+#        Google identity provider entirely; see GOOGLE_IDP_ENABLED below.)
 set -euo pipefail
 
 KEYCLOAK_CONTAINER="${KEYCLOAK_CONTAINER:-keycloak}"
@@ -33,6 +38,17 @@ DOMAIN="${DOMAIN:?DOMAIN must be set}"
 KEYCLOAK_ADMIN="${KEYCLOAK_ADMIN:?KEYCLOAK_ADMIN must be set}"
 KEYCLOAK_ADMIN_PASSWORD="${KEYCLOAK_ADMIN_PASSWORD:?KEYCLOAK_ADMIN_PASSWORD must be set}"
 KEYCLOAK_FEDERATION_SHARED_SECRET="${KEYCLOAK_FEDERATION_SHARED_SECRET:?KEYCLOAK_FEDERATION_SHARED_SECRET must be set}"
+# Optional — an instance that hasn't set up Google sign-in yet must not get a
+# "Sign in with Google" button that's broken (empty client id/secret). Derived
+# GOOGLE_IDP_ENABLED (a bare JSON boolean substituted into the template, not a
+# quoted string) is what actually gates the identity provider's "enabled" flag.
+GOOGLE_OAUTH_CLIENT_ID="${GOOGLE_OAUTH_CLIENT_ID:-}"
+GOOGLE_OAUTH_CLIENT_SECRET="${GOOGLE_OAUTH_CLIENT_SECRET:-}"
+if [ -n "$GOOGLE_OAUTH_CLIENT_ID" ] && [ -n "$GOOGLE_OAUTH_CLIENT_SECRET" ]; then
+  GOOGLE_IDP_ENABLED=true
+else
+  GOOGLE_IDP_ENABLED=false
+fi
 
 for bin in envsubst jq docker; do
   command -v "$bin" >/dev/null 2>&1 || {
@@ -53,9 +69,12 @@ RENDERED="$(mktemp)"
 trap 'rm -f "$RENDERED"' EXIT
 DOMAIN="$DOMAIN" KEYCLOAK_REALM="$KEYCLOAK_REALM" \
   KEYCLOAK_FEDERATION_SHARED_SECRET="$KEYCLOAK_FEDERATION_SHARED_SECRET" \
-  envsubst '${DOMAIN} ${KEYCLOAK_REALM} ${KEYCLOAK_FEDERATION_SHARED_SECRET}' \
+  GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
+  GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
+  GOOGLE_IDP_ENABLED="$GOOGLE_IDP_ENABLED" \
+  envsubst '${DOMAIN} ${KEYCLOAK_REALM} ${KEYCLOAK_FEDERATION_SHARED_SECRET} ${GOOGLE_OAUTH_CLIENT_ID} ${GOOGLE_OAUTH_CLIENT_SECRET} ${GOOGLE_IDP_ENABLED}' \
   < "${SCRIPT_DIR}/realm-export.json" > "$RENDERED"
-chmod 600 "$RENDERED"  # contains the federation shared secret in plaintext
+chmod 600 "$RENDERED"  # contains secrets (federation, Google OAuth) in plaintext
 
 echo "Authenticating kcadm against ${KEYCLOAK_CONTAINER}..."
 kc config credentials \
@@ -68,10 +87,10 @@ REALM_EXISTS=0
 kc get "realms/${KEYCLOAK_REALM}" >/dev/null 2>&1 && REALM_EXISTS=1
 
 if [ "$REALM_EXISTS" = "1" ]; then
-  echo "Realm '${KEYCLOAK_REALM}' exists — applying top-level settings, then reconciling clients and components."
-  jq 'del(.clients) | del(.components)' "$RENDERED" | kc update "realms/${KEYCLOAK_REALM}" -f -
+  echo "Realm '${KEYCLOAK_REALM}' exists — applying top-level settings, then reconciling clients, components, and identity providers."
+  jq 'del(.clients) | del(.components) | del(.identityProviders)' "$RENDERED" | kc update "realms/${KEYCLOAK_REALM}" -f -
 else
-  echo "Realm '${KEYCLOAK_REALM}' does not exist — creating (clients, protocol mappers, and components included)."
+  echo "Realm '${KEYCLOAK_REALM}' does not exist — creating (clients, protocol mappers, components, and identity providers included)."
   kc create realms -f "$RENDERED"
   echo "Realm import complete."
   exit 0
@@ -150,6 +169,25 @@ for PROVIDER_TYPE in $PROVIDER_TYPES; do
     fi
     k=$((k + 1))
   done
+done
+
+# Reconcile identity providers (e.g. Google) — same nested-collection gotcha
+# as clients/components above. Identity providers are keyed by "alias"
+# directly (no separate internal id to look up first, unlike clients).
+IDP_COUNT=$(jq '.identityProviders // [] | length' "$RENDERED")
+m=0
+while [ "$m" -lt "$IDP_COUNT" ]; do
+  IDP_JSON=$(jq -c ".identityProviders[$m]" "$RENDERED")
+  IDP_ALIAS=$(echo "$IDP_JSON" | jq -r '.alias')
+
+  if kc get "identity-provider/instances/${IDP_ALIAS}" -r "$KEYCLOAK_REALM" >/dev/null 2>&1; then
+    echo "  identity provider '${IDP_ALIAS}' exists — updating."
+    echo "$IDP_JSON" | kc update "identity-provider/instances/${IDP_ALIAS}" -r "$KEYCLOAK_REALM" -f -
+  else
+    echo "  identity provider '${IDP_ALIAS}' does not exist — creating."
+    echo "$IDP_JSON" | kc create identity-provider/instances -r "$KEYCLOAK_REALM" -f -
+  fi
+  m=$((m + 1))
 done
 
 echo "Realm import complete."
