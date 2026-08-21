@@ -1,18 +1,13 @@
 """
 DRF authentication class that validates a Keycloak-issued Bearer token and
-resolves it to a CustomUser via keycloak_resolve.resolve_user.
+resolves it to a CustomUser via keycloak_resolve.resolve_user. The sole
+entry in REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"] since cutover
+(docs/keycloak-migration.md) — simplejwt is fully removed.
 
-Added alongside simplejwt (see REST_FRAMEWORK["DEFAULT_AUTHENTICATION_CLASSES"]
-in settings.py) so existing simplejwt-issued tokens keep working unmodified
-until cutover. This class is listed FIRST, ahead of simplejwt — not for
-performance, but because simplejwt's JWTAuthentication.get_validated_token()
-raises InvalidToken (rather than returning None) for a token it doesn't
-recognize as its own, and DRF stops at the first authenticator that raises.
-Placed first, simplejwt would never get a turn for its own tokens whenever
-this ran second. So this class must itself return None (not raise) for any
-token that doesn't even claim to be from our Keycloak issuer, checked via an
-unverified peek at the `iss` claim before attempting real verification —
-only a token that *claims* to be ours but fails verification should raise.
+Still returns None (not raise) for a token that doesn't even claim to be
+from our Keycloak issuer — checked via an unverified peek at the `iss`
+claim before attempting real verification — rather than raising outright.
+Only a token that *claims* to be ours but fails verification raises.
 """
 
 import logging

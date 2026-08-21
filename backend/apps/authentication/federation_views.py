@@ -45,11 +45,10 @@ class FederationView(GenericAPIView):
     """
 
     # Must NOT inherit the global DEFAULT_AUTHENTICATION_CLASSES: the shared
-    # secret arrives as "Authorization: Bearer <secret>", which simplejwt's
-    # JWTAuthentication would try to parse as its own token and reject with
-    # a 401 before HasFederationSharedSecret (a permission, not an
-    # authenticator) ever runs. This endpoint's auth is the shared secret
-    # alone, checked entirely in permission_classes below.
+    # secret arrives as "Authorization: Bearer <secret>", which
+    # KeycloakAuthentication would otherwise try to parse as a JWT. This
+    # endpoint's auth is the shared secret alone, checked entirely in
+    # permission_classes below.
     authentication_classes = []
     permission_classes = [HasFederationSharedSecret]
 

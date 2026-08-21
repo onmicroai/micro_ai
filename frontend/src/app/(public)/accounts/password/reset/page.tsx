@@ -5,10 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 
 // Password reset is Keycloak's job now — its hosted login page has its own
-// "Forgot Password?" link. This route no longer posts to Django's
-// /api/auth/password/reset/ (that endpoint still exists for now, but new
-// reset requests should go through Keycloak, which actually owns the
-// credential).
+// "Forgot Password?" link. Django's own /api/auth/password/reset/ endpoint
+// is gone as of the PR 12 cutover (docs/keycloak-migration.md).
 export default function PasswordResetPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();

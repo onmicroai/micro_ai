@@ -8,7 +8,7 @@ psycopg2-binary
 django-environ
 djangorestframework
 djangorestframework-api-key
-djangorestframework-simplejwt
+pyjwt[crypto]  # Keycloak JWKS/JWT validation (apps/authentication/keycloak_auth.py)
 dj-rest-auth
 django-cors-headers
 drf-spectacular

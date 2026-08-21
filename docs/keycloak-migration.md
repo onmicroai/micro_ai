@@ -183,6 +183,10 @@ Jane holds `jane@rutgers.edu` with 12 micro apps. Rutgers turns on SSO.
 
 The migration machinery and the SSO brokering compose: the same provider that migrates passwords also catches SSO users who never migrated.
 
+**Verified against real Keycloak (PR 11):** both outcomes above hold — no duplicate account is ever created, in either order. One nuance the "pulls her from Django with `django_user_id`" phrasing overstates: First Broker Login's account-link re-authentication step does call the federation provider (confirming the "never logged in" lookup genuinely traverses it, not just a coincidence of email matching), but it does not carry `django_user_id` onto the newly-materialized local Keycloak user as a user attribute. The `django_user_id` protocol mapper therefore emits nothing for that user's first post-link token, and `resolve_user` actually lands on the existing `CustomUser` row via its verified-email fallback branch, not the `django_user_id` branch — same result, slower path. If Django's email ever drifts from Keycloak's (e.g. a manual edit on one side only), this fallback stops being reliable; the fast path staying dark is a latent gap, not yet a bug-fix PR.
+
+**Also verified:** `sso_only` enforcement (Keycloak's built-in "Identity Provider Redirector" browser-flow execution, present but unconfigured by default) does force every login straight to the broker, skipping the password form entirely, once a realm sets its `defaultProvider` config — confirming it's realm-configurable and off by default, as stated above.
+
 ### Protocol
 
 OIDC and SAML are both first-class in Keycloak, configured identically from our side.

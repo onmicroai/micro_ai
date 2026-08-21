@@ -24,7 +24,7 @@ from drf_spectacular.views import SpectacularAPIView, SpectacularSwaggerView, Sp
 from apps.web.sitemaps import StaticViewSitemap
 from apps.microapps.urls import urlpatterns as microapp_urls
 from apps.collection.urls import urlpatterns as collection_urls
-from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomSignupView, CustomLogoutLoadingView
+from apps.authentication.views import CustomLoginView, CustomLogoutView, CustomLogoutLoadingView
 from apps.users.views import get_resized_avatar
 
 
@@ -40,7 +40,12 @@ urlpatterns = [
     path("api/dashboard/", include("apps.dashboard.urls")),
     path("sitemap.xml", sitemap, {"sitemaps": sitemaps}, name="django.contrib.sitemaps.views.sitemap"),
     path("accounts/login/", CustomLoginView.as_view(), name='account_login'),
-    path("accounts/signup/", CustomSignupView.as_view(), name='account_signup'),
+    # Self-registration happens in Keycloak (realm-export.json:
+    # registrationAllowed) now, not here. Redirect rather than delete the
+    # name outright — allauth internals reverse() "account_signup" in a few
+    # places (e.g. login page's "don't have an account?" link) regardless of
+    # whether the view is reachable.
+    path("accounts/signup/", RedirectView.as_view(pattern_name="account_login"), name='account_signup'),
     path("accounts/logout/", CustomLogoutView.as_view(), name='account_logout'),
     path("accounts/logout_loading/", CustomLogoutLoadingView.as_view(), name='account_loading_logout'),
     path("accounts/", include("allauth.urls")),
