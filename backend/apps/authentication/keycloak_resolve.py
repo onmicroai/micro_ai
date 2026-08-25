@@ -9,7 +9,7 @@ import logging
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import SuspiciousOperation
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
 
 logger = logging.getLogger(__name__)
 
@@ -60,8 +60,14 @@ def _link_user(user, sub: str):
             "Django user row already linked to a different Keycloak user"
         )
     try:
-        user.keycloak_sub = sub
-        user.save(update_fields=["keycloak_sub"])
+        # Its own savepoint: a plain IntegrityError leaves the *outer*
+        # transaction unusable for any further query (Django refuses to run
+        # one until a rollback happens) — the refresh_from_db() below would
+        # otherwise raise TransactionManagementError instead of the
+        # SuspiciousOperation this is actually trying to produce.
+        with transaction.atomic():
+            user.keycloak_sub = sub
+            user.save(update_fields=["keycloak_sub"])
     except IntegrityError:
         # Lost a race with a parallel request linking the same sub —
         # the unique constraint on keycloak_sub is the arbiter. Re-read.
@@ -98,27 +104,44 @@ def jit_create(claims: dict):
         raise SuspiciousOperation("claims asserted no verified email")
 
     sub = claims.get("sub")
-    username = _unique_username_for(email)
 
-    try:
-        user = CustomUser.objects.create(
-            username=username,
-            email=email,
-            first_name=claims.get("given_name", "") or "",
-            last_name=claims.get("family_name", "") or "",
-            keycloak_sub=sub,
-        )
-    except IntegrityError:
-        # Lost a race with a parallel request creating the same user —
-        # the unique constraint on keycloak_sub is the arbiter. Re-read.
-        # Only meaningful when sub is set: keycloak_sub=None matches every
-        # other unlinked row, so re-reading by it here would return an
-        # arbitrary wrong user instead of the intended one.
-        if sub:
-            existing = CustomUser.objects.filter(keycloak_sub=sub).first()
-            if existing:
-                return existing
-        raise
+    # Bounded retry: _unique_username_for()'s check-then-use lookup isn't
+    # atomic, so a parallel request can grab the same derived username
+    # first, distinct from (and in addition to) the keycloak_sub race
+    # below. Re-deriving the username on each attempt naturally avoids a
+    # collision that's already been resolved by the other request.
+    user = None
+    last_error = None
+    for attempt in range(3):
+        username = _unique_username_for(email)
+        try:
+            # Its own savepoint — see the identical comment in _link_user:
+            # without it, the recovery query just below would raise
+            # TransactionManagementError instead of running.
+            with transaction.atomic():
+                user = CustomUser.objects.create(
+                    username=username,
+                    email=email,
+                    first_name=claims.get("given_name", "") or "",
+                    last_name=claims.get("family_name", "") or "",
+                    keycloak_sub=sub,
+                )
+            break
+        except IntegrityError as exc:
+            last_error = exc
+            # Lost a race with a parallel request creating the same user —
+            # the unique constraint on keycloak_sub is the arbiter. Re-read.
+            # Only meaningful when sub is set: keycloak_sub=None matches
+            # every other unlinked row, so re-reading by it here would
+            # return an arbitrary wrong user instead of the intended one.
+            if sub:
+                existing = CustomUser.objects.filter(keycloak_sub=sub).first()
+                if existing:
+                    return existing
+            # Otherwise assume it was the username race and retry with a
+            # freshly re-checked one.
+    if user is None:
+        raise last_error
 
     user.set_unusable_password()
     user.save(update_fields=["password"])

@@ -14,6 +14,7 @@ import logging
 
 import jwt
 from django.conf import settings
+from django.core.exceptions import SuspiciousOperation
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 
@@ -84,7 +85,25 @@ class KeycloakAuthentication(BaseAuthentication):
             return None
 
         claims = verify(raw_token)
-        user = resolve_user(claims)
+        # resolve_user raises SuspiciousOperation on an unverified/missing
+        # email or a cross-linked sub — that's Django's own exception type,
+        # which DRF's exception_handler doesn't special-case, so it falls
+        # through to Django's core handler and comes back as an HTML 400
+        # instead of the JSON error shape the frontend expects everywhere
+        # else. AuthenticationFailed is the DRF-native way to say the same
+        # thing: this token doesn't authenticate anyone.
+        try:
+            user = resolve_user(claims)
+        except SuspiciousOperation as exc:
+            raise AuthenticationFailed(str(exc)) from exc
+
+        # DRF's IsAuthenticated only checks is_authenticated, not is_active
+        # (unlike Django's own ModelBackend) — without this, a deactivated
+        # user's still-valid Keycloak JWT keeps working on every endpoint
+        # that isn't gated by HasUserAPIKey specifically.
+        if not user.is_active:
+            raise AuthenticationFailed("User inactive or deleted.")
+
         return user, raw_token
 
     def authenticate_header(self, request):

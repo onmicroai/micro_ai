@@ -94,6 +94,13 @@ export async function redirectToRegister(returnTo?: string): Promise<void> {
 export function markSessionPresent(): void {
   const isProduction = process.env.NODE_ENV === "production";
   Cookies.set(SESSION_PRESENT_COOKIE, "1", {
+    // Mirrors the realm's ssoSessionMaxLifespan (2592000s = 30 days,
+    // keycloak/realm-export.json). Without an explicit expiry this was a
+    // session-only cookie while the actual token in localStorage outlives
+    // it — closing and reopening the browser would clear this marker but
+    // not the still-valid session, and middleware.ts would bounce an
+    // actually-authenticated user to /accounts/login.
+    expires: 30,
     secure: isProduction,
     sameSite: isProduction ? "none" : "lax",
   });

@@ -1,6 +1,10 @@
-from django.core.exceptions import SuspiciousOperation
-from django.test import TestCase
+from unittest.mock import patch
 
+from django.core.exceptions import SuspiciousOperation
+from django.test import RequestFactory, TestCase
+from rest_framework.exceptions import AuthenticationFailed
+
+from apps.authentication.keycloak_auth import KeycloakAuthentication
 from apps.authentication.keycloak_resolve import resolve_user
 from apps.subscriptions.models import CreditWallet
 from apps.users.models import CustomUser
@@ -129,3 +133,59 @@ class JitCreateTest(TestCase):
 
         self.assertNotEqual(user.username, "brand.new")
         self.assertTrue(user.username.startswith("brand.new"))
+
+    def test_recovers_from_a_username_race_not_just_a_keycloak_sub_race(self):
+        # _unique_username_for()'s check-then-use lookup isn't atomic — a
+        # parallel request can take the checked-available username before
+        # this one's create() runs. Forcing it to (incorrectly, as a stand-in
+        # for that race) hand back an already-taken username first, then a
+        # free one, exercises the retry path rather than the keycloak_sub
+        # recovery path (no other row holds this claim's sub).
+        CustomUser.objects.create_user(username="brand.new", email="taken@example.com")
+
+        with patch(
+            "apps.authentication.keycloak_resolve._unique_username_for",
+            side_effect=["brand.new", "brand.new1"],
+        ):
+            user = resolve_user(claims(email="brand.new@example.com"))
+
+        self.assertEqual(user.username, "brand.new1")
+        self.assertEqual(user.keycloak_sub, SUB)
+
+
+class KeycloakAuthenticationTest(TestCase):
+    """authenticate() itself, not just resolve_user() — is_active
+    enforcement and the DRF-native error shape for SuspiciousOperation both
+    live at this layer."""
+
+    def _request(self):
+        return RequestFactory().get("/", HTTP_AUTHORIZATION="Bearer dummy-token")
+
+    @patch("apps.authentication.keycloak_auth._claims_from_our_issuer", return_value=True)
+    @patch("apps.authentication.keycloak_auth.verify")
+    def test_deactivated_user_is_rejected(self, mock_verify, _mock_issuer):
+        CustomUser.objects.create_user(
+            username="disabled", email="disabled@example.com",
+            keycloak_sub=SUB, is_active=False,
+        )
+        mock_verify.return_value = claims(email="disabled@example.com")
+
+        with self.assertRaises(AuthenticationFailed):
+            KeycloakAuthentication().authenticate(self._request())
+
+    @patch("apps.authentication.keycloak_auth._claims_from_our_issuer", return_value=True)
+    @patch("apps.authentication.keycloak_auth.verify")
+    def test_suspicious_operation_becomes_authentication_failed(self, mock_verify, _mock_issuer):
+        # Matches an existing row by email, but that row is already linked
+        # to a different sub — resolve_user raises SuspiciousOperation here.
+        CustomUser.objects.create_user(
+            username="jane", email="jane@example.com", keycloak_sub=OTHER_SUB
+        )
+        mock_verify.return_value = claims(email="jane@example.com")
+
+        # Django's SuspiciousOperation must never propagate past this
+        # authenticator — DRF's exception_handler doesn't special-case it,
+        # so it would otherwise fall through to Django's core handler and
+        # come back as an HTML 400 instead of a JSON error.
+        with self.assertRaises(AuthenticationFailed):
+            KeycloakAuthentication().authenticate(self._request())
