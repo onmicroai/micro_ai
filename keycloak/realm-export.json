@@ -11,6 +11,17 @@
   "accessTokenLifespan": 1800,
   "ssoSessionIdleTimeout": 2592000,
   "ssoSessionMaxLifespan": 2592000,
+  "smtpServer": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "from": "${DEFAULT_FROM_EMAIL}",
+    "fromDisplayName": "OnMicro.AI",
+    "auth": "${SMTP_AUTH_ENABLED}",
+    "user": "${EMAIL_HOST_USER}",
+    "password": "${EMAIL_HOST_PASSWORD}",
+    "starttls": "${SMTP_STARTTLS_ENABLED}",
+    "ssl": "false"
+  },
   "clients": [
     {
       "clientId": "onmicro-spa",

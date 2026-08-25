@@ -27,9 +27,15 @@
 #        KEYCLOAK_ADMIN_PASSWORD=... \
 #        KEYCLOAK_FEDERATION_SHARED_SECRET=... \
 #        GOOGLE_OAUTH_CLIENT_ID=... GOOGLE_OAUTH_CLIENT_SECRET=... \
+#        EMAIL_HOST=... EMAIL_PORT=... EMAIL_HOST_USER=... \
+#        EMAIL_HOST_PASSWORD=... DEFAULT_FROM_EMAIL=... \
 #        ./keycloak/import-realm.sh
 #        (GOOGLE_OAUTH_* are optional — leave both unset to disable the
-#        Google identity provider entirely; see GOOGLE_IDP_ENABLED below.)
+#        Google identity provider entirely; see GOOGLE_IDP_ENABLED below.
+#        EMAIL_* are optional too — same variables backend/micro_ai/settings.py
+#        already reads for Django's own mail, reused here so Keycloak's
+#        realm-level "forgot password"/verify-email mail goes through the
+#        same relay instead of silently going nowhere; see SMTP_* below.)
 set -euo pipefail
 
 KEYCLOAK_CONTAINER="${KEYCLOAK_CONTAINER:-keycloak}"
@@ -48,6 +54,36 @@ if [ -n "$GOOGLE_OAUTH_CLIENT_ID" ] && [ -n "$GOOGLE_OAUTH_CLIENT_SECRET" ]; the
   GOOGLE_IDP_ENABLED=true
 else
   GOOGLE_IDP_ENABLED=false
+fi
+
+# Mirrors backend/micro_ai/settings.py's EMAIL_* branching exactly, so
+# Keycloak's realm-level mail (verify-email, forgot-password) goes through
+# the same relay Django's own mail already does — same env vars, same
+# fallback rules, computed independently here since Keycloak reads its SMTP
+# config from the realm JSON, not from Django's settings.
+EMAIL_HOST="${EMAIL_HOST:-}"
+EMAIL_PORT="${EMAIL_PORT:-}"
+EMAIL_HOST_USER="${EMAIL_HOST_USER:-}"
+EMAIL_HOST_PASSWORD="${EMAIL_HOST_PASSWORD:-}"
+DEFAULT_FROM_EMAIL="${DEFAULT_FROM_EMAIL:-webmaster@localhost}"
+if [ -n "$EMAIL_HOST_USER" ] && [ -n "$EMAIL_HOST_PASSWORD" ]; then
+  # External relay (e.g. AWS SES SMTP) — same host.docker.internal/empty
+  # sentinel Django's settings.py uses to mean "no explicit host given".
+  if [ -z "$EMAIL_HOST" ] || [ "$EMAIL_HOST" = "host.docker.internal" ]; then
+    SMTP_HOST="email-smtp.us-east-1.amazonaws.com"
+    SMTP_PORT=587
+  else
+    SMTP_HOST="$EMAIL_HOST"
+    SMTP_PORT="${EMAIL_PORT:-587}"
+  fi
+  SMTP_AUTH_ENABLED=true
+  SMTP_STARTTLS_ENABLED=true
+else
+  # Default: local Postfix-style relay — plain SMTP, port 25, no auth/TLS.
+  SMTP_HOST="${EMAIL_HOST:-host.docker.internal}"
+  SMTP_PORT="${EMAIL_PORT:-25}"
+  SMTP_AUTH_ENABLED=false
+  SMTP_STARTTLS_ENABLED=false
 fi
 
 for bin in envsubst jq docker; do
@@ -72,9 +108,13 @@ DOMAIN="$DOMAIN" KEYCLOAK_REALM="$KEYCLOAK_REALM" \
   GOOGLE_OAUTH_CLIENT_ID="$GOOGLE_OAUTH_CLIENT_ID" \
   GOOGLE_OAUTH_CLIENT_SECRET="$GOOGLE_OAUTH_CLIENT_SECRET" \
   GOOGLE_IDP_ENABLED="$GOOGLE_IDP_ENABLED" \
-  envsubst '${DOMAIN} ${KEYCLOAK_REALM} ${KEYCLOAK_FEDERATION_SHARED_SECRET} ${GOOGLE_OAUTH_CLIENT_ID} ${GOOGLE_OAUTH_CLIENT_SECRET} ${GOOGLE_IDP_ENABLED}' \
+  SMTP_HOST="$SMTP_HOST" SMTP_PORT="$SMTP_PORT" \
+  SMTP_AUTH_ENABLED="$SMTP_AUTH_ENABLED" SMTP_STARTTLS_ENABLED="$SMTP_STARTTLS_ENABLED" \
+  DEFAULT_FROM_EMAIL="$DEFAULT_FROM_EMAIL" \
+  EMAIL_HOST_USER="$EMAIL_HOST_USER" EMAIL_HOST_PASSWORD="$EMAIL_HOST_PASSWORD" \
+  envsubst '${DOMAIN} ${KEYCLOAK_REALM} ${KEYCLOAK_FEDERATION_SHARED_SECRET} ${GOOGLE_OAUTH_CLIENT_ID} ${GOOGLE_OAUTH_CLIENT_SECRET} ${GOOGLE_IDP_ENABLED} ${SMTP_HOST} ${SMTP_PORT} ${SMTP_AUTH_ENABLED} ${SMTP_STARTTLS_ENABLED} ${DEFAULT_FROM_EMAIL} ${EMAIL_HOST_USER} ${EMAIL_HOST_PASSWORD}' \
   < "${SCRIPT_DIR}/realm-export.json" > "$RENDERED"
-chmod 600 "$RENDERED"  # contains secrets (federation, Google OAuth) in plaintext
+chmod 600 "$RENDERED"  # contains secrets (federation, Google OAuth, SMTP credentials) in plaintext
 
 echo "Authenticating kcadm against ${KEYCLOAK_CONTAINER}..."
 kc config credentials \
