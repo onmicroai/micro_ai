@@ -63,6 +63,7 @@ services:
     volumes:
       # Run keycloak/fetch-provider.sh first — see keycloak/README.md.
       - ./keycloak/providers:/opt/keycloak/providers:ro
+      - ./keycloak/themes/onmicro:/opt/keycloak/themes/onmicro:ro
     # So the realm's smtpServer (import-realm.sh) can reach the same
     # Postfix-style relay on the host that Django's own mail already uses.
     # (Docker Desktop resolves this natively on Mac/Windows; host-gateway

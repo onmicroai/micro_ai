@@ -27,6 +27,20 @@ CI runs this automatically after every deploy (see the GitHub Actions
 workflows), so drift between the committed JSON and the running realm is not
 possible by construction.
 
+## Custom login theme
+
+`themes/onmicro/login/` extends Keycloak 26's default `keycloak.v2` theme,
+overriding only the page background (a gradient from the app's primary
+brand color to white — see `resources/css/onmicro.css`) so login, register,
+verify-email, reset-password, etc. all inherit the rest of the stock theme
+unchanged. Set via `realm-export.json`'s `loginTheme`, applied the normal
+config-as-code way (`import-realm.sh`).
+
+Themes are only scanned at Keycloak boot, same as the federation provider
+JAR — after adding or editing a theme file, the container needs a full
+recreate (`docker compose up -d --force-recreate keycloak`), not just a
+restart, for the change to take effect.
+
 ## Local admin access
 
 The admin console lives at `<DOMAIN>/auth/admin/` (note the `/auth` prefix —

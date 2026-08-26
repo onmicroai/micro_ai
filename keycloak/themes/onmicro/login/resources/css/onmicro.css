@@ -1,0 +1,218 @@
+/*
+ * hsl(239, 84%, 65%) is the app's --primary (frontend/src/globals.css) —
+ * keep these in sync if the brand color ever changes.
+ */
+
+/*
+ * Fallback fill behind the two full-height panels below — only visible for
+ * an instant before layout/paint, or if either panel's own background
+ * somehow fails to load. Not the stock keycloak-bg.png low-poly image.
+ */
+#keycloak-bg {
+  background: linear-gradient(135deg, hsl(239, 84%, 65%) 0%, #ffffff 75%);
+  background-size: cover;
+}
+
+/*
+ * Force light rendering regardless of the visitor's OS dark-mode
+ * preference. keycloak.v2 toggles a `pf-v5-theme-dark` class on <html> via
+ * its own JS based on prefers-color-scheme, and PatternFly's dark-mode
+ * rules for these are all written as :where(.pf-v5-theme-dark) ... —
+ * :where() contributes zero specificity, so plain selectors here always
+ * win, dark class present or not. Values below are exactly what PatternFly
+ * itself renders in its light variant (checked via getComputedStyle with
+ * the dark class removed), not a guess.
+ */
+.pf-v5-c-login__main .pf-v5-c-title,
+.pf-v5-c-login__main .pf-v5-c-form__label-text,
+.pf-v5-c-login__main .pf-v5-c-form__helper-text,
+.pf-v5-c-login__main .pf-v5-c-helper-text__item-text {
+  color: #151515;
+}
+
+/*
+ * .pf-v5-c-form-control is actually a wrapping <span> around the real
+ * <input> (Keycloak.v2's markup, not the usual PatternFly shape where the
+ * class lands directly on the input) — the span was already turning white
+ * from the rule below, but the <input> itself carries its own separate
+ * dark translucent background painted on top of it, so it needs its own
+ * explicit override too.
+ */
+.pf-v5-c-login__main .pf-v5-c-form-control {
+  background-color: #ffffff;
+  color: #151515;
+}
+.pf-v5-c-login__main input {
+  background-color: #ffffff;
+  color: #151515;
+}
+
+/*
+ * Chrome ignores author background-color/color on an autofilled input —
+ * it paints its own fill (the grey/dark tint) and forces the text color via
+ * -webkit-text-fill-color specifically, which normal `color` doesn't
+ * reach. The box-shadow inset is the standard workaround: an opaque white
+ * shadow the size of the field, painted over Chrome's own fill instead of
+ * fighting it directly. The long transition delays Chrome's own
+ * yellow-flash animation past when anyone would notice it.
+ */
+.pf-v5-c-login__main input:-webkit-autofill,
+.pf-v5-c-login__main input:-webkit-autofill:hover,
+.pf-v5-c-login__main input:-webkit-autofill:focus,
+.pf-v5-c-login__main input:-webkit-autofill:active {
+  -webkit-box-shadow: 0 0 0 1000px #ffffff inset;
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  -webkit-text-fill-color: #151515;
+  caret-color: #151515;
+  transition: background-color 5000s ease-in-out 0s;
+}
+
+/*
+ * "New user? Register" — plain text before the link, white by default
+ * (invisible on this white panel). Also a plain block div with the parent
+ * theme's default text-align:start, which just hugs the left edge of the
+ * (now 400px-wide) form column instead of sitting under the centered Sign
+ * In/Register button.
+ */
+.login-pf-signup {
+  color: #151515;
+  text-align: center;
+}
+
+/* Show/hide password button — dark square with a light icon by default. */
+.pf-v5-c-login__main .pf-v5-c-button.pf-m-control {
+  background-color: #ffffff;
+  color: #151515;
+}
+
+/* ==========================================================================
+ * Two-panel layout.
+ *
+ * .pf-v5-c-login__container is already a 2-column CSS grid at wide
+ * viewports out of the box (PatternFly's own "xl" login layout: main card
+ * in one column, header/footer in the other) — reused here rather than
+ * fought, just re-pointed at equal-width panels spanning the full
+ * viewport height instead of PatternFly's own narrower proportions.
+ *
+ * Left panel (.pf-v5-c-login__main): the form, on plain white — no card
+ * shadow/border, since the panel itself is already white; the form reads
+ * as part of the panel, not a card floating on it.
+ *
+ * Right panel (.pf-v5-c-login__header, PatternFly's brand/header slot):
+ * primary blue fading to white, with the logo and auth-img.png (the same
+ * illustration as before, but this one has no logo baked in — plain
+ * transparent PNG) stacked centered on top via flex: #kc-header-wrapper
+ * for the logo, a ::after pseudo-element for the illustration below it,
+ * so this stays two images without needing a template change to add a
+ * second real element into the DOM.
+ *
+ * Single panel on mobile: the brand panel is dropped entirely, matching
+ * how this app's own frontend already only shows the form on small
+ * screens (see accounts/login).
+ * ========================================================================== */
+
+.pf-v5-c-login {
+  padding: 0;
+  min-height: 100vh;
+  align-items: stretch;
+  justify-content: stretch;
+}
+
+.pf-v5-c-login__container {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-areas: "main panel";
+  gap: 0;
+  max-width: none;
+  width: 100%;
+  min-height: 100vh;
+  padding: 0;
+}
+
+.pf-v5-c-login__footer {
+  display: none;
+}
+
+.pf-v5-c-login__main {
+  grid-area: main;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  margin-block-end: 0;
+  background-color: #ffffff;
+  box-shadow: none;
+}
+
+.pf-v5-c-login__main-header,
+.pf-v5-c-login__main-body {
+  width: 100%;
+  max-width: 400px;
+  padding: 12px;
+}
+
+/*
+ * The parent theme splits this into a 70%/30% grid at desktop widths (title
+ * + a language-selector slot) — there's no language selector here, and in
+ * this panel it just pushes the title into a narrow left column and wraps
+ * it. Single column always.
+ */
+.pf-v5-c-login__main-header {
+  grid-template-columns: 100%;
+}
+
+.pf-v5-c-login__header {
+  grid-area: panel;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2.5rem;
+  min-height: 100vh;
+  margin: 0;
+  padding: 2rem;
+  background: linear-gradient(135deg, hsl(239, 84%, 65%) 0%, #ffffff 140%);
+}
+
+/* Logo — reusing assets/logo.svg (white wordmark) rather than a literal
+   logo.png: the candidate PNGs in frontend/src/img/logos/ are full-color
+   gradient wordmarks that would vanish against this blue background. */
+#kc-header-wrapper {
+  display: block;
+  width: min(38%, 260px);
+  height: auto;
+  aspect-ratio: 233 / 36;
+  background-image: url("../img/onmicro-logo.svg");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  overflow: hidden;
+  text-indent: -9999px;
+}
+
+/* auth-img.png — the illustration, transparent background, no logo baked
+   in (unlike the auth-panel.png this replaces) — centered below the logo
+   as a flex sibling via ::after, so this stays CSS-only, no template edit
+   needed to add a second real image element. */
+.pf-v5-c-login__header::after {
+  content: "";
+  display: block;
+  width: min(75%, 560px);
+  aspect-ratio: 1448 / 1086;
+  background-image: url("../img/auth-img.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
+
+@media (max-width: 768px) {
+  .pf-v5-c-login__container {
+    grid-template-columns: 1fr;
+    grid-template-areas: "main";
+  }
+
+  .pf-v5-c-login__header {
+    display: none;
+  }
+}
