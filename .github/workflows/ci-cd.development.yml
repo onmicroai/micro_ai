@@ -131,13 +131,22 @@ jobs:
 
             # db has no profile, so --profile app up/down always tries to
             # manage it and hits a name conflict with the existing container.
-            # We manage the 4 app services by name instead, keeping db
+            # We manage the app services by name instead, keeping db
             # completely out of the deploy step.
-            APP="litellm web theme-cron frontend"
+            APP="keycloak litellm web theme-cron frontend"
+
+            # compose rm only removes containers this project owns.
+            # Leftovers from another compose project (or a failed prior
+            # deploy) keep the same container_name and then collide on up.
+            # docker rm -f by name clears those regardless of project.
+            remove_app() {
+              $COMPOSE --profile app rm -sf $APP 2>/dev/null || true
+              docker rm -f $APP 2>/dev/null || true
+            }
 
             rollback() {
               echo "--- DEPLOY FAILED — rolling back to previous images ---"
-              $COMPOSE --profile app rm -sf $APP 2>/dev/null || true
+              remove_app
               docker tag microai-dev-web:rollback      microai-dev-web:latest      2>/dev/null || true
               docker tag microai-dev-frontend:rollback microai-dev-frontend:latest 2>/dev/null || true
               # No --wait here to avoid looping if the rollback image is also broken.
@@ -147,7 +156,7 @@ jobs:
             trap rollback ERR
 
             # Stop and remove current app containers.
-            $COMPOSE --profile app rm -sf $APP 2>/dev/null || true
+            remove_app
 
             # Start services in dependency order.
             # --no-deps: compose will not attempt to create/start db.
