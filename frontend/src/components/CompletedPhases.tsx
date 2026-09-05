@@ -10,6 +10,7 @@ import { AIResponseDisplay, RunScoreDisplay } from "@/utils/phaseResultDisplay";
 import { useConversationStore } from "@/store/conversationStore";
 import { useUserStore } from "@/store/userStore";
 import { checkIsOwner, checkIsAdmin } from "@/utils/checkRoles";
+import { parseChatHistoryEntry } from "@/utils/chatHistory";
 
 interface CompletedPhaseProps {
   pageIndex: number;
@@ -118,9 +119,8 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
                   <div className="flex-1 overflow-y-auto p-4 space-y-4">
                     {Array.isArray(chatHistory)
                       ? chatHistory.map((message: string, i: number) => {
-                          const [sender, ...rest] = message.split(": ");
-                          const fullText = rest.join(": "); // Rejoin in case the message contains colons
-                          const [text] = fullText.split("|");
+                          const { sender, message: text } =
+                            parseChatHistoryEntry(message);
                           const direction =
                             sender === "ai" ? "incoming" : "outgoing";
 
@@ -179,9 +179,8 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
                       const totalCredits = (
                         Array.isArray(chatHistory) ? chatHistory : []
                       ).reduce((sum: number, message: string) => {
-                        const [sender, ...rest] = message.split(": ");
-                        const fullText = rest.join(": ");
-                        const [, run_id] = fullText.split("|");
+                        const { sender, run_id } =
+                          parseChatHistoryEntry(message);
 
                         if (sender === "ai" && run_id) {
                           const run = currentConversation?.runs.find(
