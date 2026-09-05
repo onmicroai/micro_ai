@@ -84,7 +84,7 @@ services:
     # createcachetable is needed by DRF throttles (SimpleRateThrottle-based
     # classes in apps/utils/throttles.py use CACHES["default"], which is
     # DatabaseCache) — dev/prod already do this via deploy/docker_startup.sh.
-    command: sh -c "python manage.py migrate && python manage.py createcachetable --noinput && uvicorn micro_ai.asgi:application --host 0.0.0.0 --port 8000 --reload --reload-dir /code"
+    command: sh -c "python manage.py migrate && python manage.py createcachetable && uvicorn micro_ai.asgi:application --host 0.0.0.0 --port 8000 --reload --reload-dir /code"
     volumes:
       - ./backend:/code
       - media_data:/code/media
