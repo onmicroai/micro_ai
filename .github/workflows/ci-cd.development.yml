@@ -213,8 +213,8 @@ jobs:
 #          script: |
 #            set -euo pipefail
 #            cd /home/ubuntu/micro_ai
-#            set -a; source .env; set +a#
-            ./keycloak/import-realm.sh
+#            set -a; source .env; set +a
+#            ./keycloak/import-realm.sh
 
   # ─────────────────────────────────────────────────────────────────────────────
   # 4. CLEAN  (only on successful deploy)
