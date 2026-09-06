@@ -3,3 +3,6 @@ load-tests/
 node_modules/
 db_data/
 .cursor/
+# Downloaded by keycloak/fetch-provider.sh — pinned by checksum in that
+# script, not tracked as a binary in git.
+keycloak/providers/

@@ -41,6 +41,10 @@ import gfm from "remark-gfm";
 import CodeBlock from "@/components/MessageCodeBlock";
 import TableWrapper from "@/components/MessageTableWrapper";
 import { cn } from "@/utils/cn";
+import {
+  parseChatHistoryEntry,
+  serializeChatHistoryEntry,
+} from "@/utils/chatHistory";
 
 function getChatHeightBounds() {
   if (typeof window === "undefined") {
@@ -217,16 +221,16 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     const chatHistory = answers[element.name]?.value || [];
     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
       const formattedMessages = chatHistory.map((message: string) => {
-        const [sender, ...rest] = message.split(": ");
-        const fullText = rest.join(": "); // Rejoin in case the message contains colons
-        const [text, run_id] = fullText.split("|");
+        const { sender, message: text, run_id } = parseChatHistoryEntry(
+          message,
+        );
         return {
           message: text,
-          sender: sender as "user" | "ai",
+          sender,
           direction: (sender === "ai" ? "incoming" : "outgoing") as
             | "incoming"
             | "outgoing",
-          run_id: run_id || undefined,
+          run_id,
         };
       });
       setMessages(formattedMessages);
@@ -592,12 +596,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
           patchAiMessage(response.run_uuid, { ttsStatus: undefined });
         }
 
-        const chatHistory = [...messages, userMessage, aiMessage].map((msg) => {
-          if (msg.sender === "ai") {
-            return `${msg.sender}: ${msg.message}|${msg.run_id || ""}`;
-          }
-          return `${msg.sender}: ${msg.message}`;
-        });
+        const chatHistory = [...messages, userMessage, aiMessage].map((msg) =>
+          serializeChatHistoryEntry(msg),
+        );
         setInputValue(element.name, chatHistory, "", "chat");
       }
     } catch (error) {
@@ -700,7 +701,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   )}
                   <div
                     className={cn(
-                      "max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
+                      "min-w-0 max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
                       message.direction === "outgoing"
                         ? "rounded-tr-sm bg-primary text-primary-foreground"
                         : "rounded-tl-sm bg-primary/10 text-gray-900",

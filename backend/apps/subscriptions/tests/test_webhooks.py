@@ -8,6 +8,8 @@ from apps.subscriptions.constants import tier_for_price
 from apps.subscriptions.credits import get_or_create_wallet
 from apps.subscriptions.models import CreditWallet, StripeCustomer, Subscription
 from apps.subscriptions.webhooks import (
+    handle_checkout_session_completed,
+    handle_customer_created,
     handle_invoice_paid,
     handle_subscription_created_or_updated,
     handle_subscription_deleted,
@@ -132,3 +134,80 @@ class WebhookWalletSyncTest(TestCase):
 
         wallet.refresh_from_db()
         self.assertEqual(wallet.subscription_credits, FREE_CREDITS)
+
+
+class CheckoutSessionCompletedEmailCaseTest(TestCase):
+    """
+    Regression test: this handler used to match on exact email (`email=`),
+    which silently dropped top-up credits whenever Stripe's checkout email
+    differed in case from what's stored in Django — increasingly likely once
+    email becomes a mirror of the Keycloak ID-token claim.
+    """
+
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username="checkout@example.com", email="checkout@example.com", password="x"
+        )
+
+    def _event(self, email):
+        return {
+            "data": {
+                "object": {
+                    "customer_details": {"email": email},
+                    "metadata": {"price_id": settings.TOP_UP_CREDITS_PLAN_ID},
+                }
+            }
+        }
+
+    def test_matches_regardless_of_email_casing(self):
+        handle_checkout_session_completed(self._event("CHECKOUT@EXAMPLE.COM"))
+
+        wallet = get_or_create_wallet(self.user)
+        self.assertEqual(wallet.topup_credits, settings.TOP_UP_CREDITS)
+
+    def test_no_matching_user_does_not_raise(self):
+        # Must not raise MultipleObjectsReturned or any other exception —
+        # webhook handlers fail silently (logged), never 500 to Stripe.
+        handle_checkout_session_completed(self._event("nobody@example.com"))
+
+
+class CustomerCreatedEmailCaseTest(TestCase):
+    """Same case-sensitivity regression, for the other webhook handler."""
+
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username="customer@example.com", email="customer@example.com", password="x"
+        )
+
+    def test_links_stripe_customer_regardless_of_email_casing(self):
+        event = {
+            "data": {
+                "object": {
+                    "id": "cus_case_test",
+                    "email": "CUSTOMER@EXAMPLE.COM",
+                }
+            }
+        }
+        handle_customer_created(event)
+
+        customer = StripeCustomer.objects.get(customer_id="cus_case_test")
+        self.assertEqual(customer.user_id, self.user.pk)
+
+    def test_no_matching_user_does_not_raise(self):
+        # StripeCustomer.user is a required FK (apps/subscriptions/models.py),
+        # so get_or_create(user=None) hits an IntegrityError that the handler's
+        # broad except swallows — no record ends up created for this customer_id.
+        # That's a separate pre-existing gap from the case-sensitivity fix this
+        # test class targets; out of scope here. This test only pins today's
+        # actual behavior (logged and swallowed, never a 500 to Stripe).
+        event = {
+            "data": {
+                "object": {
+                    "id": "cus_no_match",
+                    "email": "nobody@example.com",
+                }
+            }
+        }
+        handle_customer_created(event)
+
+        self.assertFalse(StripeCustomer.objects.filter(customer_id="cus_no_match").exists())

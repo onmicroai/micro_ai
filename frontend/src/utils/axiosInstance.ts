@@ -1,20 +1,16 @@
 /**
- * It currently works only on client, because it uses cookies for storing access token
+ * It currently works only on client, because it reads the Keycloak session
+ * from localStorage (utils/keycloakAuth.ts).
  */
 "use client";
 
 import axios, { AxiosInstance } from "axios";
-import isTokenExpired from "./isTokenExpired";
 import {
   checkCurrentPagePrivacy,
   forceLogout,
   getAuthHeadersForFetch,
   refreshAccessToken,
 } from "./accessTokenSession";
-import {
-  getAccessToken as getCookieAccessToken,
-  getAccessTokenExpiration,
-} from "./tokenCookieUtils";
 
 const axiosInstanceSingleton = (): (() => AxiosInstance) => {
   let api: AxiosInstance | null = null;
@@ -78,21 +74,10 @@ const axiosInstanceSingleton = (): (() => AxiosInstance) => {
           if (!originalRequest._retry) {
             originalRequest._retry = true;
             try {
-              let accessToken = getCookieAccessToken();
-
+              const accessToken = await refreshAccessToken();
               if (!accessToken) {
-                try {
-                  accessToken = await refreshAccessToken();
-                } catch (e) {
-                  forceLogout(error, isPublic);
-                  return Promise.reject(error);
-                }
-              }
-
-              const expirationTime = getAccessTokenExpiration();
-
-              if (isTokenExpired(expirationTime)) {
-                accessToken = await refreshAccessToken();
+                forceLogout(error, isPublic);
+                return Promise.reject(error);
               }
 
               originalRequest.headers.Authorization = `Bearer ${accessToken}`;

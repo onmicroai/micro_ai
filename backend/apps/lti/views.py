@@ -21,6 +21,7 @@ import secrets
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import redirect
 from .models import LTIConfig
+from .provisioning import find_or_provision_user
 from .pylti_helpers import (
     LTIDjangoCookieService,
     get_launch_data_storage,
@@ -29,10 +30,8 @@ from .pylti_helpers import (
 from pathlib import Path
 from django.http import HttpResponseRedirect
 from urllib.parse import urlencode, urlparse
-from django.contrib.auth import get_user_model
 from apps.microapps.models import Microapp, MicroAppUserJoin
 
-User = get_user_model()
 logger = logging.getLogger(__name__)
 
 BASE_DIR = Path(__file__).resolve().parents[2]
@@ -394,21 +393,22 @@ def deep_link_picker(request):
     error_message = ''
 
     if email:
-        try:
-            user = User.objects.get(email__iexact=email)
-            app_ids = MicroAppUserJoin.objects.filter(
-                user_id=user, is_archived=False
-            ).values_list('ma_id', flat=True)
-            microapps = list(
-                Microapp.objects.filter(id__in=app_ids, is_archived=False)
-                .order_by('title')
-                .values('hash_id', 'title', 'explanation')
-            )
-        except User.DoesNotExist:
-            error_message = (
-                f'No MicroAI account found for {email}. '
-                'Please make sure you have an account with the same email as your LMS.'
-            )
+        # JIT-provisions a new account if none exists yet (docs/keycloak-migration.md
+        # open question 1: "should an LTI launch provision an account? — yes").
+        # A freshly-provisioned instructor naturally has zero microapps, which
+        # falls through to the "you don't have any microapps yet" message below —
+        # not an error, just an empty state.
+        user = find_or_provision_user(
+            email, first_name=ld.get('given_name', ''), last_name=ld.get('family_name', '')
+        )
+        app_ids = MicroAppUserJoin.objects.filter(
+            user_id=user, is_archived=False
+        ).values_list('ma_id', flat=True)
+        microapps = list(
+            Microapp.objects.filter(id__in=app_ids, is_archived=False)
+            .order_by('title')
+            .values('hash_id', 'title', 'explanation')
+        )
     else:
         error_message = 'Your LMS did not provide an email address. Cannot match to a MicroAI account.'
 

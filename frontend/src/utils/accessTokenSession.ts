@@ -1,18 +1,14 @@
 /**
- * Shared JWT/session behavior for the browser: refresh queue, public-app check,
- * and header resolution for fetch + axios.
+ * Shared session behavior for the browser: public-app check and header
+ * resolution for fetch + axios. Token source is Keycloak (utils/keycloakAuth.ts)
+ * — checkCurrentPagePrivacy and friends below are unchanged from the old
+ * cookie-based engine, since public-app detection has nothing to do with
+ * which auth engine issues the token.
  */
 "use client";
 
-import axios from "axios";
 import { checkIsPublic } from "./checkAppPrivacy";
-import isTokenExpired from "./isTokenExpired";
-import {
-  getAccessToken as getCookieAccessToken,
-  getAccessTokenExpiration,
-  setAccessToken,
-  removeAccessToken,
-} from "./tokenCookieUtils";
+import { getKeycloakAccessToken, getUserManager } from "./keycloakAuth";
 
 export const forceLogout = async (
   error: any,
@@ -21,17 +17,14 @@ export const forceLogout = async (
   console.error("forceLogout", error);
 
   try {
-    await axios.post(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout/`,
-      {},
-      {
-        withCredentials: true,
-      }
-    );
+    // Clears local session state. Does not itself do RP-initiated logout
+    // (signoutRedirect) — this fires from request-failure paths where we
+    // want to drop stale local tokens and bounce to login, not necessarily
+    // tear down the Keycloak-side session too.
+    await getUserManager().removeUser();
   } catch (logoutErr: any) {
-    console.error("Error logging out:", logoutErr);
+    console.error("Error clearing Keycloak session:", logoutErr);
   } finally {
-    removeAccessToken();
     if (!isPublic) {
       window.location.href = "/accounts/login";
     }
@@ -39,73 +32,25 @@ export const forceLogout = async (
 };
 
 /**
- * Single refresh queue shared by axios and authorizedFetch.
+ * Force-refreshes the access token now, regardless of remaining lifetime.
+ * Used by the 401-retry paths in axiosInstance/authorizedFetch, where the
+ * server has already told us the current token doesn't work.
  */
-export const refreshAccessToken: () => Promise<string | null> = (() => {
-  let isRefreshing = false;
-  const pendingRequests: Array<
-    (error: any, token: string | null) => void
-  > = [];
-
-  const processQueue = (error: any, token: string | null = null) => {
-    pendingRequests.forEach((callback) => {
-      if (error) {
-        callback(error, null);
-      } else {
-        callback(null, token);
+export const refreshAccessToken = async (): Promise<string | null> => {
+  try {
+    const user = await getUserManager().signinSilent();
+    return user?.access_token ?? null;
+  } catch (error: any) {
+    if (error?.name !== "CanceledError") {
+      let isPublic = false;
+      if (typeof window !== "undefined") {
+        isPublic = await checkCurrentPagePrivacy(window.location.pathname);
       }
-    });
-    pendingRequests.length = 0;
-  };
-
-  return async (): Promise<string | null> => {
-    if (isRefreshing) {
-      return new Promise<string | null>((resolve, reject) => {
-        pendingRequests.push((error, token) => {
-          if (error) {
-            reject(error);
-          } else {
-            resolve(token);
-          }
-        });
-      });
+      forceLogout(error, isPublic);
     }
-
-    isRefreshing = true;
-    try {
-      const { data } = await axios.post(
-        `/api/auth/token/refresh/`,
-        {},
-        {
-          headers: {
-            "Content-Type": "application/json",
-          },
-          withCredentials: true,
-        }
-      );
-
-      const { access, access_expiration } = data;
-      setAccessToken(access, access_expiration.toString());
-
-      processQueue(null, access);
-      return access;
-    } catch (error: any) {
-      processQueue(error, null);
-      if (error.name !== "CanceledError") {
-        if (error?.response?.status === 401) {
-          let isPublic = false;
-          if (typeof window !== "undefined") {
-            isPublic = await checkCurrentPagePrivacy(window.location.pathname);
-          }
-          forceLogout(error, isPublic);
-        }
-      }
-      throw error;
-    } finally {
-      isRefreshing = false;
-    }
-  };
-})();
+    throw error;
+  }
+};
 
 let lastCheckedKey: string | null = null;
 let lastCheckedPathVisibility: boolean = false;
@@ -149,9 +94,10 @@ export async function checkCurrentPagePrivacy(
   if (!path.includes("/app/")) return false;
 
   const barePath = path.split("?")[0] ?? path;
-  // Logged-in surfaces: never treat as "public viewer" for JWT purposes. A public
-  // app still uses IsAuthenticated APIs here; omitting the Bearer causes 401, and
-  // authorizedFetch skips 401 retry when isPublic is true (unlike axios).
+  // Logged-in surfaces: never treat as "public viewer" for auth purposes. A
+  // public app still uses IsAuthenticated APIs here; omitting the Bearer
+  // causes 401, and authorizedFetch skips 401 retry when isPublic is true
+  // (unlike axios).
   if (/\/app\/edit\//i.test(barePath)) {
     return false;
   }
@@ -200,17 +146,11 @@ export async function getAuthHeadersForFetch(
     return { headers: {}, isPublic: true };
   }
 
-  let accessToken = getCookieAccessToken();
-
-  if (!accessToken) {
-    accessToken = await refreshAccessToken();
-  }
-
-  const expirationTime = getAccessTokenExpiration();
-
-  if (isTokenExpired(expirationTime)) {
-    accessToken = await refreshAccessToken();
-  }
+  // getKeycloakAccessToken's default minRemainingSeconds proactively renews
+  // here if the token is close to expiring — this is the SSE-safety
+  // preflight: streamRun.ts/chat-build-sidebar.tsx open their stream via
+  // authorizedFetch, which resolves headers through this same function.
+  const accessToken = await getKeycloakAccessToken();
 
   const headers: Record<string, string> = {};
   if (accessToken) {

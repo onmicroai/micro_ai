@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import axiosInstance from '@/utils/axiosInstance';
-import { getAccessToken } from '@/utils/tokenCookieUtils';
+import { getKeycloakAccessToken } from '@/utils/keycloakAuth';
 
 export interface User {
    id: number;
@@ -45,7 +45,7 @@ export const useUserStore = create<UserState>((set, get) => {
       const gen = ++fetchGeneration;
       setLoading(true);
       try {
-         const accessToken = getAccessToken();
+         const accessToken = await getKeycloakAccessToken();
          if (!accessToken) {
             if (gen === fetchGeneration) {
                set({ user: null });

@@ -1,0 +1,108 @@
+{
+  "realm": "${KEYCLOAK_REALM}",
+  "enabled": true,
+  "sslRequired": "external",
+  "registrationAllowed": true,
+  "registrationEmailAsUsername": true,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "verifyEmail": true,
+  "resetPasswordAllowed": true,
+  "loginTheme": "onmicro",
+  "accessTokenLifespan": 1800,
+  "ssoSessionIdleTimeout": 2592000,
+  "ssoSessionMaxLifespan": 2592000,
+  "smtpServer": {
+    "host": "${SMTP_HOST}",
+    "port": "${SMTP_PORT}",
+    "from": "${DEFAULT_FROM_EMAIL}",
+    "fromDisplayName": "OnMicro.AI",
+    "auth": "${SMTP_AUTH_ENABLED}",
+    "user": "${EMAIL_HOST_USER}",
+    "password": "${EMAIL_HOST_PASSWORD}",
+    "starttls": "${SMTP_STARTTLS_ENABLED}",
+    "ssl": "false"
+  },
+  "clients": [
+    {
+      "clientId": "onmicro-spa",
+      "name": "OnMicro.AI SPA",
+      "enabled": true,
+      "publicClient": true,
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": false,
+      "redirectUris": ["${DOMAIN}/auth-callback", "${DOMAIN}/auth-callback*"],
+      "webOrigins": ["${DOMAIN}"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "${DOMAIN}"
+      },
+      "protocolMappers": [
+        {
+          "name": "django_user_id",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "django_user_id",
+            "claim.name": "django_user_id",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        },
+        {
+          "name": "onmicro-spa-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "onmicro-spa",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "identityProviders": [
+    {
+      "alias": "google",
+      "providerId": "google",
+      "enabled": ${GOOGLE_IDP_ENABLED},
+      "trustEmail": true,
+      "storeToken": false,
+      "addReadTokenRoleOnCreate": false,
+      "authenticateByDefault": false,
+      "linkOnly": false,
+      "firstBrokerLoginFlowAlias": "first broker login",
+      "config": {
+        "clientId": "${GOOGLE_OAUTH_CLIENT_ID}",
+        "clientSecret": "${GOOGLE_OAUTH_CLIENT_SECRET}",
+        "useJwksUrl": "true",
+        "syncMode": "IMPORT"
+      }
+    }
+  ],
+  "browserFlow": "browser",
+  "attributes": {},
+  "components": {
+    "org.keycloak.storage.UserStorageProvider": [
+      {
+        "name": "django-legacy-users",
+        "providerId": "User migration using a REST client",
+        "providerType": "org.keycloak.storage.UserStorageProvider",
+        "config": {
+          "URI": ["http://web:8000/api/auth/federation"],
+          "API_TOKEN_ENABLED": ["true"],
+          "API_TOKEN": ["${KEYCLOAK_FEDERATION_SHARED_SECRET}"],
+          "SEVER_FEDERATION_LINK": ["true"],
+          "USE_USER_ID_FOR_CREDENTIAL_VERIFICATION": ["false"]
+        }
+      }
+    ]
+  }
+}

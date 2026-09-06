@@ -11,7 +11,6 @@ https://docs.djangoproject.com/en/stable/ref/settings/
 """
 
 import os
-from datetime import timedelta
 from pathlib import Path
 
 import environ
@@ -73,8 +72,6 @@ THIRD_PARTY_APPS = [
     "allauth.mfa",
     "rest_framework",
     "rest_framework.authtoken",
-    "rest_framework_simplejwt",
-    "rest_framework_simplejwt.token_blacklist",  # Add token blacklist support
     "corsheaders",
     "dj_rest_auth",
     "dj_rest_auth.registration",
@@ -112,7 +109,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     'apps.lti.middleware.LTIFrameMiddleware',
-    'micro_ai.middleware.JWTRefreshTokenMiddleware',
 ]
 
 
@@ -382,7 +378,7 @@ SITE_ID = 1
 # DRF config
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.authentication.keycloak_auth.KeycloakAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": ("apps.api.permissions.IsAuthenticatedOrHasUserAPIKey",),
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -390,6 +386,7 @@ REST_FRAMEWORK = {
     "PAGE_SIZE": 100,
     "DEFAULT_THROTTLE_RATES": {
         "add_admin": "20/hour",
+        "federation_password_check": "10/hour",
     },
 }
 
@@ -417,29 +414,32 @@ LTI_CROSS_SITE_COOKIES = env.bool(
 # SameSite cookie configuration for production vs development
 SAMESITE_SETTING = 'None' if is_production else 'Lax'
 
-# Get token lifetime settings from environment with fallbacks
-ACCESS_TOKEN_LIFETIME_MINUTES = env.float("ACCESS_TOKEN_LIFETIME_MINUTES", default=60.0)
-REFRESH_TOKEN_LIFETIME_DAYS = env.float("REFRESH_TOKEN_LIFETIME_DAYS", default=7.0)
+# Keycloak resource-server config — validates tokens minted by the realm's
+# own Keycloak (keycloak/realm-export.json), never issues any itself.
+KEYCLOAK_REALM = env("KEYCLOAK_REALM", default="onmicro")
+# Must match the token's `iss` claim exactly — this is the public URL
+# (KC_HOSTNAME in docker-compose*.yml), reachable from the browser.
+KEYCLOAK_ISSUER = env(
+    "KEYCLOAK_ISSUER",
+    default=f"{DOMAIN}/auth/realms/{KEYCLOAK_REALM}",
+)
+# Where Django actually fetches JWKS from — container-to-container via the
+# Docker service name, since "localhost" in KEYCLOAK_ISSUER means the web
+# container itself, not the keycloak container, from inside Django.
+KEYCLOAK_JWKS_URL = env(
+    "KEYCLOAK_JWKS_URL",
+    default=f"http://keycloak:8080/auth/realms/{KEYCLOAK_REALM}",
+)
+KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="onmicro-spa")
 
-SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=ACCESS_TOKEN_LIFETIME_MINUTES),
-    "REFRESH_TOKEN_LIFETIME": timedelta(days=REFRESH_TOKEN_LIFETIME_DAYS),
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": True,
-    "UPDATE_LAST_LOGIN": True,
-    "SIGNING_KEY": env("SIMPLE_JWT_SIGNING_KEY", default="django-insecure-HF3Rx2KW345SJ0XCxcuSJqKTz5347aFJCV5w34VEyhnKFyHBuXPjxotI5MM1R2345WmohV3"),
-    "ALGORITHM": "HS512",
-    "AUTH_COOKIE": "refresh_token",
-    "AUTH_COOKIE_SECURE": is_production,      
-    "AUTH_COOKIE_HTTP_ONLY": True,   
-    "AUTH_COOKIE_PATH": "/",         
-    "AUTH_COOKIE_SAMESITE": SAMESITE_SETTING,
-}
+# REST federation (apps/authentication/federation_views.py) — the Bearer
+# token Keycloak's "User migration using a REST client" provider sends on
+# every call to the two federation endpoints. No default: an empty secret
+# would make HasFederationSharedSecret reject every request, which is the
+# correct fail-closed behavior if this isn't configured.
+KEYCLOAK_FEDERATION_SHARED_SECRET = env("KEYCLOAK_FEDERATION_SHARED_SECRET", default="")
 
 REST_AUTH = {
-    "USE_JWT": True,
-    "JWT_AUTH_HTTPONLY": True,
-    'JWT_AUTH_REFRESH_COOKIE': 'refresh_token',
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.CustomUserSerializer",
 }
     

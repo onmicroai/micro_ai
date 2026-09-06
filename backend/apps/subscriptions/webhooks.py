@@ -75,9 +75,13 @@ def handle_checkout_session_completed(event):
         log.warning(f"checkout.session.completed: price_id does not match. Received {received_price_id}")
         return
 
-    try:
-        user = CustomUser.objects.get(email=customer_email)
-    except CustomUser.DoesNotExist:
+    # iexact, not exact — Keycloak/OIDC claims and Stripe's own email casing
+    # aren't guaranteed to match Django's stored casing. .filter().first()
+    # rather than .get(), matching handle_customer_created below, since
+    # emails aren't guaranteed unique in this system yet (case variants
+    # could otherwise raise MultipleObjectsReturned here).
+    user = CustomUser.objects.filter(email__iexact=customer_email).first()
+    if user is None:
         log.error(f"checkout.session.completed: user with email {customer_email} not found in the database")
         return
 
@@ -96,7 +100,7 @@ def handle_customer_created(event):
     try:
         user = None
         if email:
-            user = CustomUser.objects.filter(email=email).first()
+            user = CustomUser.objects.filter(email__iexact=email).first()
 
         stripe_customer, created = StripeCustomer.objects.get_or_create(
             customer_id=customer_id,
