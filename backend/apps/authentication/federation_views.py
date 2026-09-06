@@ -11,6 +11,7 @@ until a future decision explicitly retires it.
 """
 
 import logging
+from urllib.parse import unquote
 
 from django.db.models import Q
 from rest_framework.generics import GenericAPIView
@@ -24,14 +25,22 @@ from apps.utils.throttles import FederationPasswordCheckThrottle
 logger = logging.getLogger(__name__)
 
 
+def _normalize_identifier(username_or_email: str) -> str:
+    # The provider URL-encodes the path segment (john%40curricu.me). Django
+    # usually unquotes it already; unquote is idempotent for a decoded email
+    # and recovers the address if a proxy left it encoded.
+    return unquote(username_or_email)
+
+
 def _find_user(username_or_email: str):
     # Both username and email must resolve here (the plugin's "forgotten
     # password" flow depends on the email path working pre-migration).
     # Emails are not guaranteed unique in this system yet (same known gap as
     # apps/subscriptions/webhooks.py) — .first() is best effort, matching
     # existing convention elsewhere in this codebase.
+    identifier = _normalize_identifier(username_or_email)
     return CustomUser.objects.filter(
-        Q(username__iexact=username_or_email) | Q(email__iexact=username_or_email)
+        Q(username__iexact=identifier) | Q(email__iexact=identifier)
     ).first()
 
 
@@ -53,15 +62,22 @@ class FederationView(GenericAPIView):
     permission_classes = [HasFederationSharedSecret]
 
     def get(self, request, username_or_email: str):
-        user = _find_user(username_or_email)
+        identifier = _normalize_identifier(username_or_email)
+        user = _find_user(identifier)
         if user is None:
             # Any non-200 means "not found" to the calling provider.
             return Response(status=status.HTTP_404_NOT_FOUND)
 
+        # The provider's findByUsername() / findByEmail() discard a 200
+        # unless the returned username / email equals the searched
+        # identifier (case-insensitive). Existing Django users often have
+        # username != email (ACCOUNT_USERNAME_REQUIRED = False) while
+        # Keycloak's realm uses email-as-username, so echo the identifier
+        # that actually matched rather than Django's username field.
         return Response(
             {
                 # "id" deliberately omitted — Keycloak generates its own sub.
-                "username": user.username,
+                "username": identifier,
                 "email": user.email,
                 "firstName": user.first_name,
                 "lastName": user.last_name,

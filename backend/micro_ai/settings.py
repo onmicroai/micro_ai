@@ -33,6 +33,12 @@ DEBUG = env.bool("DEBUG", default=True)
 
 # Note: It is not recommended to set ALLOWED_HOSTS to "*" in production
 ALLOWED_HOSTS = env.list("ALLOWED_HOSTS", default=["*"])
+# Keycloak's REST federation provider calls Django at http://web:8000/...
+# (keycloak/realm-export.json). Django validates Host against this list;
+# without the Docker service name, those lookups 400 once ALLOWED_HOSTS is
+# a tight public-domain list.
+if "*" not in ALLOWED_HOSTS and "web" not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append("web")
 
 DOMAIN = env("DOMAIN", default="https://onmicro.ai")
 
@@ -438,6 +444,15 @@ KEYCLOAK_AUDIENCE = env("KEYCLOAK_AUDIENCE", default="onmicro-spa")
 # would make HasFederationSharedSecret reject every request, which is the
 # correct fail-closed behavior if this isn't configured.
 KEYCLOAK_FEDERATION_SHARED_SECRET = env("KEYCLOAK_FEDERATION_SHARED_SECRET", default="")
+
+# Keycloak → Django federation is plain HTTP on the internal Docker network
+# (no nginx, no X-Forwarded-Proto). settings_production.py turns on
+# SECURE_SSL_REDIRECT, which would otherwise 301 those GETs to
+# https://web:8000/... — uvicorn does not terminate TLS, the provider's
+# HttpClient follows the redirect, the handshake fails, and every legacy
+# login is logged as "User not found in external repository".
+# Matched against request.path.lstrip("/").
+SECURE_REDIRECT_EXEMPT = [r"^api/auth/federation/"]
 
 REST_AUTH = {
     "USER_DETAILS_SERIALIZER": "apps.users.serializers.CustomUserSerializer",

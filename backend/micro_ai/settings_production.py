@@ -13,6 +13,8 @@ SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 # Django security checklist settings.
 # More details here: https://docs.djangoproject.com/en/stable/howto/deployment/checklist/
 SECURE_SSL_REDIRECT = True
+# Federation is exempted in settings.SECURE_REDIRECT_EXEMPT — Keycloak talks
+# HTTP directly to uvicorn, which does not terminate TLS.
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 

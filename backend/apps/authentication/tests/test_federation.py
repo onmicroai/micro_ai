@@ -64,7 +64,36 @@ class FederationLookupTest(TestCase):
         response = self.client.get(url, **self.auth)
 
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["username"], "legacy")
+        body = response.json()
+        # Echo the searched identifier so the provider's findByUsername
+        # filter (case-insensitive equality on the returned username)
+        # accepts a Django user whose username is not their email.
+        self.assertEqual(body["username"], "LEGACY@example.com")
+        self.assertEqual(body["email"], "legacy@example.com")
+
+    def test_finds_plus_address_email(self):
+        CustomUser.objects.create_user(
+            username="plususer", email="john+master@curricu.me", password="correct-horse"
+        )
+        url = reverse("authentication:federation", args=["john+master@curricu.me"])
+        response = self.client.get(url, **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["email"], "john+master@curricu.me")
+
+    @override_settings(SECURE_SSL_REDIRECT=True)
+    def test_ssl_redirect_does_not_apply_to_federation(self):
+        url = reverse("authentication:federation", args=["legacy"])
+        response = self.client.get(url, **self.auth)
+
+        self.assertEqual(response.status_code, 200)
+
+    @override_settings(ALLOWED_HOSTS=["onmicro.ai", "web"], SECURE_SSL_REDIRECT=True)
+    def test_lookup_from_docker_service_hostname(self):
+        url = reverse("authentication:federation", args=["legacy"])
+        response = self.client.get(url, HTTP_HOST="web:8000", **self.auth)
+
+        self.assertEqual(response.status_code, 200)
 
     def test_django_user_id_attribute_is_a_string_list(self):
         url = reverse("authentication:federation", args=["legacy"])
