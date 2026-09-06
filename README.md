@@ -8,7 +8,7 @@ Build Micro Apps with No Code
 OnMicro.AI is a user-friendly platform that allows educators to build and deploy AI applications as easily as creating a Google form. The platform's mission is to provide agency over AI for educators through accessible tools and research, putting them in the driver's seat rather than treating AI as a black box of complex algorithms.
 
 ### Core Features
-- **No-Code App Builder**: Create AI-powered educational applications using a drag-and-drop editor without writing any code
+- **No-Code App Builder**: Create AI-powered educational applications using a drag-and-drop editor without writing any code.
   <img src="https://onmicro.ai/img/homepage/build.gif" alt="No-Code App Builder Demo">
 - **Educational Focus**: Build applications that leverage AI to accelerate course development, scale feedback, or automate assessment while protecting your pedagogical approach
 - **Instant Sharing**: Share applications seamlessly with colleagues, students, or the public
