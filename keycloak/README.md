@@ -36,6 +36,28 @@ verify-email, reset-password, etc. all inherit the rest of the stock theme
 unchanged. Set via `realm-export.json`'s `loginTheme`, applied the normal
 config-as-code way (`import-realm.sh`).
 
+`resources/js/light-mode.js` pins the pages to PatternFly's light palette by
+stripping the `pf-v5-theme-dark` class the parent theme sets from
+`prefers-color-scheme`. Without it, visitors whose OS is in dark mode get
+light-grey text on the white panels this theme paints. The file's own header
+explains why this is JS rather than more CSS — read it before touching it.
+
+Keycloak only serves files that live under the theme directory, so the images
+in `resources/img/` are copies rather than references:
+
+- `favicon.ico` — copied from `frontend/public/img/favicons/favicon.ico`, so
+  the auth pages carry the app's icon instead of the stock Keycloak one. The
+  parent template links `${url.resourcesPath}/img/favicon.ico` and quietly
+  falls back to Keycloak's own file when the theme has none, so a drift here
+  shows up as the wrong icon, not an error. Re-copy it whenever the frontend's
+  favicon is rebranded.
+- `onmicro-logo.svg` — the white wordmark, same bytes as
+  `frontend/src/img/logo.svg`. It has to be the white variant; the colour logo
+  in `frontend/public/` disappears against the blue panel. Note that the
+  `src/img/` original is not imported anywhere in the frontend, so this copy
+  is in practice the only live one.
+- `auth-img.png` — the brand-panel illustration, owned by this theme alone.
+
 Themes are only scanned at Keycloak boot, same as the federation provider
 JAR — after adding or editing a theme file, the container needs a full
 recreate (`docker compose up -d --force-recreate keycloak`), not just a
