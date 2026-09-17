@@ -33,7 +33,6 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
   const { user } = useUserStore();
   const userId = user?.id ?? null;
   const hashId = params.id?.toString() || "";
-  const [appId, setAppId] = useState<number | null>(null);
   const {
     surveyJson,
     loading,
@@ -49,6 +48,12 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
 
   const { currentConversation, conversations, resetAppConversation } =
     useConversationStore();
+
+  // Derived during render rather than copied into state by an effect: a copied
+  // value trails `surveyJson` by one render, and anything keyed on it (the
+  // chat conversation lookup, ma_id on submitted runs) would resolve against
+  // the previously loaded app.
+  const appId = surveyJson?.id != null ? Number(surveyJson.id) || null : null;
 
   useEffect(() => {
     setCurrentUserId(userId != null ? String(userId) : null);
@@ -120,14 +125,6 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
       toast.error(sendPromptError, { theme: "colored" });
     }
   }, [sendPromptError]);
-
-  useEffect(() => {
-    if (!surveyJson) return;
-    const appId = Number(surveyJson.id) || null;
-    if (appId !== undefined) {
-      setAppId(appId);
-    }
-  }, [surveyJson]);
 
   const submitLTIScore = useCallback(async () => {
     if (!launchId) return;
@@ -213,12 +210,12 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-3xl mx-auto px-4 py-4">
         <div className="bg-white rounded-xl shadow-md overflow-hidden p-6">
-          {surveyJson?.title && (
+          {!loading && surveyJson?.title && (
             <h1 className="text-xl/loose font-semibold text-gray-900">
               {surveyJson.title}
             </h1>
           )}
-          {surveyJson?.description && (
+          {!loading && surveyJson?.description && (
             <p className="mt-1 text-sm/6 text-gray-600">
               {surveyJson.description}
             </p>

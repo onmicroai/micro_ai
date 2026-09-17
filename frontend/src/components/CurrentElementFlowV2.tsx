@@ -281,10 +281,15 @@ export default function CurrentElementFlowV2({
 
   useEffect(() => {
     if (!surveyJson) return;
+    // Resolve the conversation from the same app that produced `appElements`
+    // below. Keying off anything else lets one app's runs be restored onto
+    // another app's chat elements, since runs are matched by element index.
+    const sessionAppId = surveyJson.id != null ? String(surveyJson.id) : null;
+    if (!sessionAppId) return;
     const { ensureConversationForApp, getRunsForTry } =
       useConversationStore.getState();
     const userIdStr = userId != null ? String(userId) : undefined;
-    const conversationId = ensureConversationForApp(String(appId), userIdStr);
+    const conversationId = ensureConversationForApp(sessionAppId, userIdStr);
     const sessionKey = conversationId;
 
     // Restore chat display from conversationStore runs for this session
@@ -322,7 +327,6 @@ export default function CurrentElementFlowV2({
     surveyAnswers,
     surveyImages,
     appElements,
-    appId,
     userId,
   ]);
 

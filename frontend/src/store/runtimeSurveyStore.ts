@@ -243,6 +243,10 @@ export const useSurveyStore = create<SurveyStore>()(
         signal: AbortSignal,
         embedOrigin?: string
       ) => {
+        // Without this the previously loaded app keeps rendering under the new
+        // URL for the duration of the fetch, so the runtime can mount against
+        // an app that isn't the one being requested.
+        set({ loading: true });
         try {
           const api = axiosInstance();
 

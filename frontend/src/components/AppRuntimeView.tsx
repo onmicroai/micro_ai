@@ -39,7 +39,6 @@ export default function AppRuntimeView({
   const [flowKey, setFlowKey] = useState(0);
   const [showRemixBanner, setShowRemixBanner] = useState(false);
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [appId, setAppId] = useState<number | null>(null);
   const usageSessionIdRef = useRef<string | null>(null);
   const usageSessionEndedRef = useRef(false);
   const usageHeartbeatIntervalRef = useRef<number | null>(null);
@@ -63,6 +62,12 @@ export default function AppRuntimeView({
 
   const { currentConversation, conversations, resetAppConversation } =
     useConversationStore();
+
+  // Derived during render rather than copied into state by an effect: a copied
+  // value trails `surveyJson` by one render, and anything keyed on it (the
+  // chat conversation lookup, ma_id on submitted runs) would resolve against
+  // the previously loaded app.
+  const appId = surveyJson?.id != null ? Number(surveyJson.id) || null : null;
 
   // Check if there are existing continuation messages for auto-expansion
   const [isContinuationExpanded, setIsContinuationExpanded] = useState(false);
@@ -137,16 +142,6 @@ export default function AppRuntimeView({
       toast.error(sendPromptError, { theme: "colored" });
     }
   }, [sendPromptError]);
-
-  useEffect(() => {
-    if (!surveyJson) return;
-    const nextAppId = Number(surveyJson.id) || null;
-
-    // Always set appId when surveyJson is available
-    if (nextAppId !== undefined) {
-      setAppId(nextAppId);
-    }
-  }, [surveyJson]);
 
   const submitLTIScore = useCallback(async () => {
     if (!launchId) return;
@@ -363,12 +358,12 @@ export default function AppRuntimeView({
           {(roles.isOwner || roles.isAdmin) && showEditLink && (
             <EditAppLink hashId={hashId} />
           )}
-          {surveyJson?.title && (
+          {!loading && surveyJson?.title && (
             <h1 className="text-xl/loose font-semibold text-gray-900">
               {surveyJson.title}
             </h1>
           )}
-          {surveyJson?.description && (
+          {!loading && surveyJson?.description && (
             <p className="mt-1 text-sm/6 text-gray-600">
               {surveyJson.description}
             </p>
