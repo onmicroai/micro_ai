@@ -53,7 +53,7 @@ services:
 
   # LiteLLM
   litellm:
-    image: ghcr.io/berriai/litellm-database:1.89.3
+    image: ghcr.io/berriai/litellm-database:v1.106.5
     container_name: litellm
     ports:
       - "4000:4000"

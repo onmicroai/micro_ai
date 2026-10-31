@@ -22,7 +22,7 @@ services:
 
   # LiteLLM for local
   om-litellm:
-    image: ghcr.io/berriai/litellm-database:1.89.3
+    image: ghcr.io/berriai/litellm-database:v1.106.5
     container_name: om-litellm
     ports:
       - "8008:4000"
@@ -30,6 +30,8 @@ services:
       - .env
     environment:
       - LITELLM_DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:5432/litellm
+      # Local only; never add to docker-compose.dev.yml or docker-compose.prod.yml.
+      - LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true
     volumes:
       - ./litellm/config.yaml:/app/config.yaml
     networks:

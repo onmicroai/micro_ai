@@ -16,6 +16,7 @@ stripe
 dj-stripe==2.8.4
 django-anymail[mailgun]  # email services
 whitenoise[brotli]
+brotli>=1.2.1  # CVE-2026-111497 (Brotli2Shell); also decodes br responses for aiohttp/httpx/urllib3
 openai>=1.2.0
 google-generativeai
 anthropic
