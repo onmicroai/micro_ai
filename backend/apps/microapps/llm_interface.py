@@ -84,18 +84,24 @@ class UnifiedLLMInterface:
             model_config = DynamicModelService.get_model_config(data["model"])
             params["model"] = model_config.get("model", self.default_params["model"])
         
-        # Override with any user-provided values that exist in our params
+        # Override with any user-provided values that exist in our params.
+        # Skip nulls: a present-but-null field must not wipe a numeric default
+        # (LiteLLM reports max_tokens as null).
         for key, value in data.items():
-            if key in params and key != "model":  # Skip model as we handled it above
-                # Convert to appropriate type based on existing value's type
-                if isinstance(params[key], bool):
-                    params[key] = bool(value)
-                elif isinstance(params[key], int):
-                    params[key] = int(value)
-                elif isinstance(params[key], float):
-                    params[key] = float(value)
-                else:
-                    params[key] = value
+            if value is None or key not in params or key == "model":
+                continue
+            # Convert to appropriate type based on existing value's type
+            if isinstance(params[key], bool):
+                params[key] = bool(value)
+            elif isinstance(params[key], int):
+                params[key] = int(value)
+            elif isinstance(params[key], float):
+                params[key] = float(value)
+            else:
+                params[key] = value
+
+        if not params.get("max_tokens"):
+            params["max_tokens"] = 5000
         
         return params
     

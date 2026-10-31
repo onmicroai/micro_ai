@@ -197,8 +197,16 @@ class RunList(APIView, UsageTrackingMixin):
             credits = response["credits"]
             self.credits = credits  # Store for later use in update_user_credits
 
-            # Ensure max_tokens is set from api_params if not in data
-            max_tokens = data.get("max_tokens", api_params.get("max_tokens", 0))
+            # Run.max_tokens is non-nullable. dict.get only substitutes when the
+            # key is missing, so an explicit null (LiteLLM's model map, or a
+            # client payload) used to fail serializer validation on every run.
+            max_tokens = data.get("max_tokens")
+            if max_tokens is None:
+                max_tokens = api_params.get("max_tokens")
+            try:
+                max_tokens = int(max_tokens) if max_tokens is not None else 0
+            except (TypeError, ValueError):
+                max_tokens = 0
             app_hash_id = self.app_hash_id or data.get("app_hash_id", '')
 
             # Use `rubric_version` (model FK name). `rubric_version_id` is ignored by

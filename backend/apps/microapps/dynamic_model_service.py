@@ -200,7 +200,10 @@ class DynamicModelService:
         config = {
             "model": model_info.get('model_name', model_name),
             "api_key": settings.LITELLM_API_KEY,  # Always use master key
-            "max_tokens": model_data.get('max_tokens', 5000),  # Fallback
+            # LiteLLM includes max_tokens on every model and sets it to null.
+            # dict.get's default only applies when the key is missing, so the
+            # old fallback never ran and runs were saved with max_tokens=None.
+            "max_tokens": cls._resolve_max_tokens(model_data),
             "supports_image": model_data.get('supports_vision', False),
             "stream": cls._infer_stream_capability(model_name),
             "plans": model_data.get('access_groups', []),
@@ -219,6 +222,26 @@ class DynamicModelService:
         }
         
         return config
+
+    @classmethod
+    def _resolve_max_tokens(cls, model_data: Dict[str, Any], fallback: int = 5000) -> int:
+        """
+        Output-token ceiling to send on a chat request.
+
+        LiteLLM's model map sets max_tokens to null and reports the real
+        ceiling as max_output_tokens. Prefer an explicit positive max_tokens,
+        otherwise the historical 5000 default, capped by max_output_tokens
+        when that ceiling is smaller.
+        """
+        raw = model_data.get("max_tokens")
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or raw <= 0:
+            raw = fallback
+
+        output_cap = model_data.get("max_output_tokens")
+        if isinstance(output_cap, (int, float)) and not isinstance(output_cap, bool) and output_cap > 0:
+            raw = min(raw, output_cap)
+
+        return int(raw)
     
     @classmethod
     def _infer_stream_capability(cls, model_name: str) -> bool:
