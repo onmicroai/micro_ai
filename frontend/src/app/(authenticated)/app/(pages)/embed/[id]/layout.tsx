@@ -34,9 +34,7 @@ export default function EmbedLayout({
   return (
     <>
       <ToastContainer />
-      <div className="bg-white">
-        {children ? children : <div></div>}
-      </div>
+      {children ? children : <div></div>}
     </>
   );
 }

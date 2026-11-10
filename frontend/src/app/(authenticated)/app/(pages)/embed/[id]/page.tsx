@@ -207,104 +207,112 @@ const EmbeddedSurveyDisplay = ({ params }: PageParams) => {
   }, [restartEmbeddedApp]);
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="max-w-3xl mx-auto px-4 py-4">
-        <div className="bg-white rounded-xl shadow-md overflow-hidden p-6">
+    <div className="bg-gray-50 min-h-screen dark:bg-black-dark pb-16">
+      <div className="max-w-7xl mx-auto px-4 py-6 bg-gray-50 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-md ring-1 ring-black/5 overflow-hidden">
           {!loading && surveyJson?.title && (
-            <h1 className="text-xl/loose font-semibold text-gray-900">
-              {surveyJson.title}
-            </h1>
+            <header className="border-b border-gray-100 bg-gradient-to-b from-gray-50 to-white px-6 py-5 sm:px-8">
+              <h1 className="text-2xl/9 font-semibold tracking-tight text-gray-900">
+                {surveyJson.title}
+              </h1>
+              {surveyJson.description && (
+                <p className="mt-1 text-sm/6 text-gray-600">
+                  {surveyJson.description}
+                </p>
+              )}
+            </header>
           )}
-          {!loading && surveyJson?.description && (
-            <p className="mt-1 text-sm/6 text-gray-600">
+          {!loading && !surveyJson?.title && surveyJson?.description && (
+            <p className="px-6 pt-5 text-sm/6 text-gray-600 sm:px-8">
               {surveyJson.description}
             </p>
           )}
 
-          {loading && (
-            <div className="flex justify-center py-8">
-              <SkeletonLoader />
-            </div>
-          )}
+          <div className="p-6 sm:p-8">
+            {loading && (
+              <div className="flex justify-center py-8">
+                <SkeletonLoader />
+              </div>
+            )}
 
-          {!loading && (surveyJson?.elements?.length || 0) === 0 && (
-            <p className="text-gray-600 text-center py-8">
-              This application doesn&apos;t contain any questions.
-            </p>
-          )}
+            {!loading && (surveyJson?.elements?.length || 0) === 0 && (
+              <p className="text-gray-600 text-center py-8">
+                This application doesn&apos;t contain any questions.
+              </p>
+            )}
 
-          {appId !== null && !loading && (
-            <div className="mt-6">
-              <CurrentElementFlow
-                key={flowKey}
-                appId={appId}
-                userId={userId}
-                onComplete={() => setShowThankYouMessage(true)}
-                isOwner={isOwner}
-                isAdmin={isAdmin}
-              />
-            </div>
-          )}
-
-          <div>
-            {showThankYouMessage && (
-              <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
-                <div
-                  className="text-sm/6  max-w-none text-green-800"
-                  dangerouslySetInnerHTML={{
-                    __html: surveyJson?.completedHtml || "",
-                  }}
+            {appId !== null && !loading && (
+              <div>
+                <CurrentElementFlow
+                  key={flowKey}
+                  appId={appId}
+                  userId={userId}
+                  onComplete={() => setShowThankYouMessage(true)}
+                  isOwner={isOwner}
+                  isAdmin={isAdmin}
                 />
               </div>
             )}
-          </div>
 
-          {/* Chat Continuation Interface */}
-          <ContinuationInterface
-            appId={appId}
-            userId={userId}
-            surveyJson={surveyJson}
-            answers={answers}
-            isOwner={isOwner}
-            isAdmin={isAdmin}
-            isExpanded={isContinuationExpanded}
-            onToggleExpanded={() =>
-              setIsContinuationExpanded(!isContinuationExpanded)
-            }
-          />
+            <div>
+              {showThankYouMessage && (
+                <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+                  <div
+                    className="text-sm/6  max-w-none text-green-800"
+                    dangerouslySetInnerHTML={{
+                      __html: surveyJson?.completedHtml || "",
+                    }}
+                  />
+                </div>
+              )}
+            </div>
 
-          <div className="mt-4 flex justify-between items-center">
-            <button
-              onClick={restartEmbeddedApp}
-              className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Restart
-            </button>
+            <ContinuationInterface
+              appId={appId}
+              userId={userId}
+              surveyJson={surveyJson}
+              answers={answers}
+              isOwner={isOwner}
+              isAdmin={isAdmin}
+              isExpanded={isContinuationExpanded}
+              onToggleExpanded={() =>
+                setIsContinuationExpanded(!isContinuationExpanded)
+              }
+            />
 
-            {showThankYouMessage && !isContinuationExpanded && (
+            <div className="mt-8 flex justify-between items-center">
               <button
-                onClick={() => setIsContinuationExpanded(true)}
-                className="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-800 transition-colors"
+                onClick={restartEmbeddedApp}
+                className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98]"
               >
-                <MessageCircle className="w-4 h-4" />
-                Continue the conversation
+                <RotateCcw className="w-4 h-4 transition-transform duration-300 group-hover:-rotate-180" />
+                Restart
               </button>
+
+              {showThankYouMessage && !isContinuationExpanded && (
+                <button
+                  onClick={() => setIsContinuationExpanded(true)}
+                  className="group inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3.5 py-2 text-sm font-medium text-gray-600 shadow-sm transition-all hover:border-gray-300 hover:bg-gray-50 hover:text-gray-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary active:scale-[0.98]"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Continue the conversation
+                </button>
+              )}
+            </div>
+
+            {(isOwner || isAdmin) && (
+              <DebugInformation
+                surveyJson={surveyJson}
+                currentConversation={currentConversation}
+                conversations={conversations}
+                answers={answers}
+                base64Images={images}
+                statsData={null}
+              />
             )}
           </div>
         </div>
       </div>
-
-      {(isOwner || isAdmin) && (
-        <DebugInformation
-          surveyJson={surveyJson}
-          currentConversation={currentConversation}
-          conversations={conversations}
-          answers={answers}
-          base64Images={images}
-          statsData={null}
-        />
-      )}
     </div>
   );
 };
