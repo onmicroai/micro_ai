@@ -20,6 +20,33 @@ services:
       interval: 5s
       retries: 20
 
+  # LiteLLM response cache. Not published on the host; only the proxy connects.
+  redis:
+    container_name: redis
+    image: redis:7.4-alpine
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --requirepass
+      - ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+      - --maxmemory
+      - ${REDIS_MAXMEMORY:-512mb}
+      - --maxmemory-policy
+      - allkeys-lru
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    volumes:
+      - redis_data:/data
+    networks:
+      - microaiNetwork
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" --no-auth-warning ping | grep -q PONG"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+
   # LiteLLM for local
   om-litellm:
     image: ghcr.io/berriai/litellm-database:v1.106.5
@@ -32,12 +59,16 @@ services:
       - LITELLM_DATABASE_URL=postgresql://${DATABASE_USER}:${DATABASE_PASSWORD}@db:5432/litellm
       # Local only; never add to docker-compose.dev.yml or docker-compose.prod.yml.
       - LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true
+      - REDIS_HOST=redis
+      - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
     volumes:
       - ./litellm/config.yaml:/app/config.yaml
     networks:
       - microaiNetwork
     depends_on:
       db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     command:
       ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
@@ -212,6 +243,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
   media_data:
 
 networks:

@@ -159,6 +159,18 @@ litellm_settings:
     drop_params: true
     set_verbose: false
     default_fallbacks: ["gpt-5-mini"]
+    # Exact-match response cache, shared by every proxy worker. Keys are
+    # litellm.cache:<request hash>. Connection comes from REDIS_HOST and
+    # REDIS_PASSWORD, which Compose sets to the `redis` service.
+    # Requests with more than the default 4 messages are not cached.
+    cache: true
+    cache_params:
+        type: redis
+        host: os.environ/REDIS_HOST
+        port: 6379
+        password: os.environ/REDIS_PASSWORD
+        namespace: "litellm.cache"
+        ttl: 86400
 
 router_settings:
     ## IMPORTANT: both the keys and the values here must be `model_name` values from

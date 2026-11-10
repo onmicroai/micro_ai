@@ -45,7 +45,31 @@ jobs:
 
             ./keycloak/fetch-provider.sh
 
-            # --no-deps: never touch db/litellm during app deploy.
+            # Redis is not part of the app recreate below. Start it first and
+            # abort before touching the running app if it cannot authenticate.
+            $COMPOSE up -d redis
+            echo "Waiting for redis to be healthy..."
+            if ! timeout 60 bash -c \
+              'until docker inspect --format="{{.State.Health.Status}}" redis 2>/dev/null | grep -q "healthy"; do sleep 2; done'; then
+              echo "redis did not become healthy — logs:"
+              docker logs redis --tail 80
+              exit 1
+            fi
+            echo "redis is healthy."
+
+            # Reload the proxy so config.yaml and REDIS_* take effect.
+            # --no-deps: db is never touched. --force-recreate: pick up env changes.
+            $COMPOSE up -d --force-recreate --no-deps litellm
+            sleep 8
+            LITELLM_STATE=$(docker inspect --format='{{.State.Status}}' litellm 2>/dev/null || echo "missing")
+            if [ "$LITELLM_STATE" != "running" ]; then
+              echo "litellm is ${LITELLM_STATE} — logs:"
+              docker logs litellm --tail 80
+              exit 1
+            fi
+            echo "litellm is running."
+
+            # --no-deps: never touch db during app deploy.
             # --force-recreate: swap containers without a separate stop/rm step.
             $COMPOSE up -d --force-recreate --no-deps keycloak
             $COMPOSE up -d --force-recreate --no-deps web

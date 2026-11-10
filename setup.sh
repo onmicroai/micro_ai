@@ -108,6 +108,13 @@ _sync_litellm_db_url() {
 }
 _sync_litellm_db_url
 
+# LiteLLM Redis cache password. Compose requires this on every environment.
+if ! grep -qE '^REDIS_PASSWORD[[:space:]]*=' .env; then
+    printf '\n# LiteLLM Redis cache. Compose sets REDIS_HOST=redis.\nREDIS_PASSWORD=%s\n' "$(gen_key 32)" >> .env
+    echo "  Generated REDIS_PASSWORD"
+fi
+set_if_placeholder "REDIS_PASSWORD" "$(gen_key 32)"
+
 # AI API key
 echo ""
 echo -e "${BOLD}AI Provider${NC}"

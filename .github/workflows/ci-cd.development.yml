@@ -63,6 +63,18 @@ jobs:
               'until docker inspect --format="{{.State.Health.Status}}" db 2>/dev/null | grep -q "healthy"; do sleep 2; done'
             echo "db is healthy."
 
+            # Redis has no profile, same as db, so app deploys never remove it.
+            # Fail here — before the image builds — if REDIS_PASSWORD is missing.
+            ${{ env.COMPOSE }} up -d redis
+            echo "Waiting for redis to be healthy..."
+            if ! timeout 60 bash -c \
+              'until docker inspect --format="{{.State.Health.Status}}" redis 2>/dev/null | grep -q "healthy"; do sleep 2; done'; then
+              echo "redis did not become healthy — logs:"
+              docker logs redis --tail 80
+              exit 1
+            fi
+            echo "redis is healthy."
+
   # ─────────────────────────────────────────────────────────────────────────────
   # 2. BUILD  (parallel)
   #    Build each image independently on the server so the two longest steps
@@ -153,6 +165,18 @@ jobs:
               $COMPOSE --profile app up -d --no-deps $APP
               echo "--- Rollback complete ---"
             }
+
+            # Before the rollback trap: a Redis failure must not tear down the app.
+            $COMPOSE up -d redis
+            echo "Waiting for redis to be healthy..."
+            if ! timeout 60 bash -c \
+              'until docker inspect --format="{{.State.Health.Status}}" redis 2>/dev/null | grep -q "healthy"; do sleep 2; done'; then
+              echo "redis did not become healthy — logs:"
+              docker logs redis --tail 80
+              exit 1
+            fi
+            echo "redis is healthy."
+
             trap rollback ERR
 
             # Stop and remove current app containers.
@@ -250,7 +274,7 @@ jobs:
 
             # Named volumes not attached to any container.
             # media_data is attached to running web/theme-cron → safe.
-            # The postgres data is a host bind-mount, not a named volume → safe.
+            # The postgres and redis data are host bind-mounts, not named volumes → safe.
             docker volume prune -f
 
             echo "Disk usage after cleanup:"
