@@ -259,16 +259,24 @@ export const useSurveyStore = create<SurveyStore>()(
             ? api.get(`/api/microapps/hash/${hashId}`, { signal })
             : axios.get(appUrl, { signal });
 
-          const modelFetch = api
-            .get("/api/microapps/models/litellm-configuration/", { signal })
-            .then((res: any) => {
-              const models: any[] = res?.data?.data?.models ?? [];
-              const defaultEntry = models.find(
-                (m: any) => Array.isArray(m.tags) && m.tags.includes("default")
-              );
-              return defaultEntry?.model ?? "";
-            })
-            .catch(() => "");
+          // Public viewers (including guests) must not wait on this. The
+          // endpoint is authenticated, and the shared client omits the bearer
+          // token on public app routes, so the call 401s and the 401 handler
+          // starts a Keycloak silent renew the guest cannot finish. The app
+          // JSON already carries aiConfig.aiModel; this list is only a
+          // fallback, and only a private session can actually load it.
+          const modelFetch = privatePage
+            ? api
+                .get("/api/microapps/models/litellm-configuration/", { signal })
+                .then((res: any) => {
+                  const models: any[] = res?.data?.data?.models ?? [];
+                  const defaultEntry = models.find(
+                    (m: any) => Array.isArray(m.tags) && m.tags.includes("default")
+                  );
+                  return defaultEntry?.model ?? "";
+                })
+                .catch(() => "")
+            : Promise.resolve("");
 
           const [response, defaultAiModel] = await Promise.all([
             appFetch,
