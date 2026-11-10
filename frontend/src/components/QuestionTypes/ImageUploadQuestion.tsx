@@ -278,7 +278,7 @@ const ImageUploadQuestion = ({
         <>
           <div
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer
+            className={`border-2 border-dashed rounded-xl bg-gray-50/60 p-6 text-center cursor-pointer transition-colors
               ${
                 isDragActive ? "border-primary bg-primary/5" : "border-gray-300"
               }

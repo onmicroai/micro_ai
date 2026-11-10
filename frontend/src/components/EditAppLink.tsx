@@ -9,16 +9,15 @@ interface EditAppLinkProps {
 
 const EditAppLink = ({ hashId }: EditAppLinkProps) => {
   return (
-    <div className="mb-0 flex justify-end">
-      <Link
-        href={`/app/edit/${hashId}`}
-        className="inline-flex items-center text-sm text-gray-600 hover:text-gray-800"
-      >
-        Edit this app
-        <FaEdit size={15} className="ml-2" />
-      </Link>
-    </div>
+    <Link
+      href={`/app/edit/${hashId}`}
+      className="inline-flex flex-shrink-0 items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-700 shadow-sm transition-colors hover:bg-gray-50 hover:text-gray-900"
+    >
+      <FaEdit size={14} />
+      Edit
+      <span className="sr-only"> this app</span>
+    </Link>
   );
 };
 
-export default EditAppLink; 
+export default EditAppLink;

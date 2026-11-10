@@ -101,7 +101,7 @@ const SliderQuestion = ({
           />
         </div>
         <div className="w-12 text-center">
-          <span className="inline-block px-2 py-1 text-sm bg-gray-100 rounded">
+          <span className="inline-block min-w-8 rounded-md bg-gray-100 px-2 py-1 text-sm font-medium tabular-nums text-gray-700">
             {answers[element.name]?.value || element.defaultValue || 0}
           </span>
         </div>

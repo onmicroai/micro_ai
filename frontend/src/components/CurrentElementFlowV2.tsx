@@ -934,8 +934,8 @@ export default function CurrentElementFlowV2({
           return (
             <div key={element.id} className="pt-2">
               <h2
-                className={`text-base/7 font-semibold ${
-                  isLocked ? "text-gray-500" : "text-gray-900"
+                className={`text-xs/5 font-semibold uppercase tracking-wider ${
+                  isLocked ? "text-gray-400" : "text-primary"
                 }`}
               >
                 {element.text || element.label}
@@ -966,7 +966,9 @@ export default function CurrentElementFlowV2({
             <div
               key={element.id}
               className={`mb-6 relative group rounded-md ${
-                isEditButtonAboveType(element.type) ? "pt-8" : ""
+                canEditLockedField && isEditButtonAboveType(element.type)
+                  ? "pt-8"
+                  : ""
               } ${
                 isEditingThisField
                   ? "ring-2 ring-primary/25 border border-gray-300 bg-gray-50 p-3"
@@ -1221,7 +1223,7 @@ export default function CurrentElementFlowV2({
                         type={
                           element.type === "fixedResponse" ? "button" : "submit"
                         }
-                        className="px-6 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
+                        className="rounded-lg bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground shadow-sm transition-all hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:scale-[0.98]"
                         onClick={async (e) => {
                           if (element.type !== "fixedResponse") return;
                           // Initialize fixed-response state on first click without relying on form submit timing.

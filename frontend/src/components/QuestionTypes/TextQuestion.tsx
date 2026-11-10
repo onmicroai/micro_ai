@@ -81,6 +81,7 @@ const TextQuestion = ({
 
       <Input
         id={element.id}
+        className="mt-2"
         name={element.name}
         value={answers[element.name]?.value || ""}
         onChange={handleInputChange}

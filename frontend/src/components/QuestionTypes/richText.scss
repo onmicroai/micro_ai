@@ -15,6 +15,17 @@
   }
 }
 
+/* Runtime only: keep media a compact banner so the chat stays above the fold */
+.rich-text-content {
+  img {
+    max-height: 220px;
+    width: 100%;
+    object-fit: cover;
+    object-position: center 60%;
+    border-radius: 0.75rem;
+  }
+}
+
 /* Basic editor styles */
 .tiptap {
   min-height: 200px;

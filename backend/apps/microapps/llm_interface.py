@@ -20,8 +20,9 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# LiteLLM intercepts this tool, runs the configured search provider, and
-# continues the completion with the results. The model decides whether to call it.
+# LiteLLM intercepts this tool name, runs search, and finishes the completion
+# itself. That path cannot stream: the proxy forces stream=False and returns
+# one JSON body. Non-streaming callers still use it.
 WEB_SEARCH_TOOL = {
     "type": "function",
     "function": {
@@ -37,6 +38,18 @@ WEB_SEARCH_TOOL = {
             },
             "required": ["query"],
         },
+    },
+}
+
+# Same contract as WEB_SEARCH_TOOL, but a name the proxy interceptor does not
+# claim. Streaming callers run the search themselves, then stream the follow-up
+# completion so the answer arrives token by token.
+STREAMING_WEB_SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "search_web",
+        "description": WEB_SEARCH_TOOL["function"]["description"],
+        "parameters": WEB_SEARCH_TOOL["function"]["parameters"],
     },
 }
 
@@ -138,7 +151,15 @@ class UnifiedLLMInterface:
             log.error(e)
             return []
 
-    def _make_proxy_request(self, params: Dict[str, Any], stream: bool = False, enable_thinking: bool = False) -> Any:
+    def _make_proxy_request(
+        self,
+        params: Dict[str, Any],
+        stream: bool = False,
+        enable_thinking: bool = False,
+        tools: Optional[list] = None,
+        include_usage: bool = False,
+        bypass_cache: bool = False,
+    ) -> Any:
         """
         Make a request to the litellm proxy
         
@@ -179,10 +200,17 @@ class UnifiedLLMInterface:
                 else:
                     payload["reasoning_effort"] = "low"
             
-            if params.get("web_search"):
+            if tools is not None:
+                payload["tools"] = tools
+            elif params.get("web_search"):
                 payload["tools"] = [WEB_SEARCH_TOOL]
-                # Search answers go stale; skip the shared response cache.
+
+            # Search answers go stale; skip the shared response cache.
+            if bypass_cache or tools is not None or params.get("web_search"):
                 payload["cache"] = {"no-cache": True}
+
+            if stream and include_usage:
+                payload["stream_options"] = {"include_usage": True}
 
             if stream:
                 # For streaming, return a generator
@@ -336,6 +364,226 @@ class UnifiedLLMInterface:
             log.error(f"Error getting response from {self.model_name}: {str(e)}")
             return {"status": False, "message": str(e)}
 
+    def _add_usage(self, usage: Any) -> None:
+        if not isinstance(usage, dict):
+            return
+        if not isinstance(self.last_usage, dict):
+            self.last_usage = {
+                "prompt_tokens": 0,
+                "completion_tokens": 0,
+                "total_tokens": 0,
+            }
+        for key in ("prompt_tokens", "completion_tokens", "total_tokens"):
+            self.last_usage[key] += int(usage.get(key) or 0)
+
+    def _finish_stream_accounting(self, params: Dict[str, Any]) -> None:
+        if self.last_usage is None:
+            self.last_usage = token_counter.estimate_usage_for_streaming(
+                messages=params.get("messages", []),
+                full_content=self.full_content,
+                model_name=params.get("model", ""),
+            )
+        transcription_cost = float(params.get("transcription_cost", 0))
+        self.last_cost, self.last_credits = self.calculate_cost_from_usage(
+            usage_data=self.last_usage,
+            model=params["model"],
+            transcription_cost=transcription_cost,
+        )
+
+    def _iter_completion_stream(self, response_stream):
+        """Yield text deltas. Return any function-call deltas accumulated along the way."""
+        tool_calls = []
+        for chunk in response_stream:
+            if not isinstance(chunk, dict):
+                continue
+            if chunk.get("id"):
+                self.litellm_response_id = chunk["id"]
+            if chunk.get("usage"):
+                self._add_usage(chunk["usage"])
+
+            choices = chunk.get("choices") or []
+            if not choices or not isinstance(choices[0], dict):
+                continue
+            choice = choices[0]
+            delta = choice.get("delta") or {}
+            message = choice.get("message") or {}
+            content = delta.get("content")
+            if content is None:
+                content = message.get("content") or ""
+            if isinstance(content, str) and content:
+                self.full_content += content
+                yield content
+
+            self._accumulate_tool_call_deltas(tool_calls, delta.get("tool_calls"))
+            self._merge_complete_tool_calls(tool_calls, message.get("tool_calls"))
+
+        return [call for call in tool_calls if call["name"] or call["arguments"]]
+
+    @staticmethod
+    def _accumulate_tool_call_deltas(tool_calls: list, deltas: Any) -> None:
+        if not isinstance(deltas, list):
+            return
+        for delta in deltas:
+            if not isinstance(delta, dict):
+                continue
+            index = delta.get("index", 0)
+            if not isinstance(index, int) or index < 0:
+                index = 0
+            while len(tool_calls) <= index:
+                tool_calls.append({"id": "", "name": "", "arguments": ""})
+            slot = tool_calls[index]
+            if delta.get("id"):
+                slot["id"] = delta["id"]
+            function = delta.get("function") or {}
+            if function.get("name"):
+                slot["name"] = function["name"]
+            if function.get("arguments"):
+                slot["arguments"] += function["arguments"]
+
+    @staticmethod
+    def _merge_complete_tool_calls(tool_calls: list, calls: Any) -> None:
+        if not isinstance(calls, list):
+            return
+        for call in calls:
+            if not isinstance(call, dict):
+                continue
+            function = call.get("function") or {}
+            existing = next(
+                (slot for slot in tool_calls if call.get("id") and slot["id"] == call["id"]),
+                None,
+            )
+            if existing:
+                if function.get("name"):
+                    existing["name"] = function["name"]
+                if function.get("arguments"):
+                    existing["arguments"] = function["arguments"]
+                continue
+            tool_calls.append({
+                "id": call.get("id") or "",
+                "name": function.get("name") or "",
+                "arguments": function.get("arguments") or "",
+            })
+
+    @staticmethod
+    def _query_from_tool_arguments(arguments: str) -> str:
+        text = arguments or ""
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return text.strip()
+        if isinstance(parsed, dict):
+            return str(parsed.get("query") or parsed.get("q") or "").strip()
+        return text.strip()
+
+    @staticmethod
+    def _tool_arguments_json(arguments: str) -> str:
+        text = arguments or ""
+        try:
+            parsed = json.loads(text)
+        except json.JSONDecodeError:
+            return json.dumps({"query": text})
+        if isinstance(parsed, dict):
+            return json.dumps(parsed)
+        return json.dumps({"query": text})
+
+    def _search_web(self, query: str) -> str:
+        query = (query or "").strip()
+        if not query:
+            return "No search query was provided."
+
+        api_key = os.environ.get("TAVILY_API_KEY", "").strip()
+        if len(api_key) >= 2 and api_key[0] == api_key[-1] and api_key[0] in "\"'":
+            api_key = api_key[1:-1]
+        if not api_key:
+            log.error("TAVILY_API_KEY is not set; web search cannot run")
+            return "Web search is unavailable."
+
+        try:
+            response = requests.post(
+                "https://api.tavily.com/search",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "query": query,
+                    "max_results": 5,
+                    "search_depth": "basic",
+                },
+                timeout=30,
+            )
+            response.raise_for_status()
+            data = response.json()
+        except Exception as exc:
+            log.error("Web search failed: %s", exc)
+            return "Web search failed."
+
+        parts = []
+        answer = data.get("answer")
+        if isinstance(answer, str) and answer.strip():
+            parts.append(answer.strip())
+        for index, result in enumerate(data.get("results") or [], 1):
+            if not isinstance(result, dict):
+                continue
+            title = result.get("title") or "Result"
+            url = result.get("url") or ""
+            content = (result.get("content") or "")[:800]
+            parts.append(f"[{index}] {title}\n{url}\n{content}".strip())
+        return "\n\n".join(parts) if parts else "No results."
+
+    def _assistant_tool_message(self, tool_calls: list) -> Dict[str, Any]:
+        return {
+            "role": "assistant",
+            "content": None,
+            "tool_calls": [
+                {
+                    "id": call["id"],
+                    "type": "function",
+                    "function": {
+                        "name": call["name"] or STREAMING_WEB_SEARCH_TOOL["function"]["name"],
+                        "arguments": self._tool_arguments_json(call["arguments"]),
+                    },
+                }
+                for call in tool_calls
+            ],
+        }
+
+    def _stream_web_search(self, params: Dict[str, Any]):
+        """Let the model decide to search, then stream the answer that uses the results."""
+        decision_params = {key: value for key, value in params.items() if key != "web_search"}
+        decision_stream = self._make_proxy_request(
+            decision_params,
+            stream=True,
+            tools=[STREAMING_WEB_SEARCH_TOOL],
+            include_usage=True,
+            bypass_cache=True,
+        )
+        tool_calls = yield from self._iter_completion_stream(decision_stream)
+
+        if tool_calls:
+            for index, call in enumerate(tool_calls):
+                if not call["id"]:
+                    call["id"] = f"search_web_{index}"
+            messages = list(params.get("messages") or [])
+            messages.append(self._assistant_tool_message(tool_calls))
+            for call in tool_calls:
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call["id"],
+                    "content": self._search_web(self._query_from_tool_arguments(call["arguments"])),
+                })
+            follow_up = {key: value for key, value in params.items() if key != "web_search"}
+            follow_up["messages"] = messages
+            answer_stream = self._make_proxy_request(
+                follow_up,
+                stream=True,
+                include_usage=True,
+                bypass_cache=True,
+            )
+            yield from self._iter_completion_stream(answer_stream)
+
+        self._finish_stream_accounting(params)
+
     def stream_response(self, params: Dict[str, Any]):
         """
         A generator that yields model response chunks as soon as they arrive.
@@ -365,35 +613,11 @@ class UnifiedLLMInterface:
         collected_chunks = []
 
         try:
-            # Web search runs an agentic loop inside the proxy. LiteLLM turns
-            # that provider call into a non-streaming request and, on
-            # /chat/completions, returns one JSON body rather than SSE. Fetch
-            # it directly and yield the finished answer as a single chunk.
+            # The proxy's web-search interceptor forces stream=False and returns
+            # the finished answer in one body. Run the tool ourselves instead,
+            # then stream the follow-up completion.
             if params.get("web_search"):
-                response_data = self._make_proxy_request(params, stream=False)
-                self.litellm_response_id = response_data.get("id")
-                self.last_usage = response_data.get("usage") or {}
-                message = (response_data.get("choices") or [{}])[0].get("message") or {}
-                content = message.get("content") or ""
-                if isinstance(content, list):
-                    content = "".join(
-                        (part.get("text") or "") if isinstance(part, dict) else str(part)
-                        for part in content
-                    )
-                if not content and message.get("tool_calls"):
-                    log.warning(
-                        "Web search tool call was not executed for model %s",
-                        params.get("model"),
-                    )
-                self.full_content = content
-                transcription_cost = float(params.get("transcription_cost", 0))
-                self.last_cost, self.last_credits = self.calculate_cost_from_usage(
-                    usage_data=self.last_usage,
-                    model=params["model"],
-                    transcription_cost=transcription_cost,
-                )
-                if content:
-                    yield content
+                yield from self._stream_web_search(params)
                 return
 
             # Force streaming=True – caller is responsible for setting it but

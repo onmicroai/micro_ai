@@ -51,8 +51,8 @@ function getChatHeightBounds() {
     return { min: 400, max: 600 };
   }
   return {
-    min: Math.min(400, window.innerHeight * 0.5),
-    max: Math.min(600, window.innerHeight * 0.8),
+    min: Math.min(480, window.innerHeight * 0.6),
+    max: Math.min(680, window.innerHeight * 0.8),
   };
 }
 
@@ -131,8 +131,8 @@ function AssistantAvatar({ avatarUrl }: { avatarUrl?: string }) {
   }
 
   return (
-    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
-      <Bot className="h-4 w-4 text-primary" />
+    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary">
+      <Bot className="h-4 w-4 text-primary-foreground" />
     </div>
   );
 }
@@ -146,10 +146,19 @@ function UserAvatar() {
 }
 
 function TypingDots({ variant }: { variant: "assistant" | "user" }) {
-  const dotClass = variant === "assistant" ? "bg-gray-400" : "bg-white";
+  const dotClass =
+    variant === "assistant"
+      ? "bg-primary/60 motion-reduce:animate-pulse"
+      : "bg-white motion-reduce:animate-pulse";
 
   return (
-    <span className="inline-flex h-5 items-center gap-1">
+    <span
+      role="status"
+      aria-label={
+        variant === "assistant" ? "Assistant is typing" : "Transcribing your message"
+      }
+      className="inline-flex h-5 items-center gap-1"
+    >
       <span
         className={cn(
           "h-1.5 w-1.5 animate-bounce rounded-full [animation-delay:0ms]",
@@ -171,6 +180,25 @@ function TypingDots({ variant }: { variant: "assistant" | "user" }) {
     </span>
   );
 }
+
+// Markdown styling for assistant messages. Scoped to the chat so the shared
+// table/code components used elsewhere are left untouched.
+const CHAT_PROSE = cn(
+  "prose prose-sm max-w-none",
+  "prose-a:text-primary prose-a:underline prose-headings:text-gray-900",
+  "prose-p:my-2 prose-hr:my-4 prose-hr:border-gray-300",
+  "prose-blockquote:rounded-lg prose-blockquote:border-0 prose-blockquote:bg-white prose-blockquote:px-3.5 prose-blockquote:py-1",
+  "[&_blockquote_p::after]:content-none [&_blockquote_p::before]:content-none",
+  "[&_thead]:bg-primary/10 [&_th]:px-3 [&_th]:py-2 [&_th]:font-semibold [&_th]:text-gray-900 [&_td]:px-3 [&_td]:py-2",
+);
+
+// Shared bubble shapes. The typing-dots bubble, the streaming bubble and the
+// final message all use the same class so the hand-off never changes width.
+// Rows are top-aligned so the avatar and tail stay put while text streams in.
+const AI_BUBBLE =
+  "min-w-0 max-w-[80%] rounded-[18px] rounded-tl-sm bg-primary/10 px-4 py-2.5 text-sm leading-relaxed text-gray-900 shadow-sm";
+const USER_BUBBLE =
+  "min-w-0 max-w-[80%] rounded-[18px] rounded-tr-sm bg-primary px-4 py-2.5 text-sm leading-relaxed text-primary-foreground shadow-sm";
 
 const ChatQuestion: React.FC<ChatQuestionProps> = ({
   element,
@@ -208,6 +236,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputAreaRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const recorder = useAudioRecorder();
   const store = useConversationStore();
@@ -215,6 +244,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const shouldAutoScrollRef = useRef(true);
   const isTtsBusyRef = useRef(false);
   const processingRecordingRef = useRef(false);
+  // True while we are the ones moving the scroller, so that adjustment is not
+  // treated as the user scrolling away from the stream.
+  const programmaticScrollRef = useRef(false);
 
   // Load chat history from answers when component mounts
   useEffect(() => {
@@ -287,10 +319,26 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const scrollToBottom = (smooth = true) => {
     const container = messagesContainerRef.current;
     if (!container) return;
+    programmaticScrollRef.current = true;
     if (smooth) {
       container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+      // Keep ignoring scroll events until the animation finishes. Clearing on
+      // the next frame lets the in-flight smooth scroll look like the user
+      // scrolled up, which turns follow mode off and hides the stream.
+      let settled = false;
+      const stopIgnoring = () => {
+        if (settled) return;
+        settled = true;
+        programmaticScrollRef.current = false;
+        container.removeEventListener("scrollend", stopIgnoring);
+      };
+      container.addEventListener("scrollend", stopIgnoring);
+      window.setTimeout(stopIgnoring, 700);
     } else {
       container.scrollTop = container.scrollHeight;
+      requestAnimationFrame(() => {
+        programmaticScrollRef.current = false;
+      });
     }
   };
 
@@ -328,12 +376,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       return;
     }
 
-    if (streamingMessage) {
+    if (streamingMessage || isAssistantTyping) {
+      // Instant pin while tokens are arriving. A smooth scroll here fires
+      // scroll events that look like the user left the bottom.
+      programmaticScrollRef.current = true;
+      container.scrollTop = container.scrollHeight;
       requestAnimationFrame(() => {
-        container.scrollTop = container.scrollHeight;
+        programmaticScrollRef.current = false;
       });
     } else {
-      // For regular messages, use smooth scrolling
       scrollToBottom(true);
     }
   }, [
@@ -360,12 +411,29 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     if (!messagesEl || !inputEl) return;
 
     const { min, max } = getChatHeightBounds();
-    const desired = messagesEl.scrollHeight + inputEl.offsetHeight;
+    const headerHeight = headerRef.current?.offsetHeight ?? 0;
+    const desired =
+      headerHeight + messagesEl.scrollHeight + inputEl.offsetHeight;
     setChatHeight(Math.min(max, Math.max(min, desired)));
   }, []);
 
   useLayoutEffect(() => {
     measureChatHeight();
+
+    // Pin before paint. The height transition used to lag behind each token, so
+    // the newest text stayed clipped until the reply finished and then appeared
+    // all at once. Jumping here keeps the stream in view on the same frame.
+    const container = messagesContainerRef.current;
+    if (!container || !hasInteractedRef.current || !shouldAutoScrollRef.current) {
+      return;
+    }
+    if (!streamingMessage && !isAssistantTyping) return;
+
+    programmaticScrollRef.current = true;
+    container.scrollTop = container.scrollHeight;
+    requestAnimationFrame(() => {
+      programmaticScrollRef.current = false;
+    });
   }, [
     measureChatHeight,
     messages,
@@ -383,6 +451,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     const observer = new ResizeObserver(() => measureChatHeight());
     observer.observe(messagesEl);
     if (inputEl) observer.observe(inputEl);
+    if (headerRef.current) observer.observe(headerRef.current);
 
     window.addEventListener("resize", measureChatHeight);
     return () => {
@@ -399,8 +468,10 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     const observer = new MutationObserver(() => {
       measureChatHeight();
       if (shouldAutoScrollRef.current) {
+        programmaticScrollRef.current = true;
+        container.scrollTop = container.scrollHeight;
         requestAnimationFrame(() => {
-          container.scrollTop = container.scrollHeight;
+          programmaticScrollRef.current = false;
         });
       }
     });
@@ -420,6 +491,8 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
    * @returns void
    */
   const handleScroll = () => {
+    if (programmaticScrollRef.current) return;
+
     const nearBottom = isNearBottom();
 
     if (shouldAutoScrollRef.current && !nearBottom) {
@@ -650,31 +723,56 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       element.conditionalLogic || ({} as ConditionalLogic),
       answers,
     );
-  const questionText = element.text || element.label || element.name;
+  // Header strip: the chat's label as the title, its description as the
+  // subtitle. chatbotInstructions is the system prompt and stays hidden.
+  const headerTitle = element.text || element.label;
+  const showHeader = Boolean(headerTitle || element.description);
 
   return (
     <div className={`${isVisible ? "" : "hidden"}`}>
-      {questionText && (
-        <label className="block text-sm/6 font-medium text-gray-900">
-          {questionText}
-          {element.isRequired && <span className="ml-1 text-red-500">*</span>}
-        </label>
-      )}
-
-      {element.description && (
-        <p className="mt-1 text-sm/6 text-gray-600">{element.description}</p>
-      )}
-
       {hasError && <p className="mt-1 text-sm text-red-600">{errorMessage}</p>}
 
       <div
         className={cn(
-          "relative mt-2 overflow-hidden rounded-lg border shadow-sm ring-1 ring-black/[0.04] transition-[height] duration-200 ease-out",
+          "relative mt-2 overflow-hidden rounded-2xl border shadow-sm ring-1 ring-black/[0.04]",
+          // Animating height while tokens arrive restarts a 200ms ease on every
+          // chunk. The box never catches the text, so the reply stays clipped
+          // and then pops in when the stream ends.
+          !isAssistantTyping && "transition-[height] duration-200 ease-out",
           hasError ? "border-red-300 ring-red-100" : "border-gray-200",
         )}
         style={{ height: chatHeight }}
       >
         <div className="flex h-full flex-col">
+          {showHeader && (
+            <div
+              ref={headerRef}
+              className="flex flex-shrink-0 items-center gap-3 border-b border-gray-100 bg-gray-50/70 px-4 py-3"
+            >
+              <AssistantAvatar avatarUrl={element.avatarUrl} />
+              <div className="min-w-0">
+                {headerTitle && (
+                  <h3 className="truncate text-sm font-semibold leading-5 text-gray-900">
+                    {headerTitle}
+                    {element.isRequired && (
+                      <>
+                        <span aria-hidden="true" className="ml-1 text-red-500">
+                          *
+                        </span>
+                        <span className="sr-only"> (required)</span>
+                      </>
+                    )}
+                  </h3>
+                )}
+                {element.description && (
+                  <p className="line-clamp-2 text-xs leading-4 text-gray-600">
+                    {element.description}
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Messages Container */}
           <div className="relative min-h-0 flex-1">
             <div
@@ -701,19 +799,16 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                     <AssistantAvatar avatarUrl={element.avatarUrl} />
                   )}
                   <div
-                    className={cn(
-                      "min-w-0 max-w-[80%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed shadow-sm",
-                      message.direction === "outgoing"
-                        ? "rounded-tr-sm bg-primary text-primary-foreground"
-                        : "rounded-tl-sm bg-primary/10 text-gray-900",
-                    )}
+                    className={
+                      message.direction === "outgoing" ? USER_BUBBLE : AI_BUBBLE
+                    }
                   >
                     {message.direction === "outgoing" ? (
                       <div className="whitespace-pre-wrap break-words">
                         {message.message}
                       </div>
                     ) : (
-                      <div className="prose prose-sm max-w-none">
+                      <div className={CHAT_PROSE}>
                         <ReactMarkdown
                           remarkPlugins={[gfm]}
                           components={{
@@ -740,9 +835,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               {isAssistantTyping && (
                 <div className="flex items-start justify-start gap-2">
                   <AssistantAvatar avatarUrl={element.avatarUrl} />
-                  <div className="rounded-2xl rounded-tl-sm bg-primary/10 px-4 py-2.5 shadow-sm">
+                  <div className={AI_BUBBLE}>
                     {streamingMessage ? (
-                      <div className="prose prose-sm max-w-none text-sm leading-relaxed">
+                      <div className={CHAT_PROSE}>
                         <ReactMarkdown
                           remarkPlugins={[gfm]}
                           components={{
@@ -761,7 +856,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               )}
               {isUserTyping && (
                 <div className="flex items-start justify-end gap-2">
-                  <div className="rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 shadow-sm">
+                  <div className={USER_BUBBLE}>
                     <TypingDots variant="user" />
                   </div>
                   <UserAvatar />
@@ -774,9 +869,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               <button
                 type="button"
                 onClick={jumpToLatest}
-                className="absolute bottom-3 left-1/2 z-10 inline-flex -translate-x-1/2 items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-700 shadow-md transition-colors hover:bg-gray-50"
+                className="absolute bottom-3 left-1/2 z-10 inline-flex min-h-[40px] -translate-x-1/2 items-center gap-2 rounded-full bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg transition-colors hover:bg-primary-600"
               >
-                <ArrowDown className="h-3 w-3" />
+                <ArrowDown className="h-4 w-4" />
                 New messages
               </button>
             )}
@@ -798,7 +893,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
             <div
               className={cn(
-                "flex items-end gap-2 rounded-xl border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20",
+                "flex items-end gap-2 rounded-2xl border border-gray-300 bg-gray-50 px-3 py-2 transition-all focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/20",
               )}
             >
               {recorder.isRecording ? (
@@ -833,7 +928,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   disabled={inputDisabled}
                   rows={1}
                   className={cn(
-                    "max-h-32 min-h-[24px] flex-1 resize-none overflow-y-auto bg-transparent pl-3 text-left text-sm leading-relaxed text-gray-800 outline-none",
+                    // 40px tall (py-2 + 24px line) to match the send button, so one
+                    // line of text sits centered; grows upward for more lines.
+                    "max-h-32 min-h-[40px] flex-1 resize-none overflow-y-auto bg-transparent py-2 pl-3 text-left text-base leading-6 text-gray-800 outline-none",
                     "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
                     "placeholder:text-left placeholder:text-gray-400",
                     "disabled:cursor-not-allowed disabled:opacity-50",
@@ -859,7 +956,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   />
                   <div
                     className={cn(
-                      "flex-shrink-0",
+                      "flex h-10 flex-shrink-0 items-center",
                       isTtsBusy && "pointer-events-none opacity-40",
                       recorder.isRecording &&
                         "[&_.audio-recorder-mic]:hidden [&_.audio-recorder-status]:hidden [&_.recording]:!w-auto",
@@ -887,9 +984,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   onClick={() => handleSend(inputMessage)}
                   disabled={!inputMessage.trim() || inputDisabled}
                   aria-label="Send message"
-                  className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-primary transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-gray-200"
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-primary transition-colors hover:bg-primary-600 disabled:cursor-not-allowed disabled:bg-gray-200"
                 >
-                  <Send className="h-4 w-4 text-primary-foreground disabled:text-gray-400" />
+                  <Send className="h-5 w-5 text-primary-foreground disabled:text-gray-400" />
                 </button>
               )}
             </div>

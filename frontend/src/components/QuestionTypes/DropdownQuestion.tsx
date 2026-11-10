@@ -142,7 +142,8 @@ const DropdownQuestion = ({
         styles={{
           control: (base, state) => ({
             ...base,
-            minHeight: "3rem",
+            minHeight: "2.5rem",
+            borderRadius: "0.5rem",
             borderColor: hasError
               ? "#FCA5A5"
               : state.isFocused
@@ -152,7 +153,7 @@ const DropdownQuestion = ({
               ? hasError
                 ? "0 0 0 1px #EF4444"
                 : "0 0 0 1px #5b5df1"
-              : "none",
+              : "0 1px 2px 0 rgb(0 0 0 / 0.05)",
             "&:hover": {
               borderColor: hasError ? "#FCA5A5" : "#d0d1fb",
             },

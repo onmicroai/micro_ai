@@ -261,6 +261,7 @@ const TextAreaQuestion = ({
 
         <div className="relative">
           <Textarea
+            className="mt-2"
             id={element.name}
             name={element.name}
             value={answers[element.name]?.value || ""}

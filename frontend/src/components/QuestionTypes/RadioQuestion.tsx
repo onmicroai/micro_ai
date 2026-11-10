@@ -152,7 +152,14 @@ const RadioQuestion = ({
         }`}
       >
         {radioOptions.map((choice, index) => (
-          <div key={`${element.name}-${index}`} className="flex gap-3">
+          <div
+            key={`${element.name}-${index}`}
+            className={`flex gap-3 rounded-lg border px-3 py-2.5 transition-colors ${
+              isRadioChecked(answers, choice.value)
+                ? "border-primary/40 bg-primary/5"
+                : "border-gray-200 bg-white hover:bg-gray-50"
+            }`}
+          >
             <div className="flex h-6 shrink-0 items-center">
               <div key={index} className="group grid w-6 h-6 grid-cols-1">
                 <input
