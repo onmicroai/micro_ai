@@ -1,6 +1,5 @@
 "use client";
 
-import NavBarClientSwitch from "@/components/layout/navbar/NavBarClientSwitch";
 import { ToastContainer } from "react-toastify";
 import AccessDenied from "@/components/access-denied";
 import SkeletonLoader from "@/components/layout/loading/skeletonLoader";
@@ -19,7 +18,6 @@ export default function RootLayout({
     return (
       <>
         <ToastContainer />
-        <NavBarClientSwitch />
         <SkeletonLoader variant="app" />
       </>
     );
@@ -29,7 +27,6 @@ export default function RootLayout({
     return (
       <>
         <ToastContainer />
-        <NavBarClientSwitch />
         <AccessDenied />
       </>
     );
@@ -38,7 +35,6 @@ export default function RootLayout({
   return (
     <>
       <ToastContainer />
-      <NavBarClientSwitch />
       {children ? children : <div></div>}
     </>
   );

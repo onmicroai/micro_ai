@@ -14,9 +14,9 @@ import {
   FileAttachment,
 } from "@/app/(authenticated)/app/types";
 import axiosInstance from "@/utils//axiosInstance";
-import axios from "axios";
 import { sendPromptsUtil } from "@/utils//sendPrompts";
 import { normalizeAppJsonToV2 } from "@/utils/migrateAppJson";
+import { loadPublicApp } from "@/utils/prefetchPublicApp";
 
 /**
  * Serializes the raw app data into a SurveyJson format.
@@ -250,14 +250,11 @@ export const useSurveyStore = create<SurveyStore>()(
         try {
           const api = axiosInstance();
 
-          let appUrl = `/api/microapps/public/hash/${hashId}`;
-          if (!privatePage && embedOrigin) {
-            appUrl += `?embed_origin=${encodeURIComponent(embedOrigin)}`;
-          }
-
+          // Public loads join the request the access check already started,
+          // so the payload is not stuck behind the visibility round trip.
           const appFetch = privatePage
             ? api.get(`/api/microapps/hash/${hashId}`, { signal })
-            : axios.get(appUrl, { signal });
+            : loadPublicApp(hashId, embedOrigin, signal);
 
           // Public viewers (including guests) must not wait on this. The
           // endpoint is authenticated, and the shared client omits the bearer

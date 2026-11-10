@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useUserStore } from "@/store/userStore";
 import { checkRole } from "@/utils/checkRoles";
 import { checkIsPublic } from "@/utils/checkAppPrivacy";
+import { prefetchPublicApp } from "@/utils/prefetchPublicApp";
 import { hasValidSessionSync } from "@/utils/keycloakAuth";
 
 /**
@@ -120,6 +121,11 @@ export function useMicroappAccess(
           mode === "embed" && typeof window !== "undefined"
             ? document.referrer || ""
             : undefined;
+
+        // Same request fetchApp will make once this check allows the runtime
+        // to mount. Starting it now overlaps the payload with the visibility
+        // round trip. A private app 403s and the result is discarded.
+        prefetchPublicApp(hashId, embedOrigin || undefined);
 
         const { isPublic, embedAllowed, error } = await checkIsPublic(
           hashId,

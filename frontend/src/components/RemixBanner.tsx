@@ -53,7 +53,7 @@ export default function RemixBanner({ onDismiss, appId, copyAllowed }: RemixBann
   };
 
   return (
-    <div className="pointer-events-none fixed right-4 top-[4.5rem] z-40">
+    <div className="pointer-events-none fixed right-4 top-[1.5rem] z-40">
       <div className="group pointer-events-auto flex items-center gap-1 text-sm text-gray-500 opacity-60 transition-opacity duration-200 hover:opacity-100 focus-within:opacity-100">
         <a
           href="#"
