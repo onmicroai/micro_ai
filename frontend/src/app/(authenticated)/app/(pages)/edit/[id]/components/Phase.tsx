@@ -80,7 +80,6 @@ interface PhaseProps {
       allowedFileTypes?: string[];
     }
   ) => void;
-  onUpdateFieldMaxMessages: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage: (
     fieldId: string,
     initialMessage: string
@@ -114,7 +113,6 @@ export default function Phase({
   onUpdateRichText,
   onUpdateConditionalLogic,
   onUpdateImageUploadSettings,
-  onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
   onUpdateTtsProvider,
@@ -159,7 +157,6 @@ export default function Phase({
           onUpdateConditionalLogic(fieldId, logic as ConditionalLogic, false)
         }
         onUpdateImageUploadSettings={onUpdateImageUploadSettings}
-        onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
         onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
         onUpdateChatbotInstructions={onUpdateChatbotInstructions}
         onUpdateTtsProvider={onUpdateTtsProvider}
@@ -288,7 +285,6 @@ export default function Phase({
                         true
                       )
                     }
-                    onUpdateFieldMaxMessages={onUpdateFieldMaxMessages}
                     onUpdateFieldInitialMessage={onUpdateFieldInitialMessage}
                     onUpdateChatbotInstructions={onUpdateChatbotInstructions}
                     onUpdateTtsProvider={onUpdateTtsProvider}

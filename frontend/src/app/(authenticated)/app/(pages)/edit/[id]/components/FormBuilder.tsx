@@ -77,6 +77,7 @@ import { useDropzone } from "react-dropzone";
 import { createFileUploader } from "@/utils/imageUpload";
 import axiosInstance from "@/utils/axiosInstance";
 import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
+import ChatSettingsSidebar from "./ui/chat-settings-sidebar";
 import ChatBuildSidebar, {
   type ChatBuildSidebarHandle,
 } from "./ui/chat-build-sidebar";
@@ -89,6 +90,43 @@ import { Textarea } from "@/components/basic/textarea";
 import { AxiosInstance } from "axios";
 
 export const AVAILABLE_SECTIONS = [
+  {
+    label: "Chat",
+    color: "violet",
+    sections: [
+      {
+        id: "chat",
+        label: "Chatbot",
+        icon: MessagesSquare,
+        helper: "Add a chat interface for users to interact with the AI.",
+      },
+    ],
+  },
+  {
+    label: "Response",
+    color: "brown",
+    sections: [
+      {
+        id: "aiResponse",
+        label: "AI Response",
+        icon: Bot,
+        helper: "Stops the flow and runs the AI when the user clicks Run.",
+      },
+      {
+        id: "fixedResponse",
+        label: "Response",
+        icon: MessageCircle,
+        helper: "Stops the flow and shows static text (no AI call).",
+      },
+      {
+        id: "scoring",
+        label: "Scoring",
+        icon: SlidersHorizontal,
+        helper:
+          "Stops the flow and runs rubric scoring when the user clicks Run.",
+      },
+    ],
+  },
   {
     label: "Display",
     color: "blue",
@@ -161,44 +199,7 @@ export const AVAILABLE_SECTIONS = [
         helper: "Collect an image or images from the user.",
       },
     ],
-  },
-  {
-    label: "Response",
-    color: "brown",
-    sections: [
-      {
-        id: "aiResponse",
-        label: "AI Response",
-        icon: Bot,
-        helper: "Stops the flow and runs the AI when the user clicks Run.",
-      },
-      {
-        id: "fixedResponse",
-        label: "Response",
-        icon: MessageCircle,
-        helper: "Stops the flow and shows static text (no AI call).",
-      },
-      {
-        id: "scoring",
-        label: "Scoring",
-        icon: SlidersHorizontal,
-        helper:
-          "Stops the flow and runs rubric scoring when the user clicks Run.",
-      },
-    ],
-  },
-  {
-    label: "Chat",
-    color: "violet",
-    sections: [
-      {
-        id: "chat",
-        label: "Chatbot",
-        icon: MessagesSquare,
-        helper: "Add a chat interface for users to interact with the AI.",
-      },
-    ],
-  },
+  }
 ];
 
 const BLANK_APP_STARTER_PROMPTS = [
@@ -347,6 +348,9 @@ export default function FormBuilder() {
     setConditionalSidebarOpen,
     setConditionalSidebarContext,
     conditionalSidebarContext,
+    chatSettingsSidebarOpen,
+    setChatSettingsSidebarOpen,
+    chatSettingsFieldId,
     saveState,
     chatBuildSidebarOpen,
     setChatBuildSidebarOpen,
@@ -427,6 +431,7 @@ export default function FormBuilder() {
       lastBuildSidebarOpenRef.current = sidebarOpen;
       setSidebarOpen(false);
       setConditionalSidebarOpen(false);
+      setChatSettingsSidebarOpen(false);
     }
     if (tab === "build") {
       setSidebarOpen(lastBuildSidebarOpenRef.current);
@@ -827,8 +832,9 @@ export default function FormBuilder() {
     setHideBlankAppWelcome(true);
     setWelcomeIdeaText("");
     setChatBuildSidebarOpen(true);
+    setChatSettingsSidebarOpen(false);
     setPendingChatBootstrap(text);
-  }, [welcomeIdeaText, setChatBuildSidebarOpen]);
+  }, [welcomeIdeaText, setChatBuildSidebarOpen, setChatSettingsSidebarOpen]);
 
   const handleStarterPromptChip = useCallback((prompt: string) => {
     setWelcomeIdeaText(prompt);
@@ -908,6 +914,27 @@ export default function FormBuilder() {
     conditionalSidebarContext?.field?.id,
     conditionalSidebarOpen,
     setConditionalSidebarOpen,
+  ]);
+
+  useEffect(() => {
+    if (!chatSettingsSidebarOpen) return;
+    const settingsField = (Array.isArray(elements) ? elements : []).find(
+      (element) => element.id === chatSettingsFieldId
+    );
+    if (
+      !settingsField ||
+      settingsField.type !== "chat" ||
+      !activeFieldId ||
+      activeFieldId !== chatSettingsFieldId
+    ) {
+      setChatSettingsSidebarOpen(false);
+    }
+  }, [
+    activeFieldId,
+    chatSettingsFieldId,
+    chatSettingsSidebarOpen,
+    elements,
+    setChatSettingsSidebarOpen,
   ]);
 
   /**
@@ -1997,14 +2024,14 @@ export default function FormBuilder() {
                   fixed left-6 top-[96px] z-30 flex items-center
                   bg-white p-2 rounded-full shadow-sm hover:bg-gray-100 transition-colors
                   ${
-                    !conditionalSidebarOpen
+                    !conditionalSidebarOpen && !chatSettingsSidebarOpen
                       ? "xl:bg-white xl:border xl:border-gray-200 xl:rounded-md xl:shadow-sm xl:px-3 xl:py-3 xl:hover:bg-gray-50 xl:gap-2"
                       : ""
                   }
                   `}
                   aria-label="Open sidebar"
                 >
-                  {!conditionalSidebarOpen && (
+                  {!conditionalSidebarOpen && !chatSettingsSidebarOpen && (
                     <span className="hidden xl:inline text-[16px] font-semibold text-black whitespace-nowrap mb-1">
                       App settings
                     </span>
@@ -2025,6 +2052,7 @@ export default function FormBuilder() {
                 onClick={() => {
                   setChatBuildSidebarOpen(true);
                   setConditionalSidebarOpen(false);
+                  setChatSettingsSidebarOpen(false);
                 }}
                 className={`
                 fixed right-6 top-[96px] z-30 flex items-center gap-2
@@ -2579,15 +2607,6 @@ export default function FormBuilder() {
                                                         settings
                                                       )
                                                     }
-                                                    onUpdateFieldMaxMessages={(
-                                                      fieldId,
-                                                      maxMessages
-                                                    ) =>
-                                                      updateFieldMaxMessages(
-                                                        fieldId,
-                                                        maxMessages
-                                                      )
-                                                    }
                                                     onUpdateFieldInitialMessage={(
                                                       fieldId,
                                                       initialMessage
@@ -2629,15 +2648,6 @@ export default function FormBuilder() {
                                                       enabled
                                                     ) =>
                                                       updateTtsEnabled(
-                                                        fieldId,
-                                                        enabled
-                                                      )
-                                                    }
-                                                    onUpdateWebSearchEnabled={(
-                                                      fieldId,
-                                                      enabled
-                                                    ) =>
-                                                      updateWebSearchEnabled(
                                                         fieldId,
                                                         enabled
                                                       )
@@ -2875,6 +2885,17 @@ export default function FormBuilder() {
               currentLogic={conditionalSidebarContext?.currentLogic}
               targetFieldName={conditionalSidebarContext?.field.name}
               instructionIndex={conditionalSidebarContext?.instructionIndex}
+            />
+            <ChatSettingsSidebar
+              isOpen={chatSettingsSidebarOpen}
+              onClose={() => setChatSettingsSidebarOpen(false)}
+              field={
+                (Array.isArray(elements) ? elements : []).find(
+                  (element) => element.id === chatSettingsFieldId
+                ) ?? null
+              }
+              onMaxMessagesChange={updateFieldMaxMessages}
+              onWebSearchEnabledChange={updateWebSearchEnabled}
             />
             <ChatBuildSidebar
               ref={chatBuildRef}

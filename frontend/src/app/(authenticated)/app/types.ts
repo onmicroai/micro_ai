@@ -506,6 +506,10 @@ export interface SurveyState {
       instructionIndex?: number;
     } | null
   ) => void;
+  chatSettingsSidebarOpen: boolean;
+  setChatSettingsSidebarOpen: (open: boolean) => void;
+  chatSettingsFieldId: string | null;
+  setChatSettingsFieldId: (fieldId: string | null) => void;
 
   // App Builder Chat sidebar
   chatBuildSidebarOpen: boolean;

@@ -8,6 +8,7 @@ import {
   X,
   Check,
   HelpCircle,
+  Settings,
 } from "lucide-react";
 import { Button } from "../../components/ui/button";
 import { Badge } from "../../components/ui/badge";
@@ -86,8 +87,14 @@ export default function FieldHeader({
   const [editOpen, setEditOpen] = useState(false);
   const [newName, setNewName] = useState(field.name);
 
-  const { setConditionalSidebarOpen, setConditionalSidebarContext } =
-    useSurveyStore();
+  const {
+    setConditionalSidebarOpen,
+    setConditionalSidebarContext,
+    setChatSettingsSidebarOpen,
+    setChatSettingsFieldId,
+    chatSettingsSidebarOpen,
+    chatSettingsFieldId,
+  } = useSurveyStore();
   const { isTagFocusActive } = useTagFocusContext();
   const isScoringField = field.type === "scoring";
   const tagClassName = isTagFocusActive
@@ -420,6 +427,38 @@ export default function FieldHeader({
               </motion.div>
             )}
           </AnimatePresence>
+          {field.type === "chat" && !isPreviewMode && (
+            <motion.div
+              key="chatSettings"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 24 }}
+              {...(!isDragging ? { layout: true } : {})}
+              transition={{
+                duration: 0.3,
+                ease: [0.4, 0, 0.2, 1],
+                delay: 0.05,
+              }}
+            >
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`h-8 w-8 p-0 hover:bg-gray-100 ${
+                  chatSettingsSidebarOpen && chatSettingsFieldId === field.id
+                    ? "bg-gray-100"
+                    : ""
+                }`}
+                aria-label="Chat settings"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setChatSettingsFieldId(field.id);
+                  setChatSettingsSidebarOpen(true);
+                }}
+              >
+                <Settings className="h-4 w-4 text-gray-500" />
+              </Button>
+            </motion.div>
+          )}
           {!isHidden("conditionalLogic") && !isHidden("delete") && onDelete && (
             <motion.div
               key="divider2"

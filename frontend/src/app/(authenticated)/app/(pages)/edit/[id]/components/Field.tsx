@@ -234,7 +234,6 @@ interface FieldProps {
       multiple?: boolean;
     }
   ) => void;
-  onUpdateFieldMaxMessages?: (fieldId: string, maxMessages: number) => void;
   onUpdateFieldInitialMessage?: (
     fieldId: string,
     initialMessage: string
@@ -246,7 +245,6 @@ interface FieldProps {
   onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
-  onUpdateWebSearchEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
   isDragging?: boolean;
@@ -281,12 +279,10 @@ export default function Field({
   onUpdateRichText,
   onUpdateImageUploadSettings,
   onUpdateTextareaFileUploadSettings,
-  onUpdateFieldMaxMessages,
   onUpdateFieldInitialMessage,
   onUpdateChatbotInstructions,
   onUpdateTtsVoiceId,
   onUpdateTtsEnabled,
-  onUpdateWebSearchEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
   onActivate,
@@ -347,6 +343,16 @@ export default function Field({
       if (
         conditionalLogicSidebar &&
         conditionalLogicSidebar.contains(event?.target as Node)
+      ) {
+        return;
+      }
+
+      const chatSettingsSidebar = document.getElementById(
+        "chat-settings-sidebar"
+      );
+      if (
+        chatSettingsSidebar &&
+        chatSettingsSidebar.contains(event?.target as Node)
       ) {
         return;
       }
@@ -1107,7 +1113,6 @@ export default function Field({
       case "chat":
         return (
           <div className="space-y-4">
-            {/* Avatar Upload Section */}
             <div className="flex gap-4 items-start">
               <div className="space-y-2 flex-shrink-0">
                 <label className="text-sm font-medium">Avatar</label>
@@ -1153,62 +1158,74 @@ export default function Field({
                 </div>
               </div>
 
-              {/* Rest of chat fields */}
-              <div className="space-y-2 flex-grow">
-                <label className="text-sm font-medium">
-                  Chatbot Instructions
-                </label>
-                <Textarea
-                  value={field.chatbotInstructions || ""}
-                  onChange={(e) => {
-                    if (onUpdateChatbotInstructions) {
-                      onUpdateChatbotInstructions(field.id, e.target.value);
+              <div className="min-w-0 flex-grow space-y-2">
+                <div className="space-y-1">
+                  <Label className="text-sm font-medium">Label</Label>
+                  <Input
+                    value={field.text || field.label || ""}
+                    onFocus={() => {
+                      if (!field.label) {
+                        onUpdateFieldLabel(field.id, "", isPromptType);
+                      }
+                    }}
+                    onChange={(e) => {
+                      onUpdateFieldLabel(
+                        field.id,
+                        e.target.value,
+                        isPromptType
+                      );
+                    }}
+                    placeholder="Enter label..."
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Description</label>
+                  <textarea
+                    value={field.description || ""}
+                    onChange={(e) =>
+                      onUpdateFieldDescription(
+                        field.id,
+                        e.target.value,
+                        isPromptType
+                      )
                     }
-                  }}
-                  placeholder="Enter instructions for how the chatbot should behave..."
-                />
+                    rows={1}
+                    className="h-10 min-h-10 w-full resize-none cursor-text rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-600 shadow-sm transition-colors placeholder:text-gray-400 hover:border-gray-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="Add a description..."
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-sm font-medium">Initial Message</label>
+                  <Textarea
+                    value={field.initialMessage || ""}
+                    onChange={(e) =>
+                      onUpdateFieldInitialMessage?.(field.id, e.target.value)
+                    }
+                    placeholder="Enter initial message..."
+                    rows={1}
+                    className="h-10 min-h-10 resize-none py-2"
+                  />
+                </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Initial Message</label>
+              <label className="text-sm font-medium">
+                Chatbot Instructions
+              </label>
               <Textarea
-                value={field.initialMessage || ""}
-                onChange={(e) =>
-                  onUpdateFieldInitialMessage?.(field.id, e.target.value)
-                }
-                placeholder="Enter initial message..."
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-sm font-medium">Max Messages</label>
-              <Input
-                type="number"
-                min="1"
-                value={field.maxMessages || 10}
+                value={field.chatbotInstructions || ""}
                 onChange={(e) => {
-                  const value = parseInt(e.target.value, 10);
-                  if (onUpdateFieldMaxMessages && !isNaN(value)) {
-                    onUpdateFieldMaxMessages(field.id, value);
+                  if (onUpdateChatbotInstructions) {
+                    onUpdateChatbotInstructions(field.id, e.target.value);
                   }
                 }}
+                placeholder="Enter instructions for how the chatbot should behave..."
+                rows={8}
+                className="min-h-[180px]"
               />
-            </div>
-
-            <div className="flex items-center space-x-2 border-t pt-4">
-              <Switch
-                checked={field.enableWebSearch || false}
-                onCheckedChange={(checked) => {
-                  onUpdateWebSearchEnabled?.(field.id, checked);
-                }}
-              />
-              <div>
-                <label className="text-sm font-medium">Enable Web Search</label>
-                <p className="text-xs text-gray-500 mt-1">
-                  Let the assistant search the web when a question needs
-                  current information. Off by default.
-                </p>
-              </div>
             </div>
 
             {/* TTS Configuration Section */}
@@ -1767,7 +1784,7 @@ export default function Field({
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.1, duration: 0.3 }}
                 >
-                  {!isSpecialType && (
+                  {!isSpecialType && field.type !== "chat" && (
                     <>
                       <motion.div
                         initial={{ opacity: 0, y: -10 }}

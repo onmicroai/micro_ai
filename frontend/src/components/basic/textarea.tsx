@@ -7,7 +7,7 @@ const Textarea = React.forwardRef<
 >(({ className, type: _type, ...props }, ref) => {
   return (
     <textarea
-      className={getBaseInputStyles(`${className} min-h-[100px]`)}
+      className={getBaseInputStyles(`min-h-[100px] ${className ?? ""}`)}
       ref={ref}
       {...props}
     />

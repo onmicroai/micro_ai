@@ -56,6 +56,8 @@ const initialState = {
   },
   conditionalSidebarOpen: false,
   conditionalSidebarContext: null as SurveyState["conditionalSidebarContext"],
+  chatSettingsSidebarOpen: false,
+  chatSettingsFieldId: null as string | null,
 
   // App Builder Chat sidebar
   chatBuildSidebarOpen: false,
@@ -546,10 +548,26 @@ export const useSurveyStore = create<SurveyState>((set, get) => {
 
     conditionalSidebarOpen: false,
     setConditionalSidebarOpen: (open) => {
-      set({ conditionalSidebarOpen: open });
+      set(
+        open
+          ? { conditionalSidebarOpen: true, chatSettingsSidebarOpen: false }
+          : { conditionalSidebarOpen: false }
+      );
     },
     setConditionalSidebarContext: (context) => {
       set({ conditionalSidebarContext: context });
+    },
+    chatSettingsSidebarOpen: false,
+    chatSettingsFieldId: null,
+    setChatSettingsSidebarOpen: (open) => {
+      set(
+        open
+          ? { chatSettingsSidebarOpen: true, conditionalSidebarOpen: false }
+          : { chatSettingsSidebarOpen: false }
+      );
+    },
+    setChatSettingsFieldId: (fieldId) => {
+      set({ chatSettingsFieldId: fieldId });
     },
 
     // App Builder Chat sidebar
