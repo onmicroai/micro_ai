@@ -21,7 +21,7 @@ export default function MonitorPreview({
   };
 
   return (
-    <div className="w-full max-w-[1000px] mx-auto pt-8 pb-24">
+    <div className="w-full max-w-7xl mx-auto pt-8 pb-24">
       {/* Monitor frame */}
       <div className="bg-gray-200 shadow-lg overflow-hidden shadow-sm rounded-xl">
         {/* Address bar */}

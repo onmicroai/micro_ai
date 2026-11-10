@@ -2078,7 +2078,9 @@ export default function FormBuilder() {
                 className={
                   activeTab === "stats"
                     ? "flex-1 min-w-0 w-full max-w-none px-2 sm:px-4"
-                    : "flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4"
+                    : activeTab === "preview"
+                      ? "flex-1 min-w-0 w-full max-w-none px-2 sm:px-4"
+                      : "flex-1 min-w-0 w-full max-w-[900px] px-2 sm:px-4"
                 }
               >
                 {activeTab === "build" && (
