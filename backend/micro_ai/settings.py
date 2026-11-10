@@ -530,9 +530,11 @@ SCORE_ANALYSIS_INSIGHT_LLM_ENABLED = env.bool("SCORE_ANALYSIS_INSIGHT_LLM_ENABLE
 # Model name must exist in UsageVariables / LiteLLM (e.g. gpt-4o-mini)
 SCORE_ANALYSIS_INSIGHT_MODEL = env("SCORE_ANALYSIS_INSIGHT_MODEL", default="gpt-4o-mini")
 
-# Chat completion criteria: cheap model used to recheck yes/no criteria after each turn
-COMPLETION_CRITERIA_MODEL = env(
-    "COMPLETION_CRITERIA_MODEL", default="gemini-3-flash-preview"
+# Chat completion criteria: TypeSafe Jev decision model via LiteLLM /v1/systemone
+COMPLETION_CRITERIA_MODEL = env("COMPLETION_CRITERIA_MODEL", default="jev")
+# Treat a noul (yes/no) probability at or above this as true
+COMPLETION_CRITERIA_TRUE_THRESHOLD = env.float(
+    "COMPLETION_CRITERIA_TRUE_THRESHOLD", default=0.5
 )
 
 SILENCED_SYSTEM_CHECKS = [

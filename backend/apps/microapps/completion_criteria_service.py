@@ -1,5 +1,8 @@
 """
 Evaluate chat completion criteria against a finished chat run's transcript.
+
+Uses TypeSafe Jev through LiteLLM's /v1/systemone endpoint: one noul (yes/no)
+question per criterion, judged against the full conversation transcript.
 """
 from __future__ import annotations
 
@@ -7,15 +10,21 @@ import json
 import logging
 from typing import Any, Dict, List, Tuple
 
+import requests
 from django.conf import settings
 
-from apps.microapps.dynamic_model_service import DynamicModelService
-from apps.microapps.llm_interface import UnifiedLLMInterface
+from apps.utils.global_variables import UsageVariables
 
 log = logging.getLogger(__name__)
 
-DEFAULT_COMPLETION_CRITERIA_MODEL = "gemini-3-flash-preview"
+DEFAULT_COMPLETION_CRITERIA_MODEL = "jev"
+DEFAULT_TRUE_THRESHOLD = 0.5
 MAX_CRITERIA = 20
+
+try:
+    from litellm import cost_per_token
+except ImportError:
+    cost_per_token = None
 
 
 def get_completion_criteria_model() -> str:
@@ -27,6 +36,22 @@ def get_completion_criteria_model() -> str:
         )
         or DEFAULT_COMPLETION_CRITERIA_MODEL
     )
+
+
+def get_true_threshold() -> float:
+    try:
+        value = float(
+            getattr(
+                settings,
+                "COMPLETION_CRITERIA_TRUE_THRESHOLD",
+                DEFAULT_TRUE_THRESHOLD,
+            )
+        )
+    except (TypeError, ValueError):
+        return DEFAULT_TRUE_THRESHOLD
+    if value < 0 or value > 1:
+        return DEFAULT_TRUE_THRESHOLD
+    return value
 
 
 def _message_content_to_text(content: Any) -> str:
@@ -109,46 +134,111 @@ def normalize_criteria(raw_criteria: Any) -> List[Dict[str, str]]:
     return normalized
 
 
-def parse_completion_results(
-    raw_response: str,
+def build_systemone_questions(criteria: List[Dict[str, str]]) -> Dict[str, Any]:
+    """One noul (yes/no) question per completion criterion."""
+    questions: Dict[str, Any] = {}
+    for item in criteria:
+        questions[item["id"]] = {
+            "type": "noul",
+            "instructions": (
+                "Judge the conversation as it stands now — not only the latest "
+                "turn. Answer yes only when the transcript clearly supports this "
+                "statement; otherwise answer no. A statement may become false "
+                f'again if later turns contradict earlier evidence.\n\nStatement: {item["text"]}'
+            ),
+            "criteria": {
+                "true": "The transcript clearly supports this statement right now",
+                "false": (
+                    "The transcript does not clearly support this statement, "
+                    "or later turns contradict it"
+                ),
+            },
+        }
+    return questions
+
+
+def parse_systemone_answers(
+    payload: Any,
     criterion_ids: List[str],
+    threshold: float,
 ) -> Dict[str, bool]:
     """
-    Parse model JSON into a boolean map for every requested criterion id.
-    Missing or non-boolean values become False.
+    Map System One noul answers to booleans.
+    Missing or non-numeric probabilities become False.
     """
     results = {criterion_id: False for criterion_id in criterion_ids}
-    text = (raw_response or "").strip()
-    if not text:
+    if not isinstance(payload, dict):
         return results
 
-    start_idx = text.find("{")
-    end_idx = text.rfind("}")
-    if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
-        text = text[start_idx : end_idx + 1]
-
-    try:
-        payload = json.loads(text)
-    except json.JSONDecodeError:
-        log.warning("Completion criteria response was not valid JSON")
-        return results
-
-    raw_results = payload.get("results", payload) if isinstance(payload, dict) else {}
-    if not isinstance(raw_results, dict):
+    answers = payload.get("answers")
+    if not isinstance(answers, dict):
         return results
 
     for criterion_id in criterion_ids:
-        value = raw_results.get(criterion_id)
-        if isinstance(value, bool):
-            results[criterion_id] = value
-        elif isinstance(value, str):
-            lowered = value.strip().lower()
-            if lowered in ("true", "yes", "1"):
-                results[criterion_id] = True
-            elif lowered in ("false", "no", "0"):
-                results[criterion_id] = False
+        answer = answers.get(criterion_id)
+        if not isinstance(answer, dict):
+            continue
+        probability = answer.get("noul")
+        if probability is None:
+            probability = answer.get("probability")
+        try:
+            results[criterion_id] = float(probability) >= threshold
+        except (TypeError, ValueError):
+            continue
 
     return results
+
+
+def _usage_to_cost_and_credits(usage: Any, model_name: str, response_cost: Any) -> Tuple[float, int]:
+    """Prefer LiteLLM's response cost header; otherwise price from token usage."""
+    if response_cost is not None and response_cost != "":
+        try:
+            cost = round(float(response_cost), 6)
+            credits = max(
+                int(cost * UsageVariables.CREDITS_MULTIPLIER),
+                UsageVariables.MINIMUM_CREDITS if cost > 0 else 0,
+            )
+            return cost, credits
+        except (TypeError, ValueError):
+            pass
+
+    if cost_per_token is None or not isinstance(usage, dict):
+        return 0.0, 0
+
+    prompt_tokens = int(
+        usage.get("prompt_tokens")
+        or usage.get("input_tokens")
+        or 0
+    )
+    completion_tokens = int(
+        usage.get("completion_tokens")
+        or usage.get("output_tokens")
+        or 0
+    )
+    if prompt_tokens <= 0 and completion_tokens <= 0:
+        return 0.0, 0
+
+    # Registry prices live under the provider-prefixed name.
+    pricing_model = (
+        f"typesafe/{model_name}"
+        if model_name.startswith("jev")
+        else model_name
+    )
+    try:
+        prompt_cost, completion_cost = cost_per_token(
+            model=pricing_model,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+        )
+        cost = round(float(prompt_cost) + float(completion_cost), 6)
+        credits = max(
+            int(cost * UsageVariables.CREDITS_MULTIPLIER),
+            UsageVariables.MINIMUM_CREDITS if cost > 0 else 0,
+        )
+        return cost, credits
+    except Exception as e:
+        log.warning("Completion criteria cost calculation failed: %s", e)
+        return 0.0, 0
 
 
 def evaluate_completion_criteria(
@@ -156,67 +246,52 @@ def evaluate_completion_criteria(
     criteria: List[Dict[str, str]],
 ) -> Tuple[Dict[str, bool], float, int]:
     """
-    Ask the configured cheap model whether each criterion is currently true.
+    Ask Jev whether each criterion is currently true via /v1/systemone.
 
-    Returns (results, cost, credits). Raises on LLM failure.
+    Returns (results, cost, credits). Raises on request failure.
     """
     if not transcript.strip():
         raise ValueError("Conversation transcript is empty")
     if not criteria:
         raise ValueError("No completion criteria provided")
 
-    criteria_block = "\n".join(
-        f'- id="{item["id"]}": {item["text"]}' for item in criteria
-    )
-    id_list = ", ".join(f'"{item["id"]}"' for item in criteria)
-
-    system_message = (
-        "You evaluate yes/no completion criteria against a chat transcript.\n"
-        "Judge the conversation as it stands now — not only the latest turn.\n"
-        "A criterion is true only when the transcript clearly supports it; "
-        "otherwise it is false. Criteria may become false again if later turns "
-        "contradict earlier evidence.\n"
-        "Return ONLY valid JSON with this exact shape:\n"
-        '{"results":{"<criterion_id>":true}}\n'
-        f"Include a boolean for every id in this list: [{id_list}].\n"
-        "No markdown, no extra keys, no prose outside JSON."
-    )
-    user_message = (
-        "Completion criteria:\n"
-        f"{criteria_block}\n\n"
-        "Conversation transcript:\n"
-        f"{transcript}"
-    )
-
     model_name = get_completion_criteria_model()
-    model_config = DynamicModelService.get_model_config(model_name)
-    llm = UnifiedLLMInterface(model_config)
-    api_params = llm.get_default_params(
-        {
-            "messages": [
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": user_message},
-            ],
-            "model": model_name,
-            "temperature": 0.1,
-            "max_tokens": 500,
-        }
-    )
-    response = llm.get_response(api_params)
-    if not response.get("status"):
-        log.error(
-            "Completion criteria LLM failed model=%s detail=%s",
-            model_name,
-            response.get("message", response),
-        )
-        raise RuntimeError("Completion criteria evaluation failed")
+    threshold = get_true_threshold()
+    payload = {
+        "model": model_name,
+        "state": (
+            "Chat transcript to evaluate for completion criteria:\n\n"
+            f"{transcript}"
+        ),
+        "questions": build_systemone_questions(criteria),
+    }
 
-    data = response.get("data") or {}
-    ai_response = data.get("ai_response") or ""
-    cost = float(data.get("cost") or 0)
-    credits = int(data.get("credits") or 0)
-    results = parse_completion_results(
-        ai_response,
+    url = f"{settings.LITELLM_BASE_URL.rstrip('/')}/v1/systemone"
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {settings.LITELLM_API_KEY}",
+    }
+
+    try:
+        response = requests.post(url, headers=headers, json=payload, timeout=60)
+        response.raise_for_status()
+        data = response.json()
+    except Exception as e:
+        log.error(
+            "Completion criteria Jev call failed model=%s detail=%s",
+            model_name,
+            e,
+        )
+        raise RuntimeError("Completion criteria evaluation failed") from e
+
+    results = parse_systemone_answers(
+        data,
         [item["id"] for item in criteria],
+        threshold,
+    )
+    cost, credits = _usage_to_cost_and_credits(
+        data.get("usage") if isinstance(data, dict) else None,
+        model_name,
+        response.headers.get("x-litellm-response-cost"),
     )
     return results, cost, credits

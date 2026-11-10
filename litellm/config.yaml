@@ -84,6 +84,17 @@ model_list:
     model_info:
       access_groups: ["free", "pro", "enterprise"]
 
+  # TypeSafe Jev — decision model (yes/no, choice, score). Not a chat
+  # completion model; call via /v1/systemone or /v1/decisions, not
+  # /chat/completions. Hidden from the app model picker.
+  - model_name: jev
+    litellm_params:
+      model: typesafe/jev-latest
+      api_key: os.environ/TYPESAFE_API_KEY
+    model_info:
+      access_groups: ["free", "pro", "enterprise"]
+      tags: ["do-not-display"]
+
 ##LEGACY MODELS
 # These models are kept for legacy apps that still use them.
 # The legacy apps can use these models, but they cannot be used by new apps. 
