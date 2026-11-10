@@ -45,6 +45,11 @@ import {
   parseChatHistoryEntry,
   serializeChatHistoryEntry,
 } from "@/utils/chatHistory";
+import { checkCompletionCriteria } from "@/utils/completionCriteriaService";
+import ChatCompletionCriteriaList, {
+  areAllCompletionCriteriaMet,
+  getActiveCompletionCriteria,
+} from "@/components/ChatCompletionCriteriaList";
 
 function getChatHeightBounds() {
   if (typeof window === "undefined") {
@@ -233,6 +238,16 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const [streamingMessage, setStreamingMessage] = useState("");
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [chatHeight, setChatHeight] = useState(() => getChatHeightBounds().min);
+  const [completionStatus, setCompletionStatus] = useState<
+    Record<string, boolean>
+  >(() => {
+    return (
+      answers[element.name]?.completionStatus ||
+      useConversationStore.getState().getChatCompletionStatus(element.name) ||
+      {}
+    );
+  });
+  const [isCheckingCompletion, setIsCheckingCompletion] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputAreaRef = useRef<HTMLDivElement>(null);
@@ -247,11 +262,20 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   // True while we are the ones moving the scroller, so that adjustment is not
   // treated as the user scrolling away from the stream.
   const programmaticScrollRef = useRef(false);
+  const completionCheckSeqRef = useRef(0);
+  const activeCriteria = getActiveCompletionCriteria(element.completionCriteria);
 
   // Load chat history from answers when component mounts
   useEffect(() => {
     const chatHistory = answers[element.name]?.value || [];
     if (Array.isArray(chatHistory) && chatHistory.length > 0) {
+      setCompletionStatus(
+        answers[element.name]?.completionStatus ||
+          useConversationStore
+            .getState()
+            .getChatCompletionStatus(element.name) ||
+          {},
+      );
       const formattedMessages = chatHistory.map((message: string) => {
         const { sender, message: text, run_id } = parseChatHistoryEntry(
           message,
@@ -268,6 +292,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       setMessages(formattedMessages);
     } else {
       // When answers are cleared (e.g. app restart), reset to the initial greeting
+      setCompletionStatus({});
       setMessages([
         {
           message: element.initialMessage || "Hello! How can I help you today?",
@@ -277,6 +302,25 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
       ]);
     }
   }, [answers, element.name, element.initialMessage]);
+
+  const persistChatAnswer = useCallback(
+    (
+      chatHistory: string[],
+      status: Record<string, boolean> | undefined,
+    ) => {
+      const otherValue =
+        status && Object.keys(status).length > 0
+          ? JSON.stringify(status)
+          : "";
+      setInputValue(element.name, chatHistory, otherValue, "chat");
+      if (status && Object.keys(status).length > 0) {
+        useConversationStore
+          .getState()
+          .setChatCompletionStatus(element.name, status);
+      }
+    },
+    [element.name, setInputValue],
+  );
 
   // Add timeout to stop recording after 30 seconds
   useEffect(() => {
@@ -535,7 +579,16 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
     wasAudioInput: boolean = false,
     transcriptionCost?: number,
   ) => {
-    if (!message.trim() || userMessageCount >= MESSAGE_LIMIT || isTtsBusy) {
+    const criteriaComplete = areAllCompletionCriteriaMet(
+      activeCriteria,
+      completionStatus,
+    );
+    if (
+      !message.trim() ||
+      userMessageCount >= MESSAGE_LIMIT ||
+      isTtsBusy ||
+      criteriaComplete
+    ) {
       return;
     }
 
@@ -625,6 +678,38 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         }
         setMessages((prev) => [...prev, aiMessage]);
 
+        const chatHistory = [...messages, userMessage, aiMessage].map((msg) =>
+          serializeChatHistoryEntry(msg),
+        );
+        persistChatAnswer(chatHistory, completionStatus);
+
+        const completionCheckPromise =
+          activeCriteria.length > 0 && response.run_uuid
+            ? (async () => {
+                const checkSeq = ++completionCheckSeqRef.current;
+                setIsCheckingCompletion(true);
+                try {
+                  const checkResponse = await checkCompletionCriteria({
+                    appId,
+                    runUuid: response.run_uuid as string,
+                    criteria: activeCriteria,
+                    userId,
+                  });
+                  if (checkSeq !== completionCheckSeqRef.current) {
+                    return;
+                  }
+                  setCompletionStatus(checkResponse.results);
+                  persistChatAnswer(chatHistory, checkResponse.results);
+                } catch (error) {
+                  console.error("Error checking completion criteria:", error);
+                } finally {
+                  if (checkSeq === completionCheckSeqRef.current) {
+                    setIsCheckingCompletion(false);
+                  }
+                }
+              })()
+            : null;
+
         const patchAiMessage = (
           runId: string | undefined,
           patch: Partial<Pick<ChatMessage, "ttsStatus">>,
@@ -670,10 +755,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
           patchAiMessage(response.run_uuid, { ttsStatus: undefined });
         }
 
-        const chatHistory = [...messages, userMessage, aiMessage].map((msg) =>
-          serializeChatHistoryEntry(msg),
-        );
-        setInputValue(element.name, chatHistory, "", "chat");
+        if (completionCheckPromise) {
+          await completionCheckPromise;
+        }
       }
     } catch (error) {
       console.error("Error getting AI response:", error);
@@ -706,7 +790,12 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   const hasError = !!errorMessage;
   const remainingMessages = MESSAGE_LIMIT - userMessageCount;
   const isAtLimit = userMessageCount >= MESSAGE_LIMIT;
-  const inputDisabled = disabled || isAtLimit || isTtsBusy;
+  const isCriteriaComplete = areAllCompletionCriteriaMet(
+    activeCriteria,
+    completionStatus,
+  );
+  const inputDisabled =
+    disabled || isAtLimit || isTtsBusy || isCriteriaComplete;
 
   const totalCredits = messages.reduce((sum, msg) => {
     if (msg.sender === "ai" && msg.run_id) {
@@ -726,7 +815,15 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
   // Header strip: the chat's label as the title, its description as the
   // subtitle. chatbotInstructions is the system prompt and stays hidden.
   const headerTitle = element.text || element.label;
-  const showHeader = Boolean(headerTitle || element.description);
+  const showCompletionCriteria = activeCriteria.length > 0;
+  const showHeader = Boolean(
+    headerTitle || element.description || showCompletionCriteria,
+  );
+  const inputPlaceholder = isCriteriaComplete
+    ? "All completion criteria are met. This chat is complete."
+    : element.enableTts
+      ? "Type or speak your message…"
+      : "Type your message…";
 
   return (
     <div className={`${isVisible ? "" : "hidden"}`}>
@@ -734,7 +831,9 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
 
       <div
         className={cn(
-          "relative mt-2 overflow-hidden rounded-2xl border shadow-sm ring-1 ring-black/[0.04]",
+          // overflow-visible so the header completion dropdown can paint above
+          // the message list; clipping stays on the scrollable messages pane.
+          "relative mt-2 overflow-visible rounded-2xl border shadow-sm ring-1 ring-black/[0.04]",
           // Animating height while tokens arrive restarts a 200ms ease on every
           // chunk. The box never catches the text, so the reply stays clipped
           // and then pops in when the stream ends.
@@ -743,14 +842,14 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         )}
         style={{ height: chatHeight }}
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col rounded-2xl">
           {showHeader && (
             <div
               ref={headerRef}
-              className="flex flex-shrink-0 items-center gap-3 border-b border-gray-100 bg-gray-50/70 px-4 py-3"
+              className="relative z-20 flex flex-shrink-0 items-center gap-3 rounded-t-2xl border-b border-gray-100 bg-gray-50/70 px-4 py-3"
             >
               <AssistantAvatar avatarUrl={element.avatarUrl} />
-              <div className="min-w-0">
+              <div className="min-w-0 flex-1">
                 {headerTitle && (
                   <h3 className="truncate text-sm font-semibold leading-5 text-gray-900">
                     {headerTitle}
@@ -770,11 +869,21 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   </p>
                 )}
               </div>
+              {showCompletionCriteria && (
+                <ChatCompletionCriteriaList
+                  criteria={activeCriteria}
+                  status={completionStatus}
+                  isChecking={isCheckingCompletion}
+                  variant="header"
+                />
+              )}
             </div>
           )}
 
+          {/* Messages + input stay clipped so streaming content can't spill */}
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-b-2xl">
           {/* Messages Container */}
-          <div className="relative min-h-0 flex-1">
+          <div className="relative z-0 min-h-0 flex-1 overflow-hidden">
             <div
               ref={messagesContainerRef}
               className="h-full space-y-4 overflow-y-auto p-4"
@@ -882,7 +991,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
             ref={inputAreaRef}
             className={cn(
               "flex-shrink-0 border-t border-gray-100 bg-white p-4",
-              isAtLimit && "opacity-60",
+              (isAtLimit || isCriteriaComplete) && "opacity-60",
             )}
           >
             {isAtLimit && (
@@ -920,11 +1029,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                   onChange={(e) => setInputMessage(e.target.value)}
                   onKeyDown={handleKeyDown}
                   onInput={handleInputResize}
-                  placeholder={
-                    element.enableTts
-                      ? "Type or speak your message…"
-                      : "Type your message…"
-                  }
+                  placeholder={inputPlaceholder}
                   disabled={inputDisabled}
                   rows={1}
                   className={cn(
@@ -938,7 +1043,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                 />
               )}
 
-              {element.enableTts && !isAtLimit && (
+              {element.enableTts && !isAtLimit && !isCriteriaComplete && (
                 <>
                   <input
                     type="file"
@@ -991,7 +1096,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
               )}
             </div>
 
-            {!isAtLimit && (
+            {!isAtLimit && !isCriteriaComplete && (
               <p className="mt-1.5 px-1 text-[10px] text-gray-400">
                 {isTtsBusy ? (
                   <span className="italic">
@@ -1009,6 +1114,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
                 )}
               </p>
             )}
+          </div>
           </div>
         </div>
       </div>

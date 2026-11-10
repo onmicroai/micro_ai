@@ -1037,6 +1037,7 @@ export default function FormBuilder() {
         selectedVoiceId: "",
         voiceInstructions: "",
         avatarUrl: "",
+        completionCriteria: [],
       }),
       ...(type === "textarea" && {
         allowFileUpload: true,
@@ -1240,6 +1241,7 @@ export default function FormBuilder() {
         typeSpecificDefaults.enableWebSearch = false;
         typeSpecificDefaults.selectedVoiceId = "ash";
         typeSpecificDefaults.ttsProvider = "openai";
+        typeSpecificDefaults.completionCriteria = [];
         break;
       case "imageUpload":
         typeSpecificDefaults.multiple = false;
@@ -1408,6 +1410,13 @@ export default function FormBuilder() {
 
   const updateWebSearchEnabled = (fieldId: string, enabled: boolean) => {
     updateElement(fieldId, { enableWebSearch: enabled });
+  };
+
+  const updateCompletionCriteria = (
+    fieldId: string,
+    completionCriteria: { id: string; text: string }[],
+  ) => {
+    updateElement(fieldId, { completionCriteria });
   };
 
   /**
@@ -2896,6 +2905,7 @@ export default function FormBuilder() {
               }
               onMaxMessagesChange={updateFieldMaxMessages}
               onWebSearchEnabledChange={updateWebSearchEnabled}
+              onCompletionCriteriaChange={updateCompletionCriteria}
             />
             <ChatBuildSidebar
               ref={chatBuildRef}

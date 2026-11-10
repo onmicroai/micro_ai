@@ -530,6 +530,11 @@ SCORE_ANALYSIS_INSIGHT_LLM_ENABLED = env.bool("SCORE_ANALYSIS_INSIGHT_LLM_ENABLE
 # Model name must exist in UsageVariables / LiteLLM (e.g. gpt-4o-mini)
 SCORE_ANALYSIS_INSIGHT_MODEL = env("SCORE_ANALYSIS_INSIGHT_MODEL", default="gpt-4o-mini")
 
+# Chat completion criteria: cheap model used to recheck yes/no criteria after each turn
+COMPLETION_CRITERIA_MODEL = env(
+    "COMPLETION_CRITERIA_MODEL", default="gemini-3-flash-preview"
+)
+
 SILENCED_SYSTEM_CHECKS = [
 ]
 

@@ -71,6 +71,27 @@ type Props = {
   onComplete?: () => void;
 };
 
+function parseCompletionStatus(
+  otherValue: string,
+): Record<string, boolean> | undefined {
+  if (!otherValue) return undefined;
+  try {
+    const parsed = JSON.parse(otherValue);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return undefined;
+    }
+    const status: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "boolean") {
+        status[key] = value;
+      }
+    }
+    return status;
+  } catch {
+    return undefined;
+  }
+}
+
 function serializeAnswer(
   prev: Answers,
   name: string,
@@ -93,6 +114,16 @@ function serializeAnswer(
       if (Array.isArray(value)) updatedValue.value = value;
       else if (value) updatedValue.value = [value];
       break;
+    case "chat": {
+      updatedValue.value = value;
+      const nextStatus = parseCompletionStatus(otherValue);
+      if (nextStatus) {
+        updatedValue.completionStatus = nextStatus;
+      } else if (prev[name]?.completionStatus) {
+        updatedValue.completionStatus = prev[name].completionStatus;
+      }
+      break;
+    }
     default:
       updatedValue.value = value;
   }
@@ -294,6 +325,8 @@ export default function CurrentElementFlowV2({
 
     // Restore chat display from conversationStore runs for this session
     const sessionRuns = getRunsForTry(sessionKey);
+    const conversation =
+      useConversationStore.getState().getConversation(conversationId);
     const restoredChatAnswers: Answers = {};
     appElements.forEach((el, originalIndex) => {
       if (el.type !== "chat") return;
@@ -309,7 +342,13 @@ export default function CurrentElementFlowV2({
           ),
       );
       if (messages.length > 0) {
-        restoredChatAnswers[el.name] = { value: messages, otherValue: "" };
+        const completionStatus =
+          conversation?.metadata?.chatCompletionStatus?.[el.name];
+        restoredChatAnswers[el.name] = {
+          value: messages,
+          otherValue: "",
+          ...(completionStatus ? { completionStatus } : {}),
+        };
       }
     });
 

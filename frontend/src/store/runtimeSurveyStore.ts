@@ -97,6 +97,27 @@ const serializeAppData = (data: any): SurveyJson => {
  * @param otherValue - The other value of the input field.
  * @param type - The type of the input field.
  */
+const parseCompletionStatus = (
+  otherValue: string,
+): Record<string, boolean> | undefined => {
+  if (!otherValue) return undefined;
+  try {
+    const parsed = JSON.parse(otherValue);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return undefined;
+    }
+    const status: Record<string, boolean> = {};
+    for (const [key, value] of Object.entries(parsed)) {
+      if (typeof value === "boolean") {
+        status[key] = value;
+      }
+    }
+    return status;
+  } catch {
+    return undefined;
+  }
+};
+
 const answersSerializer = (
   answers: Answers,
   name: string,
@@ -153,6 +174,16 @@ const answersSerializer = (
         updatedValue.value = [value];
       }
       break;
+    case "chat": {
+      updatedValue.value = value;
+      const nextStatus = parseCompletionStatus(otherValue);
+      if (nextStatus) {
+        updatedValue.completionStatus = nextStatus;
+      } else if (answers[name]?.completionStatus) {
+        updatedValue.completionStatus = answers[name].completionStatus;
+      }
+      break;
+    }
     default:
       updatedValue.value = value;
   }

@@ -66,10 +66,15 @@ const ContinuationInterface: React.FC<ContinuationInterfaceProps> = ({
       [elementName]: {
         value: answers[elementName]?.value || [],
         otherValue: answers[elementName]?.otherValue || "",
+        completionStatus: answers[elementName]?.completionStatus,
       },
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [answers[elementName]?.value, answers[elementName]?.otherValue],
+    [
+      answers[elementName]?.value,
+      answers[elementName]?.otherValue,
+      answers[elementName]?.completionStatus,
+    ],
   );
 
   // Create a setInputValue function that persists to the survey store

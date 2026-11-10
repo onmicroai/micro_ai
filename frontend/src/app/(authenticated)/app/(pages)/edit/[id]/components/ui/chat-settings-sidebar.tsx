@@ -1,13 +1,18 @@
 "use client";
 
-import { X } from "lucide-react";
+import { Plus, Trash2, X } from "lucide-react";
 import { Button } from "../ui/button";
 import { Input } from "../../../../../../../../components/basic/input";
 import { Label } from "../ui/label";
 import { Switch } from "../ui/switch";
 import { Badge } from "../ui/badge";
-import { Element } from "@/app/(authenticated)/app/types";
+import {
+  CompletionCriterion,
+  Element,
+} from "@/app/(authenticated)/app/types";
 import { motion, AnimatePresence } from "framer-motion";
+
+const MAX_COMPLETION_CRITERIA = 20;
 
 interface ChatSettingsSidebarProps {
   isOpen: boolean;
@@ -15,6 +20,17 @@ interface ChatSettingsSidebarProps {
   field: Element | null;
   onMaxMessagesChange: (fieldId: string, maxMessages: number) => void;
   onWebSearchEnabledChange: (fieldId: string, enabled: boolean) => void;
+  onCompletionCriteriaChange: (
+    fieldId: string,
+    completionCriteria: CompletionCriterion[],
+  ) => void;
+}
+
+function createCriterionId(): string {
+  return (
+    crypto.randomUUID?.() ??
+    `criterion-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`
+  );
 }
 
 export default function ChatSettingsSidebar({
@@ -23,7 +39,32 @@ export default function ChatSettingsSidebar({
   field,
   onMaxMessagesChange,
   onWebSearchEnabledChange,
+  onCompletionCriteriaChange,
 }: ChatSettingsSidebarProps) {
+  const criteria = field?.completionCriteria || [];
+
+  const updateCriteria = (next: CompletionCriterion[]) => {
+    if (!field) return;
+    onCompletionCriteriaChange(field.id, next);
+  };
+
+  const handleCriterionTextChange = (id: string, text: string) => {
+    updateCriteria(
+      criteria.map((criterion) =>
+        criterion.id === id ? { ...criterion, text } : criterion,
+      ),
+    );
+  };
+
+  const handleAddCriterion = () => {
+    if (criteria.length >= MAX_COMPLETION_CRITERIA) return;
+    updateCriteria([...criteria, { id: createCriterionId(), text: "" }]);
+  };
+
+  const handleRemoveCriterion = (id: string) => {
+    updateCriteria(criteria.filter((criterion) => criterion.id !== id));
+  };
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -93,6 +134,63 @@ export default function ChatSettingsSidebar({
                       current information. Off by default.
                     </p>
                   </div>
+                </div>
+
+                <div className="space-y-3">
+                  <div>
+                    <Label>Completion criteria</Label>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Add one or more yes/no statements (for example, “The user
+                      introduced themselves”). After every reply, a check
+                      updates which ones are currently true. The chat locks
+                      while all of them are true.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {criteria.map((criterion, index) => (
+                      <div key={criterion.id} className="flex items-start gap-2">
+                        <Input
+                          id={`completion-criterion-${criterion.id}`}
+                          value={criterion.text}
+                          placeholder={`Criterion ${index + 1}`}
+                          onChange={(e) =>
+                            handleCriterionTextChange(
+                              criterion.id,
+                              e.target.value,
+                            )
+                          }
+                        />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRemoveCriterion(criterion.id)}
+                          className="h-10 w-10 shrink-0 p-0 text-gray-500"
+                          aria-label={`Remove criterion ${index + 1}`}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={handleAddCriterion}
+                    disabled={criteria.length >= MAX_COMPLETION_CRITERIA}
+                    className="gap-1.5"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add criterion
+                  </Button>
+                  {criteria.length >= MAX_COMPLETION_CRITERIA && (
+                    <p className="text-xs text-gray-500">
+                      Up to {MAX_COMPLETION_CRITERIA} criteria.
+                    </p>
+                  )}
                 </div>
               </>
             )}

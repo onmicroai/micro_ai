@@ -11,6 +11,9 @@ import { useConversationStore } from "@/store/conversationStore";
 import { useUserStore } from "@/store/userStore";
 import { checkIsOwner, checkIsAdmin } from "@/utils/checkRoles";
 import { parseChatHistoryEntry } from "@/utils/chatHistory";
+import ChatCompletionCriteriaList, {
+  getActiveCompletionCriteria,
+} from "@/components/ChatCompletionCriteriaList";
 
 interface CompletedPhaseProps {
   pageIndex: number;
@@ -94,6 +97,11 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
       {page.elements.map((element: any) => {
         if (element.type === "chat") {
           const chatHistory = answers[element.name]?.value || [];
+          const completionStatus =
+            answers[element.name]?.completionStatus || {};
+          const activeCriteria = getActiveCompletionCriteria(
+            element.completionCriteria,
+          );
           const isVisible = evaluateVisibility(
             element.conditionalLogic || ({} as ConditionalLogic),
             answers
@@ -162,7 +170,14 @@ const CompletedPhase: React.FC<CompletedPhaseProps> = ({ pageIndex, page }) => {
                   </div>
 
                   {/* Footer to indicate this is a completed conversation */}
-                  <div className="border-t border-gray-200 p-4 bg-gray-50">
+                  <div className="border-t border-gray-200 p-4 bg-gray-50 space-y-3">
+                    {activeCriteria.length > 0 && (
+                      <ChatCompletionCriteriaList
+                        criteria={activeCriteria}
+                        status={completionStatus}
+                        readOnly
+                      />
+                    )}
                     <p className="text-sm text-gray-600 text-center">
                       Chat completed
                     </p>

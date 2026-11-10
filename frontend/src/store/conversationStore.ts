@@ -109,6 +109,11 @@ export interface Conversation {
     updatedAt: number;
     appId?: string;
     userId?: string;
+    /**
+     * Latest completion-criteria check for each chat field in this conversation,
+     * keyed by field name then criterion id. Survives reload with the conversation.
+     */
+    chatCompletionStatus?: Record<string, Record<string, boolean>>;
   };
 }
 
@@ -139,6 +144,13 @@ interface ConversationStore {
   ensureConversation: () => string;
   ensureConversationForApp: (appId: string, userId?: string) => string;
   resetAppConversation: (appId: string, userId?: string) => string;
+  setChatCompletionStatus: (
+    fieldName: string,
+    status: Record<string, boolean>,
+  ) => void;
+  getChatCompletionStatus: (
+    fieldName: string,
+  ) => Record<string, boolean> | undefined;
   reset: () => void;
 }
 
@@ -429,6 +441,39 @@ export const useConversationStore = create<ConversationStore>()(
 
       clearCurrentConversation: () => {
         set({ currentConversation: null });
+      },
+
+      setChatCompletionStatus: (fieldName, status) => {
+        set((state) => {
+          if (!state.currentConversation) return state;
+
+          const updatedConversation: Conversation = {
+            ...state.currentConversation,
+            metadata: {
+              ...state.currentConversation.metadata!,
+              updatedAt: Date.now(),
+              chatCompletionStatus: {
+                ...(state.currentConversation.metadata?.chatCompletionStatus ||
+                  {}),
+                [fieldName]: status,
+              },
+            },
+          };
+
+          return {
+            ...state,
+            currentConversation: updatedConversation,
+            conversations: state.conversations.map((conv) =>
+              conv.id === updatedConversation.id ? updatedConversation : conv,
+            ),
+          };
+        });
+      },
+
+      getChatCompletionStatus: (fieldName) => {
+        return get().currentConversation?.metadata?.chatCompletionStatus?.[
+          fieldName
+        ];
       },
 
       reset: () =>

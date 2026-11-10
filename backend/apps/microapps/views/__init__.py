@@ -53,6 +53,11 @@ from .media_views import (
     AnonymousTextToSpeech
 )
 
+from .completion_criteria_views import (
+    CompletionCriteriaCheck,
+    AnonymousCompletionCriteriaCheck,
+)
+
 from .mixins import handle_exception
 
 # Export all views for URL configuration
@@ -104,6 +109,10 @@ __all__ = [
     'AnonymousAudioTranscription',
     'TextToSpeech',
     'AnonymousTextToSpeech',
+
+    # Completion criteria
+    'CompletionCriteriaCheck',
+    'AnonymousCompletionCriteriaCheck',
     
     # Utilities
     'handle_exception'

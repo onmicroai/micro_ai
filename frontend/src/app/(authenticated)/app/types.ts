@@ -20,6 +20,13 @@ export type AnswerValue = {
   value: string | string[];
   otherValue?: string;
   attachments?: FileAttachment[];
+  /** Last completion-criteria check for a chat field, keyed by criterion id. */
+  completionStatus?: Record<string, boolean>;
+};
+
+export type CompletionCriterion = {
+  id: string;
+  text: string;
 };
 
 export type Base64Images = {
@@ -318,6 +325,11 @@ export interface Element {
   initialMessage?: string;
   chatbotInstructions?: string;
   avatarUrl?: string; // URL for the chat avatar image
+  /**
+   * Yes/no conditions rechecked after each chat turn. When every non-blank
+   * criterion is currently true, the chat input locks.
+   */
+  completionCriteria?: CompletionCriterion[];
 
   // TTS specific (for chat fields)
   ttsProvider?: string;

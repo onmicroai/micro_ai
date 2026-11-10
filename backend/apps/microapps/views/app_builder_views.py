@@ -354,7 +354,8 @@ The chat element supports two distinct modes. Choose based on the use case.
   "chatbotInstructions": "You are a helpful study assistant for this course. Answer questions about the assigned reading clearly and concisely. If a question is outside the scope of the material, say so and redirect the learner.",
   "maxMessages": 10,
   "enableWebSearch": false,
-  "avatarUrl": ""
+  "avatarUrl": "",
+  "completionCriteria": []
 }
 
 **Mode B: Character simulation** — The AI plays a specific character in a defined scenario. The learner practices a real-world skill through open-ended dialogue (interviewing, negotiating, counseling, pitching, etc.). chatbotInstructions uses ## markdown headers.
@@ -369,7 +370,11 @@ The chat element supports two distinct modes. Choose based on the use case.
   "chatbotInstructions": "## Character\\nMargaret, a 58-year-old retired teacher. Guarded, warm beneath the surface, speaks in short sentences.\\n\\n## Character Instructions\\nGoal: get reassurance. Withhold the severity of symptoms until asked directly twice. Soften if the learner shows empathy.\\n\\n## Scenario Context\\nA clinic waiting room. Margaret has had a persistent cough for three weeks and is worried but reluctant to say so.\\n\\n## Learner Role\\nYou are a second-year medical student conducting an initial patient intake interview.\\n\\n## Voice Instructions\\nSpeak with nervous energy. Use incomplete sentences and self-corrections. Avoid medical terminology.",
   "maxMessages": 10,
   "enableWebSearch": false,
-  "avatarUrl": ""
+  "avatarUrl": "",
+  "completionCriteria": [
+    {"id": "crit-1", "text": "The learner asked about symptom duration"},
+    {"id": "crit-2", "text": "The learner asked about symptom severity"}
+  ]
 }
 
 chatbotInstructions structure for simulations — use ## markdown headers in this exact order:
@@ -399,6 +404,7 @@ Field notes:
 - initialMessage: 1–4 sentences. For simulations, written in character (not as narrator). For simple chatbots, a friendly prompt inviting the first question.
 - maxMessages: Default 10. Increase only if the scenario clearly requires more turns.
 - enableWebSearch: Default false. Set true only when the assistant needs current information from the web. The model decides whether a given turn actually searches.
+- completionCriteria: Optional list of {id, text} yes/no end conditions. Use only for observable boolean statements (e.g. "The user introduced themselves"). After each turn a separate checker re-evaluates the whole transcript; the chat locks while every non-blank criterion is true. Do not copy these sentences into chatbotInstructions. Leave as [] when unused. Distinct from ## End Conversation, which only guides character wrap-up behavior.
 - isRequired: Always false.
 
 ## Structural / Output Element Types
@@ -628,6 +634,7 @@ Key simulation design rules:
 - initialMessage: written in character, not as narrator; 1–4 sentences; establishes personality and gives the learner a clear cue
 - Default maxMessages is 10; increase only if the scenario clearly requires more turns
 - enableWebSearch defaults to false. Set it true only when the assistant needs current information from the web
+- completionCriteria is for observable yes/no lock conditions only; do not put those sentences in chatbotInstructions. Use ## End Conversation when the character should wrap up in-character; use completionCriteria when the UI should lock after measurable learner actions
 - If the simulation has a natural conclusion, use an End Conversation section: the character wraps up and appends [END SIMULATION] on a new line when the trigger condition is met
 
 ---
