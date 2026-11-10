@@ -38,6 +38,8 @@ interface BuildRequestBodyOptions {
   activeTryId?: string;
   phaseTitle?: string;
   runSource?: "default" | "chat";
+  /** Attach the web search tool so the model can look things up. */
+  webSearch?: boolean;
   isPreview?: boolean;
   /**
    * Fallback context block describing the app's visible, answered fields.
@@ -88,6 +90,7 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
     activeTryId,
     phaseTitle,
     runSource,
+    webSearch = false,
     isPreview,
     formContext,
     formAttachments = [],
@@ -261,6 +264,9 @@ export const buildRequestBody = async (options: BuildRequestBodyOptions) => {
 
   requestBody.phase_title = (phaseTitle ?? "").slice(0, 255);
   requestBody.is_chat_run = runSource === "chat";
+  if (webSearch) {
+    requestBody.web_search = true;
+  }
   requestBody.is_preview = Boolean(isPreview);
 
   if (formAttachments.length > 0) {

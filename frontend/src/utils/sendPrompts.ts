@@ -502,6 +502,7 @@ export const sendPromptsUtil = async (options: {
   scoreExplanationMode?: "always" | "failed_only" | "passed_only" | "never";
   defaultAiModel?: string;
   runSource?: "default" | "chat";
+  webSearch?: boolean;
   /** Builder Preview tab: marks runs for exclusion from owner statistics. */
   isPreview?: boolean;
   runtimeMeta?: {
@@ -526,6 +527,7 @@ export const sendPromptsUtil = async (options: {
     scoreExplanation,
     scoreExplanationMode,
     runSource = "default",
+    webSearch = false,
     isPreview = false,
     runtimeMeta,
   } = options;
@@ -675,6 +677,7 @@ export const sendPromptsUtil = async (options: {
     activeTryId: runtimeMeta?.tryId,
     phaseTitle,
     runSource,
+    webSearch,
     isPreview,
     formContext,
     formAttachments,

@@ -519,6 +519,7 @@ const ChatQuestion: React.FC<ChatQuestionProps> = ({
         requestSkip: false,
         skipScoredRun: true,
         runSource: "chat",
+        webSearch: Boolean(element.enableWebSearch),
         isPreview,
         transcriptionCost: transcriptionCost,
         defaultAiModel: defaultAiModel,

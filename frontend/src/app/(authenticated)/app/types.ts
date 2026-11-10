@@ -325,6 +325,8 @@ export interface Element {
   customVoiceId?: string; // ID of the generated custom voice when selectedVoiceId is 'custom'
   enableTts?: boolean;
   voiceInstructions?: string;
+  /** When true, the chat model may call web search. Defaults to off. */
+  enableWebSearch?: boolean;
 
   // Conditional logic
   conditionalLogic?: ConditionalLogic;

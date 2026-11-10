@@ -1005,6 +1005,7 @@ export default function FormBuilder() {
         maxMessages: 10,
         initialMessage: "Hello! How can I help you today?",
         enableTts: false,
+        enableWebSearch: false,
         ttsProvider: "openai",
         selectedVoiceId: "",
         voiceInstructions: "",
@@ -1209,6 +1210,7 @@ export default function FormBuilder() {
         typeSpecificDefaults.maxMessages = 10;
         typeSpecificDefaults.initialMessage = "Hello! How can I help you?";
         typeSpecificDefaults.ttsEnabled = false;
+        typeSpecificDefaults.enableWebSearch = false;
         typeSpecificDefaults.selectedVoiceId = "ash";
         typeSpecificDefaults.ttsProvider = "openai";
         break;
@@ -1375,6 +1377,10 @@ export default function FormBuilder() {
    */
   const updateTtsEnabled = (fieldId: string, enabled: boolean) => {
     updateElement(fieldId, { enableTts: enabled });
+  };
+
+  const updateWebSearchEnabled = (fieldId: string, enabled: boolean) => {
+    updateElement(fieldId, { enableWebSearch: enabled });
   };
 
   /**
@@ -2621,6 +2627,15 @@ export default function FormBuilder() {
                                                       enabled
                                                     ) =>
                                                       updateTtsEnabled(
+                                                        fieldId,
+                                                        enabled
+                                                      )
+                                                    }
+                                                    onUpdateWebSearchEnabled={(
+                                                      fieldId,
+                                                      enabled
+                                                    ) =>
+                                                      updateWebSearchEnabled(
                                                         fieldId,
                                                         enabled
                                                       )

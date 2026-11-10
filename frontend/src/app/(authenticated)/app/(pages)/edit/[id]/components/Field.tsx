@@ -246,6 +246,7 @@ interface FieldProps {
   onUpdateTtsProvider?: (fieldId: string, provider: string) => void;
   onUpdateTtsVoiceId?: (fieldId: string, voiceId: string) => void;
   onUpdateTtsEnabled?: (fieldId: string, enabled: boolean) => void;
+  onUpdateWebSearchEnabled?: (fieldId: string, enabled: boolean) => void;
   onUpdateVoiceInstructions?: (fieldId: string, instructions: string) => void;
   onUpdateAvatarUrl?: (fieldId: string, avatarUrl: string) => void;
   isDragging?: boolean;
@@ -285,6 +286,7 @@ export default function Field({
   onUpdateChatbotInstructions,
   onUpdateTtsVoiceId,
   onUpdateTtsEnabled,
+  onUpdateWebSearchEnabled,
   onUpdateVoiceInstructions,
   onUpdateAvatarUrl,
   onActivate,
@@ -1191,6 +1193,22 @@ export default function Field({
                   }
                 }}
               />
+            </div>
+
+            <div className="flex items-center space-x-2 border-t pt-4">
+              <Switch
+                checked={field.enableWebSearch || false}
+                onCheckedChange={(checked) => {
+                  onUpdateWebSearchEnabled?.(field.id, checked);
+                }}
+              />
+              <div>
+                <label className="text-sm font-medium">Enable Web Search</label>
+                <p className="text-xs text-gray-500 mt-1">
+                  Let the assistant search the web when a question needs
+                  current information. Off by default.
+                </p>
+              </div>
             </div>
 
             {/* TTS Configuration Section */}

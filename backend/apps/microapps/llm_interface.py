@@ -20,6 +20,26 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
+# LiteLLM intercepts this tool, runs the configured search provider, and
+# continues the completion with the results. The model decides whether to call it.
+WEB_SEARCH_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "litellm_web_search",
+        "description": "Search the web for current or factual information that is not already in the conversation.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "The search query to execute",
+                }
+            },
+            "required": ["query"],
+        },
+    },
+}
+
 class UnifiedLLMInterface:
     """
     A unified interface for all LLM providers using litellm
@@ -102,6 +122,10 @@ class UnifiedLLMInterface:
 
         if not params.get("max_tokens"):
             params["max_tokens"] = 5000
+
+        # Kept off the inherited defaults so only an explicit request opts in.
+        if data.get("web_search"):
+            params["web_search"] = True
         
         return params
     
@@ -155,6 +179,11 @@ class UnifiedLLMInterface:
                 else:
                     payload["reasoning_effort"] = "low"
             
+            if params.get("web_search"):
+                payload["tools"] = [WEB_SEARCH_TOOL]
+                # Search answers go stale; skip the shared response cache.
+                payload["cache"] = {"no-cache": True}
+
             if stream:
                 # For streaming, return a generator
                 response = requests.post(url, headers=headers, json=payload, stream=True)
@@ -336,6 +365,37 @@ class UnifiedLLMInterface:
         collected_chunks = []
 
         try:
+            # Web search runs an agentic loop inside the proxy. LiteLLM turns
+            # that provider call into a non-streaming request and, on
+            # /chat/completions, returns one JSON body rather than SSE. Fetch
+            # it directly and yield the finished answer as a single chunk.
+            if params.get("web_search"):
+                response_data = self._make_proxy_request(params, stream=False)
+                self.litellm_response_id = response_data.get("id")
+                self.last_usage = response_data.get("usage") or {}
+                message = (response_data.get("choices") or [{}])[0].get("message") or {}
+                content = message.get("content") or ""
+                if isinstance(content, list):
+                    content = "".join(
+                        (part.get("text") or "") if isinstance(part, dict) else str(part)
+                        for part in content
+                    )
+                if not content and message.get("tool_calls"):
+                    log.warning(
+                        "Web search tool call was not executed for model %s",
+                        params.get("model"),
+                    )
+                self.full_content = content
+                transcription_cost = float(params.get("transcription_cost", 0))
+                self.last_cost, self.last_credits = self.calculate_cost_from_usage(
+                    usage_data=self.last_usage,
+                    model=params["model"],
+                    transcription_cost=transcription_cost,
+                )
+                if content:
+                    yield content
+                return
+
             # Force streaming=True – caller is responsible for setting it but
             # we double-check so we don’t accidentally yield nothing.
             params = params.copy()

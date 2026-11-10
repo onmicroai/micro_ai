@@ -353,6 +353,7 @@ The chat element supports two distinct modes. Choose based on the use case.
   "initialMessage": "Hi! I'm here to help you with Chapter 3. What questions do you have?",
   "chatbotInstructions": "You are a helpful study assistant for this course. Answer questions about the assigned reading clearly and concisely. If a question is outside the scope of the material, say so and redirect the learner.",
   "maxMessages": 10,
+  "enableWebSearch": false,
   "avatarUrl": ""
 }
 
@@ -367,6 +368,7 @@ The chat element supports two distinct modes. Choose based on the use case.
   "initialMessage": "Hi… sorry, I'm a little nervous. I've never really liked waiting rooms.",
   "chatbotInstructions": "## Character\\nMargaret, a 58-year-old retired teacher. Guarded, warm beneath the surface, speaks in short sentences.\\n\\n## Character Instructions\\nGoal: get reassurance. Withhold the severity of symptoms until asked directly twice. Soften if the learner shows empathy.\\n\\n## Scenario Context\\nA clinic waiting room. Margaret has had a persistent cough for three weeks and is worried but reluctant to say so.\\n\\n## Learner Role\\nYou are a second-year medical student conducting an initial patient intake interview.\\n\\n## Voice Instructions\\nSpeak with nervous energy. Use incomplete sentences and self-corrections. Avoid medical terminology.",
   "maxMessages": 10,
+  "enableWebSearch": false,
   "avatarUrl": ""
 }
 
@@ -396,6 +398,7 @@ chatbotInstructions structure for simulations — use ## markdown headers in thi
 Field notes:
 - initialMessage: 1–4 sentences. For simulations, written in character (not as narrator). For simple chatbots, a friendly prompt inviting the first question.
 - maxMessages: Default 10. Increase only if the scenario clearly requires more turns.
+- enableWebSearch: Default false. Set true only when the assistant needs current information from the web. The model decides whether a given turn actually searches.
 - isRequired: Always false.
 
 ## Structural / Output Element Types
@@ -624,6 +627,7 @@ Key simulation design rules:
 - Voice Instructions must be specific and concrete ("speaks in short sentences and self-corrects") — never vague ("sound realistic")
 - initialMessage: written in character, not as narrator; 1–4 sentences; establishes personality and gives the learner a clear cue
 - Default maxMessages is 10; increase only if the scenario clearly requires more turns
+- enableWebSearch defaults to false. Set it true only when the assistant needs current information from the web
 - If the simulation has a natural conclusion, use an End Conversation section: the character wraps up and appends [END SIMULATION] on a new line when the trigger condition is met
 
 ---

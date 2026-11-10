@@ -159,6 +159,18 @@ litellm_settings:
     drop_params: true
     set_verbose: false
     default_fallbacks: ["gpt-5-mini"]
+    # Executes litellm_web_search tool calls with Tavily, then sends the
+    # results back to the model. The tool is attached per request, so a chat
+    # question only searches when its web search setting is on.
+    # openai, anthropic, and gemini are the providers behind every chat model
+    # in model_list. Embeddings, Whisper, and TTS are not tool-calling models.
+    callbacks: ["websearch_interception"]
+    websearch_interception_params:
+        enabled_providers:
+            - openai
+            - anthropic
+            - gemini
+        search_tool_name: tavily-search
     # Exact-match response cache, shared by every proxy worker. Keys are
     # litellm.cache:<request hash>. Connection comes from REDIS_HOST and
     # REDIS_PASSWORD, which Compose sets to the `redis` service.
@@ -203,3 +215,9 @@ router_settings:
       {"gpt-5": ["gpt-5.1"]},
       {"bad_model_name": ["gpt-5-mini"]},
     ]
+
+search_tools:
+  - search_tool_name: tavily-search
+    litellm_params:
+      search_provider: tavily
+      api_key: os.environ/TAVILY_API_KEY
