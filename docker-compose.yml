@@ -61,8 +61,10 @@ services:
       - LITELLM_DANGEROUSLY_PERMIT_WEAK_OR_UNSET_MASTER_KEY=true
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    # config.override.yaml is used instead of config.yaml when that file exists.
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml
+      - ./litellm:/litellm-config:ro
+    entrypoint: ["/bin/sh", "/litellm-config/docker-entrypoint.sh"]
     networks:
       - microaiNetwork
     depends_on:
@@ -70,8 +72,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    command:
-      ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     init: true
 
   keycloak:

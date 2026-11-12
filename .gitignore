@@ -1,4 +1,6 @@
 .env
+# Local LiteLLM config. Used instead of litellm/config.yaml when present.
+litellm/config.override.yaml
 load-tests/
 node_modules/
 db_data/

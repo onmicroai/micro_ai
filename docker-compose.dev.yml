@@ -110,16 +110,16 @@ services:
     environment:
       - REDIS_HOST=redis
       - REDIS_PASSWORD=${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    # config.override.yaml is used instead of config.yaml when that file exists.
     volumes:
-      - ./litellm/config.yaml:/app/config.yaml
+      - ./litellm:/litellm-config:ro
+    entrypoint: ["/bin/sh", "/litellm-config/docker-entrypoint.sh"]
     networks:
       micronet:
         ipv4_address: 172.25.0.14
     depends_on:
       redis:
         condition: service_healthy
-    command:
-      ["--config", "/app/config.yaml", "--host", "0.0.0.0", "--port", "4000"]
     init: true
     restart: unless-stopped
 
