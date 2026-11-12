@@ -1792,11 +1792,7 @@ export default function Field({
                         transition={{ delay: 0.15, duration: 0.3 }}
                       >
                         <Label className="text-sm font-medium mb-1 block">
-                          {field.type === "title"
-                            ? "Title"
-                            : field.type === "chat"
-                            ? "Label"
-                            : "Question"}
+                          {field.type === "title" ? "Title" : "Question"}
                         </Label>
                         <Input
                           value={field.text || field.label || ""}
@@ -1815,8 +1811,6 @@ export default function Field({
                           placeholder={
                             field.type === "title"
                               ? "Enter title..."
-                              : field.type === "chat"
-                              ? "Enter label..."
                               : "Enter your question..."
                           }
                         />
