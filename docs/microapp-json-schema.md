@@ -36,8 +36,37 @@ New apps should use the **V2 format**, which has a flat `elements[]` array inste
 | `clonable` | boolean | No | Whether other users can clone this app |
 | `completedHtml` | string | No | Message shown when app is complete |
 | `aiConfig` | AIConfig object | No | App-wide AI settings |
-| `attachedFiles` | AttachedFile[] | No | Files attached to the app for AI context |
+| `attachedFiles` | AttachedFile[] | No | Knowledge base sources (files, web pages, websites, pasted text) used as AI context |
 | `elements` | Element[] | Yes | Ordered list of all elements (see below) |
+
+### AttachedFile Object
+
+One knowledge base source. The name is historical: an entry can be an uploaded file, a web page, a website or pasted text. The text itself is not stored here; it lives in the backend (`FileSource` and `DocumentChunk`), and each run retrieves the most relevant chunks from the sources listed in this array.
+
+```json
+{
+  "source_id": 42,
+  "type": "webpage",
+  "original_filename": "Course FAQ",
+  "text_filename": "Course FAQ",
+  "url": "https://example.com/faq",
+  "size": 0,
+  "description": "Answers to common questions about the course"
+}
+```
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `source_id` | number | No | Backend id of the source. Entries saved before sources had ids omit it and are matched by `original_filename` |
+| `type` | `"file"` \| `"webpage"` \| `"website"` \| `"text"` | No | Default: `"file"` |
+| `original_filename` | string | Yes | Display name: the file name, the page title, or the title given to pasted text |
+| `text_filename` | string | Yes | Legacy; same value as `original_filename` |
+| `url` | string | No | Page URL, or the starting URL of a website |
+| `size` | number | Yes | File size in bytes; `0` for web and text sources |
+| `word_count` | number | No | Legacy; the current value comes from the backend |
+| `description` | string | No | Up to 200 characters, passed to the AI alongside the retrieved text |
+
+Sources are added, refreshed and removed through `api/microapps/<id>/knowledge/` (and `upload-file/` for files); the builder keeps this array in step.
 
 ### AIConfig Object
 

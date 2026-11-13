@@ -4,7 +4,6 @@ Media processing views - File uploads, audio transcription, and text-to-speech.
 import base64
 import os
 import tempfile
-import threading
 import time
 import logging as log
 from django.core.files.base import ContentFile
@@ -38,9 +37,10 @@ from apps.utils.global_variables import UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
 from apps.microapps.models import Microapp, DocumentChunk, FileSource, AppFileReference, Run, MicroAppUserJoin
 from apps.microapps.document_parser import DocumentProcessor
-from apps.microapps.rag_service import (
-    TextChunker, generate_embeddings_batch
-)
+from apps.microapps.knowledge import sources as source_service
+from apps.microapps.knowledge.ingest import start_ingestion
+from apps.microapps.knowledge.loaders import FileLoader
+from apps.utils.custom_permissions import IsAppAdminOrOwnerFromUrl
 from apps.microapps.serializer import ImageUploadSerializer, FileUploadSerializer, PresignedUrlResponse
 from ..llm_interface import UnifiedLLMInterface
 from .mixins import handle_exception, MicroAppMixin, FileProcessingMixin, UsageTrackingMixin
@@ -126,7 +126,7 @@ class MicroAppImageUpload(APIView, MicroAppMixin, FileProcessingMixin):
 
 class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
     """Handle file uploads and processing for microapps."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAppAdminOrOwnerFromUrl]
 
     def upload_to_s3(self, file_key, file_content, content_type):
         """Upload content to S3-compatible storage."""
@@ -141,88 +141,6 @@ class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
         except Exception as e:
             log.error(f"Storage upload error: {str(e)}")
             return False
-
-    def _process_file_background(self, file_source_id, temp_path):
-        """
-        Background thread: extract text -> chunk -> embed -> update FileSource status.
-        Cleans up the temp file on completion or error.
-        Chank is neede because embedding large documents in one go can exceed token limits
-        """
-        from django.db import connection as db_connection
-        try:
-            if not FileSource.objects.filter(id=file_source_id).exists():
-                log.info(f"RAG: file_source={file_source_id} was deleted before processing completed, skipping")
-                return
-            file_source = FileSource.objects.get(id=file_source_id)
-
-            # Extract text
-            file_source.status = FileSource.PROCESSING
-            file_source.save(update_fields=['status', 'updated_at'])
-
-            processor = DocumentProcessor()
-            parsed_content = processor.extract_text(temp_path)
-            if not parsed_content or parsed_content.startswith("Error:") or parsed_content == "Unsupported file format":
-                raise ValueError(parsed_content or "No text could be extracted from file")
-
-            # Strip NUL bytes - PostgreSQL rejects \x00 in text columns
-            parsed_content = parsed_content.replace('\x00', '')
-
-            word_count = self.count_words(parsed_content)
-
-            # Skip if chunks already exist (re-upload of same file)
-            if DocumentChunk.objects.filter(file_source=file_source).exists():
-                log.info(f"RAG: chunks already exist for {file_source.file_name}, skipping embed")
-                file_source.status = FileSource.READY
-                file_source.word_count = word_count
-                file_source.chunk_count = DocumentChunk.objects.filter(file_source=file_source).count()
-                file_source.save(update_fields=['status', 'word_count', 'chunk_count', 'updated_at'])
-                return
-
-            # Chunk
-            chunks = TextChunker().chunk_text(parsed_content)
-            if not chunks:
-                raise ValueError("File produced no text chunks after parsing")
-
-            # Embed 
-            embeddings = generate_embeddings_batch(chunks)
-
-            # Check again - file may have been deleted during embedding API call
-            if not FileSource.objects.filter(id=file_source_id).exists():
-                log.info(f"RAG: file_source={file_source_id} was deleted during processing, discarding embeddings")
-                return
-
-            # Store
-            DocumentChunk.objects.bulk_create([
-                DocumentChunk(
-                    file_source=file_source,
-                    content=chunk_text,
-                    embedding=emb,
-                )
-                for chunk_text, emb in zip(chunks, embeddings)
-            ], batch_size=100)
-
-            file_source.status = FileSource.READY
-            file_source.word_count = word_count
-            file_source.chunk_count = len(chunks)
-            file_source.error = None
-            file_source.save(update_fields=['status', 'word_count', 'chunk_count', 'error', 'updated_at'])
-            log.info(f"RAG: {len(chunks)} chunks stored for {file_source.file_name} (source={file_source_id})")
-
-        except Exception as e:
-            log.error(f"Background processing failed for file_source={file_source_id}: {e}")
-            try:
-                FileSource.objects.filter(id=file_source_id).update(
-                    status=FileSource.FAILED,
-                    error=str(e),
-                )
-            except Exception:
-                pass
-        finally:
-            db_connection.close()
-            try:
-                os.unlink(temp_path)
-            except OSError:
-                pass
 
     @extend_schema(
         request=FileUploadSerializer,
@@ -260,39 +178,30 @@ class MicroAppFileUpload(APIView, MicroAppMixin, FileProcessingMixin):
             temp_file.close()
             temp_path = temp_file.name
 
-            # Upsert FileSource: if this app already has a reference to a file with
-            # this name, reset it; otherwise create a fresh FileSource + AppFileReference.
+            # If this app already has a file with this name, replace its content;
+            # otherwise create a new source. The old chunks stay in place until
+            # the new ones are ready.
             existing_ref = AppFileReference.objects.filter(
                 app=microapp,
                 file_source__file_name=filename,
+                file_source__source_type=FileSource.FILE,
             ).select_related('file_source').first()
 
             if existing_ref:
-                file_source = existing_ref.file_source
-                DocumentChunk.objects.filter(file_source=file_source).delete()
-                file_source.status = FileSource.PENDING
-                file_source.error = None
-                file_source.chunk_count = None
-                file_source.word_count = None
-                file_source.save()
+                # Another app may share this source; give this app its own copy first.
+                file_source = source_service.writable_source(microapp, existing_ref.file_source)
+                source_service.mark_pending(file_source)
             else:
-                file_source = FileSource.objects.create(
-                    file_name=filename,
-                    status=FileSource.PENDING,
-                    file_owner=microapp,
+                file_source = source_service.create_source(
+                    microapp, source_type=FileSource.FILE, name=filename
                 )
-                AppFileReference.objects.create(app=microapp, file_source=file_source)
 
-            # Fire background thread - temp file cleanup is its responsibility
-            thread = threading.Thread(
-                target=self._process_file_background,
-                args=(file_source.id, temp_path),
-                daemon=True,
-            )
-            thread.start()
+            # Runs in the background; the loader deletes the temp file when done.
+            start_ingestion(file_source.id, FileLoader(temp_path))
 
             return Response({
                 'data': {
+                    'id': file_source.id,
                     'original_filename': filename,
                     'status': FileSource.PENDING,
                 }
@@ -553,16 +462,9 @@ class AnonymousTextToSpeech(TextToSpeech):
             return handle_exception(e)
 
 
-@extend_schema_view(
-    post=extend_schema(
-        request=FileUploadSerializer,
-        responses={200: dict},
-        summary="Parse an uploaded file and return its plain-text content (max 20 000 chars)"
-    )
-)
 class MicroAppFileDelete(APIView, MicroAppMixin):
     """Remove a file reference from an app. Deletes chunks only when no other app references the same FileSource."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAppAdminOrOwnerFromUrl]
 
     def delete(self, request, pk=None):
         if not pk:
@@ -584,25 +486,13 @@ class MicroAppFileDelete(APIView, MicroAppMixin):
         if not ref:
             return Response({"error": "File not found for this app"}, status=status.HTTP_404_NOT_FOUND)
 
-        file_source = ref.file_source
-        ref.delete()
-
-        # If no other app references this FileSource, delete it (cascades to DocumentChunk)
-        remaining = AppFileReference.objects.filter(file_source=file_source).count()
-        chunks_deleted = 0
-        if remaining == 0:
-            chunks_deleted = file_source.chunk_count or 0
-            file_source.delete()
-            log.info(f"Deleted FileSource + {chunks_deleted} chunks for {filename}")
-        else:
-            log.info(f"Removed reference for {filename} from app={microapp.id}, {remaining} app(s) still reference it")
-
+        chunks_deleted = source_service.remove_source_from_app(microapp, ref.file_source)
         return Response({"deleted_chunks": chunks_deleted}, status=status.HTTP_200_OK)
 
 
 class FileEmbeddingStatusView(APIView, MicroAppMixin):
     """GET /api/microapps/<pk>/file-status/ - returns embedding status for all files of a microapp."""
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAppAdminOrOwnerFromUrl]
 
     def get(self, request, pk=None):
         if not pk:
@@ -624,6 +514,13 @@ class FileEmbeddingStatusView(APIView, MicroAppMixin):
         }, status=status.HTTP_200_OK)
 
 
+@extend_schema_view(
+    post=extend_schema(
+        request=FileUploadSerializer,
+        responses={200: dict},
+        summary="Parse an uploaded file and return its plain-text content (max 20 000 chars)"
+    )
+)
 class ParseFile(APIView, FileProcessingMixin):
     """Return raw text from an uploaded document without persisting it anywhere."""
     permission_classes = [IsAuthenticated]

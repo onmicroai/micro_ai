@@ -35,3 +35,5 @@ openpyxl==3.1.5
 pytesseract
 pylti1p3
 pgvector>=0.3.0
+trafilatura>=2.0.0  # readable-text extraction for web pages added to an app's knowledge base
+lxml_html_clean  # needed by trafilatura's justext dependency with lxml>=5.2

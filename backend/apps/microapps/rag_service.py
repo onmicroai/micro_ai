@@ -88,61 +88,69 @@ def generate_embeddings_batch(texts: List[str], batch_size: int = 100) -> List[L
 
 # Similarity retrieval - pgvector SQL-level search
 
-def retrieve_relevant_chunks_multi_file(
+DEFAULT_TOP_K = 10
+
+
+def retrieve_chunks(
     microapp_id: int,
-    file_names: List[str],
+    source_ids: List[int],
     query: str,
-    top_k_total: int = 10,
-) -> dict:
+    top_k: int = DEFAULT_TOP_K,
+) -> list:
     """
-    Retrieve the top-K most relevant chunks globally across all files in a
-    single DB query (one embedding call, one SQL round-trip).
+    Return the top-K chunks most relevant to the query across the given sources
+    of an app, best first (one embedding call, one SQL round-trip).
+
+    Each chunk has a `similarity` attribute and its `file_source` loaded. This
+    is the single retrieval path: app runs and the knowledge base test query
+    both use it, so the test shows exactly what a run would retrieve.
     Queries via AppFileReference -> FileSource so cloned apps share the same chunks.
-    Returns a dict keyed by file_name, preserving order by similarity score.
     """
     from apps.microapps.models import DocumentChunk
 
-    if not file_names:
-        return {}
+    source_ids = list(source_ids or [])
+    if not source_ids:
+        return []
 
     try:
         query_vec = generate_embedding(query)
 
-        results = (
+        results = list(
             DocumentChunk.objects
             .filter(
                 file_source__app_references__app_id=microapp_id,
-                file_source__file_name__in=file_names,
+                file_source_id__in=source_ids,
                 embedding__isnull=False,
             )
             .select_related('file_source')
             .annotate(similarity=1 - CosineDistance("embedding", query_vec))
             .order_by("-similarity")
-            [:top_k_total]
+            [:top_k]
         )
-
-        grouped: dict = {fname: [] for fname in file_names}
         for chunk in results:
-            grouped[chunk.file_source.file_name].append((chunk.content, float(chunk.similarity)))
+            chunk.similarity = float(chunk.similarity)
 
-        # Fallback: if no embeddings exist at all, return first chunks per file
-        if not any(grouped.values()):
+        # Fallback: if no embeddings exist at all, return the first chunks of each source
+        if not results:
             log.warning(f"RAG: no embeddings for microapp={microapp_id}, using fallback chunks")
-            for fname in file_names:
+            per_source = max(1, top_k // len(source_ids))
+            for source_id in source_ids:
                 fallback = (
                     DocumentChunk.objects
                     .filter(
                         file_source__app_references__app_id=microapp_id,
-                        file_source__file_name=fname,
+                        file_source_id=source_id,
                     )
                     .select_related('file_source')
-                    .order_by("id")
-                    [:max(1, top_k_total // len(file_names))]
+                    .order_by("chunk_index", "id")
+                    [:per_source]
                 )
-                grouped[fname] = [(chunk.content, 0.0) for chunk in fallback]
+                for chunk in fallback:
+                    chunk.similarity = 0.0
+                    results.append(chunk)
 
-        return grouped
+        return results
 
     except Exception as e:
-        log.error(f"retrieve_relevant_chunks_multi_file error: {e}")
-        return {fname: [] for fname in file_names}
+        log.error(f"retrieve_chunks error: {e}")
+        return []
