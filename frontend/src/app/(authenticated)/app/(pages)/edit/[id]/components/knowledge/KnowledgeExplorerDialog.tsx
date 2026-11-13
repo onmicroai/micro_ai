@@ -15,14 +15,6 @@ import {
   DialogTitle,
 } from "../ui/dialog";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
-import {
   apiErrorMessage,
   isCancelled,
   KnowledgeChunk,
@@ -300,7 +292,7 @@ export default function KnowledgeExplorerDialog({
             </ul>
           </aside>
 
-          <section className="flex min-h-0 flex-1 flex-col">
+          <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="flex items-center justify-between gap-3 px-5 py-3">
               <h3 className="text-base font-semibold text-gray-900">{heading}</h3>
               {searching && (
@@ -343,72 +335,61 @@ export default function KnowledgeExplorerDialog({
                 )
               ) : (
                 <>
-                  <div className="rounded-lg border">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-56">Source · chunk</TableHead>
-                          <TableHead>Text</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {rows.map((chunk) => {
-                          const isExpanded = expanded.has(chunk.id);
-                          return (
-                            <TableRow
-                              key={chunk.id}
-                              data-testid={TEST_IDS.KNOWLEDGE_CHUNK_ROW}
+                  <ul className="space-y-3">
+                    {rows.map((chunk) => {
+                      const isExpanded = expanded.has(chunk.id);
+                      return (
+                        <li
+                          key={chunk.id}
+                          data-testid={TEST_IDS.KNOWLEDGE_CHUNK_ROW}
+                          className="rounded-lg border p-4"
+                        >
+                          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                            <p
+                              className="break-words text-sm font-medium text-gray-800"
+                              title={chunk.source_name}
                             >
-                              <TableCell className="w-56 align-top">
-                                <p
-                                  className="break-words text-sm font-medium text-gray-800"
-                                  title={chunk.source_name}
+                              {chunk.source_name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {chunk.chunk_index + 1}/{chunk.source_chunk_count}
+                            </p>
+                            {chunk.metadata.url &&
+                              chunk.source_type === "website" && (
+                                <a
+                                  href={chunk.metadata.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="break-all text-xs text-primary-600 hover:underline"
                                 >
-                                  {chunk.source_name}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {chunk.chunk_index + 1}/{chunk.source_chunk_count}
-                                </p>
-                                {chunk.metadata.url &&
-                                  chunk.source_type === "website" && (
-                                    <a
-                                      href={chunk.metadata.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="mt-1 block break-all text-xs text-primary-600 hover:underline"
-                                    >
-                                      {chunk.metadata.title || chunk.metadata.url}
-                                    </a>
-                                  )}
-                                {chunk.similarity != null && (
-                                  <span className="mt-1 inline-block rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
-                                    {Math.round(chunk.similarity * 100)}% match
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="align-top">
-                                <p
-                                  className={`whitespace-pre-wrap break-words text-sm text-gray-800 ${
-                                    isExpanded ? "" : "line-clamp-3"
-                                  }`}
-                                >
-                                  {chunk.content}
-                                </p>
-                                <button
-                                  type="button"
-                                  onClick={() => toggleExpanded(chunk.id)}
-                                  aria-expanded={isExpanded}
-                                  className="mt-1 text-xs text-primary-600 hover:underline"
-                                >
-                                  {isExpanded ? "Show less" : "Show full text"}
-                                </button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </TableBody>
-                    </Table>
-                  </div>
+                                  {chunk.metadata.title || chunk.metadata.url}
+                                </a>
+                              )}
+                            {chunk.similarity != null && (
+                              <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">
+                                {Math.round(chunk.similarity * 100)}% match
+                              </span>
+                            )}
+                          </div>
+                          <p
+                            className={`mt-2 whitespace-pre-wrap break-words text-sm text-gray-800 ${
+                              isExpanded ? "" : "line-clamp-3"
+                            }`}
+                          >
+                            {chunk.content}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={() => toggleExpanded(chunk.id)}
+                            aria-expanded={isExpanded}
+                            className="mt-1 text-xs text-primary-600 hover:underline"
+                          >
+                            {isExpanded ? "Show less" : "Show full text"}
+                          </button>
+                        </li>
+                      );
+                    })}
+                  </ul>
                   {!searching && hasMore && (
                     <div className="mt-4 flex justify-center">
                       <Button
