@@ -50,6 +50,15 @@ from .views import (
     AnonymousTextToSpeech,
     CompletionCriteriaCheck,
     AnonymousCompletionCriteriaCheck,
+
+    # Knowledge base views
+    KnowledgeSourceList,
+    KnowledgeWebSourceCreate,
+    KnowledgeTextSourceCreate,
+    KnowledgeSourceDetail,
+    KnowledgeSourceRefresh,
+    KnowledgeChunkList,
+    KnowledgeSearch,
 )
 from .views.rubric_build_views import RubricBuildView
 from .views.app_builder_views import AppBuilderChatView
@@ -116,6 +125,14 @@ urlpatterns = [
     path('<int:pk>/delete-file/', MicroAppFileDelete.as_view(), name='microapp-delete-file'),
     path('<int:pk>/file-status/', FileEmbeddingStatusView.as_view(), name='microapp-file-status'),
     path('parse-file/', ParseFile.as_view(), name='parse-file'),
+    # Knowledge base (files, web pages, websites, pasted text)
+    path('<int:pk>/knowledge/sources/', KnowledgeSourceList.as_view(), name='knowledge-sources'),
+    path('<int:pk>/knowledge/sources/web/', KnowledgeWebSourceCreate.as_view(), name='knowledge-source-web'),
+    path('<int:pk>/knowledge/sources/text/', KnowledgeTextSourceCreate.as_view(), name='knowledge-source-text'),
+    path('<int:pk>/knowledge/sources/<int:source_id>/', KnowledgeSourceDetail.as_view(), name='knowledge-source-detail'),
+    path('<int:pk>/knowledge/sources/<int:source_id>/refresh/', KnowledgeSourceRefresh.as_view(), name='knowledge-source-refresh'),
+    path('<int:pk>/knowledge/chunks/', KnowledgeChunkList.as_view(), name='knowledge-chunks'),
+    path('<int:pk>/knowledge/search/', KnowledgeSearch.as_view(), name='knowledge-search'),
     path('transcribe/', AudioTranscription.as_view(), name='audio-transcription'),
     path('transcribe/anonymous/', AnonymousAudioTranscription.as_view(), name='anonymous-audio-transcription'),
     path('tts/', TextToSpeech.as_view(), name='text-to-speech'),

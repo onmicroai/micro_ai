@@ -393,6 +393,7 @@ REST_FRAMEWORK = {
     "DEFAULT_THROTTLE_RATES": {
         "add_admin": "20/hour",
         "federation_password_check": "10/hour",
+        "knowledge_search": "30/min",
     },
 }
 

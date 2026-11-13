@@ -474,7 +474,28 @@ class FileSource(models.Model):
         (FAILED, 'Failed'),
     ]
 
+    FILE = 'file'
+    WEBPAGE = 'webpage'
+    WEBSITE = 'website'
+    TEXT = 'text'
+    SOURCE_TYPE_CHOICES = [
+        (FILE, 'File'),
+        (WEBPAGE, 'Web page'),
+        (WEBSITE, 'Website'),
+        (TEXT, 'Text'),
+    ]
+    WEB_TYPES = (WEBPAGE, WEBSITE)
+
+    # Display name: the file name, the page title, or the user's title for pasted text.
     file_name = models.CharField(max_length=255)
+    source_type = models.CharField(max_length=20, choices=SOURCE_TYPE_CHOICES, default=FILE)
+    # Page URL (webpage) or starting URL (website).
+    url = models.CharField(max_length=2048, null=True, blank=True)
+    # Kept for pasted text only, so it can be edited later.
+    raw_text = models.TextField(null=True, blank=True)
+    # Free-form details: crawl progress, crawled pages, warnings.
+    metadata = models.JSONField(default=dict, blank=True)
+    last_fetched_at = models.DateTimeField(null=True, blank=True)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
     error = models.TextField(null=True, blank=True)
     chunk_count = models.IntegerField(null=True, blank=True)
@@ -516,11 +537,15 @@ class DocumentChunk(models.Model):
     file_source = models.ForeignKey(FileSource, on_delete=models.CASCADE, related_name='chunks')
     content = models.TextField()
     embedding = VectorField(dimensions=1536, null=True, blank=True)
+    # Zero-based position of the chunk within its source.
+    chunk_index = models.IntegerField(default=0)
+    # Where the chunk came from inside the source, e.g. {"url", "title"} for a website page.
+    metadata = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=['file_source'])]
-        ordering = ['file_source', 'id']
+        ordering = ['file_source', 'chunk_index', 'id']
 
     def __str__(self):
         return f"{self.file_source.file_name} chunk {self.id}"

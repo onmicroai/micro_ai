@@ -12,7 +12,6 @@ import { DragDropContext } from "@hello-pangea/dnd";
 import {
   Plus,
   ChevronDown,
-  Upload,
   X,
   FileText,
   Type,
@@ -42,6 +41,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { AddSectionPopover } from "./ui/add-section-popover";
 import JsonPreview from "./JsonPreview";
+import KnowledgeBaseSection from "./knowledge/KnowledgeBaseSection";
 import Field from "./Field";
 import { Droppable, Draggable } from "@hello-pangea/dnd";
 import { Checkbox } from "./ui/checkbox";
@@ -73,8 +73,6 @@ import {
   TooltipTrigger,
 } from "./ui/tooltip";
 import { HelpCircle } from "lucide-react";
-import { useDropzone } from "react-dropzone";
-import { createFileUploader } from "@/utils/imageUpload";
 import axiosInstance from "@/utils/axiosInstance";
 import ConditionalLogicSidebar from "./ui/conditional-logic-sidebar";
 import ChatSettingsSidebar from "./ui/chat-settings-sidebar";
@@ -87,7 +85,6 @@ import { LOGO_ALT, LOGO_SRC } from "@/constants/branding";
 import MonitorPreview from "./ui/monitor-preview";
 import { TagFocusProvider } from "./TagFocusContext";
 import { Textarea } from "@/components/basic/textarea";
-import { AxiosInstance } from "axios";
 
 export const AVAILABLE_SECTIONS = [
   {
@@ -235,55 +232,12 @@ const shouldDefaultQuestionLabel = (type: string) =>
     "chat",
   ].includes(type);
 
-const ACCEPTED_FILE_TYPES = {
-  "application/pdf": [".pdf"],
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation": [
-    ".pptx",
-  ],
-  "application/vnd.openxmlformats-officedocument.wordprocessingml.document": [
-    ".docx",
-  ],
-  "application/msword": [".doc"],
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [
-    ".xlsx",
-  ],
-  "application/vnd.ms-excel": [".xls"],
-  "text/csv": [".csv"],
-  "text/plain": [".txt", ".log"],
-  "image/jpeg": [".jpg", ".jpeg"],
-  "image/png": [".png"],
-  "image/tiff": [".tiff"],
-  "image/bmp": [".bmp"],
-};
-
-//TO-DO: Just use the backend max file size
-const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB max file size
-
-const MAX_DESCRIPTION_LENGTH = 200;
-
-type EmbeddingStatus = "pending" | "processing" | "ready" | "failed";
-
-interface UploadedFile {
-  name: string;
-  url?: string;
-  size: number;
-  word_count?: number;
-  original_filename: string;
-  text_filename: string;
-  description?: string;
-  status?: EmbeddingStatus | "duplicate";
-  error?: string;
-  pendingFile?: File;
-}
-
 export default function FormBuilder() {
   const params = useParams() ?? {};
   const router = useRouter();
   const hashId = (params.id as string) || "";
 
   const [isOpen, setIsOpen] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [isUploading, setIsUploading] = useState(false);
   const [addSectionOpenFor, setAddSectionOpenFor] = useState<string | null>(
     null
   );
@@ -338,12 +292,9 @@ export default function FormBuilder() {
     setClonable,
     setCompletedHtml,
     setAIConfig,
-    addAttachedFile,
-    removeAttachedFile,
     fetchCollections,
     fetchLiteLLMModels,
     appId,
-    setAttachedFiles,
     conditionalSidebarOpen,
     setConditionalSidebarOpen,
     setConditionalSidebarContext,
@@ -555,171 +506,6 @@ export default function FormBuilder() {
     }
   };
 
-  const fileUploader = createFileUploader(appId?.toString() || "");
-
-  const uploadFile = useCallback(
-    async (file: File) => {
-      try {
-        setIsUploading(true);
-        const result = await fileUploader.uploadFile(file);
-
-        const original_filename = result.original_file;
-        if (!original_filename) {
-          throw new Error("No filename returned from upload");
-        }
-
-        setUploadedFiles((prev) => [
-          ...prev,
-          {
-            name: original_filename,
-            url: result.url,
-            original_filename,
-            text_filename: original_filename,
-            size: file.size,
-            word_count: undefined,
-            status: "pending",
-          },
-        ]);
-
-        await addAttachedFile({
-          original_filename,
-          text_filename: original_filename,
-          size: file.size,
-        });
-      } catch (error) {
-        console.error("Error uploading file:", error);
-        alert("Failed to upload file");
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    [fileUploader, addAttachedFile]
-  );
-
-  const handleFileUpload = useCallback(
-    async (file: File) => {
-      if (file.size > MAX_FILE_SIZE) {
-        alert("File size must be less than 20MB");
-        return;
-      }
-
-      const sanitizedName = file.name.replace(/[^a-zA-Z0-9._-]/g, "");
-      if (
-        uploadedFiles.some(
-          (f) =>
-            f.original_filename === sanitizedName && f.status !== "duplicate"
-        )
-      ) {
-        setUploadedFiles((prev) => [
-          ...prev,
-          {
-            name: sanitizedName,
-            original_filename: sanitizedName,
-            text_filename: sanitizedName,
-            size: file.size,
-            status: "duplicate",
-            pendingFile: file,
-          },
-        ]);
-        return;
-      }
-
-      await uploadFile(file);
-    },
-    [uploadedFiles, uploadFile]
-  );
-
-  const keepDuplicate = useCallback(
-    async (index: number) => {
-      const file = uploadedFiles[index];
-      if (!file.pendingFile) return;
-
-      const pendingFile = file.pendingFile;
-      const sanitizedName = pendingFile.name.replace(/[^a-zA-Z0-9._-]/g, "");
-
-      // Remove duplicate placeholder + original entry from UI
-      setUploadedFiles((prev) =>
-        prev
-          .filter((_, i) => i !== index)
-          .filter((f) => f.original_filename !== sanitizedName)
-      );
-
-      // Delete original
-      try {
-        const api: AxiosInstance = axiosInstance();
-        await removeAttachedFile(sanitizedName);
-        await api.delete(`/api/microapps/${appId}/delete-file/`, {
-          data: { filename: sanitizedName },
-        });
-      } catch (error) {
-        console.error("Failed to delete original file:", error);
-      }
-
-      // Upload new file
-      await uploadFile(pendingFile);
-    },
-    [uploadedFiles, removeAttachedFile, appId, uploadFile]
-  );
-
-  const removeFile = useCallback(
-    async (index: number) => {
-      const file = uploadedFiles[index];
-
-      // Duplicate placeholder was never uploaded - just remove from UI
-      if (file.status === "duplicate") {
-        setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
-        return;
-      }
-
-      // Find a pending duplicate for this file before removing
-      const pendingDuplicate = uploadedFiles.find(
-        (f, i) =>
-          i !== index &&
-          f.original_filename === file.original_filename &&
-          f.status === "duplicate"
-      );
-
-      // Remove original (and duplicate placeholder if any)
-      setUploadedFiles((prev) =>
-        prev
-          .filter((_, i) => i !== index)
-          .filter(
-            (f) =>
-              !(
-                f.original_filename === file.original_filename &&
-                f.status === "duplicate"
-              )
-          )
-      );
-
-      // Delete from store + backend
-      await removeAttachedFile(file.original_filename);
-      try {
-        const api: AxiosInstance = axiosInstance();
-        await api.delete(`/api/microapps/${appId}/delete-file/`, {
-          data: { filename: file.original_filename },
-        });
-      } catch (error) {
-        console.error("Failed to delete file chunks:", error);
-      }
-
-      // If a duplicate was waiting, upload it now
-      if (pendingDuplicate?.pendingFile) {
-        await uploadFile(pendingDuplicate.pendingFile);
-      }
-    },
-    [uploadedFiles, removeAttachedFile, appId, uploadFile]
-  );
-
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      acceptedFiles.forEach((file) => handleFileUpload(file));
-    },
-    accept: ACCEPTED_FILE_TYPES,
-    maxSize: MAX_FILE_SIZE,
-    disabled: isUploading,
-  });
-
   useEffect(() => {
     // Set default AI config values if not present
     if (!aiConfig.aiModel && defaultAiModel) {
@@ -735,81 +521,6 @@ export default function FormBuilder() {
       });
     }
   }, [aiConfig, setAIConfig]);
-
-  // Initialize uploadedFiles from attachedFiles
-  useEffect(() => {
-    if (attachedFiles && attachedFiles.length > 0) {
-      setUploadedFiles((prev) => {
-        const prevMap = new Map(prev.map((f) => [f.original_filename, f]));
-        return attachedFiles
-          .filter((file) => file && file.original_filename)
-          .map((file) => {
-            const existing = prevMap.get(file.original_filename);
-            return {
-              name: file.original_filename,
-              original_filename: file.original_filename,
-              text_filename: file.text_filename,
-              url: `https://${process.env.NEXT_PUBLIC_CLOUDFRONT_DOMAIN}/${file.original_filename}`,
-              size: file.size,
-              word_count: existing?.word_count ?? file.word_count,
-              description: file.description,
-              // preserve polled status; undefined until first poll resolves
-              status: existing?.status ?? undefined,
-              error: existing?.error,
-            };
-          });
-      });
-    } else {
-      setUploadedFiles([]);
-    }
-  }, [attachedFiles]);
-
-  const hasPending = uploadedFiles.some(
-    (f) =>
-      f.status === "pending" ||
-      f.status === "processing" ||
-      f.status === undefined
-  );
-
-  // Poll /file-status/ while any file is pending or processing
-  useEffect(() => {
-    if (!appId || !hasPending) return;
-
-    const api = axiosInstance();
-    const fetchStatus = async () => {
-      try {
-        const res = await api.get(`/api/microapps/${appId}/file-status/`);
-        const statusMap: Record<
-          string,
-          {
-            status: EmbeddingStatus;
-            chunk_count?: number;
-            word_count?: number;
-            error?: string;
-          }
-        > = res.data;
-        setUploadedFiles((prev) =>
-          prev.map((f) => {
-            const s = statusMap[f.original_filename];
-            if (!s) return f;
-            return {
-              ...f,
-              status: s.status,
-              word_count: s.word_count ?? f.word_count,
-              error: s.error ?? undefined,
-            };
-          })
-        );
-      } catch (e) {
-        console.warn("file-status poll failed:", e);
-      }
-    };
-
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 1500);
-
-    return () => clearInterval(interval);
-  }, [hasPending, appId]);
 
   // Ensure at least one element exists and open sidebar on mount
   const elementCount = Array.isArray(elements) ? elements.length : 0;
@@ -1431,27 +1142,6 @@ export default function FormBuilder() {
     updateElement(fieldId, { avatarUrl });
   };
 
-  const updateFileDescription = (index: number, description: string) => {
-    const truncatedDescription = description.slice(0, MAX_DESCRIPTION_LENGTH);
-
-    setUploadedFiles((prev) =>
-      prev.map((file, i) =>
-        i === index ? { ...file, description: truncatedDescription } : file
-      )
-    );
-
-    // Update description in store
-    const file = uploadedFiles[index];
-    if (file) {
-      const updatedFiles = attachedFiles.map((attachedFile) => {
-        return attachedFile.original_filename === file.original_filename
-          ? { ...attachedFile, description: truncatedDescription }
-          : attachedFile;
-      });
-      setAttachedFiles(updatedFiles);
-    }
-  };
-
   useEffect(() => {
     if (!isAppDetailsEditMode) return;
     const handleClickOutside = (event: MouseEvent) => {
@@ -1667,180 +1357,7 @@ export default function FormBuilder() {
         />
       </div>
 
-      <div className="border-t border-gray-200 pt-4">
-        <div className="flex items-center gap-2 mb-4">
-          <h3 className="text-sm font-medium text-left uppercase text-gray-500">
-            Attached Files
-          </h3>
-          <TooltipProvider delayDuration={0}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <HelpCircle className="h-4 w-4 text-gray-400 cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={5}>
-                <p className="w-[200px] text-sm">
-                  Upload files that will be available to users of your app.
-                  Supports PDF, PPT, DOC, TXT, CSV, JSON, and MD files.
-                </p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </div>
-
-        <div
-          {...getRootProps()}
-          className={`
-            mt-2 border-2 border-dashed rounded-lg p-4 transition-colors duration-150 ease-in-out
-            ${
-              isDragActive
-                ? "border-primary-400 bg-primary-50"
-                : isUploading
-                ? "border-primary-300 bg-primary-50"
-                : "border-gray-300 hover:border-primary-600"
-            }
-            ${isUploading ? "cursor-not-allowed" : "cursor-pointer"}
-          `}
-        >
-          <input {...getInputProps()} />
-          <div className="text-center">
-            <Upload
-              className={`mx-auto h-8 w-8 ${
-                isDragActive || isUploading
-                  ? "text-primary-400"
-                  : "text-gray-400"
-              }`}
-            />
-            <p className="mt-2 text-sm text-gray-600">
-              {isDragActive
-                ? "Drop files here"
-                : "Drag and drop files here, or click to select files"}
-            </p>
-            <p className="mt-1 text-xs text-gray-500">
-              PDF, PPT, DOC, TXT, CSV, JSON, MD
-            </p>
-            <p className="mt-1 text-xs text-gray-500">Max file size: 20MB</p>
-            {isUploading && (
-              <div className="mt-4 flex items-center justify-center gap-2">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-primary-600"></div>
-                <span className="text-sm text-gray-600">Uploading...</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {uploadedFiles.length > 0 && (
-          <div className="mt-4 space-y-2">
-            {uploadedFiles.map((file, index) => (
-              <div key={index} className="space-y-2">
-                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-5 w-5 text-gray-400 shrink-0" />
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-medium text-gray-700">
-                          {file.name}
-                        </p>
-                        {file.status === "duplicate" && (
-                          <span className="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-medium shrink-0">
-                            Duplicate
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                        {file.word_count && ` • ${file.word_count} words`}
-                      </p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => removeFile(index)}
-                    className="p-1 hover:bg-gray-200 rounded-full transition-colors"
-                  >
-                    <X className="h-4 w-4 text-gray-500" />
-                  </button>
-                </div>
-                {file.status === "duplicate" && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-amber-600">
-                      A file with this name is already attached. Replace it?
-                    </span>
-                    <button
-                      onClick={() => keepDuplicate(index)}
-                      className="text-xs text-blue-600 hover:underline shrink-0"
-                    >
-                      Replace
-                    </button>
-                  </div>
-                )}
-                {(file.status === "pending" ||
-                  file.status === "processing" ||
-                  file.status === "ready") && (
-                  <div className="space-y-1">
-                    <div className="h-0.5 w-full bg-gray-200 rounded-full overflow-hidden">
-                      <div
-                        className="h-full rounded-full"
-                        style={{
-                          width:
-                            file.status === "pending"
-                              ? "30%"
-                              : file.status === "processing"
-                              ? "85%"
-                              : "100%",
-                          backgroundColor:
-                            file.status === "ready" ? "#22c55e" : "#3b82f6",
-                          transition:
-                            file.status === "processing"
-                              ? `width ${Math.max(
-                                  4,
-                                  Math.round(file.size / 6 / 300)
-                                )}s linear`
-                              : "width 0.4s ease",
-                        }}
-                      />
-                    </div>
-                    <span
-                      className={`text-xs block ${
-                        file.status === "ready"
-                          ? "text-green-600"
-                          : "text-gray-400"
-                      }`}
-                    >
-                      {file.status === "pending"
-                        ? "Queued…"
-                        : file.status === "processing"
-                        ? "Processing…"
-                        : "✓ Ready"}
-                    </span>
-                  </div>
-                )}
-                {file.status === "failed" && (
-                  <span
-                    className="text-xs text-red-600 block"
-                    title={file.error ?? ""}
-                  >
-                    ✕ Failed{file.error ? `: ${file.error}` : ""}
-                  </span>
-                )}
-                <div className="relative">
-                  <Input
-                    type="text"
-                    value={file.description || ""}
-                    onChange={(e) =>
-                      updateFileDescription(index, e.target.value)
-                    }
-                    placeholder="Add a description so the AI understands the content of this file better (optional)"
-                    maxLength={MAX_DESCRIPTION_LENGTH}
-                    className="text-sm pr-12"
-                  />
-                  <div className="absolute right-2 bottom-1 text-xs text-gray-400">
-                    {file.description?.length || 0}/{MAX_DESCRIPTION_LENGTH}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      <KnowledgeBaseSection appId={appId ?? null} />
 
       <div className="space-y-4 border-t border-gray-200 pt-4">
         <h3 className="text-sm font-medium text-left uppercase text-gray-500">

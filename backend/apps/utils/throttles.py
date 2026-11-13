@@ -93,3 +93,8 @@ class AddAdminThrottle(UserRateThrottle):
         lookup returns no match."""
         self.history.insert(0, self.now)
         self.cache.set(self.key, self.history, self.duration)
+
+
+class KnowledgeSearchThrottle(UserRateThrottle):
+    """Limits knowledge base test queries, each of which makes an embedding request."""
+    scope = 'knowledge_search'

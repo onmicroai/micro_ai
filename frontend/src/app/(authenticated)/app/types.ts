@@ -564,12 +564,25 @@ export interface ModelTemperatureRanges {
   [modelName: string]: TemperatureRange;
 }
 
+export type KnowledgeSourceType = "file" | "webpage" | "website" | "text";
+
+/**
+ * One knowledge base source attached to an app. Despite the name this also
+ * covers web pages, websites and pasted text (see `type`).
+ */
 export interface AttachedFile {
+  /** Display name: the file name, the page title, or the title of pasted text. */
   original_filename: string;
   text_filename: string;
   size: number;
   word_count?: number;
   description?: string;
+  /** Backend id of the source. Missing on entries saved before sources had ids. */
+  source_id?: number;
+  /** Missing means "file". */
+  type?: KnowledgeSourceType;
+  /** Page URL or site starting URL, for web sources. */
+  url?: string;
 }
 
 export interface AIConfig {
