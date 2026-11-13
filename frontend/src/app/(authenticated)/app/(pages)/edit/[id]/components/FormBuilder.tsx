@@ -1345,18 +1345,6 @@ export default function FormBuilder() {
         </label>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium text-left">
-          Completion Message
-        </label>
-        <Textarea
-          value={completedHtml}
-          onChange={(e) => setCompletedHtml(e.target.value)}
-          className="mb-4"
-          placeholder="Enter your message here"
-        />
-      </div>
-
       <KnowledgeBaseSection appId={appId ?? null} />
 
       <div className="space-y-4 border-t border-gray-200 pt-4">
@@ -1396,57 +1384,6 @@ export default function FormBuilder() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-left">Temperature</label>
-            <Input
-              type="number"
-              step="0.01"
-              min={
-                availableModels[aiConfig.aiModel || defaultAiModel]?.min ?? 0
-              }
-              max={
-                availableModels[aiConfig.aiModel || defaultAiModel]?.max ?? 2
-              }
-              value={aiConfig.temperature}
-              onChange={(e) => {
-                const value = parseFloat(e.target.value);
-                if (!isNaN(value)) {
-                  const min = availableModels[aiConfig.aiModel]?.min ?? 0;
-                  const max = availableModels[aiConfig.aiModel]?.max ?? 2;
-                  setAIConfig({
-                    ...aiConfig,
-                    temperature: Math.min(
-                      max,
-                      Math.max(min, Number(value.toFixed(2)))
-                    ),
-                  });
-                }
-              }}
-              className="w-full text-sm"
-              placeholder={`Enter temperature (${
-                availableModels[aiConfig.aiModel]?.min ?? 0
-              }-${availableModels[aiConfig.aiModel]?.max ?? 2})`}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-left">
-              Max Response Tokens
-            </label>
-            <Input
-              type="number"
-              step="1"
-              min="1"
-              value={aiConfig.maxResponseTokens || ""}
-              onChange={(e) => {
-                const value = e.target.value ? parseInt(e.target.value) : null;
-                setAIConfig({ ...aiConfig, maxResponseTokens: value });
-              }}
-              className="w-full text-sm"
-              placeholder="Leave empty for no limit"
-            />
           </div>
         </div>
       </div>
@@ -2320,6 +2257,28 @@ export default function FormBuilder() {
                                           }}
                                           contentAlign="start"
                                           contentSide="bottom"
+                                        />
+                                      </div>
+                                      <div className="mt-6 space-y-2 rounded-lg bg-white p-4">
+                                        <label
+                                          htmlFor="completion-message"
+                                          className="text-sm font-medium text-gray-900"
+                                        >
+                                          Completion Message
+                                        </label>
+                                        <p className="text-xs text-gray-500">
+                                          Shown after the learner finishes the
+                                          last section. Leave blank to use the
+                                          default ending.
+                                        </p>
+                                        <Textarea
+                                          id="completion-message"
+                                          value={completedHtml}
+                                          onChange={(e) =>
+                                            setCompletedHtml(e.target.value)
+                                          }
+                                          placeholder="You've reached the end"
+                                          className="min-h-[88px] resize-y text-sm"
                                         />
                                       </div>
                                     </>
