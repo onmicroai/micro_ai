@@ -53,6 +53,16 @@ from .media_views import (
     AnonymousTextToSpeech
 )
 
+from .knowledge_views import (
+    KnowledgeSourceList,
+    KnowledgeWebSourceCreate,
+    KnowledgeTextSourceCreate,
+    KnowledgeSourceDetail,
+    KnowledgeSourceRefresh,
+    KnowledgeChunkList,
+    KnowledgeSearch,
+)
+
 from .completion_criteria_views import (
     CompletionCriteriaCheck,
     AnonymousCompletionCriteriaCheck,
@@ -115,5 +125,14 @@ __all__ = [
     'AnonymousCompletionCriteriaCheck',
     
     # Utilities
-    'handle_exception'
+    'handle_exception',
+
+    # Knowledge base views
+    'KnowledgeSourceList',
+    'KnowledgeWebSourceCreate',
+    'KnowledgeTextSourceCreate',
+    'KnowledgeSourceDetail',
+    'KnowledgeSourceRefresh',
+    'KnowledgeChunkList',
+    'KnowledgeSearch',
 ]

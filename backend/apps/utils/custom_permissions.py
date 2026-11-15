@@ -38,6 +38,25 @@ class IsAdminOrOwner(BaseMicroAppPermission):
         user_roles = MicroAppUserJoin.objects.filter(user_id=user, ma_id=app_id).values_list('role', flat=True)
         return 'admin' in user_roles or 'owner' in user_roles
 
+class IsAppAdminOrOwnerFromUrl(BasePermission):
+    """
+    Admin or owner of the app named in the URL (`pk` or `app_id`).
+
+    Unlike IsAdminOrOwner this never reads the app id from the request body, so
+    a caller cannot pass the check for one app while the URL targets another.
+    """
+
+    def has_permission(self, request, view):
+        app_id = view.kwargs.get('pk') or view.kwargs.get('app_id')
+        if not app_id or not request.user or not request.user.is_authenticated:
+            return False
+        return MicroAppUserJoin.objects.filter(
+            user_id=request.user.id,
+            ma_id=app_id,
+            role__in=[MicroAppUserJoin.ADMIN, MicroAppUserJoin.OWNER],
+        ).exists()
+
+
 class IsOwner(BaseMicroAppPermission):
     def has_permission(self, request, view):
         app_id = self.get_app_id(request, view)

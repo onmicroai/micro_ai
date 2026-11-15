@@ -21,7 +21,8 @@ from apps.utils.custom_error_message import ErrorMessages as error
 from apps.utils.usage_helper import RunUsage, GuestUsage, get_user_ip
 from apps.utils.global_variables import MicroappVariables, UsageVariables
 from apps.microapps.dynamic_model_service import DynamicModelService
-from apps.microapps.models import Microapp, MicroAppUserJoin, Run, DocumentChunk, AppFileReference
+from apps.microapps.models import Microapp, MicroAppUserJoin, Run, DocumentChunk, AppFileReference, FileSource
+from apps.microapps.knowledge.sources import resolve_attached_sources
 from apps.microapps.rubric_publish import ensure_rubric_version_for_scored_run
 from apps.microapps.score_utils import (
     coerce_run_score_to_dict,
@@ -29,7 +30,7 @@ from apps.microapps.score_utils import (
     parse_partial_run_score,
     parse_run_score_total,
 )
-from apps.microapps.rag_service import retrieve_relevant_chunks_multi_file
+from apps.microapps.rag_service import retrieve_chunks
 from apps.microapps.serializer import (
     MicroAppSerializer,
     MicroappUserSerializer,
@@ -290,36 +291,47 @@ class RunList(APIView, UsageTrackingMixin):
             if not attached_files or not user_prompt:
                 return messages
 
-            file_names = [f["original_filename"] for f in attached_files if f.get("original_filename")]
-            if not file_names:
+            attached = resolve_attached_sources(ma_data, attached_files)
+            if not attached:
+                log.warning("RAG: no knowledge sources found for microapp=%s", ma_data.id)
                 return messages
 
-            # Check that at least one file has chunks stored
-            if not DocumentChunk.objects.filter(
-                file_source__app_references__app=ma_data,
-                file_source__file_name__in=file_names,
-            ).exists():
-                log.warning("RAG: no chunks found for microapp=%s files=%s", ma_data.id, file_names)
-                return messages
-
-            results = retrieve_relevant_chunks_multi_file(
+            chunks = retrieve_chunks(
                 microapp_id=ma_data.id,
-                file_names=file_names,
+                source_ids=[source.id for _, source in attached],
                 query=user_prompt,
-                top_k_total=10,
             )
+            chunks_by_source = {}
+            for chunk in chunks:
+                chunks_by_source.setdefault(chunk.file_source_id, []).append(chunk)
 
             sections = []
-            for f in attached_files:
-                fname = f.get("original_filename", "")
-                chunks = results.get(fname, [])
-                if not chunks:
+            for entry, source in attached:
+                source_chunks = chunks_by_source.get(source.id)
+                if not source_chunks:
                     continue
-                description = f.get("description", "")
-                chunk_text = "\n\n---\n\n".join(c for c, _ in chunks)
-                section = f"File: {fname}"
+
+                if source.source_type == FileSource.WEBPAGE:
+                    section = f"Web page: {source.file_name} ({source.url})"
+                elif source.source_type == FileSource.WEBSITE:
+                    section = f"Website: {source.file_name} ({source.url})"
+                elif source.source_type == FileSource.TEXT:
+                    section = f"Text: {source.file_name}"
+                else:
+                    section = f"File: {source.file_name}"
+
+                description = entry.get("description", "")
                 if description:
                     section += f"\nDescription: {description}"
+
+                parts = []
+                for chunk in source_chunks:
+                    page_url = (chunk.metadata or {}).get("url")
+                    if source.source_type == FileSource.WEBSITE and page_url:
+                        parts.append(f"Page: {page_url}\n{chunk.content}")
+                    else:
+                        parts.append(chunk.content)
+                chunk_text = "\n\n---\n\n".join(parts)
                 section += f"\n============\n{chunk_text}\n============"
                 sections.append(section)
 
