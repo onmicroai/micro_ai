@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import Script from 'next/script'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'
 import Button from '@/components/modules/button/button'
@@ -10,7 +11,7 @@ import { Container } from '@/components/Container'
 import { PLATFORM_NAME } from "@/constants/branding";
 import home_bg from '@/img/home_background.png'
 
-const VIDEO_URL = "https://d1jscdodpm97w5.cloudfront.net/Quick+Demo.mp4"
+const STORYLANE_SRC = "https://app.storylane.io/demo/u4glvmovyicg?embed=inline"
 const OPEN_SOURCE_LINK = "https://github.com/onmicroai/micro_ai"
 const CALENDLY_URL = "https://calendly.com/curricume/onmicro-product-demo?hide_event_type_details=1&primary_color=5b5cf0"
 
@@ -106,19 +107,53 @@ export function Hero() {
         </div>
       </Container>
 
-      {/* Above-the-fold auto-playing video */}
+      {/* Above-the-fold Storylane demo */}
       <div className="relative z-10 w-full px-4 pb-16 sm:px-6 lg:px-8">
-        <div className="mx-auto max-w-6xl overflow-hidden rounded-2xl border border-slate-200/80 bg-slate-100 shadow-xl ring-1 ring-slate-200/50">
-          <video
-            autoPlay
-            muted
-            loop
-            playsInline
-            className="w-full aspect-video object-cover"
-            aria-label="OnMicro product overview"
+        <div className="mx-auto max-w-6xl">
+          <Script
+            src="https://js.storylane.io/js/v2/storylane.js"
+            strategy="afterInteractive"
+            data-verify-origin=""
+          />
+          <div
+            className="sl-embed"
+            style={{
+              position: "relative",
+              paddingBottom: "calc(62.73% + 25px)",
+              width: "100%",
+              height: 0,
+              transform: "scale(1)",
+            }}
           >
-            <source src={VIDEO_URL} type="video/mp4" />
-          </video>
+            <iframe
+              loading="lazy"
+              className="sl-demo"
+              src={STORYLANE_SRC}
+              name="sl-embed"
+              allow="fullscreen"
+              allowFullScreen
+              title="How to turn a lesson into an always-on practice session"
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: "100%",
+                border: "1px solid rgba(63,95,172,0.35)",
+                boxShadow: "0px 0px 18px rgba(26, 19, 72, 0.15)",
+                borderRadius: "10px",
+                boxSizing: "border-box",
+              }}
+            />
+          </div>
+          <div
+            aria-hidden="true"
+            tabIndex={-1}
+            inert
+            style={{ display: "none", visibility: "hidden", width: "1px", height: "1px" }}
+          >
+            How to turn a lesson into an always-on practice session and share it with students using an AI app builder (onmicro.ai). The walkthrough takes about 60 seconds. Start by explaining what you want to build; anything the tool creates can be modified afterward. Adjust the generated app or add your own knowledge to customize it. Share the finished app with a direct link, copied from the Direct link option, or embed it in a learning management system (LMS). After the app is built, try it with the same experience students will have.
+          </div>
         </div>
       </div>
     </div>
