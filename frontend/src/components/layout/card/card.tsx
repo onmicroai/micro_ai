@@ -11,6 +11,10 @@ interface CardProps {
   iconName?: string;
   description: string;
   appUrl: string;
+  /** Call-to-action text. Defaults to "Launch App". */
+  ctaLabel?: string;
+  /** "link" (default) is an inline text link; "button" is a filled button. */
+  ctaVariant?: 'link' | 'button';
 }
 
 function CardBadge({
@@ -52,6 +56,8 @@ export default function Card({
   iconName,
   description,
   appUrl,
+  ctaLabel = 'Launch App',
+  ctaVariant = 'link',
 }: CardProps) {
   return (
     <a
@@ -69,8 +75,14 @@ export default function Card({
         {description}
       </p>
 
-      <span className="mt-4 inline-flex items-center text-sm font-medium text-indigo-600">
-        Launch App
+      <span
+        className={
+          ctaVariant === 'button'
+            ? 'mt-5 inline-flex items-center self-start rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors group-hover:bg-primary-600'
+            : 'mt-4 inline-flex items-center text-sm font-medium text-indigo-600'
+        }
+      >
+        {ctaLabel}
         <span
           aria-hidden="true"
           className="ml-1 transition-transform group-hover:translate-x-0.5"

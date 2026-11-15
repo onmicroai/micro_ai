@@ -8,62 +8,50 @@ interface PricingCardsProps {
   onPlanSelect?: (plan: string) => Promise<void>;
 }
 
+// `name` is the plan key sent to checkout and matched against `currentPlan`;
+// `label` is what visitors see.
 const pricing = {
   tiers: [
     {
       name: "Free",
+      label: "Free",
       id: "tier-free",
       href: "/accounts/registration/",
       price: { monthly: "$0" },
       description: "Build and share apps with generous usage limits.",
-      features: [
-        "10,000 AI credits",
-        "3 apps",
-        "Public, Private, and Site-restricted apps",
-        "Basic AI Models",
-      ],
+      features: ["10,000 AI credits", "3 apps", "Basic AI Models"],
       mostPopular: false,
     },
     {
       name: "Pro",
+      label: "Pro",
       id: "tier-pro",
       href: "/accounts/registration/",
       price: { monthly: "$16" },
       description: "Unlimited apps, advanced models, and additional analytics.",
-      features: [
-        "100,000 AI credits",
-        "Unlimited apps",
-        "Public, Private, and Site-restricted apps",
-        "Advanced AI Models",
-      ],
+      features: ["100,000 AI credits", "Unlimited apps", "Advanced AI Models"],
       mostPopular: true,
     },
     {
       name: "Enterprise",
-      id: "tier-enterprise",
+      label: "Institution",
+      id: "tier-institution",
       href: "/accounts/registration/",
       price: { monthly: "$79" },
-      description:
-        "Advanced analytics, SSO, and LTI integration.",
+      description: "Advanced analytics, SSO, and LTI integration.",
       features: [
         "400,000 AI credits",
-        "LTI integration",
         "Unlimited apps",
-        "Public, Private, and Site-restricted apps",
+        "LTI integration",
         "Advanced analytics",
         "SSO",
       ],
       mostPopular: false,
     },
-    {
-      name: "+ Top Up",
-      id: "tier-top-up",
-      price: { monthly: "+ $20" },
-      description:
-        "Add more monthly credits to any plan. (Only very heavy users will need this.)",
-      features: ["200,000 additional AI credits (credits do not roll over)"],
-      mostPopular: false,
-    },
+  ],
+  allPlansInclude: [
+    "Unlimited students",
+    "Public, private, and site-restricted apps",
   ],
 };
 
@@ -77,8 +65,8 @@ export function PricingCards({ showTopUp = true, currentPlan, onPlanSelect }: Pr
 
   const handleChoosePlan = async (tier: any) => {
     if (tier.name === currentPlan) return;
-    
-    const planName = tier.name === "+ Top Up" ? "TopUp" : tier.name;
+
+    const planName = tier.name;
 
     if (onPlanSelect) {
       await onPlanSelect(planName);
@@ -105,16 +93,10 @@ export function PricingCards({ showTopUp = true, currentPlan, onPlanSelect }: Pr
     }
   };
 
-  const displayTiers = showTopUp ? pricing.tiers : pricing.tiers.filter(tier => tier.name !== "+ Top Up");
-
   return (
-    <div className={classNames(
-      "isolate mx-auto mt-10 grid max-w-md grid-cols-1 gap-8",
-      showTopUp 
-        ? "md:max-w-2xl md:grid-cols-2 lg:max-w-4xl xl:mx-0 xl:max-w-none xl:grid-cols-4"
-        : "md:max-w-2xl md:grid-cols-2 lg:max-w-4xl xl:mx-0 xl:max-w-none xl:grid-cols-3"
-    )}>
-      {displayTiers.map((tier) => (
+    <div className="mt-10">
+    <div className="isolate mx-auto grid max-w-md grid-cols-1 gap-8 lg:max-w-5xl lg:grid-cols-3">
+      {pricing.tiers.map((tier) => (
         <div
           key={tier.id}
           className={classNames(
@@ -124,22 +106,22 @@ export function PricingCards({ showTopUp = true, currentPlan, onPlanSelect }: Pr
             "rounded-3xl p-8"
           )}
         >
-          <h2
+          <h3
             id={tier.id}
             className={classNames(
               tier.mostPopular ? "text-indigo-600" : "text-gray-900",
               "text-lg/8 font-semibold"
             )}
           >
-            {tier.name}
-          </h2>
+            {tier.label}
+          </h3>
           <p className="mt-4 text-sm/6 text-gray-600">{tier.description}</p>
           <p className="mt-6 flex items-baseline gap-x-1">
             <span className="text-4xl font-semibold tracking-tight text-gray-900">
               {tier.price.monthly}
             </span>
             <span className="text-sm/6 font-semibold text-gray-600">
-              /month
+              /creator/month
             </span>
           </p>
           <button
@@ -168,6 +150,18 @@ export function PricingCards({ showTopUp = true, currentPlan, onPlanSelect }: Pr
           </ul>
         </div>
       ))}
+    </div>
+      <div className="mx-auto mt-10 max-w-5xl space-y-3 text-center text-sm/6 text-gray-600">
+        <p>
+          <span className="font-semibold text-gray-900">All plans include:</span>{" "}
+          {pricing.allPlansInclude.join(" · ")}
+        </p>
+        {showTopUp && (
+          <p>
+            Need more? All plans can be topped up with additional AI usage credits.
+          </p>
+        )}
+      </div>
     </div>
   );
 } 

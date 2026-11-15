@@ -22,7 +22,7 @@ export default function Example() {
   return (
     <div className="bg-white">
       <main>
-        <PricingSection />
+        <PricingSection headingLevel="h1" />
 
         {/* FAQ section */}
         <div className="mx-auto my-24 max-w-7xl px-6 sm:my-56 lg:px-8">

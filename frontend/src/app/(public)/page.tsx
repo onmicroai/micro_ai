@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Hero } from '@/components/Hero'
+import { LogoCloud } from '@/components/LogoCloud'
 import { PrimaryFeatures } from '@/components/PrimaryFeatures'
 import { CardGrid } from '@/components/CardGrid'
 import { CallToAction } from '@/components/CalltoAction'
@@ -27,9 +28,11 @@ export default function Home() {
     <>
       <main>
         <Hero />
+        <LogoCloud />
         <PrimaryFeatures />
-        {cards.length > 0 && <CardGrid cards={cards} />}
-        <CallToAction />
+        {/* CardGrid ends with its own sign-up call; fall back to the standalone CTA
+            when no apps are promoted. */}
+        {cards.length > 0 ? <CardGrid cards={cards} /> : <CallToAction />}
         <PricingSection />
       </main>
     </>
