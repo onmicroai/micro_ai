@@ -97,7 +97,7 @@ export function PrimaryFeatures() {
             Shareable Apps, with Pedagogical Insights
           </h2>
           <p className="mt-6 text-pretty text-lg font-medium tracking-tight text-blue-100 sm:text-xl/8">
-            Always on, AI powered experiences are just the start. We've also added the tools and security that teachers need to bring them into the classroom. 
+            Always on, AI powered experiences are just the start. We&apos;ve also added the tools and security that teachers need to bring them into the classroom. 
           </p>
         </div>
 

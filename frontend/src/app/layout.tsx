@@ -3,6 +3,7 @@ import "@/globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { PLATFORM_NAME } from "@/constants/branding";
+import { CrispChat } from "@/components/CrispChat";
 
 export const metadata: Metadata = {
   title: PLATFORM_NAME,
@@ -52,6 +53,7 @@ export default function RootLayout({
         <TooltipProvider>
           <AuthProvider>{children}</AuthProvider>
         </TooltipProvider>
+        <CrispChat />
       </body>
     </html>
   );
