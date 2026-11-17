@@ -30,15 +30,14 @@ export default function Footer() {
               <h3 className="font-semibold text-gray-900 mb-4">Product</h3>
               <ul className="space-y-2 text-gray-600">
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/pricing/">Pricing</a></li>
-                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/what-are-ai-microapps/">What are MicroApps?</a></li>
-                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/library/">Apps Library</a></li>
+                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/library/">Examples Library</a></li>
+                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/blog/">Blog</a></li>
               </ul>
             </div>
 
             <div className="col-span-2">
               <h3 className="font-semibold text-gray-900 mb-4">Company</h3>
               <ul className="space-y-2 text-gray-600">
-                <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/about/">About</a></li>
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/terms/">Terms</a></li>
                 <li className="hover:text-gray-900 cursor-pointer text-sm"><a href="/privacy/">Privacy</a></li>
               </ul>

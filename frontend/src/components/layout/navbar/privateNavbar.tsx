@@ -96,18 +96,8 @@ export default function PrivateNavbar({ showCreateApp = false, isHomePage = fals
                   {/* Navigation menu - hidden on mobile */}
                   <ul className="hidden md:flex items-center space-x-8">
                      <li>
-                        <a href="/what-are-ai-microapps/" className={linkClasses}>
-                           What are MicroApps?
-                        </a>
-                     </li>
-                     <li>
                         <a href="/pricing/" className={linkClasses}>
                            Pricing
-                        </a>
-                     </li>
-                     <li>
-                        <a href="/about/" className={linkClasses}>
-                           About
                         </a>
                      </li>
                   </ul>

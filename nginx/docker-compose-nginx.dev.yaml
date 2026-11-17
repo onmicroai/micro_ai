@@ -12,6 +12,8 @@ services:
       - ./certbot/conf:/etc/letsencrypt
       - ./certbot/www:/var/www/certbot
       - ./fallback:/usr/share/nginx/html  # Mount fallback page directory
+      # Blog repo is cloned beside the app checkout, not next to this compose file.
+      - /home/ubuntu/onmicro-blog/dist:/usr/share/nginx/blog:ro
 
     networks:
       micronet:

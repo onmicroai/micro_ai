@@ -206,6 +206,7 @@ services:
       - ./nginx/certbot/conf:/etc/letsencrypt
       - ./nginx/certbot/www:/var/www/certbot
       - ./nginx/fallback:/usr/share/nginx/html
+      - ../onmicro-blog/dist:/usr/share/nginx/blog:ro
       - media_data:/code/media:ro
     restart: unless-stopped
     depends_on:

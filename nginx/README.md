@@ -18,6 +18,14 @@ NGINX_SERVER_NAME="nuteachai.org"
 
 The checked-in template is `nginx.prod.conf.template`. At container start, the official `nginx:alpine` image runs `envsubst` and writes `/etc/nginx/conf.d/default.conf`.
 
+## Blog
+
+`/blog/` is a static Astro site from the separate `onmicro-blog` repository, mounted at `/usr/share/nginx/blog`. Compose files in this repo mount `../onmicro-blog/dist`. The dev nginx stack (`docker-compose-nginx.dev.yaml`) mounts `/home/ubuntu/onmicro-blog/dist` because that compose file does not run from the app checkout.
+
+Build and publish from the blog repo (`npm run build`, then rsync `dist/` to that path). Nginx serves the files directly. Recreate nginx only when the config or the mount changes, not for each new article.
+
+Clone the blog repo as a sibling of this checkout before the first `docker compose up`, and build it so `dist/` exists. If the directory is missing, Docker creates an empty mount and `/blog/` returns 404.
+
 After changing domain or `.env`, recreate nginx:
 
 ```bash
