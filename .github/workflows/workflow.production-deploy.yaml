@@ -105,6 +105,7 @@ jobs:
             echo "web is healthy."
 
             $COMPOSE up -d --force-recreate --no-deps theme-cron
+            $COMPOSE up -d --force-recreate --no-deps mautic-cron
             # -V recreates the anonymous .next volume so stale bundles are not reused
             $COMPOSE up -d --force-recreate --no-deps -V frontend
             $COMPOSE up -d --force-recreate --no-deps nginx

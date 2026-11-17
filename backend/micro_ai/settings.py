@@ -399,6 +399,14 @@ REST_FRAMEWORK = {
 
 PRODUCTION = env.bool('PRODUCTION', default=False)
 is_production = PRODUCTION
+
+# Contact sync to the self-hosted Mautic instance. Both flags are required:
+# PRODUCTION is true on every hosted environment, and MAUTIC_SYNC_ENABLED
+# should be set only on production, so dev and staging never push contacts.
+MAUTIC_SYNC_ENABLED = env.bool("MAUTIC_SYNC_ENABLED", default=False)
+MAUTIC_BASE_URL = env("MAUTIC_BASE_URL", default="")
+MAUTIC_API_USER = env("MAUTIC_API_USER", default="")
+MAUTIC_API_PASSWORD = env("MAUTIC_API_PASSWORD", default="")
 cookies_domain = os.getenv('COOKIES_DOMAIN', None) if is_production else None
 
 # Trust the X-Forwarded-Proto header set by the nginx reverse proxy so that

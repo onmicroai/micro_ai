@@ -156,6 +156,34 @@ services:
       web:
         condition: service_healthy
 
+  # Pushes Django users to Mautic every 15 minutes. The command itself
+  # no-ops unless PRODUCTION and MAUTIC_SYNC_ENABLED are both true.
+  mautic-cron:
+    container_name: mautic-cron
+    image: web:latest
+    volumes:
+      - ./backend:/code
+      - media_data:/code/media
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    environment:
+      - DEBUG=1
+      - EMAIL_HOST=${EMAIL_HOST:-host.docker.internal}
+      - EMAIL_PORT=${EMAIL_PORT:-25}
+    env_file:
+      - ./.env
+    command: >
+      sh -c "while true; do
+      python manage.py sync_mautic;
+      sleep 900;
+      done"
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+
   frontend:
     container_name: frontend
     image: frontend:latest
